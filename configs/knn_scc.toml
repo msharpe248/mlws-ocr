@@ -1,0 +1,53 @@
+# Default cleanup pipeline. Swap any stage's impl to compare algorithms;
+# the inspector's diff view renders two runs side by side.
+
+[pipeline]
+stages = ["deskew", "illumination", "binarize", "despeckle",
+          "imagezones", "rulings", "blocks", "tables", "lines",
+          "components", "recognize", "decode", "adapt", "decode", "output"]
+
+[stage.deskew]
+impl = "projection"
+max_angle = 5.0
+
+[stage.illumination]
+impl = "median_background"
+
+[stage.binarize]
+impl = "sauvola"
+window = 41
+k = 0.2
+
+[stage.despeckle]
+impl = "components"
+min_area_300dpi = 5
+
+[stage.imagezones]
+impl = "density"
+
+[stage.rulings]
+impl = "morphological"
+
+[stage.tables]
+impl = "grid"
+
+[stage.blocks]
+impl = "knn_scc"
+
+[stage.lines]
+impl = "profile"
+
+[stage.components]
+impl = "overlap"
+
+[stage.recognize]
+impl = "prototypes"
+
+[stage.decode]
+impl = "beam"
+
+[stage.output]
+impl = "text"
+
+[stage.adapt]
+impl = "cluster_refit"
