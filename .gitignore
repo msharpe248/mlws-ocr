@@ -1,0 +1,10 @@
+.venv/
+runs/
+data/
+demo_page.png
+__pycache__/
+*.egg-info/
+.pytest_cache/
+demo_multicol.png
+eval_glyphs.json
+theta_fit.json

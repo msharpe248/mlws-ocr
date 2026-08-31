@@ -1,0 +1,139 @@
+"""Recognition stage: score every glyph group against the prototype set.
+
+Emits, for each group, its top-k candidate characters with distances --
+never a single hard decision.  Choosing among candidates is the decoder's
+job, where line geometry and the language model can weigh in.
+"""
+from __future__ import annotations
+
+from pathlib import Path
+
+import numpy as np
+
+from ..core.artifacts import Page
+from ..core.registry import register
+from ..core.stage import DebugBundle, Stage
+from ..glyph.features import extract_features
+from .nearest import NearestPrototype
+
+
+@register
+class PrototypeRecognize(Stage):
+    slot = "recognize"
+    impl = "prototypes"
+    defaults = {
+        "model_path": "data/prototypes.npz",
+        "top_k": 14,  # candidate depth: 5->8->10 gained +2 then +4 char
+                      # on real scans (truth for unseen fonts sits deep
+                      # in the ranking). Raised 10->14 when accented
+                      # classes landed: accent variants crowd their base
+                      # letter's neighborhood and evict true competitors
+                      # from shorter lists (measured -2 char, recovered)
+        "route_family": True,   # detect the dominant font family and
+                                # restrict matching to it
+        "route_sample": 200,    # glyphs sampled for the family vote
+        "route_dominance": 1.4, # top family must beat the runner-up by this
+                                # factor among the confident half of the
+                                # sample (absolute shares were too diffuse:
+                                # noisy glyphs vote randomly)
+        "route_per_block": True,  # blocks with enough glyphs vote their own
+                                  # family: a letterhead's display/serif line
+                                  # must not inherit the body's family
+                                  # (measured: logos decode as word salad)
+        "route_block_min": 12,    # smaller blocks inherit the page family
+    }
+
+    def run(self, page: Page) -> tuple[Page, DebugBundle]:
+        layout = page.meta.get("layout", {})
+        if page.binary is None or "lines" not in layout:
+            raise ValueError("recognize requires grouped lines")
+        model_path = Path(self.params["model_path"])
+        if not model_path.exists():
+            raise FileNotFoundError(
+                f"{model_path} missing -- build it with scripts/build_prototypes.py")
+        model = NearestPrototype.load(model_path)
+
+        crops, slots = [], []
+        for li, ln in enumerate(layout["lines"]):
+            for gi, g in enumerate(ln.get("groups", [])):
+                for ai, (ax0, ay0, ax1, ay1) in enumerate(g.get("alt", [])):
+                    m = page.binary[ay0:ay1, ax0:ax1]
+                    crops.append(1.0 - m.astype(np.float32))
+                    slots.append((li, gi, ai))
+                x0, y0, x1, y1 = g["box"]
+                # Binary crops measured best overall (crop-mode study:
+                # gray wins on clean pages, binary on degraded; neither
+                # fixes the universal-prototype plateau -- the adapt stage
+                # does, by rebuilding prototypes from this document).
+                mask = page.binary[y0:y1, x0:x1]
+                crops.append(1.0 - mask.astype(np.float32))
+                slots.append((li, gi, None))
+        family, share = "all", 0.0
+        if crops:
+            X = np.array([extract_features(c) for c in crops])
+            slots_arr = slots
+
+            def vote(Xs):
+                """(family, share) by confident-half dominance vote."""
+                d1 = np.array([t[0][1] for t in model.predict_topk(Xs, k=1)])
+                confident = Xs[d1 <= np.median(d1)]
+                votes = model.top1_tags(confident)
+                fams, counts = np.unique(votes, return_counts=True)
+                order = np.argsort(-counts)
+                top = order[0]
+                runner = counts[order[1]] if len(order) > 1 else 0
+                if (fams[top] != "other"
+                        and counts[top] >= self.params["route_dominance"]
+                        * max(runner, 1)):
+                    return str(fams[top]), counts[top] / counts.sum()
+                return "all", counts[top] / counts.sum()
+
+            # Font-family routing: restricting matching to the dominant
+            # family removes other families' confusable neighbors (a
+            # heterogeneous 1-NN pool measurably dilutes accuracy).
+            if self.params["route_family"] and model.tags is not None:
+                sample = X[:: max(1, len(X) // self.params["route_sample"])]
+                family, share = vote(sample)
+                page_model = model.subset(model.tags == family)                     if family != "all" else model
+
+                if self.params["route_per_block"]:
+                    # A letterhead's display line must not inherit the
+                    # body's family: blocks with enough glyphs vote alone.
+                    block_of = np.array(
+                        [layout["lines"][li].get("block", -1)
+                         for li, gi, ai in slots])
+                    topk = [None] * len(X)
+                    for b in np.unique(block_of):
+                        idx = np.flatnonzero(block_of == b)
+                        if len(idx) >= self.params["route_block_min"]:
+                            bfam, _ = vote(X[idx])
+                            m = model.subset(model.tags == bfam)                                 if bfam != "all" else model
+                        else:
+                            m = page_model
+                        for i, t in zip(idx, m.predict_topk(
+                                X[idx], k=self.params["top_k"])):
+                            topk[i] = t
+                else:
+                    topk = page_model.predict_topk(X, k=self.params["top_k"])
+            else:
+                topk = model.predict_topk(X, k=self.params["top_k"])
+            for (li, gi, ai), cands in zip(slots, topk):
+                g = layout["lines"][li]["groups"][gi]
+                packed = [[c, round(float(d), 3)] for c, d in cands]
+                if ai is None:
+                    g["candidates"] = packed
+                else:
+                    g.setdefault("alt_candidates", {})[str(ai)] = packed
+
+        out = page.evolve()
+        out.meta["layout"] = layout
+        dists = [g["candidates"][0][1]
+                 for ln in layout["lines"] for g in ln.get("groups", [])
+                 if "candidates" in g]
+        debug = DebugBundle(
+            scalars={"n_scored": len(crops),
+                     "font_family": family,
+                     "family_share": round(float(share), 3),
+                     "median_top1_distance": round(float(np.median(dists)), 2) if dists else -1},
+        )
+        return out, debug

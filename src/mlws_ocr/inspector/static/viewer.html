@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>mlws-ocr inspector</title>
+<style>
+  :root { --ink:#222; --paper:#fafaf7; --line:#ddd; --accent:#266edc; }
+  body { margin:0; font:14px/1.45 system-ui, sans-serif; color:var(--ink);
+         background:var(--paper); }
+  header { display:flex; gap:1rem; align-items:center; padding:.6rem 1rem;
+           border-bottom:1px solid var(--line); background:#fff;
+           position:sticky; top:0; z-index:2; }
+  header h1 { font-size:1rem; margin:0; }
+  select { font:inherit; padding:.2rem .4rem; }
+  main { padding:1rem; }
+  .filmstrip { display:flex; gap:1rem; overflow-x:auto; align-items:flex-start; }
+  .stage { background:#fff; border:1px solid var(--line); border-radius:6px;
+           padding:.6rem; min-width:270px; max-width:340px; flex:0 0 auto; }
+  .stage h2 { font-size:.9rem; margin:0 0 .1rem; }
+  .stage .dur { color:#888; font-size:.75rem; margin:0 0 .5rem; }
+  .stage img { width:100%; border:1px solid var(--line); border-radius:3px;
+               cursor:zoom-in; display:block; margin-bottom:.15rem;
+               background:#fff; }
+  .imgname { font-size:.72rem; color:#666; margin:0 0 .5rem; }
+  table.kv { width:100%; border-collapse:collapse; font-size:.78rem; margin-top:.4rem; }
+  table.kv td { padding:.12rem .3rem; border-top:1px solid #eee; }
+  table.kv td:first-child { color:#666; white-space:nowrap; }
+  .note { font-size:.78rem; color:#555; font-style:italic; }
+  #lightbox { position:fixed; inset:0; background:rgba(20,20,20,.92); display:none;
+              z-index:5; cursor:zoom-out; overflow:auto; text-align:center; }
+  #lightbox img { max-width:96%; margin:2vh auto; background:#fff; }
+  #lightbox p { color:#eee; margin:.5rem; }
+  .empty { color:#888; padding:2rem; }
+</style>
+</head>
+<body>
+<header>
+  <h1>mlws-ocr inspector</h1>
+  <label>run: <select id="runsel"></select></label>
+  <span id="src" style="color:#888"></span>
+</header>
+<main><div id="content" class="empty">loading…</div></main>
+<div id="lightbox" onclick="this.style.display='none'"><p id="lbname"></p><img id="lbimg"></div>
+<script>
+const $ = id => document.getElementById(id);
+
+function zoom(src, name) {
+  $('lbimg').src = src; $('lbname').textContent = name;
+  $('lightbox').style.display = 'block';
+}
+
+function kvTable(obj) {
+  const rows = Object.entries(obj || {}).map(
+    ([k, v]) => `<tr><td>${k}</td><td>${JSON.stringify(v)}</td></tr>`);
+  return rows.length ? `<table class="kv">${rows.join('')}</table>` : '';
+}
+
+function stageCard(run, st) {
+  const d = st.debug || {};
+  // A stage with no debug rendering (e.g. 00_ingest) shows its persisted
+  // page state instead -- the image exactly as it stood at that boundary.
+  const rels = st.debug_images.length ? st.debug_images : st.page_images;
+  const label = st.debug_images.length ? (r => r) : (r => 'page state: ' + r);
+  const imgs = rels.map(rel => {
+    const src = `/runs/${run}/${rel}`;
+    const name = label(rel.split('/').pop().replace('.png',''));
+    return `<img src="${src}" loading="lazy" alt="${name}"
+                 onclick="zoom('${src}','${st.dir} / ${name}')">
+            <p class="imgname">${name}</p>`;
+  }).join('');
+  const notes = (d.notes || []).map(n => `<p class="note">${n}</p>`).join('');
+  return `<div class="stage">
+    <h2>${st.dir}</h2>
+    <p class="dur">${d.duration_ms != null ? d.duration_ms + ' ms' : ''}</p>
+    ${imgs || '<p class="imgname">(no images)</p>'}
+    ${kvTable(d.scalars)} ${kvTable(d.params)} ${notes}
+  </div>`;
+}
+
+async function showRun(id) {
+  const info = await (await fetch(`/api/run/${id}`)).json();
+  $('src').textContent = info.manifest ? info.manifest.source : '';
+  $('content').className = 'filmstrip';
+  $('content').innerHTML = info.stages.map(st => stageCard(id, st)).join('');
+}
+
+async function init() {
+  const runs = await (await fetch('/api/runs')).json();
+  if (!runs.length) { $('content').textContent = 'no runs yet — try: mlws-ocr run configs/default.toml page.png'; return; }
+  $('runsel').innerHTML = runs.map(r => `<option>${r}</option>`).join('');
+  $('runsel').onchange = e => showRun(e.target.value);
+  showRun(runs[0]);
+}
+init();
+</script>
+</body>
+</html>

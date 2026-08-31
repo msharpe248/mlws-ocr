@@ -1,0 +1,32 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "mlws-ocr"
+version = "0.1.0"
+description = "A readable, neural-network-free OCR reference implementation for scanned documents"
+requires-python = ">=3.11"
+dependencies = [
+    "numpy>=1.26",
+    "scipy>=1.11",
+    "scikit-image>=0.22",
+    "pillow>=10.1",
+    "pypdf>=4",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8"]
+
+[project.scripts]
+mlws-ocr = "mlws_ocr.cli:main"
+mlws-ocr-ui = "mlws_ocr.cli:ui_main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+mlws_ocr = ["inspector/static/*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

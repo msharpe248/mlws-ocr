@@ -1,0 +1,601 @@
+"""Beam decoding of glyph candidates with case priors and a bigram LM.
+
+Three information sources combine per glyph:
+  * pixel evidence -- the recognizer's candidate distances, turned into
+    log-probabilities by a softmax;
+  * line geometry -- glyph height relative to the line's x-height decides
+    between case twins (c/C, o/O/0, p/P ...), which pixels alone cannot;
+  * language statistics -- a character bigram model scores transitions,
+    and a lexicon pass prefers a slightly worse path that forms a real
+    word over a slightly better one that forms garbage.
+
+Word boundaries come from the gap distribution between groups on the
+line.  Every emitted character keeps its provenance: winning candidate,
+margin over the runner-up, and whether the LM overrode the pixel choice.
+This is the v1 decoder: it trusts the component grouping as segmentation;
+the cut-candidate lattice for merged/split glyphs builds on top of it.
+"""
+from __future__ import annotations
+
+import numpy as np
+
+from ..core.artifacts import Page
+from ..core.registry import register
+from ..core.stage import DebugBundle, Stage
+from pathlib import Path
+
+from ..lang.model import CharBigram, CorpusModel
+
+TALL = set("bdfhklt" + "ij"  # dotted forms group to ascender height
+           + "ABCDEFGHIJKLMNOPQRSTUVWXYZ" + "0123456789" + "!?\"'()"
+           # a mark above lifts the group to ascender height:
+           + "àâäéèêëîïíìôöòóùûüúñãÉÈÀÄÖÜß")
+DESCENDER = set("gjpqy" + "ç")   # cedilla hangs below the baseline
+
+# Which accented letters each supported language actually uses; once the
+# document's language is locked, accents outside its alphabet are almost
+# certainly misreads (adding accented classes cost English ~1 char pt
+# until this gate existed).
+LANG_ACCENTS = {
+    "en": set(),
+    "fr": set("àâæçéèêëîïôœùûü" + "ÉÈÀÇ"),
+    "de": set("äöüß" + "ÄÖÜ"),
+    "es": set("áéíóúüñ" + "É"),
+    "it": set("àèéìòóù" + "ÈÉ"),
+}
+ALL_ACCENTS = set("àâäæçéèêëîïíìôöòóœßùûüúñã" + "ÉÈÀÇÄÖÜ")
+CASE_TWINS = ({c: c.upper() for c in "cosuvwxz"} | {"1": "l"}
+              | {"é": "É", "è": "È", "à": "À", "ç": "Ç",
+                 "ä": "Ä", "ö": "Ö", "ü": "Ü"})
+
+# Classic shape-confusion pairs, injected like case twins: when one is a
+# candidate, the other joins at a penalty so language context can
+# arbitrate.  Motivating case: a typewriter font where 'h' ranked below
+# 14 while 'n' led -- "the" (19 occurrences on the page) decoded as
+# "LEe"/"CLe"/"nne", unreachable by any LM because 'h' was never offered.
+CONFUSION_PAIRS = [("n", "h"), ("h", "n"), ("c", "e"), ("e", "c"),
+                   ("o", "e"), ("e", "o"),   # bar of 'e' fills/vanishes
+                   ("s", "e"), ("e", "s"),   # rounded pair under blur
+                   ("s", "9"), ("9", "s"),   # "5995" -> "5ss5" (digit-mode
+                                             # arbitrates direction)
+                   ("N", "H"), ("H", "N"), ("C", "E"), ("E", "C")]
+
+
+def _glyph_logprobs(cands: list) -> dict[str, float]:
+    chars = [c for c, _ in cands]
+    d = np.array([dist for _, dist in cands], dtype=float)
+    s = -d / max(d.std(), 1.0)
+    s -= s.max()
+    p = np.exp(s) / np.exp(s).sum()
+    return dict(zip(chars, np.log(np.maximum(p, 1e-9))))
+
+
+def gap_band(gaps: list[float]) -> tuple[float, float] | None:
+    """Uncertain band from the line's own gap distribution.
+
+    Inter-letter and inter-word gaps are bimodal on any line with a few
+    words; a 1-D 2-means split finds the boundary without reference to
+    x-height (whose median-of-heights proxy is inflated by ascenders).
+    Returns (lo, hi) in pixels, or None when the line shows no clear
+    bimodality (single word, or too few gaps to tell).
+    """
+    if len(gaps) < 6:
+        return None
+    g = np.sort(np.asarray(gaps, dtype=float))
+    c_lo, c_hi = g[: len(g) // 2].mean(), g[len(g) // 2:].mean()
+    for _ in range(12):
+        assign = np.abs(g - c_lo) <= np.abs(g - c_hi)
+        if assign.all() or not assign.any():
+            return None
+        c_lo, c_hi = g[assign].mean(), g[~assign].mean()
+    if c_hi < 2.2 * max(c_lo, 0.5):
+        return None                      # not clearly bimodal
+    mid = (c_lo + c_hi) / 2.0
+    return 0.8 * mid, 1.25 * mid
+
+
+def _height_prior(char: str, height: float, x_height: float) -> float:
+    """Log-prior from glyph height vs the line's x-height."""
+    if x_height <= 0:
+        return 0.0
+    tall = height > 1.25 * x_height
+    if char in TALL:
+        return 0.8 if tall else -1.2
+    if char.islower() and char not in TALL and char not in DESCENDER:
+        return -1.2 if tall else 0.8
+    return 0.0
+
+
+@register
+class BeamDecode(Stage):
+    slot = "decode"
+    impl = "beam"
+    defaults = {
+        "beam_width": 8,
+        "lm_weight": 0.7,
+        "lexicon_margin": 4.0,   # accept a lexicon word within this log-score
+        "case_prior_scale": 1.0,
+        "case_change_penalty": 1.5,
+        "foreign_accent_penalty": 2.5,  # accented candidate outside the
+                                        # locked language's alphabet    # words are all-lower, Capitalized, or
+                                       # ALL-CAPS; any other case transition
+                                       # inside a word pays this (random
+                                       # per-glyph flips inside caps words
+                                       # were the top real-scan word killer)
+        "pin_bonus": 2.5,      # log-prob boost for an adapt-pinned label
+        "confusion_penalty": 1.6,  # cost of an injected shape-confusion twin
+                                   # (1.0 hurt degraded synthetic -3.9 word;
+                                   # 1.6 keeps the real-letter gains at -0.5
+                                   # and restores synthetic fully)
+        "split_char_bonus": 2.2,  # per extra char when a split reading wins
+                                  # (offsets the extra glyph+LM log terms a
+                                  # longer path inevitably accumulates)
+        "max_split_variants": 8,
+        "word_split": True,       # lexicon-driven missing-space repair
+        "word_join": True,        # merge runs of short fragments whose
+                                  # concatenation is a real word: letter-
+                                  # spaced caps ("N a t i o n a l") make
+                                  # letter gaps as wide as word gaps, so
+                                  # they shred past every gap threshold
+        "join_max_run": 8,
+        "digit_mode_frac": 0.5,   # if this much digit evidence accumulates
+                                  # over a word's glyphs, mute the letter
+                                  # LM: dates, zips and phone numbers are
+                                  # not words ("October 29, 1993" decoded
+                                  # as "octocer zsq loss")
+        "digit_rank_weight": 0.6, # a digit at rank 2-3 counts this much
+                                  # (misread digits leave top-1 -- the
+                                  # trigger must see deeper)
+        "digit_mode_boost": 1.2,  # in digit mode, digit candidates get
+                                  # this log-prob boost
+        "space_lo": 0.35,        # gap below this * x_height: definitely joined
+                                 # (measured: sharp inter-letter gaps reach
+                                 # ~0.24, real word gaps sit near ~0.65)
+        "space_hi": 0.55,        # gap above this * x_height: definitely a space
+                                 # (between the two: the dictionary decides)
+        "space_geom_weight": 2.0, # weight of gap size in uncertain-gap scoring
+        "word_freq_weight": 0.35, # per-word log-frequency bonus in variants
+                                  # (words of 3+ chars only, capped -- short
+                                  # frequent words must never pay for a cut)
+        "word_penalty": 2.5,     # per extra word, so frequent short words
+                                 # don't shred every uncertain gap
+        "max_gap_variants": 8,
+        "reject_mads": 5.0,      # reject a glyph whose top-1 distance exceeds
+                                 # median + this many MADs of the page's own
+                                 # distances (a multiplicative rule was
+                                 # tightest exactly on clean pages, where the
+                                 # median is small)
+        "default_language": "en", # used when a page carries too little text
+                                  # to trust detection (a 9-word table page
+                                  # was confidently "Italian")
+        "min_detect_chars": 60,   # minimum pseudo-text size for detection
+        "lang_model": "auto",     # "auto": detect among data/lang_*.npz by
+                                  # trigram-scoring the pixel top-1 text,
+                                  # then lock for the document (one language
+                                  # per document by project scope); or a
+                                  # specific .npz path; falls back to
+                                  # /usr/share/dict/words bigrams
+        "words_path": "/usr/share/dict/words",
+    }
+
+    def run(self, page: Page) -> tuple[Page, DebugBundle]:
+        layout = page.meta.get("layout", {})
+        if "lines" not in layout:
+            raise ValueError("decode requires recognized lines")
+        p = self.params
+        language = "n/a"
+        if p["lang_model"] == "auto":
+            lm, language = self._detect_language(
+                layout, p["min_detect_chars"], p["default_language"])
+            if lm is None:
+                lm = CharBigram.from_words(p["words_path"])
+        elif Path(p["lang_model"]).exists():
+            lm = CorpusModel.load(p["lang_model"])
+            language = Path(p["lang_model"]).stem.removeprefix("lang_")
+        else:
+            lm = CharBigram.from_words(p["words_path"])
+        self._language = language
+        top1 = np.array([g["candidates"][0][1] for ln in layout["lines"]
+                         for g in ln.get("groups", []) if "candidates" in g])
+        if len(top1):
+            med = float(np.median(top1))
+            mad = float(np.median(np.abs(top1 - med))) or med * 0.2
+            reject_at = med + p["reject_mads"] * mad
+        else:
+            reject_at = np.inf
+
+        n_reject = n_lm_override = n_joins = 0
+        for ln in layout["lines"]:
+            groups = [g for g in ln.get("groups", []) if "candidates" in g]
+            if not groups:
+                ln["words"] = []
+                continue
+            heights = [g["box"][3] - g["box"][1] for g in groups]
+            x_height = float(np.median(heights))
+
+            # Word boundaries: definite gaps split immediately; uncertain
+            # gaps become variants the dictionary and LM vote on.
+            segments = self._segment_line(groups, x_height, p)
+
+            decoded = []
+            for seg_groups, uncertain in segments:
+                decoded.extend(self._best_gap_variant(seg_groups, uncertain,
+                                                      x_height, lm, p, reject_at))
+            if p["word_join"]:
+                decoded, joins = self._join_decoded(decoded, x_height, lm, p,
+                                                    reject_at)
+                n_joins += joins
+
+            ln["words"] = []
+            for word_groups, (text, meta) in decoded:
+                    # Per-glyph provenance: the adapt stage votes on these.
+                    # (A split reading yields more chars than groups;
+                    # provenance then only annotates aligned words, which
+                    # the purity-gated voter tolerates.)
+                    if len(text) == len(word_groups):
+                        for g, ch in zip(word_groups, text):
+                            g["decoded"] = ch
+                            g["dconf"] = meta["confidence"] + (0.3 if meta["in_lexicon"] else 0.0)
+                    n_reject += text.count("?") if meta["rejected"] else 0
+                    n_lm_override += meta["lm_override"]
+                    if p["word_split"] and not meta["in_lexicon"] and len(text) >= 7:
+                        core = text.lower().strip("'\".,;:!?()-")
+                        for cut in range(3, len(core) - 2):
+                            if (lm.endorsed(core[:cut])
+                                    and lm.endorsed(core[cut:])):
+                                text = text[:cut] + " " + text[cut:]
+                                meta = dict(meta, in_lexicon=True)
+                                break
+                    ln["words"].append({
+                        "text": text,
+                        "box": [min(g["box"][0] for g in word_groups),
+                                min(g["box"][1] for g in word_groups),
+                                max(g["box"][2] for g in word_groups),
+                                max(g["box"][3] for g in word_groups)],
+                        "confidence": meta["confidence"],
+                        "in_lexicon": meta["in_lexicon"],
+                    })
+
+        out = page.evolve()
+        out.meta["layout"] = layout
+        debug = DebugBundle(
+            scalars={"n_words": sum(len(l.get("words", [])) for l in layout["lines"]),
+                     "language": language,
+                     "lm_overrides": n_lm_override, "rejects": n_reject,
+                     "fragment_joins": n_joins},
+        )
+        return out, debug
+
+    _model_cache: dict = {}
+
+    @classmethod
+    def _load_model(cls, path: Path) -> CorpusModel:
+        key = (str(path), path.stat().st_mtime)
+        if key not in cls._model_cache:
+            cls._model_cache.clear()   # models are few; avoid stale copies
+            cls._model_cache[key] = CorpusModel.load(path)
+        return cls._model_cache[key]
+
+    @classmethod
+    def _detect_language(cls, layout, min_chars: int = 60,
+                         default: str = "en"):
+        """Pick the language whose trigram model best explains the pixel
+        top-1 reading (before any LM influence), then lock it.
+
+        Cheap and robust: even a 70%-correct top-1 sequence carries a
+        language's character statistics (cf. Cavnar & Trenkle 1994) --
+        but only with enough of it; short pages fall back to the default
+        language rather than trusting a handful of noisy words.
+        """
+        candidates = sorted(Path("data").glob("lang_*.npz"))
+        if not candidates:
+            return None, "n/a"
+        # Build word-shaped pseudo-text: word-boundary trigrams (^de, er$)
+        # carry much of a language's signature, so lines must be split at
+        # word gaps, not concatenated whole.
+        pseudo = []
+        for ln in layout.get("lines", []):
+            groups = [g for g in ln.get("groups", []) if "candidates" in g]
+            if not groups:
+                continue
+            x_height = float(np.median([g["box"][3] - g["box"][1]
+                                        for g in groups]))
+            word = ""
+            prev = None
+            for g in groups:
+                if prev is not None and \
+                        g["box"][0] - prev["box"][2] > 0.45 * x_height:
+                    if len(word) >= 3:
+                        pseudo.append(word)
+                    word = ""
+                c = g["candidates"][0][0]
+                if c.isalpha():
+                    word += c.lower()
+                prev = g
+            if len(word) >= 3:
+                pseudo.append(word)
+        if sum(len(w) for w in pseudo) < min_chars:
+            for path in candidates:
+                if path.stem == f"lang_{default}":
+                    return cls._load_model(path), default
+            return cls._load_model(candidates[0]), candidates[0].stem
+        best = None
+        for path in candidates:
+            model = cls._load_model(path)
+            total = sum(model.word_logp(w) for w in pseudo)
+            n = sum(len(w) + 1 for w in pseudo)
+            # Likelihood ratio against the model's own baseline: without
+            # this, the smallest corpus's flattest table wins on any noisy
+            # page (measured: Italian beat everyone, everywhere).
+            score = total / n - model.baseline
+            if best is None or score > best[0]:
+                best = (score, path)
+        model = cls._load_model(best[1])
+        return model, best[1].stem.removeprefix("lang_")
+
+    @staticmethod
+    def _mostly_nonwords(cores: list[str], lm) -> bool:
+        """Guard for fragment joining: most fragments must NOT be frequent
+        words on their own -- "on to" must never become "onto"."""
+        wordy = sum(1 for c in cores if lm.frequency(c) > -12.0)
+        return wordy * 2 <= len(cores)
+
+    def _join_decoded(self, decoded, x_height, lm, p, reject_at):
+        """Merge runs of short fragments by RE-DECODING their combined
+        glyph groups as one word.  Text-level concatenation is not enough:
+        letter-spaced fragments are usually also misread ("Nat i ous l"),
+        and only a fresh beam over the joined groups lets the lexicon
+        repair them.  Accept the merge only when the re-decode lands on an
+        endorsed word and the fragments weren't words on their own."""
+        joins = 0
+        i = 0
+        while i < len(decoded):
+            if len(decoded[i][1][0]) > 3:
+                i += 1
+                continue
+            j = i
+            while (j + 1 < len(decoded) and len(decoded[j + 1][1][0]) <= 3
+                   and j + 1 - i < p["join_max_run"]):
+                j += 1
+            merged = False
+            for end in range(j, i, -1):
+                frags = decoded[i:end + 1]
+                if len(frags) < 2:
+                    continue
+                cores = [t.lower().strip("'\".,;:!?()-")
+                         for _, (t, _) in frags]
+                if sum(map(len, cores)) < 5 or not self._mostly_nonwords(cores, lm):
+                    continue
+                groups = [g for word_groups, _ in frags for g in word_groups]
+                text, meta, _ = self._decode_word(groups, x_height, lm, p,
+                                                  reject_at)
+                if lm.endorsed(text.lower().strip("'\".,;:!?()-")):
+                    decoded[i:end + 1] = [(groups, (text, meta))]
+                    joins += 1
+                    merged = True
+                    break
+            i += 1
+        return decoded, joins
+
+    @staticmethod
+    def _segment_line(groups, x_height, p):
+        """Split at definite gaps; keep uncertain gap indices per segment.
+
+        Thresholds come from the line's own gap distribution when it is
+        bimodal (gap_band); the x-height ratios are only the fallback for
+        short lines.  Uncertain gaps are stored normalized to the band
+        mid so the geometric prior stays comparable across lines.
+        """
+        gaps = [g["box"][0] - prev["box"][2]
+                for prev, g in zip(groups, groups[1:])]
+        band = gap_band(gaps)
+        if band is not None:
+            lo, hi = band
+        else:
+            lo = p["space_lo"] * max(x_height, 1.0)
+            hi = p["space_hi"] * max(x_height, 1.0)
+        mid = (lo + hi) / 2.0
+        segments, current, uncertain = [], [groups[0]], []
+        for gap, g in zip(gaps, groups[1:]):
+            if gap > hi:
+                segments.append((current, uncertain))
+                current, uncertain = [g], []
+            else:
+                if gap > lo:
+                    uncertain.append((len(current) - 1, gap / mid * 0.45))
+                current.append(g)
+        segments.append((current, uncertain))
+        return segments
+
+    def _best_gap_variant(self, groups, uncertain, x_height, lm, p, reject_at):
+        """Choose which uncertain gaps are spaces, scored by word quality.
+
+        Each variant splits the segment at a subset of the uncertain gaps;
+        its score sums the beam score of every resulting word, a
+        frequency bonus for real words, a geometric prior (larger gaps
+        lean toward space), and a per-word penalty against shredding.
+        """
+        gap_choices = uncertain[:3]        # cap the combinatorics
+        variants = [frozenset()]
+        for gpos in gap_choices:
+            if len(variants) * 2 > p["max_gap_variants"]:
+                break
+            variants = variants + [v | {gpos} for v in variants]
+
+        mid = (p["space_lo"] + p["space_hi"]) / 2.0
+        best = None
+        for chosen in variants:
+            cut_after = {pos for pos, _ in chosen}
+            parts, cur = [], []
+            for i, g in enumerate(groups):
+                cur.append(g)
+                if i in cut_after:
+                    parts.append(cur)
+                    cur = []
+            parts.append(cur)
+
+            # Primary key: lexicon quality -- real frequent words count
+            # for a variant, junk fragments count against it.  Raw beam
+            # scores CANNOT be the primary key: every extra word restarts
+            # the trigram context, so shredding always looks locally
+            # cheaper.  Scores + geometry only break lexical ties.
+            lexq, total, decoded = 0.0, 0.0, []
+            cores = []
+            for part in parts:
+                text, meta, score = self._decode_word(part, x_height, lm, p,
+                                                      reject_at)
+                total += score
+                core = text.lower().strip("'\".,;:!?()-")
+                cores.append(core)
+                if lm.endorsed(core):
+                    lexq += 1.0
+                elif len(core) >= 2 and core not in lm.lexicon:
+                    lexq -= 0.5
+                decoded.append((part, (text, meta)))
+            # Strict admissibility: a cut is only allowed when both parts
+            # it creates read as frequent real words -- the dictionary
+            # must actively endorse every inserted space.  (The no-cut
+            # variant is always admissible.)
+            if cut_after and not all(lm.endorsed(c) for c in cores):
+                continue
+            for pos, gap in uncertain:
+                sign = 1.0 if pos in cut_after else -1.0
+                total += sign * p["space_geom_weight"] * (gap - mid)
+            key = (lexq, total)
+            if best is None or key > best[0]:
+                best = (key, decoded)
+        return best[1]
+
+    def _decode_word(self, groups, x_height, lm: CharBigram, p,
+                     reject_at: float) -> tuple[str, dict, float]:
+        """Try every segmentation variant (each touching-suspect group read
+        as one glyph or as its split pair) and keep the best reading."""
+        suspects = [i for i, g in enumerate(groups) if "alt_candidates" in g]
+        variants = [frozenset()]
+        for i in suspects:
+            if len(variants) * 2 > p["max_split_variants"]:
+                break
+            variants = variants + [v | {i} for v in variants]
+
+        best = None
+        for split_set in variants:
+            cand_seq = []
+            for i, g in enumerate(groups):
+                if i in split_set:
+                    ac = g["alt_candidates"]
+                    cand_seq.append({"candidates": ac["0"], "box": g["alt"][0]})
+                    cand_seq.append({"candidates": ac["1"], "box": g["alt"][1]})
+                else:
+                    cand_seq.append(g)
+            text, meta, score = self._beam_word(cand_seq, x_height, lm, p, reject_at)
+            score += p["split_char_bonus"] * len(split_set)
+            score += 2.0 if meta["in_lexicon"] else 0.0
+            if best is None or score > best[2]:
+                best = (text, meta, score)
+        return best
+
+    def _beam_word(self, groups, x_height, lm: CharBigram, p,
+                   reject_at: float):
+        # Digit-heavy tokens are numbers, not words: the letter LM and
+        # lexicon must not "correct" them.  Digit evidence is graded --
+        # a digit at rank 1 counts fully, at ranks 2-3 partially, so a
+        # date whose digits were misread as letters can still trigger.
+        def digit_evidence(g):
+            cands = g["candidates"]
+            if cands[0][0].isdigit():
+                return 1.0
+            if any(c.isdigit() for c, _ in cands[1:3]):
+                return p["digit_rank_weight"]
+            return 0.0
+        digitish = sum(digit_evidence(g) for g in groups) / max(len(groups), 1)
+        digit_mode = digitish >= p["digit_mode_frac"]
+        lm_w = 0.0 if digit_mode else p["lm_weight"]
+
+        # Per-glyph scored candidates (pixel softmax + height prior).
+        rejected = False
+        per_glyph = []
+        for g in groups:
+            cands = g["candidates"]
+            if cands[0][1] > reject_at and "pinned" not in g:
+                per_glyph.append({"?": 0.0})
+                rejected = True
+                continue
+            lp = _glyph_logprobs(cands)
+            if digit_mode:
+                for c in list(lp):
+                    if c.isdigit():
+                        lp[c] += p["digit_mode_boost"]
+            allowed = LANG_ACCENTS.get(self._language, ALL_ACCENTS)
+            for c in list(lp):
+                if c in ALL_ACCENTS and c not in allowed:
+                    lp[c] -= p["foreign_accent_penalty"]
+            if "pinned" in g and not (lm_w == 0.0 and not g["pinned"].isdigit()):
+                # Document-level evidence from the adapt stage: strong,
+                # but the LM and height prior retain veto power -- and in
+                # digit mode a LETTER pin must not override the digits
+                # ("1993" was decoding as "l993" through an 'l' pin).
+                lp[g["pinned"]] = lp.get(g["pinned"], min(lp.values())) + p["pin_bonus"]
+            h = g["box"][3] - g["box"][1]
+            k = p["case_prior_scale"]
+            scored = {c: v + k * _height_prior(c, h, x_height) for c, v in lp.items()}
+            # Ensure case twins compete even when only one made top-k.
+            for c in list(scored):
+                twin = CASE_TWINS.get(c) or next(
+                    (k for k, v in CASE_TWINS.items() if v == c), None)
+                if twin and twin not in scored:
+                    scored[twin] = scored[c] + k * (_height_prior(twin, h, x_height)
+                                                    - _height_prior(c, h, x_height))
+            # And shape-confusion twins, at a small penalty.
+            for a, twin in CONFUSION_PAIRS:
+                if a in scored and twin not in scored:
+                    scored[twin] = (scored[a] - p["confusion_penalty"]
+                                    + k * (_height_prior(twin, h, x_height)
+                                           - _height_prior(a, h, x_height)))
+            per_glyph.append(scored)
+
+        # Beam search with bigram transitions.
+        beams = [("", 0.0)]
+        for scored in per_glyph:
+            nxt = []
+            for prefix, score in beams:
+                for c, glyph_lp in scored.items():
+                    trans = lm_w * lm.score(prefix, c)
+                    if prefix and prefix[-1].isalpha() and c.isalpha() \
+                            and prefix[-1].isupper() != c.isupper():
+                        # Allow only the Capitalized pattern: an upper->
+                        # lower step right after the first letter.
+                        if not (len(prefix) == 1 and prefix[0].isupper()
+                                and c.islower()):
+                            trans -= p["case_change_penalty"]
+                    nxt.append((prefix + c, score + glyph_lp + trans))
+            nxt.sort(key=lambda t: -t[1])
+            beams = nxt[: p["beam_width"]]
+
+        best, best_score = beams[0]
+        # Lexicon pass: prefer a real word within the margin, weighing how
+        # common the word actually is -- a frequent word may displace the
+        # pixel-best reading, an obscure one only breaks near-ties.
+        def _core(w):
+            return w.lower().strip("'\".,;:!?()-")
+        in_lex = lm.endorsed(_core(best))
+        lm_override = 0
+        # Scan alternatives not only for junk, but also for words known
+        # merely at the dictionary floor: "tre" is technically a word, but
+        # a corpus-frequent near-tie ("the") should still displace it.
+        # Digit-mode tokens are exempt: numbers are not lexicon business.
+        if lm_w > 0 and lm.frequency(_core(best)) < -12.0:
+            best_alt = None
+            for cand, score in beams[1:]:
+                if (best_score - score) > p["lexicon_margin"]:
+                    break
+                if _core(cand) in lm.lexicon:
+                    bonus = max(0.0, (lm.frequency(_core(cand)) + 14.0) / 3.0)
+                    adj = score + bonus
+                    if best_alt is None or adj > best_alt[1]:
+                        best_alt = (cand, adj)
+            if best_alt is not None and best_alt[1] > best_score - p["lexicon_margin"]:
+                best, in_lex, lm_override = best_alt[0], True, 1
+        margin = best_score - (beams[1][1] if len(beams) > 1 else best_score - 10)
+        return best, {"confidence": round(float(min(margin, 10.0)) / 10.0, 3),
+                      "in_lexicon": in_lex, "rejected": rejected,
+                      "lm_override": lm_override}, best_score

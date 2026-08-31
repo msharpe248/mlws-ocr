@@ -1,0 +1,21 @@
+# Default cleanup pipeline. Swap any stage's impl to compare algorithms;
+# the inspector's diff view renders two runs side by side.
+
+[pipeline]
+stages = ["deskew", "illumination", "binarize", "despeckle"]
+
+[stage.deskew]
+impl = "hough"
+max_angle = 5.0
+
+[stage.illumination]
+impl = "median_background"
+
+[stage.binarize]
+impl = "sauvola"
+window = 41
+k = 0.2
+
+[stage.despeckle]
+impl = "components"
+min_area_300dpi = 5
