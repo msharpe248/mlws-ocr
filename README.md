@@ -57,7 +57,10 @@ tests/        every stage tested against synthetic ground truth
 
 Every algorithm's lineage — papers, deviations, and where it lives in the
 code — is catalogued in [docs/RESEARCH.md](docs/RESEARCH.md). New
-algorithms do not land without an entry there.
+algorithms do not land without an entry there. The project also includes a
+paper on the directional k-NN + SCC block-segmentation algorithm
+([rendered](https://msharpe248.github.io/mlws-ocr/docs/papers/knn-scc-block-segmentation.html),
+[markdown](docs/papers/knn-scc-block-segmentation.md)).
 
 ## Roadmap
 
