@@ -30,7 +30,18 @@ python3 -m venv .venv && .venv/bin/pip install -e ".[dev]"
 .venv/bin/mlws-ocr run configs/default.toml demo_page.png
 .venv/bin/mlws-ocr run configs/default.toml scan.pdf --pdf-page 0   # customer PDFs
 .venv/bin/mlws-ocr-ui                               # browse the run at http://127.0.0.1:8330
+.venv/bin/mlws-ocr-lab data/unlv/bus.3B             # segmentation lab at http://127.0.0.1:8801
 ```
+
+The **segmentation lab** (`mlws-ocr-lab <image-or-directory> [port]`)
+re-runs block segmentation live as you change parameters and draws the
+algorithm's inner state: every connected-component box, every directed
+k-NN link (kept green / pruned red), the pruning threshold actually
+computed, and the resulting blocks. Method (knn_scc / xycut /
+whitespace), centroid-vs-edge link length, the prune rule
+(factor×mean, mean+kσ, mean+k·MAD), mode, scope and k-per-sector are
+all live controls — built to settle "why did these blocks come out
+this way?" questions by looking, not guessing.
 
 ## Architecture
 

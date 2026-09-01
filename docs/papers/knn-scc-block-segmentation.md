@@ -131,17 +131,23 @@ large* characters (2–12× median size), giving headlines longer reach without
 extending body text's.
 
 **Granularity.** The pruning threshold is best understood as a
-granularity dial. At the default 1.5×mean the business letter of
-Figure 5 segments at paragraph granularity — letterhead fields, date,
-address block, paragraphs and bullets each their own component. The
-looser mean+1σ cut welds that entire body into one region (it buys
-+0.4 char on letters by keeping display type whole); tighter per-axis
-nearest-link cuts descend below paragraph level into word confetti.
-The close accuracy of all these thresholds (Section 6) is therefore
-not because they produce the same blocks — they land on different
-levels of the typographic hierarchy — but because the strong-connectivity
-core tolerates the level shifting, provided lines are re-found within
-whatever blocks emerge.
+granularity dial. On the business letter of Figure 5 the default
+1.5×mean cut (137px) lands at REGION level: letterhead fields separate,
+but the body welds into one component because this page's paragraph
+gaps (≈90–135px) sit just under the cutoff. Tightening to 1.2×mean
+(110px) yields the classical letter decomposition — date, address
+block, salutation+opening, paragraph, bullet list each their own
+component — and tightening further (per-axis nearest-link cuts)
+descends below paragraphs, shattering sparse lines into word boxes.
+No single ratio is "right": the cut selects a level of the typographic
+hierarchy. The close accuracy of all these thresholds (Section 6) is
+therefore not because they produce the same blocks — they don't — but
+because line re-finding within blocks tolerates the level shifting.
+(An earlier revision showed a paragraph-level result at the default
+ratio; it came from a diagnostic harness that fed the binarizer
+mis-scaled gray values and is retracted. The interactive segmentation
+lab that caught this — `mlws-ocr-lab` — renders every link and the
+computed threshold live, and is part of the repository.)
 
 **Edge-distance variant (2026).** A refinement replacing centroid
 distances with minimum edge-center distances — intended to shorten links
