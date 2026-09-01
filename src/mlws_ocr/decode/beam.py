@@ -259,6 +259,63 @@ class BeamDecode(Stage):
     _ABBREV = {"mr", "mrs", "ms", "dr", "inc", "co", "corp", "no", "vs",
                "etc", "jr", "sr", "st", "dept", "attn", "re"}
 
+    @staticmethod
+    def _dehyphenate_pass(layout, lm) -> int:
+        """Join words hyphenated across a line break.
+
+        Ground truth (and any reasonable reader) sees "indi-\\nvidual" as
+        "individual"; emitting the hyphen plus a space costs two char and
+        two word errors per wrapped word.  Join when the line-final word
+        ends in '-', the next line of the same block starts lowercase,
+        and the lexicon endorses the joined form; the hyphen is kept when
+        the join is not a word ("self-\\nservice" stays "self-service").
+        """
+        lines = [ln for ln in layout["lines"] if not ln.get("graphic_suspect")]
+        joins = 0
+        for a, b in zip(lines, lines[1:]):
+            if a.get("block") != b.get("block"):
+                continue
+            wa, wb = a.get("words"), b.get("words")
+            if not wa or not wb:
+                continue
+            t1, t2 = wa[-1]["text"], wb[0]["text"]
+            if (len(t1) >= 3 and t1.endswith("-") and t1[-2].isalpha()
+                    and t2[:1].islower()):
+                head = t1[:-1]
+                core = (head + t2).lower().strip("'\".,;:!?()-")
+                if lm.endorsed(core):
+                    joined = head + t2
+                elif lm.endorsed((head + "-" + t2).lower()
+                                 .strip("'\".,;:!?()")):
+                    joined = head + "-" + t2
+                else:
+                    continue
+                wa[-1] = dict(wa[-1], text=joined,
+                              in_lexicon=True)
+                wb.pop(0)
+                joins += 1
+        # Token-level variant: the wrapped halves often arrive already
+        # merged as one token ("indi-vidual").  Strip an internal hyphen
+        # when the joined core is a word and the hyphenated form is not
+        # ("self-service", "Michigan-Dearborn" keep theirs).
+        for ln in lines:
+            for w in ln.get("words", []):
+                t = w["text"]
+                if t.count("-") != 1 or t[0] == "-" or t[-1] == "-":
+                    continue
+                a, b = t.split("-")
+                ca = a.strip("'\".,;:!?()").lower()
+                cb = b.strip("'\".,;:!?()").lower()
+                if not (ca.isalpha() and cb.isalpha()):
+                    continue
+                if (not lm.endorsed((ca + "-" + cb))
+                        and not (lm.endorsed(ca) and lm.endorsed(cb))
+                        and lm.endorsed(ca + cb)):
+                    w["text"] = a + b
+                    w["in_lexicon"] = True
+                    joins += 1
+        return joins
+
     def _sentence_case_pass(self, layout, lm, p) -> int:
         """Word-level case repair where pixels are silent.
 
@@ -463,6 +520,7 @@ class BeamDecode(Stage):
                     })
 
         n_caseflips = self._sentence_case_pass(layout, lm, p)
+        n_dehyph = self._dehyphenate_pass(layout, lm)
 
         out = page.evolve()
         out.meta["layout"] = layout
