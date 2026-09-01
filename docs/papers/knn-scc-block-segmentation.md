@@ -149,4 +149,7 @@ seeing any results, measurably improves it.
 - R. Tarjan, "Depth-First Search and Linear Graph Algorithms," SIAM J. Comput. 1(2), 1972.
 - S. V. Rice, F. R. Jenkins & T. A. Nartker, "The Fifth Annual Test of OCR Accuracy," ISRI TR-96-01, 1996.
 
+*An HTML edition with figures (actual pipeline debug overlays):
+[knn-scc-block-segmentation.html](knn-scc-block-segmentation.html).*
+
 *Implementation: `src/mlws_ocr/layout/knn_scc.py` in [mlws-ocr](https://github.com/msharpe248/mlws-ocr); experiment provenance in `docs/RESEARCH.md`.*
