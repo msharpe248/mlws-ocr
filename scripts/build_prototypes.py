@@ -101,6 +101,36 @@ for font in fonts:
                 labels.append(ch)
                 tags.append(fam)
 
+# Merge harvested REAL exemplars (scripts/harvest_glyphs.py) when they
+# exist: the external benchmark identified real-glyph training data as
+# the biggest gap versus mature engines.  Guards: per-class cap keeps
+# frequent letters from swamping the pool, and an outlier filter drops
+# exemplars far from their class medoid -- one mislabeled 'e' stored
+# under 'c' would be a perfect decoy for every future 'e'.
+harvest = Path("data/harvest_en.npz")
+if harvest.exists():
+    hv = np.load(harvest, allow_pickle=False)
+    hX, hl, hf = hv["X"], hv["labels"], hv["families"]
+    rng = np.random.default_rng(3)
+    added = 0
+    CAP = 80   # swept: 250 diluted (dev-8 −1.5 char/−5.5 word)
+    for cls in sorted(set(hl)):
+        idx = np.flatnonzero(hl == cls)
+        if len(idx) < 5:
+            continue
+        Xc = hX[idx]
+        med = np.median(Xc, axis=0)
+        d = np.linalg.norm(Xc - med, axis=1)
+        keep = idx[d <= np.percentile(d, 70)]     # inlier core only
+        if len(keep) > CAP:
+            keep = rng.choice(keep, CAP, replace=False)
+        for i in keep:
+            X.append(hX[i])
+            labels.append(str(hl[i]))
+            tags.append(str(hf[i]))
+        added += len(keep)
+    print(f"merged {added} harvested real exemplars from {harvest}")
+
 model = NearestPrototype().fit(np.array(X), labels, tags=tags)
 import pathlib; pathlib.Path(out_path).parent.mkdir(parents=True, exist_ok=True)
 model.save(out_path)
