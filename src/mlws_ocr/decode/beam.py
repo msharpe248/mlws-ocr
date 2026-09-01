@@ -259,6 +259,48 @@ class BeamDecode(Stage):
     _ABBREV = {"mr", "mrs", "ms", "dr", "inc", "co", "corp", "no", "vs",
                "etc", "jr", "sr", "st", "dept", "attn", "re"}
 
+    @classmethod
+    def _word_case_coherence(cls, layout) -> int:
+        """Majority-case repair inside a word, ambiguous letters only.
+
+        On small-caps and caps letterhead lines the per-transition
+        case_change_penalty (1.5 per flip) loses to pixel deltas over a
+        long word: "MiCHIGAN", "ADDREss", "DETRoiT".  Words are all-lower,
+        Capitalized or ALL-CAPS in print; when >=70% of a word's letters
+        agree on a case, the pixel-ambiguous minority letters join them.
+        The first letter is exempt from down-flips (Capitalized is legal)
+        and unambiguous shapes are never touched -- pixels outrank style.
+        """
+        flips = 0
+        for ln in layout["lines"]:
+            if ln.get("graphic_suspect"):
+                continue
+            for w in ln.get("words", []):
+                t = w["text"]
+                letters = [c for c in t if c.isalpha()]
+                if len(letters) < 4:
+                    continue
+                n_up = sum(1 for c in letters if c.isupper())
+                out, li, changed = [], 0, False
+                for c in t:
+                    if not c.isalpha():
+                        out.append(c)
+                        continue
+                    li += 1
+                    if (c.islower() and c in cls._CASE_AMBIG
+                            and n_up >= 3 and n_up >= 0.7 * len(letters)):
+                        out.append(c.upper()); changed = True
+                    elif (c.isupper() and c.lower() in cls._CASE_AMBIG
+                            and li > 1
+                            and len(letters) - n_up >= 0.7 * len(letters)):
+                        out.append(c.lower()); changed = True
+                    else:
+                        out.append(c)
+                if changed:
+                    w["text"] = "".join(out)
+                    flips += 1
+        return flips
+
     @staticmethod
     def _dehyphenate_pass(layout, lm) -> int:
         """Join words hyphenated across a line break.
@@ -520,6 +562,7 @@ class BeamDecode(Stage):
                     })
 
         n_caseflips = self._sentence_case_pass(layout, lm, p)
+        n_caseflips += self._word_case_coherence(layout)
         n_dehyph = self._dehyphenate_pass(layout, lm)
 
         out = page.evolve()
