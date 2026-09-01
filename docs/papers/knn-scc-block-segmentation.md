@@ -131,12 +131,17 @@ large* characters (2–12× median size), giving headlines longer reach without
 extending body text's.
 
 **Granularity.** The pruning threshold is best understood as a
-granularity dial: the default lands at region level (letterhead fields
-separate; a letter's body coheres as one region), while tighter,
-axis-aware thresholds near the line pitch split the same body into
-paragraphs — at the cost of shattering letter-spaced display text. A
-segmentation hierarchy (regions → paragraphs → lines) is reachable by
-re-running the pruning at tighter thresholds within each component.
+granularity dial. At the default 1.5×mean the business letter of
+Figure 5 segments at paragraph granularity — letterhead fields, date,
+address block, paragraphs and bullets each their own component. The
+looser mean+1σ cut welds that entire body into one region (it buys
++0.4 char on letters by keeping display type whole); tighter per-axis
+nearest-link cuts descend below paragraph level into word confetti.
+The close accuracy of all these thresholds (Section 6) is therefore
+not because they produce the same blocks — they land on different
+levels of the typographic hierarchy — but because the strong-connectivity
+core tolerates the level shifting, provided lines are re-found within
+whatever blocks emerge.
 
 **Edge-distance variant (2026).** A refinement replacing centroid
 distances with minimum edge-center distances — intended to shorten links
