@@ -42,9 +42,12 @@ class TextOutput(Stage):
                 for c in text_all:
                     counts[c] = counts.get(c, 0) + 1
                 repeat = max(counts.values()) / max(len(text_all), 1)
+                single = sum(1 for w in ln["words"] if len(w["text"]) == 1)
+                flood = len(ln["words"]) >= 10 and single >= 0.8 * len(ln["words"])
                 if (not any(w["in_lexicon"] for w in ln["words"])
                         and sum(confs) / len(confs) < self.params["garbage_max_conf"]
-                        and repeat >= self.params["garbage_repeat_frac"]):
+                        and (repeat >= self.params["garbage_repeat_frac"]
+                             or flood)):
                     suppressed.append(" ".join(w["text"] for w in ln["words"]))
                     continue
             text = " ".join(w["text"] for w in ln["words"])

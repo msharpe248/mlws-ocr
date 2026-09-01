@@ -59,6 +59,11 @@ class OverlapComponents(Stage):
     defaults = {
         "min_overlap": 0.5,      # fraction of the narrower box's width
         "min_area_300dpi": 4,    # ignore ink smaller than this (residual specks)
+        "dotted_rule_min": 20,   # a "line" of this many DOT-sized groups is
+                                 # a perforation/dotted rule, not text (one
+                                 # receipt tear-off line emitted 313 junk
+                                 # words); solid-line morphology can't see it
+        "dot_max_px_300dpi": 8,
         "split_width_factor": 1.5,  # a group this much wider than the line's
                                     # median is suspected of touching chars
         "min_piece_frac": 0.3,      # each split piece must be at least this
@@ -91,6 +96,14 @@ class OverlapComponents(Stage):
                 ys1 = max(boxes[i][3] for i in idxs)
                 merged.append({"box": [xs0, ys0, xs1, ys1], "parts": len(idxs)})
             merged.sort(key=lambda g: g["box"][0])
+            # Dotted-rule filter: many dot-sized groups in one line.
+            dot = max(2, self.params["dot_max_px_300dpi"] * page.dpi / 300.0)
+            if len(merged) >= self.params["dotted_rule_min"]:
+                ws = sorted(g["box"][2] - g["box"][0] for g in merged)
+                hs = sorted(g["box"][3] - g["box"][1] for g in merged)
+                if ws[len(ws) // 2] <= dot and hs[len(hs) // 2] <= dot:
+                    ln["dotted_rule"] = True
+                    merged = []
             # Touching-character suspects: a group much wider than its
             # line's median gets a split hypothesis -- an alternative pair
             # of boxes cut at the ink-density minimum.  The decoder
