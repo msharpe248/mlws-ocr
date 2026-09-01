@@ -122,7 +122,8 @@ class BeamDecode(Stage):
     impl = "beam"
     defaults = {
         "beam_width": 8,
-        "lm_weight": 0.7,
+        "lm_weight": 0.5,      # calibrated for the GRU: its log-probs are
+                               # sharper than the trigram (which used 0.7)
         "lexicon_margin": 4.0,   # accept a lexicon word within this log-score
         "case_prior_scale": 1.0,
         "descender_prior": 1.2,   # a glyph whose box crosses the line's
