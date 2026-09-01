@@ -100,6 +100,19 @@ suggestion — τ = mean + k·σ — was tested at k ∈ {1, 1.5, 2}: k = 1 give
 +0.4 char on letters over the fixed ratio (80.2% vs 79.8%) with the fixture
 unchanged; it is now the default.
 
+**Threshold insensitivity.** The striking feature of the table is how little
+the threshold matters: every variant lands within 1.2 char points and the
+fixture stays at IoU 1.00 throughout. This is a property of the clustering
+criterion, not luck. Strong connectivity gives the pruning slack on both
+sides: a too-loose threshold leaves stray long edges, but they are *directed*
+and a merge requires the far region to point back through its own short path
+— one-way leakage does not merge blocks; a too-tight threshold cuts valid
+edges, but with up to 24 edges per node across eight sectors the graph is
+redundant and neighbors remain mutually reachable through alternatives. The
+threshold therefore only matters where whole bands of edges flip at once. The
+insensitivity is local — a sufficiently extreme τ still welds columns — but
+the plateau is wide, which is why the method worked untuned on first contact.
+
 **Hybrid pruning.** A single global threshold is dominated by body-text
 spacing, so display-type headlines (larger inter-character gaps) fragment.
 Pure size-relative pruning (τ ∝ character size) overcorrects: twice an
