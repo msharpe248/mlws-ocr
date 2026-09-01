@@ -281,8 +281,17 @@ def main() -> None:
     root = Path(sys.argv[1]) if len(sys.argv) > 1 else Path("data/unlv/bus.3B")
     port = int(sys.argv[2]) if len(sys.argv) > 2 else 8801
     LabHandler.root = root
-    print(f"segmentation lab on http://localhost:{port}  (root: {root})")
-    ThreadingHTTPServer(("127.0.0.1", port), LabHandler).serve_forever()
+    # An explicit port is honored or fails; the default scans upward so a
+    # forgotten earlier instance doesn't block a new one.
+    candidates = [port] if len(sys.argv) > 2 else range(port, port + 20)
+    for p in candidates:
+        try:
+            server = ThreadingHTTPServer(("127.0.0.1", p), LabHandler)
+        except OSError:
+            continue
+        print(f"segmentation lab on http://localhost:{p}  (root: {root})")
+        server.serve_forever()
+    raise SystemExit(f"no free port in {candidates}")
 
 
 if __name__ == "__main__":
