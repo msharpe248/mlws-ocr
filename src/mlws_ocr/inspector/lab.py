@@ -135,11 +135,16 @@ def _render(page: Page, q: dict) -> tuple[bytes, dict]:
                     draw.line([tuple(centers[i]), tuple(centers[j])],
                               fill=(30, 160, 30, 110), width=1)
         if "blocks" in show:
+            imgb = [tuple(b) for b in r.get("image_blocks", [])]
             for b in r["blocks"]:
-                draw.rectangle(b, outline=(30, 60, 220, 255), width=4)
+                if tuple(b) in imgb:
+                    draw.rectangle(b, outline=(235, 140, 20, 255), width=4)
+                else:
+                    draw.rectangle(b, outline=(30, 60, 220, 255), width=4)
         stats = {
             "impl": "knn_scc", "n_ccs": int(r["n_ccs"]),
             "cc_dropped": str(r.get("cc_dropped", {})),
+            "image_blocks": len(r.get("image_blocks", [])),
             "n_blocks": len(r["blocks"]), "n_sccs": r["n_sccs"],
             "edges_kept": int(keep.sum()) if len(keep) else 0,
             "edges_pruned": int((~keep).sum()) if len(keep) else 0,

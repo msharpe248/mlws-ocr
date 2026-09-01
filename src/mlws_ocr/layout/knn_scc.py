@@ -244,6 +244,7 @@ def segment(binary: np.ndarray, p: dict) -> dict:
     # a hollow frame is boxed TEXT -- the Fig-5 letterhead address lives
     # inside a drawn box, so containment alone must not delete it).
     n_dropped = {"small": 0, "big": 0, "nested": 0}
+    image_boxes: list[list[int]] = []
     if p.get("cc_min_px") or p.get("cc_max_factor") or p.get("cc_drop_nested"):
         w = (boxes[:, 2] - boxes[:, 0]).astype(float)
         h = (boxes[:, 3] - boxes[:, 1]).astype(float)
@@ -260,6 +261,12 @@ def segment(binary: np.ndarray, p: dict) -> dict:
             big = dim > p["cc_max_factor"] * cc_ref
             keep_cc &= ~big
             n_dropped["big"] = int(big.sum())
+            # A component too big to be a character is dropped from the
+            # GRAPH (it must not distort text linking) but it is not
+            # noise -- it is a photo, illustration or boxed region, and
+            # the segmentation must still account for it: dropped-big
+            # boxes return as image blocks (author's point, 2026).
+            image_boxes = [list(map(int, b)) for b in boxes[big]]
         if p.get("cc_drop_nested"):
             areas = np.bincount(labels.ravel())
             fill = areas[1:len(boxes) + 1] / np.maximum(w * h, 1)
@@ -275,11 +282,13 @@ def segment(binary: np.ndarray, p: dict) -> dict:
                 keep_cc &= ~inside
         boxes = boxes[keep_cc]
         if len(boxes) < 2:
-            return {"n_ccs": int(len(boxes)), "blocks": [], "boxes": boxes,
-                    "centers": np.zeros((0, 2)),
+            image_blocks = merge_overlapping(image_boxes)
+            return {"n_ccs": int(len(boxes)), "blocks": list(image_blocks),
+                    "boxes": boxes, "centers": np.zeros((0, 2)),
                     "edges": np.zeros((0, 2), int), "lengths": np.zeros(0),
                     "keep": np.zeros(0, bool), "comp": np.zeros(0, int),
-                    "n_sccs": 0, "cc_dropped": n_dropped}
+                    "n_sccs": 0, "cc_dropped": n_dropped,
+                    "image_blocks": image_blocks}
     if p.get("cc_merge_overlap"):
         boxes = np.array(merge_overlapping([list(b) for b in boxes]))
     n = len(boxes)
@@ -369,8 +378,14 @@ def segment(binary: np.ndarray, p: dict) -> dict:
     # Reading order: top-to-bottom, left-to-right by top-left corner
     # within horizontal bands (simple v1 -- the merit test is about
     # the BOXES; order refinement can come later).
+    # Image blocks (dropped-big components) rejoin the segmentation:
+    # merged among THEMSELVES only -- merging them with text blocks is
+    # the measured photo-weld hazard -- then interleaved in reading order.
+    image_blocks = merge_overlapping(image_boxes)
+    merged.extend([list(b) for b in image_blocks])
     merged.sort(key=lambda b: (b[1], b[0]))
 
     return {"n_ccs": n, "blocks": merged, "boxes": boxes, "centers": centers,
             "edges": edges, "lengths": lengths, "keep": keep,
-            "comp": comp, "n_sccs": int(n_comp), "cc_dropped": n_dropped}
+            "comp": comp, "n_sccs": int(n_comp), "cc_dropped": n_dropped,
+            "image_blocks": image_blocks}
