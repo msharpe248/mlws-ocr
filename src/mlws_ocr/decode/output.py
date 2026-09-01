@@ -1,9 +1,13 @@
 """Output assembly: reading-order text plus a structured JSON record."""
 from __future__ import annotations
 
+import re
+
 from ..core.artifacts import Page
 from ..core.registry import register
 from ..core.stage import DebugBundle, Stage
+
+_RE_DASHRUN = re.compile(r"-{3,}")
 
 
 @register
@@ -68,7 +72,18 @@ class TextOutput(Stage):
                              or flood))):
                     suppressed.append(" ".join(w["text"] for w in ln["words"]))
                     continue
-            text = " ".join(w["text"] for w in ln["words"])
+            # Dash-run scrub: printed text never contains '---'; runs of
+            # three or more come from underline fragments and signature
+            # scribbles decoding as hyphens (the confusion report's '-'
+            # insertions clustered exactly there once rejection retired).
+            toks = []
+            for w in ln["words"]:
+                t = _RE_DASHRUN.sub("", w["text"])
+                if t:
+                    toks.append(t)
+            if not toks:
+                continue
+            text = " ".join(toks)
             blocks.setdefault(ln.get("block", 0), []).append(text)
         full = "\n\n".join("\n".join(lines) for _, lines in sorted(blocks.items()))
 
