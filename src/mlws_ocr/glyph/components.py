@@ -59,6 +59,12 @@ class OverlapComponents(Stage):
     defaults = {
         "min_overlap": 0.5,      # fraction of the narrower box's width
         "min_area_300dpi": 4,    # ignore ink smaller than this (residual specks)
+        "merge_broken": True,      # propose unions of sub-glyph fragments
+        "merge_narrow_frac": 0.50,  # piece narrower than this x the line's
+                                    # median HEIGHT may be half a letter
+        "merge_max_factor": 1.05,   # ...if the union is still no wider
+                                    # than an ordinary character
+        "merge_max_gap_frac": 0.22, # ...and the pieces nearly touch
         "dotted_rule_min": 20,   # a "line" of this many DOT-sized groups is
                                  # a perforation/dotted rule, not text (one
                                  # receipt tear-off line emitted 313 junk
@@ -119,6 +125,34 @@ class OverlapComponents(Stage):
                         if cut is not None:
                             g["alt"] = [[x0, y0, x0 + cut, y1],
                                         [x0 + cut, y0, x1, y1]]
+            # Broken-character suspects (the inverse of the split
+            # hypothesis above).  Fine old-style serifs lose their thin
+            # top/bottom hairlines in print and scan, so a round letter
+            # arrives as two disconnected arcs: UNLV 8718 read "company"
+            # as "c(21III)any" because every 'o' was a '(' plus a ')'.
+            # A narrow piece whose union with its right neighbor is still
+            # no wider than an ordinary character gets a MERGE
+            # hypothesis; as with splits, nothing is committed here --
+            # the recognizer scores the union and the decoder chooses.
+            if merged and self.params["merge_broken"]:
+                # Scale reference is median HEIGHT, not width: on a page
+                # where letters break apart the median WIDTH is itself
+                # halved, so a width-based rule refuses exactly the
+                # merges it exists to propose (measured on UNLV 8718).
+                ref = float(np.median([g["box"][3] - g["box"][1]
+                                       for g in merged]))
+                narrow = self.params["merge_narrow_frac"] * ref
+                widest = self.params["merge_max_factor"] * ref
+                for a, b in zip(merged, merged[1:]):
+                    ax0, ay0, ax1, ay1 = a["box"]
+                    bx0, by0, bx1, by1 = b["box"]
+                    if bx0 - ax1 > self.params["merge_max_gap_frac"] * ref:
+                        continue
+                    if min(ax1 - ax0, bx1 - bx0) > narrow:
+                        continue          # neither piece is sub-glyph
+                    if bx1 - ax0 > widest:
+                        continue          # union too wide to be one char
+                    a["merge"] = [ax0, min(ay0, by0), bx1, max(ay1, by1)]
             ln["groups"] = merged
             all_boxes.extend(g["box"] for g in merged)
 

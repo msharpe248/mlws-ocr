@@ -89,6 +89,11 @@ class PrototypeRecognize(Stage):
                     m = page.binary[ay0:ay1, ax0:ax1]
                     crops.append(1.0 - m.astype(np.float32))
                     slots.append((li, gi, ai))
+                if "merge" in g:
+                    mx0, my0, mx1, my1 = g["merge"]
+                    m = page.binary[my0:my1, mx0:mx1]
+                    crops.append(1.0 - m.astype(np.float32))
+                    slots.append((li, gi, "m"))
                 x0, y0, x1, y1 = g["box"]
                 # Binary crops measured best overall (crop-mode study:
                 # gray wins on clean pages, binary on degraded; neither
@@ -190,6 +195,8 @@ class PrototypeRecognize(Stage):
                 packed = [[c, round(float(d), 3)] for c, d in cands]
                 if ai is None:
                     g["candidates"] = packed
+                elif ai == "m":
+                    g["merge_candidates"] = packed
                 else:
                     g.setdefault("alt_candidates", {})[str(ai)] = packed
 

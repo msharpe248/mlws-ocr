@@ -164,6 +164,14 @@ class BeamDecode(Stage):
                                   # (offsets the extra glyph+LM log terms a
                                   # longer path inevitably accumulates)
         "max_split_variants": 8,
+        "max_merge_variants": 8,   # broken-character (associator) variants
+        "merge_char_bonus": 0.0,   # NOT the mirror of split_char_bonus:
+                                   # a split ADDS a character and must
+                                   # offset the extra glyph+LM terms it
+                                   # accumulates, whereas a merge REMOVES
+                                   # one and its shorter path is already
+                                   # favoured.  Swept on dev-8: 0.0 best
+                                   # (91.1 char), 2.2 over-merges (90.8)
         "word_split": True,       # lexicon-driven missing-space repair
         "word_join": True,        # merge runs of short fragments whose
                                   # concatenation is a real word: letter-
@@ -882,21 +890,47 @@ class BeamDecode(Stage):
                 break
             variants = variants + [v | {i} for v in variants]
 
+        # Merge (broken-character) hypotheses: the inverse operation.
+        # Adjacent merges conflict, so a variant may not select both
+        # i and i+1.
+        mergeable = [i for i, g in enumerate(groups)
+                     if "merge_candidates" in g and i + 1 < len(groups)]
+        merge_sets = [frozenset()]
+        for i in mergeable:
+            if len(merge_sets) * 2 > p["max_merge_variants"]:
+                break
+            merge_sets = merge_sets + [v | {i} for v in merge_sets
+                                       if (i - 1) not in v]
+
         best = None
         for split_set in variants:
-            cand_seq = []
-            for i, g in enumerate(groups):
-                if i in split_set:
-                    ac = g["alt_candidates"]
-                    cand_seq.append({"candidates": ac["0"], "box": g["alt"][0]})
-                    cand_seq.append({"candidates": ac["1"], "box": g["alt"][1]})
-                else:
-                    cand_seq.append(g)
-            text, meta, score = self._beam_word(cand_seq, x_height, lm, p, reject_at)
-            score += p["split_char_bonus"] * len(split_set)
-            score += 2.0 if meta["in_lexicon"] else 0.0
-            if best is None or score > best[2]:
-                best = (text, meta, score)
+            for merge_set in merge_sets:
+                cand_seq, skip = [], False
+                for i, g in enumerate(groups):
+                    if skip:
+                        skip = False
+                        continue
+                    if i in merge_set and i not in split_set:
+                        cand_seq.append({"candidates": g["merge_candidates"],
+                                         "box": g["merge"]})
+                        skip = True          # the right piece is absorbed
+                    elif i in split_set:
+                        ac = g["alt_candidates"]
+                        cand_seq.append({"candidates": ac["0"],
+                                         "box": g["alt"][0]})
+                        cand_seq.append({"candidates": ac["1"],
+                                         "box": g["alt"][1]})
+                    else:
+                        cand_seq.append(g)
+                if not cand_seq:
+                    continue
+                text, meta, score = self._beam_word(cand_seq, x_height, lm, p,
+                                                    reject_at)
+                score += p["split_char_bonus"] * len(split_set)
+                score += p["merge_char_bonus"] * len(merge_set)
+                score += 2.0 if meta["in_lexicon"] else 0.0
+                if best is None or score > best[2]:
+                    best = (text, meta, score)
         return best
 
     def _beam_word(self, groups, x_height, lm: CharBigram, p,
