@@ -216,6 +216,43 @@ class BeamDecode(Stage):
         "words_path": "/usr/share/dict/words",
     }
 
+    @staticmethod
+    def _line_x_height(groups, baseline, page_x, heights) -> float:
+        """Robust per-line x-height for the case prior.
+
+        The naive median glyph height IS the cap height on all-caps
+        lines (letterheads, org names), so every capital scored as a
+        too-tall lowercase and whole words flipped case (measured: 225
+        of 519 upper->lower flips on broad-30 sat in ALL-CAPS words).
+        Ascents (baseline to top) are clustered 2-means: a bimodal line
+        yields its low mode (the true x-height); a unimodal line much
+        taller than the page's lowercase anchor is a caps line and uses
+        the page anchor instead.
+        """
+        fallback = float(np.median(heights))
+        asc = np.array([(baseline - g["box"][1]) if baseline is not None
+                        else g["box"][3] - g["box"][1] for g in groups],
+                       dtype=float)
+        asc = asc[asc > 0.3 * asc.max()] if len(asc) else asc
+        if len(asc) < 3:
+            return fallback
+        lo, hi = float(asc.min()), float(asc.max())
+        c_lo, c_hi = lo, hi
+        for _ in range(8):
+            assign = np.abs(asc - c_lo) <= np.abs(asc - c_hi)
+            if assign.all() or not assign.any():
+                break
+            c_lo, c_hi = float(asc[assign].mean()), float(asc[~assign].mean())
+        else:
+            assign = np.abs(asc - c_lo) <= np.abs(asc - c_hi)
+        if (assign.any() and (~assign).any()
+                and c_hi >= 1.3 * c_lo and assign.sum() >= 2):
+            return c_lo
+        med = float(np.median(asc))
+        if page_x > 0 and med >= 1.25 * page_x:
+            return page_x            # caps-suspect line: lowercase anchor
+        return fallback
+
     def run(self, page: Page) -> tuple[Page, DebugBundle]:
         layout = page.meta.get("layout", {})
         if "lines" not in layout:
@@ -250,6 +287,22 @@ class BeamDecode(Stage):
             reject_at = np.inf
 
         page_med = float(np.median(top1)) if len(top1) else 0.0
+
+        # Page x-height reference for the caps-line fix: the median over
+        # lines of each line's median glyph ascent.  Most lines are mixed
+        # body text whose median glyph is a plain x-height letter, so the
+        # page median is a sound lowercase anchor even though individual
+        # caps lines are inflated.
+        line_asc = []
+        for ln in layout["lines"]:
+            gs = [g for g in ln.get("groups", []) if "candidates" in g]
+            if len(gs) >= 3:
+                bl = ln.get("baseline")
+                line_asc.append(float(np.median(
+                    [(bl - g["box"][1]) if bl is not None
+                     else g["box"][3] - g["box"][1] for g in gs])))
+        page_x = float(np.median(line_asc)) if line_asc else 0.0
+
         n_reject = n_lm_override = n_joins = 0
         for ln in layout["lines"]:
             groups = [g for g in ln.get("groups", []) if "candidates" in g]
@@ -267,7 +320,8 @@ class BeamDecode(Stage):
                 if page_med and line_med > p["graphic_distance_factor"] * page_med:
                     ln["graphic_suspect"] = True
             heights = [g["box"][3] - g["box"][1] for g in groups]
-            x_height = float(np.median(heights))
+            x_height = self._line_x_height(groups, ln.get("baseline"),
+                                           page_x, heights)
             baseline = ln.get("baseline")
             if baseline is not None:
                 for g in groups:
