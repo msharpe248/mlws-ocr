@@ -1,5 +1,17 @@
 # Research provenance
 
+> **Historical note (added 2026-08-31).** Several techniques below turn out to
+> have direct precedent in the project author's own 1994 system — IDUR
+> (M. Sharpe, N. Ahmed & G. Sutcliffe, "An Intelligent Document Understanding
+> & Reproduction System," MVA '94, p. 267,
+> [PDF](http://b2.cvl.iis.u-tokyo.ac.jp/mva/proceedings/CommemorativeDVD/1994/papers/1994267.pdf)):
+> Hough skew correction via the same Hinds et al. (1990) reference our
+> `deskew.hough` cites, RLSA (whose noise sensitivity IDUR already noted),
+> text/picture/line-drawing block classification by image features (the
+> ancestor of our `imagezones`), and Nagy's X-Y trees. mlws-ocr re-derived
+> these independently before the paper resurfaced. The author's directional
+> k-NN + SCC segmenter (1996, `layout/knn_scc.py`) grew from the same work.
+
 Every algorithm and approach in mlws-ocr, with its lineage, where it lives
 in this codebase, and how our implementation deviates. Rule of the house:
 **a new algorithm does not land without an entry here and a docstring

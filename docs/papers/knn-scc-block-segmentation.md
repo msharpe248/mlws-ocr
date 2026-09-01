@@ -26,9 +26,15 @@ fixed-ratio guess.
 The algorithm was designed in 1996, inspired by O'Gorman's Docstrum, at the
 intersection of a layout-analysis thesis topic and an advanced algorithms
 course — nearest-neighbor geometry from the former, strongly connected
-components from the latter. It extends a line of document-understanding work
-the author had begun earlier at James Cook University of North Queensland
-(Sharpe, Ahmed & Sutcliffe, MVA '94). Its distinguishing property was that it needed
+components from the latter. It extends the author's earlier IDUR system at James
+Cook University of North Queensland (Sharpe, Ahmed & Sutcliffe, MVA '94),
+which already combined RLSA-plus-projection-profile segmentation,
+feature-based classification of text, picture and line-drawing blocks, X-Y
+trees, OCR with font extraction, and logical analysis via Definite Clause
+Grammars, reproducing scanned documents as LaTeX. (The mlws-ocr pipeline
+hosting this study independently re-derived several IDUR components —
+including Hough skew correction via the same Hinds et al. reference — before
+the 1994 paper resurfaced.) Its distinguishing property was that it needed
 essentially no prior knowledge of the document: no column model, no ruling
 assumptions, no script-specific spacing constants. It remained unimplemented
 until 2026, when the mlws-ocr project provided a full OCR pipeline to test it
@@ -122,7 +128,7 @@ seeing any results, measurably improves it.
 
 ## References
 
-- M. Sharpe, N. Ahmed & G. Sutcliffe, "An Intelligent Document Understanding & Reproduction System," Proc. IAPR Workshop on Machine Vision Applications (MVA '94), Kawasaki, p. 267, 1994.
+- M. Sharpe, N. Ahmed & G. Sutcliffe, "An Intelligent Document Understanding & Reproduction System," Proc. IAPR Workshop on Machine Vision Applications (MVA '94), Kawasaki, p. 267, 1994. [[PDF]](http://b2.cvl.iis.u-tokyo.ac.jp/mva/proceedings/CommemorativeDVD/1994/papers/1994267.pdf)
 - L. O'Gorman, "The Document Spectrum for Page Layout Analysis," IEEE PAMI 15(11), 1993.
 - G. Nagy & S. Seth, "Hierarchical Representation of Optically Scanned Documents," ICPR 1984.
 - T. M. Breuel, "Two Geometric Algorithms for Layout Analysis," DAS 2002.
