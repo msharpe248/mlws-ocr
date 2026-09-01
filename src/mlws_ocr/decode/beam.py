@@ -253,6 +253,98 @@ class BeamDecode(Stage):
             return page_x            # caps-suspect line: lowercase anchor
         return fallback
 
+    # First letters whose case twins pixels cannot separate: pure size
+    # twins plus the tall pairs (i/I with its dot merged, b/B, p/P).
+    _CASE_AMBIG = set("csouvwxzibp")
+    _ABBREV = {"mr", "mrs", "ms", "dr", "inc", "co", "corp", "no", "vs",
+               "etc", "jr", "sr", "st", "dept", "attn", "re"}
+
+    def _sentence_case_pass(self, layout, lm, p) -> int:
+        """Word-level case repair where pixels are silent.
+
+        The case-flip study left a tail that size evidence cannot reach:
+        sentence-initial capitals decoded lowercase, and word-start
+        i->I / b->B flips (the Capitalized pattern is legal there, the
+        LM is caseless, and the twins are pixel-identical).  English
+        orthography is the missing evidence: flip UP an ambiguous first
+        letter at sentence start; flip DOWN a lone Capitalized
+        corpus-frequent word mid-sentence -- unless a neighbor is also
+        capitalized (proper-noun runs: "San Antonio", "USAA Investment").
+
+        Up-flips are DOCUMENT-CALIBRATED: they apply only when the
+        document's own sentence starts with pixel-UNambiguous first
+        letters are predominantly capitalized (an all-lowercase document
+        -- or the lowercase synthetic fixtures -- must not have style
+        imposed on it).
+        """
+        seq = []                      # (word_dict, block_id, line_initial)
+        for ln in layout["lines"]:
+            if ln.get("graphic_suspect"):
+                continue
+            for wi, w in enumerate(ln.get("words", [])):
+                seq.append((w, ln.get("block", -1), wi == 0))
+        flips = 0
+
+        def _capitalized(t):
+            return len(t) >= 2 and t[0].isupper() and any(
+                c.islower() for c in t[1:] if c.isalpha())
+
+        # Sentence state: True / False / None (unknown).  A line-initial
+        # word after an unpunctuated line is UNKNOWN, not mid-sentence --
+        # unpunctuated breaks (headings, verse, list items) start
+        # sentences invisibly, and "Call" -> "call" flips were the cost.
+        starts = []
+        for i, (w, blk, line0) in enumerate(seq):
+            prev = seq[i - 1] if i > 0 else None
+            if prev is None or prev[1] != blk:
+                starts.append(True)   # new block = new paragraph
+            else:
+                pt = prev[0]["text"]
+                core = pt.lower().strip("'\".,;:!?()-")
+                if (pt.endswith((".", "!", "?", ":"))
+                        and len(core) >= 3
+                        and core not in self._ABBREV
+                        and not pt.rstrip(".!?:").isupper()):
+                    starts.append(True)
+                elif line0 and not pt.endswith((",", ";", "-")):
+                    starts.append(None)   # unknown across a line break
+                else:
+                    starts.append(False)
+        # Document calibration: does this text capitalize its sentences?
+        # Judge only on sentence starts whose first letter pixels CAN
+        # separate (outside the ambiguous set).
+        up = lo = 0
+        for (w, _, _), s in zip(seq, starts):
+            t = w["text"]
+            if s is True and t and t[0].isalpha() \
+                    and t[0].lower() not in self._CASE_AMBIG:
+                up += t[0].isupper()
+                lo += t[0].islower()
+        caps_style = up >= 3 and up >= 3 * max(lo, 1)
+
+        for i, (w, blk, _) in enumerate(seq):
+            t = w["text"]
+            if not t or not t[0].isalpha() or t[0].lower() not in self._CASE_AMBIG:
+                continue
+            nxt = seq[i + 1] if i + 1 < len(seq) else None
+            prev = seq[i - 1] if i > 0 else None
+            sent_start = starts[i]
+            rest_lower = all(c.islower() for c in t[1:] if c.isalpha())
+            if caps_style and sent_start is True and t[0].islower() \
+                    and rest_lower and len(t) >= 2:
+                w["text"] = t[0].upper() + t[1:]
+                flips += 1
+            elif (sent_start is False and _capitalized(t) and rest_lower
+                    and len(t.strip("'\".,;:!?()-")) >= 3
+                    and lm.frequency(t.lower().strip("'\".,;:!?()-")) > -10.0
+                    and not (prev and prev[1] == blk
+                             and prev[0]["text"][:1].isupper())
+                    and not (nxt and nxt[1] == blk
+                             and nxt[0]["text"][:1].isupper())):
+                w["text"] = t[0].lower() + t[1:]
+                flips += 1
+        return flips
+
     def run(self, page: Page) -> tuple[Page, DebugBundle]:
         layout = page.meta.get("layout", {})
         if "lines" not in layout:
@@ -370,10 +462,13 @@ class BeamDecode(Stage):
                         "in_lexicon": meta["in_lexicon"],
                     })
 
+        n_caseflips = self._sentence_case_pass(layout, lm, p)
+
         out = page.evolve()
         out.meta["layout"] = layout
         debug = DebugBundle(
             scalars={"n_words": sum(len(l.get("words", [])) for l in layout["lines"]),
+                     "case_flips": n_caseflips,
                      "language": language,
                      "lm_overrides": n_lm_override, "rejects": n_reject,
                      "fragment_joins": n_joins},
