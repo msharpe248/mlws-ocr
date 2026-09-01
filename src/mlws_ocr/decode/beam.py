@@ -31,6 +31,7 @@ TALL = set("bdfhklt" + "ij"  # dotted forms group to ascender height
            # a mark above lifts the group to ascender height:
            + "àâäéèêëîïíìôöòóùûüúñãÉÈÀÄÖÜß")
 DESCENDER = set("gjpqy" + "ç")   # cedilla hangs below the baseline
+PUNCT_TINY = set(".,'-\"")          # glyphs that live far below x-height
 
 # Which accented letters each supported language actually uses; once the
 # document's language is locked, accents outside its alphabet are almost
@@ -123,6 +124,13 @@ class BeamDecode(Stage):
         "lm_weight": 0.7,
         "lexicon_margin": 4.0,   # accept a lexicon word within this log-score
         "case_prior_scale": 1.0,
+        "descender_prior": 1.2,   # a glyph whose box crosses the line's
+                                  # baseline is a descender letter (p/y/g,
+                                  # not P/Y/D/9) and vice versa -- corpus
+                                  # confusion report: p->D x144, y->Y x85
+        "tiny_punct_prior": 1.5,  # a glyph under 40% of x-height is
+                                  # punctuation, not a letter ('.'->e/s/l
+                                  # x156, ','->s x66 in the corpus report)
         "case_change_penalty": 1.5,
         "foreign_accent_penalty": 2.5,  # accented candidate outside the
                                         # locked language's alphabet    # words are all-lower, Capitalized, or
@@ -236,6 +244,10 @@ class BeamDecode(Stage):
                     ln["graphic_suspect"] = True
             heights = [g["box"][3] - g["box"][1] for g in groups]
             x_height = float(np.median(heights))
+            baseline = ln.get("baseline")
+            if baseline is not None:
+                for g in groups:
+                    g["_baseline"] = baseline
 
             # Word boundaries: definite gaps split immediately; uncertain
             # gaps become variants the dictionary and LM vote on.
@@ -549,6 +561,25 @@ class BeamDecode(Stage):
                 for c in list(lp):
                     if c.isdigit():
                         lp[c] += p["digit_mode_boost"]
+            # Baseline-descender prior: geometry we always had but never
+            # consulted.  Crossing the baseline means a descender letter.
+            h_box = g["box"]
+            base = g.get("_baseline")
+            if base is not None and x_height > 0:
+                descends = h_box[3] > base + 0.18 * x_height
+                for c in list(lp):
+                    if c in DESCENDER:
+                        lp[c] += p["descender_prior"] if descends \
+                            else -p["descender_prior"]
+                    elif descends and (c.isupper() or c.isdigit()):
+                        lp[c] -= p["descender_prior"] * 0.7
+            # Tiny-glyph punctuation prior.
+            if x_height > 0 and (h_box[3] - h_box[1]) < 0.4 * x_height:
+                for c in list(lp):
+                    if c in PUNCT_TINY:
+                        lp[c] += p["tiny_punct_prior"]
+                    elif c.isalnum():
+                        lp[c] -= p["tiny_punct_prior"]
             allowed = LANG_ACCENTS.get(self._language, ALL_ACCENTS)
             for c in list(lp):
                 if c in ALL_ACCENTS and c not in allowed:
