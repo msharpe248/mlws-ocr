@@ -108,6 +108,17 @@ class KnnSccBlocks(Stage):
         "distance_mode": "centroid",  # "centroid" (1995 spec) or "edge"
                                       # (2026 refinement; see
                                       # directional_edges docstring)
+        "prune_scope": "global",   # "global": one threshold for all edges
+                                   # (1995 spec). "per_axis": separate
+                                   # factor x mean thresholds for
+                                   # horizontal, vertical and diagonal
+                                   # links (Docstrum estimated within-line
+                                   # and between-line spacing separately
+                                   # for the same reason): a global mean
+                                   # blends ~20px letter gaps with ~45px
+                                   # line gaps and cannot sit between
+                                   # line spacing and paragraph spacing,
+                                   # so paragraphs weld into one block.
         "prune_mad": None,         # if set: mean + k*1.4826*MAD -- robust
                                    # spread (photo-remnant outliers explode
                                    # sigma: mean+std collapsed newspapers
@@ -159,15 +170,39 @@ class KnnSccBlocks(Stage):
                                            mode=p["distance_mode"])
         sizes = np.maximum(boxes[:, 2] - boxes[:, 0],
                            boxes[:, 3] - boxes[:, 1]).astype(float)
-        if p["prune_mad"] is not None:
+        if p["prune_scope"] in ("per_axis", "per_axis_nn") and len(edges):
+            dxy = centers[edges[:, 1]] - centers[edges[:, 0]]
+            adx, ady = np.abs(dxy[:, 0]), np.abs(dxy[:, 1])
+            axis = np.where(adx >= 2 * ady, 0, np.where(ady >= 2 * adx, 1, 2))
+            global_keep = np.zeros(len(edges), bool)
+            for a in (0, 1, 2):
+                m = axis == a
+                if not m.any():
+                    continue
+                if p["prune_scope"] == "per_axis_nn":
+                    # The typographic spacing is the NEAREST link per node
+                    # (line pitch vertically, letter pitch horizontally);
+                    # the mean over all k-per-sector links is inflated by
+                    # 2nd/3rd neighbors and self-referential to k.
+                    nearest: dict[int, float] = {}
+                    for (src, _), L in zip(edges[m], lengths[m]):
+                        if L < nearest.get(int(src), np.inf):
+                            nearest[int(src)] = float(L)
+                    base = float(np.median(list(nearest.values())))
+                    global_keep[m] = lengths[m] <= p["prune_factor"] * base
+                else:
+                    global_keep[m] = (lengths[m]
+                                      <= p["prune_factor"] * lengths[m].mean())
+        elif p["prune_mad"] is not None:
             med = np.median(lengths)
             mad = np.median(np.abs(lengths - med))
-            cutoff = lengths.mean() + p["prune_mad"] * 1.4826 * mad
+            global_keep = lengths <= (lengths.mean()
+                                      + p["prune_mad"] * 1.4826 * mad)
         elif p["prune_std_k"] is not None:
-            cutoff = lengths.mean() + p["prune_std_k"] * lengths.std()
+            global_keep = lengths <= (lengths.mean()
+                                      + p["prune_std_k"] * lengths.std())
         else:
-            cutoff = p["prune_factor"] * lengths.mean()
-        global_keep = lengths <= cutoff
+            global_keep = lengths <= p["prune_factor"] * lengths.mean()
         if p["prune_mode"] == "global":
             keep = global_keep
         elif p["prune_mode"] == "relative":

@@ -130,6 +130,14 @@ hybrid keeps the global rule and additionally admits edges between *mutually
 large* characters (2–12× median size), giving headlines longer reach without
 extending body text's.
 
+**Granularity.** The pruning threshold is best understood as a
+granularity dial: the default lands at region level (letterhead fields
+separate; a letter's body coheres as one region), while tighter,
+axis-aware thresholds near the line pitch split the same body into
+paragraphs — at the cost of shattering letter-spaced display text. A
+segmentation hierarchy (regions → paragraphs → lines) is reachable by
+re-running the pruning at tighter thresholds within each component.
+
 **Edge-distance variant (2026).** A refinement replacing centroid
 distances with minimum edge-center distances — intended to shorten links
 and reduce large-component influence — measured exactly neutral on the
