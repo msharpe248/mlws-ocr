@@ -93,6 +93,12 @@ class KnnSccBlocks(Stage):
                                    # (display type reaches farther; body
                                    # text gains no new reach).
         "rel_factor": 2.0,
+        "prune_std_k": 1.0,        # global threshold = mean + k*std of edge
+                                   # lengths (the author's own refinement of
+                                   # the spec's 1.5x-mean guess; measured
+                                   # +0.4 char over the fixed ratio -- the
+                                   # spread-adaptive cut wins).  None falls
+                                   # back to prune_factor x mean.
         "large_char_factor": 2.0,  # "large" = size > this x median size
         "max_char_factor": 12.0,   # ...but below this cap: photo remnants
                                    # are huge and their long links weld
@@ -118,7 +124,11 @@ class KnnSccBlocks(Stage):
         edges, lengths = directional_edges(centers, p["k_per_dir"])
         sizes = np.maximum(boxes[:, 2] - boxes[:, 0],
                            boxes[:, 3] - boxes[:, 1]).astype(float)
-        global_keep = lengths <= p["prune_factor"] * lengths.mean()
+        if p["prune_std_k"] is not None:
+            cutoff = lengths.mean() + p["prune_std_k"] * lengths.std()
+        else:
+            cutoff = p["prune_factor"] * lengths.mean()
+        global_keep = lengths <= cutoff
         if p["prune_mode"] == "global":
             keep = global_keep
         elif p["prune_mode"] == "relative":
