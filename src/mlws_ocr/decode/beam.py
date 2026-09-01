@@ -183,11 +183,19 @@ class BeamDecode(Stage):
                                          # the page median is likely a logo
                                          # or graphic read as text (its
                                          # shapes match no prototype)
-        "reject_mads": 5.0,      # reject a glyph whose top-1 distance exceeds
-                                 # median + this many MADs of the page's own
-                                 # distances (a multiplicative rule was
-                                 # tightest exactly on clean pages, where the
-                                 # median is small)
+        "reject_mads": None,     # if set: reject a glyph whose top-1 distance
+                                 # exceeds median + this many MADs of the
+                                 # page's own distances (multiplicative rules
+                                 # were tightest exactly on clean pages).
+                                 # DEFAULT OFF (2026-09-01): with the
+                                 # harvest-strengthened prototypes every '?'
+                                 # is a guaranteed error while the beam+LM's
+                                 # best guess is usually right -- the old
+                                 # flat sweep (3-10) turned strictly
+                                 # monotonic-down; off measured +1.6 char
+                                 # +2.0 word on broad-30 over mads=5. The
+                                 # garbage-suppression gate, not per-glyph
+                                 # rejection, now owns junk-line defense.
         "default_language": "en", # used when a page carries too little text
                                   # to trust detection (a 9-word table page
                                   # was confidently "Italian")
@@ -234,7 +242,7 @@ class BeamDecode(Stage):
             lm = GruLM(self._load_gru(str(gru_path)), lm)
         top1 = np.array([g["candidates"][0][1] for ln in layout["lines"]
                          for g in ln.get("groups", []) if "candidates" in g])
-        if len(top1):
+        if len(top1) and p["reject_mads"] is not None:
             med = float(np.median(top1))
             mad = float(np.median(np.abs(top1 - med))) or med * 0.2
             reject_at = med + p["reject_mads"] * mad
