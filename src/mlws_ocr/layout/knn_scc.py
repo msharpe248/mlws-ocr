@@ -119,6 +119,16 @@ class KnnSccBlocks(Stage):
                                    # line gaps and cannot sit between
                                    # line spacing and paragraph spacing,
                                    # so paragraphs weld into one block.
+                                   # "per_axis_nn": per-axis cutoff =
+                                   # factor x median of each node's
+                                   # NEAREST link (the typographic
+                                   # pitch).  Reaches paragraph
+                                   # granularity but shatters
+                                   # letter-spaced display text, whose
+                                   # gaps exceed the body pitch -- the
+                                   # threshold is a granularity dial,
+                                   # and "global" sits at region level,
+                                   # which is what the pipeline wants.
         "prune_mad": None,         # if set: mean + k*1.4826*MAD -- robust
                                    # spread (photo-remnant outliers explode
                                    # sigma: mean+std collapsed newspapers
