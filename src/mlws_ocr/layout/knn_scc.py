@@ -105,6 +105,9 @@ class KnnSccBlocks(Stage):
     defaults = {
         "k_per_dir": 3,
         "prune_factor": 1.5,
+        "distance_mode": "centroid",  # "centroid" (1995 spec) or "edge"
+                                      # (2026 refinement; see
+                                      # directional_edges docstring)
         "prune_mad": None,         # if set: mean + k*1.4826*MAD -- robust
                                    # spread (photo-remnant outliers explode
                                    # sigma: mean+std collapsed newspapers

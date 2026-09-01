@@ -130,6 +130,14 @@ hybrid keeps the global rule and additionally admits edges between *mutually
 large* characters (2–12× median size), giving headlines longer reach without
 extending body text's.
 
+**Edge-distance variant (2026).** A refinement replacing centroid
+distances with minimum edge-center distances — intended to shorten links
+and reduce large-component influence — measured exactly neutral on the
+fixture and letters, but *inverted* the big-component bias on photo-heavy
+pages (near edges merge residual fragments into text). The two distance
+definitions trade biases by domain; centroid mode remains the default.
+(Figures in the HTML edition.)
+
 ## 5. Limitations and future work
 
 On photo-heavy magazine pages, overall word recall drops; the prime suspect is
