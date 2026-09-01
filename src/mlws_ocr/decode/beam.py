@@ -48,6 +48,14 @@ CASE_TWINS = ({c: c.upper() for c in "cosuvwxz"} | {"1": "l"}
               | {"é": "É", "è": "È", "à": "À", "ç": "Ç",
                  "ä": "Ä", "ö": "Ö", "ü": "Ü"})
 
+# Letter->digit twins, injected ONLY in digit mode: once a token's digit
+# evidence says "this is a number", a leading letter reading like 'l' in
+# "l993" or 'o' in "2o" gets its digit twin as a candidate even when the
+# digit itself missed the top-k ("357l", "92l23" measured on real letters).
+DIGIT_TWINS = {"l": "1", "I": "1", "i": "1", "|": "1", "o": "0", "O": "0",
+               "s": "5", "S": "5", "z": "2", "Z": "2", "B": "8", "g": "9",
+               "q": "9", "G": "6", "b": "6"}
+
 # Classic shape-confusion pairs, injected like case twins: when one is a
 # candidate, the other joins at a penalty so language context can
 # arbitrate.  Motivating case: a typewriter font where 'h' ranked below
@@ -551,6 +559,20 @@ class BeamDecode(Stage):
                     scored[twin] = (scored[a] - p["confusion_penalty"]
                                     + k * (_height_prior(twin, h, x_height)
                                            - _height_prior(a, h, x_height)))
+            if digit_mode:
+                for a, twin in DIGIT_TWINS.items():
+                    if a in scored and twin not in scored:
+                        scored[twin] = (scored[a] - 0.4
+                                        + p["digit_mode_boost"])
+                # A flat boost loses when adaptation leaves short, sharp
+                # candidate lists (measured: 'l' beat '1' by 1.5 nats on a
+                # 5-entry list).  The principle is categorical, not
+                # arithmetic: in a numeric token a letter reading with a
+                # digit twin in contention yields to the twin.
+                best = max(scored, key=scored.get)
+                twin = DIGIT_TWINS.get(best)
+                if twin and twin in scored:
+                    scored[twin] = scored[best] + 0.5
             per_glyph.append(scored)
 
         # Beam search with bigram transitions.
