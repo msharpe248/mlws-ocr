@@ -133,6 +133,9 @@ class BeamDecode(Stage):
         "tiny_punct_prior": 1.5,  # a glyph under 40% of x-height is
                                   # punctuation, not a letter ('.'->e/s/l
                                   # x156, ','->s x66 in the corpus report)
+        "punct_position_prior": 1.2,  # among tiny punct, vertical position
+                                      # picks the mark: '.' on baseline,
+                                      # ',' hangs, '-'/quotes float
         "case_change_penalty": 1.5,
         "foreign_accent_penalty": 2.5,  # accented candidate outside the
                                         # locked language's alphabet    # words are all-lower, Capitalized, or
@@ -873,6 +876,21 @@ class BeamDecode(Stage):
                         lp[c] += p["tiny_punct_prior"]
                     elif c.isalnum():
                         lp[c] -= p["tiny_punct_prior"]
+                # Tiny punctuation differs mostly by VERTICAL POSITION:
+                # '.' sits on the baseline, ',' hangs below it, '-' and
+                # apostrophes float above (corpus report: '.'->'-' x69,
+                # '.'->',' x51 -- pure position facts the shapes cannot
+                # settle at 3x4 pixels).
+                if base is not None:
+                    hangs = h_box[3] > base + 0.10 * x_height
+                    floats = h_box[3] < base - 0.25 * x_height
+                    on_base = not hangs and not floats
+                    fav = {".": on_base, ",": hangs, ";": hangs,
+                           "-": floats, "'": floats, '"': floats}
+                    for c in list(lp):
+                        if c in fav:
+                            lp[c] += (p["punct_position_prior"] if fav[c]
+                                      else -p["punct_position_prior"])
             allowed = LANG_ACCENTS.get(self._language, ALL_ACCENTS)
             for c in list(lp):
                 if c in ALL_ACCENTS and c not in allowed:
