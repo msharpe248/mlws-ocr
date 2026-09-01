@@ -190,6 +190,9 @@ class BeamDecode(Stage):
                                   # to trust detection (a 9-word table page
                                   # was confidently "Italian")
         "min_detect_chars": 60,   # minimum pseudo-text size for detection
+        "detect_margin": 0.08,    # a challenger language must beat the
+                                  # default by this calibrated-score margin
+                                  # (borderline flips on noisy top-1 text)
         "lang_model": "auto",     # "auto": detect among data/lang_*.npz by
                                   # trigram-scoring the pixel top-1 text,
                                   # then lock for the document (one language
@@ -207,7 +210,8 @@ class BeamDecode(Stage):
         language = "n/a"
         if p["lang_model"] == "auto":
             lm, language = self._detect_language(
-                layout, p["min_detect_chars"], p["default_language"])
+                layout, p["min_detect_chars"], p["default_language"],
+                p["detect_margin"])
             if lm is None:
                 lm = CharBigram.from_words(p["words_path"])
         elif Path(p["lang_model"]).exists():
@@ -314,7 +318,7 @@ class BeamDecode(Stage):
 
     @classmethod
     def _detect_language(cls, layout, min_chars: int = 60,
-                         default: str = "en"):
+                         default: str = "en", margin: float = 0.0):
         """Pick the language whose trigram model best explains the pixel
         top-1 reading (before any LM influence), then lock it.
 
@@ -366,8 +370,18 @@ class BeamDecode(Stage):
             score = total / n - model.baseline
             if best is None or score > best[0]:
                 best = (score, path)
+        best_lang = best[1].stem.removeprefix("lang_")
+        if margin and best_lang != default:
+            for path in candidates:
+                if path.stem == f"lang_{default}":
+                    m = cls._load_model(path)
+                    total = sum(m.word_logp(w) for w in pseudo)
+                    n = sum(len(w) + 1 for w in pseudo)
+                    if best[0] - (total / n - m.baseline) < margin:
+                        return m, default
+                    break
         model = cls._load_model(best[1])
-        return model, best[1].stem.removeprefix("lang_")
+        return model, best_lang
 
     @staticmethod
     def _mostly_nonwords(cores: list[str], lm) -> bool:

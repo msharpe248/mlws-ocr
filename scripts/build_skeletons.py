@@ -1,8 +1,9 @@
 """Build the skeleton-prototype bank for GED reranking.
 
-One skeleton graph per class per core font (clean 48 px renders) --
-structure, unlike texture, barely varies with degradation, so clean
-prototypes suffice.
+Skeleton graphs per class per core font, in OPERATOR-CONSISTENT variants:
+clean 48 px, 32 px (pipeline glyphs are small), and lightly blurred 32 px
+(Sauvola-thinned strokes lose thin bars -- an 'e' whose bar vanished must
+still find a matching prototype).
 
     .venv/bin/python scripts/build_skeletons.py [out.json]
 """
@@ -26,12 +27,17 @@ bank: dict = {}
 for ch in CHARSET:
     graphs = []
     for f in fonts:
-        try:
-            g = skeleton_graph(render_glyph(ch, f, px_height=48))
-        except Exception:
-            continue
-        if g["nodes"] or g["n_loops"]:
-            graphs.append(g)
+        for px, blur in ((48, 0.0), (32, 0.0), (32, 0.6)):
+            try:
+                glyph = render_glyph(ch, f, px_height=px)
+                if blur:
+                    from scipy import ndimage as ndi
+                    glyph = ndi.gaussian_filter(glyph, blur)
+                g = skeleton_graph(glyph)
+            except Exception:
+                continue
+            if g["nodes"] or g["n_loops"]:
+                graphs.append(g)
     if graphs:
         bank[ch] = graphs
 out.parent.mkdir(parents=True, exist_ok=True)

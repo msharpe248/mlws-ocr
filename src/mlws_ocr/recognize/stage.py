@@ -42,7 +42,8 @@ class PrototypeRecognize(Stage):
                                 # (isolated study: +1/+2/+1 across clean/
                                 # light/heavy WITH the gate; -5 heavy
                                 # without it)
-        "ged_scale": 25.0,
+        "ged_scale": 10.0,   # swept: 25 cost synthetic −1.1 avg; 10 keeps
+                             # the letters gain at −0.4 synthetic
         "ged_gate": 0.72,       # perimeter/area above this = skeleton
                                 # untrustworthy, skip rerank (flip noise)
         "ged_margin": 0.25,     # rerank only when features are UNSURE:
@@ -163,12 +164,23 @@ class PrototypeRecognize(Stage):
                             continue
                         q = skeleton_graph(crop)
                         cands = list(topk[n])
-                        rescored = []
+                        geds = {}
                         for rank, (c, d) in enumerate(cands):
                             graphs = bank.get(c)
                             if rank < self.params["ged_top"] and graphs:
-                                d = d + self.params["ged_scale"] * min(
-                                    _ged(q, g) for g in graphs)
+                                geds[c] = min(_ged(q, g) for g in graphs)
+                        if not geds:
+                            continue
+                        # Bank-uncovered candidates get the NEUTRAL (mean)
+                        # GED: without this, rescoring only covered classes
+                        # penalized them relative to uncovered ones, and
+                        # accented classes with no skeletons flooded top-1
+                        # ("the" -> "tnü").
+                        neutral = float(np.mean(list(geds.values())))
+                        rescored = []
+                        for rank, (c, d) in enumerate(cands):
+                            if rank < self.params["ged_top"]:
+                                d = d + self.params["ged_scale"] * geds.get(c, neutral)
                             rescored.append((c, d))
                         rescored.sort(key=lambda t: t[1])
                         topk[n] = rescored
