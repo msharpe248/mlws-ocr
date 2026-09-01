@@ -9,7 +9,16 @@ leave the ink before layout begins.  Two detectors, union'd:
 * giant components -- a connected blob far larger than any glyph
   (silhouettes, solid art, reversed-out panels);
 * dense regions -- coarse-scale ink density no text block reaches
-  (halftone dither fields).
+  (halftone dither fields);
+* large HOLLOW components -- line art (illustrations, envelope piles,
+  scribbles) is far larger than a glyph in BOTH dimensions yet sparsely
+  filled, so the well-filled rule misses it (cf. Fletcher & Kasturi's
+  size-based text/graphics separation, PAMI 1988);
+* zone absorption -- a large component TOUCHING a detected zone is a
+  remnant of the same graphic (found on UNLV 8509: the dense half of a
+  mailbag illustration was removed while its line-art envelope spill
+  stayed, welded two paragraphs into one unsplittable "line", and 348
+  chars of body text vanished).
 
 Zones are recorded in layout metadata and their ink removed from the
 working binary; everything else passes untouched.
@@ -39,6 +48,19 @@ class DensityImageZones(Stage):
                                   # page is not an image -- bold display
                                   # glyphs trip the density detector locally
                                   # (measured: headline letters got eaten)
+        "hollow_min_dim_300dpi": 120,  # hollow line-art rule: BOTH bbox dims
+                                       # must exceed this (several text lines
+                                       # tall AND wide -- display glyphs and
+                                       # letter-spaced logos are big in one
+                                       # dimension only)
+        "hollow_blob_frac": 0.001,     # ...and bbox area at least this
+                                       # fraction of the page
+        "absorb_factor": 4.0,     # a CC touching a zone joins it when its
+                                  # larger dim exceeds this x median CC dim
+                                  # (glyph-sized neighbors stay text)
+        "absorb_gap_300dpi": 12,  # "touching" tolerance -- scraps sit
+                                  # near, not on, their parent art
+                                  # (captions stand farther off)
     }
 
     def run(self, page: Page) -> tuple[Page, DebugBundle]:
@@ -51,17 +73,25 @@ class DensityImageZones(Stage):
 
         zone = np.zeros_like(b)
 
-        # Giant, well-filled components.
+        # Giant well-filled components, and large hollow line art.
         labels, n = ndimage.label(b)
+        slices = ndimage.find_objects(labels) if n else []
+        dims = []
+        hollow_dim = p["hollow_min_dim_300dpi"] * scale
         if n:
             areas = np.bincount(labels.ravel()); areas[0] = 0
-            for sl, lab in zip(ndimage.find_objects(labels), range(1, n + 1)):
+            for sl, lab in zip(slices, range(1, n + 1)):
                 if sl is None:
                     continue
                 h = sl[0].stop - sl[0].start
                 w = sl[1].stop - sl[1].start
+                dims.append(max(h, w))
                 if h * w >= p["min_blob_frac"] * page_area \
                         and areas[lab] / (h * w) >= p["min_blob_fill"]:
+                    zone[sl] |= labels[sl] == lab
+                elif h * w >= p["hollow_blob_frac"] * page_area \
+                        and min(h, w) >= hollow_dim:
+                    # big in BOTH dimensions but sparsely filled = line art
                     zone[sl] |= labels[sl] == lab
 
         # Dense coarse-scale regions (halftone fields).
@@ -72,6 +102,34 @@ class DensityImageZones(Stage):
         dense_full = ndimage.zoom(dense, np.array(b.shape) / np.array(dense.shape),
                                   order=0)
         zone |= dense_full[: b.shape[0], : b.shape[1]] & b
+
+        # Zone absorption: large components touching a detected zone are
+        # remnants of the same graphic (a partially-detected illustration
+        # sheds line-art pieces that weld into neighboring text blocks).
+        if n and zone.any():
+            med_dim = float(np.median(dims)) if dims else 0.0
+            big = med_dim * p["absorb_factor"]
+            gap = max(1, int(p["absorb_gap_300dpi"] * scale))
+            in_zone = np.zeros(n + 1, bool)
+            for _ in range(5):
+                dz = ndimage.binary_dilation(zone, iterations=gap)
+                changed = False
+                for sl, lab in zip(slices, range(1, n + 1)):
+                    if sl is None or in_zone[lab]:
+                        continue
+                    h = sl[0].stop - sl[0].start
+                    w = sl[1].stop - sl[1].start
+                    if max(h, w) < big:
+                        continue
+                    m = labels[sl] == lab
+                    if (m & zone[sl]).any():
+                        in_zone[lab] = True   # already inside
+                        continue
+                    if (m & dz[sl]).any():
+                        zone[sl] |= m
+                        in_zone[lab] = changed = True
+                if not changed:
+                    break
 
         grow = max(1, int(p["grow_px_300dpi"] * scale))
         zone = ndimage.binary_dilation(zone, iterations=grow) & b
