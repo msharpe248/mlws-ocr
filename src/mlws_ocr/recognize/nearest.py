@@ -55,20 +55,39 @@ class NearestPrototype:
     def _normalize(self, X: np.ndarray) -> np.ndarray:
         return (np.atleast_2d(X) - self.mean) / self.std
 
-    def predict_topk(self, X: np.ndarray, k: int = 5) -> list[list[tuple[str, float]]]:
-        """For each row, the top-k classes by nearest exemplar distance."""
+    def predict_topk(self, X: np.ndarray, k: int = 5,
+                     q: int = 1) -> list[list[tuple[str, float]]]:
+        """For each row, the top-k classes.
+
+        A class's score is the mean of its q nearest exemplars (q=1 is
+        plain 1-NN; q>1 smooths the noisy single-exemplar matches that
+        degraded glyphs produce).
+        """
         Q = self._normalize(X)
         # squared euclidean distances, queries x exemplars
         d2 = ((Q[:, None, :] - self.X[None, :, :]) ** 2).sum(axis=2)
         out = []
         for row in d2:
-            best: dict[int, float] = {}
-            for idx in np.argsort(row):
-                cls = int(self.y[idx])
-                if cls not in best:
-                    best[cls] = float(row[idx])
-                    if len(best) == k:
-                        break
+            if q <= 1:
+                best: dict[int, float] = {}
+                for idx in np.argsort(row):
+                    cls = int(self.y[idx])
+                    if cls not in best:
+                        best[cls] = float(row[idx])
+                        if len(best) == k:
+                            break
+            else:
+                best = {}
+                per_class: dict[int, list[float]] = {}
+                for idx in np.argsort(row):
+                    cls = int(self.y[idx])
+                    lst = per_class.setdefault(cls, [])
+                    if len(lst) < q:
+                        lst.append(float(row[idx]))
+                for cls, lst in per_class.items():
+                    if len(lst) == q:
+                        best[cls] = float(np.mean(lst))
+                best = dict(sorted(best.items(), key=lambda kv: kv[1])[:k])
             out.append([(self.classes[c], d) for c, d in
                         sorted(best.items(), key=lambda kv: kv[1])])
         return out

@@ -27,8 +27,8 @@ from eval_pages import PIPELINE  # noqa: E402
 from eval_unlv import find_pairs, normalize  # noqa: E402
 
 
-def align_ops(got: str, truth: str):
-    """Yield (op, got_char, truth_char) from an edit-distance backtrace."""
+def align_ops(got: str, truth: str, with_pos: bool = False):
+    """Yield (op, got_char, truth_char[, i, j]) from an edit backtrace."""
     n, m = len(got), len(truth)
     dp = np.zeros((n + 1, m + 1), np.int32)
     dp[:, 0] = np.arange(n + 1)
@@ -43,13 +43,16 @@ def align_ops(got: str, truth: str):
     while i > 0 or j > 0:
         if i > 0 and j > 0 and dp[i][j] == dp[i-1][j-1] + (got[i-1] != truth[j-1]):
             if got[i-1] != truth[j-1]:
-                yield ("sub", got[i-1], truth[j-1])
+                yield ("sub", got[i-1], truth[j-1], i, j) if with_pos \
+                    else ("sub", got[i-1], truth[j-1])
             i, j = i - 1, j - 1
         elif i > 0 and dp[i][j] == dp[i-1][j] + 1:
-            yield ("ins", got[i-1], None)
+            yield ("ins", got[i-1], None, i, j) if with_pos \
+                else ("ins", got[i-1], None)
             i -= 1
         else:
-            yield ("del", None, truth[j-1])
+            yield ("del", None, truth[j-1], i, j) if with_pos \
+                else ("del", None, truth[j-1])
             j -= 1
 
 
@@ -64,6 +67,7 @@ def main():
     pairs = list(find_pairs(args.root))
     random.Random(args.seed).shuffle(pairs)
     subs, ins, dels = Counter(), Counter(), Counter()
+    sp_ins_ctx, sp_del_ctx = Counter(), Counter()
     n_ops = 0
     for tif, gt in pairs[: args.pages]:
         truth = normalize(gt.read_text(errors="ignore"))
@@ -77,14 +81,19 @@ def main():
             print(f"  {tif.name}: ERROR {e}")
             continue
         got = normalize(page.meta.get("text", ""))
-        for op, g, t in align_ops(got, truth):
+        for tup in align_ops(got, truth, with_pos=True):
+            op, g, t, i, j = tup
             n_ops += 1
             if op == "sub":
                 subs[(t, g)] += 1
             elif op == "ins":
                 ins[g] += 1
+                if g == " ":
+                    sp_ins_ctx[got[max(i-3, 0):i-1] + "_" + got[i:i+2]] += 1
             else:
                 dels[t] += 1
+                if t == " ":
+                    sp_del_ctx[truth[max(j-3, 0):j-1] + "_" + truth[j:j+2]] += 1
 
     total = sum(subs.values()) + sum(ins.values()) + sum(dels.values())
     print(f"\n{total} errors ({sum(subs.values())} sub, "
@@ -94,6 +103,12 @@ def main():
         print(f"  {t!r} -> {g!r}  x{n}")
     print("\nTop insertions (got):", ins.most_common(15))
     print("Top deletions (truth):", dels.most_common(15))
+    print("\nInserted-space contexts (around_the_cut):")
+    for c, n in sp_ins_ctx.most_common(20):
+        print(f"  {c!r} x{n}")
+    print("\nDeleted-space contexts:")
+    for c, n in sp_del_ctx.most_common(20):
+        print(f"  {c!r} x{n}")
 
 
 if __name__ == "__main__":

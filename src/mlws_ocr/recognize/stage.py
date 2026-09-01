@@ -23,7 +23,8 @@ class PrototypeRecognize(Stage):
     impl = "prototypes"
     defaults = {
         "model_path": "data/prototypes.npz",
-        "top_k": 14,  # candidate depth: 5->8->10 gained +2 then +4 char
+        "top_k": 14,
+        "class_q": 1,  # exemplars averaged per class score (see nearest.py)  # candidate depth: 5->8->10 gained +2 then +4 char
                       # on real scans (truth for unseen fonts sits deep
                       # in the ranking). Raised 10->14 when accented
                       # classes landed: accent variants crowd their base
@@ -111,12 +112,15 @@ class PrototypeRecognize(Stage):
                         else:
                             m = page_model
                         for i, t in zip(idx, m.predict_topk(
-                                X[idx], k=self.params["top_k"])):
+                                X[idx], k=self.params["top_k"],
+                                q=self.params["class_q"])):
                             topk[i] = t
                 else:
-                    topk = page_model.predict_topk(X, k=self.params["top_k"])
+                    topk = page_model.predict_topk(X, k=self.params["top_k"],
+                                                   q=self.params["class_q"])
             else:
-                topk = model.predict_topk(X, k=self.params["top_k"])
+                topk = model.predict_topk(X, k=self.params["top_k"],
+                                          q=self.params["class_q"])
             for (li, gi, ai), cands in zip(slots, topk):
                 g = layout["lines"][li]["groups"][gi]
                 packed = [[c, round(float(d), 3)] for c, d in cands]
