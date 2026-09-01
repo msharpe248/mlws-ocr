@@ -42,7 +42,10 @@ from eval_unlv import find_pairs  # noqa: E402
 def eval_pages_set(root: Path) -> set:
     """The exact pages the standard evaluations draw -- never harvested."""
     excluded = set()
-    for seed, count in ((1, 8), (2, 30)):
+    # Seed-1 draws are used at up to 10 pages (eval_unlv default) and
+    # seed-2 at 30; exclude 30 from BOTH so any standard-sized eval on
+    # either seed stays contamination-free.
+    for seed, count in ((1, 30), (2, 30)):
         pairs = list(find_pairs(root))
         random.Random(seed).shuffle(pairs)
         excluded.update(t.name for t, _ in pairs[:count])
