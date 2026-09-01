@@ -44,7 +44,15 @@ class TextOutput(Stage):
                 repeat = max(counts.values()) / max(len(text_all), 1)
                 single = sum(1 for w in ln["words"] if len(w["text"]) == 1)
                 flood = len(ln["words"]) >= 10 and single >= 0.8 * len(ln["words"])
-                if (not any(w["in_lexicon"] for w in ln["words"])
+                # Graphic-suspect lines (pixel distances far above page
+                # median = shapes matching no prototype) are suppressed
+                # unless a substantial real word survived -- protects
+                # misread-but-real text, whose distances are normal.
+                graphic = (ln.get("graphic_suspect")
+                           and not any(w["in_lexicon"] and len(w["text"]) >= 4
+                                       for w in ln["words"]))
+                if graphic or (
+                        not any(w["in_lexicon"] for w in ln["words"])
                         and sum(confs) / len(confs) < self.params["garbage_max_conf"]
                         and (repeat >= self.params["garbage_repeat_frac"]
                              or flood)):

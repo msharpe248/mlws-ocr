@@ -168,6 +168,11 @@ class BeamDecode(Stage):
         "word_penalty": 2.5,     # per extra word, so frequent short words
                                  # don't shred every uncertain gap
         "max_gap_variants": 8,
+        "graphic_distance_factor": 1.7,  # a line whose median top-1
+                                         # distance exceeds this multiple of
+                                         # the page median is likely a logo
+                                         # or graphic read as text (its
+                                         # shapes match no prototype)
         "reject_mads": 5.0,      # reject a glyph whose top-1 distance exceeds
                                  # median + this many MADs of the page's own
                                  # distances (a multiplicative rule was
@@ -212,12 +217,23 @@ class BeamDecode(Stage):
         else:
             reject_at = np.inf
 
+        page_med = float(np.median(top1)) if len(top1) else 0.0
         n_reject = n_lm_override = n_joins = 0
         for ln in layout["lines"]:
             groups = [g for g in ln.get("groups", []) if "candidates" in g]
             if not groups:
                 ln["words"] = []
                 continue
+            # Graphic detection uses PASS-1 (universal) distances only:
+            # adaptation pins repeated logo strokes into perfect self-
+            # matches (a junk line measured median distance 0.0 after
+            # rescoring), erasing the signature.
+            if not ln.get("graphic_checked"):
+                ln["graphic_checked"] = True
+                line_med = float(np.median([g["candidates"][0][1]
+                                            for g in groups]))
+                if page_med and line_med > p["graphic_distance_factor"] * page_med:
+                    ln["graphic_suspect"] = True
             heights = [g["box"][3] - g["box"][1] for g in groups]
             x_height = float(np.median(heights))
 

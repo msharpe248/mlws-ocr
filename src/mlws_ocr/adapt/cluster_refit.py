@@ -71,10 +71,13 @@ class ClusterRefit(Stage):
 
     def run(self, page: Page) -> tuple[Page, DebugBundle]:
         layout = page.meta.get("layout", {})
+        # Graphic-suspect lines (flagged from pass-1 universal distances)
+        # are excluded wholesale: repeated logo strokes cluster perfectly
+        # and would become confident junk prototypes.
         slots = [(li, gi)
                  for li, ln in enumerate(layout.get("lines", []))
                  for gi, g in enumerate(ln.get("groups", []))
-                 if "candidates" in g]
+                 if "candidates" in g and not ln.get("graphic_suspect")]
         if len(slots) < 10:
             return page.evolve(), DebugBundle(
                 scalars={"n_labeled_clusters": 0},
