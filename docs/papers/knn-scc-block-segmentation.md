@@ -1,6 +1,6 @@
 # Block Segmentation by Directional k-Nearest-Neighbor Graphs and Strongly Connected Components
 
-**Michael Sharpe** — algorithm (1996); empirical study in the mlws-ocr project (2026).
+**Michael Sharpe** — algorithm (1995); empirical study in the mlws-ocr project (2026).
 
 ## Abstract
 
@@ -23,7 +23,7 @@ fixed-ratio guess.
 
 ## 1. History
 
-The algorithm was designed in 1996, inspired by O'Gorman's Docstrum, at the
+The algorithm was designed in 1995, inspired by O'Gorman's Docstrum, at the
 intersection of a layout-analysis thesis topic and an advanced algorithms
 course — nearest-neighbor geometry from the former, strongly connected
 components from the latter. It extends the author's earlier IDUR system at James
@@ -95,7 +95,7 @@ implemented segmenters. On scanned business letters (8-page UNLV bus.3B
 sample, end-to-end character accuracy): **79.7–80.2%** untuned versus 81.2%
 for the hand-tuned XY-cut incumbent.
 
-**Threshold study.** The 1996 spec guessed τ = 1.5 × mean. The author's 2026
+**Threshold study.** The 1995 spec guessed τ = 1.5 × mean. The author's 2026
 suggestion — τ = mean + k·σ — was tested at k ∈ {1, 1.5, 2}: k = 1 gives
 +0.4 char on letters over the fixed ratio (80.2% vs 79.8%) with the fixture
 unchanged; it is now the default.

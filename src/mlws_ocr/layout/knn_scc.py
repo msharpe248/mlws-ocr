@@ -1,7 +1,7 @@
 """Block segmentation by directional k-NN graph + strongly connected
 components.
 
-User-contributed algorithm (M. Sharpe, designed years before this
+User-contributed algorithm (M. Sharpe, 1995, designed decades before this
 project; implemented here to test its merit).  Kinship: R. O'Gorman's
 Docstrum (PAMI 1993) also builds layout from k-NN over connected
 components, but uses angle/distance histograms and transitive closure;

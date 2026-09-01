@@ -10,7 +10,7 @@
 > text/picture/line-drawing block classification by image features (the
 > ancestor of our `imagezones`), and Nagy's X-Y trees. mlws-ocr re-derived
 > these independently before the paper resurfaced. The author's directional
-> k-NN + SCC segmenter (1996, `layout/knn_scc.py`) grew from the same work.
+> k-NN + SCC segmenter (1995, `layout/knn_scc.py`) grew from the same work.
 
 Every algorithm and approach in mlws-ocr, with its lineage, where it lives
 in this codebase, and how our implementation deviates. Rule of the house:
