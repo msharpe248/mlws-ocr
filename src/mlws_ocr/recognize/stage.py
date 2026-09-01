@@ -14,7 +14,18 @@ from ..core.artifacts import Page
 from ..core.registry import register
 from ..core.stage import DebugBundle, Stage
 from ..glyph.features import extract_features
+from ..glyph.skeleton import skeleton_graph
 from .nearest import NearestPrototype
+
+_SKELETON_BANK: dict = {}
+
+
+def _load_bank(path: str) -> dict:
+    if path not in _SKELETON_BANK:
+        import json
+        p = Path(path)
+        _SKELETON_BANK[path] = json.loads(p.read_text()) if p.exists() else {}
+    return _SKELETON_BANK[path]
 
 
 @register
@@ -24,7 +35,23 @@ class PrototypeRecognize(Stage):
     defaults = {
         "model_path": "data/prototypes.npz",
         "top_k": 14,
-        "class_q": 1,  # exemplars averaged per class score (see nearest.py)  # candidate depth: 5->8->10 gained +2 then +4 char
+        "class_q": 1,  # exemplars averaged per class score (see nearest.py)
+        "ged_rerank": True,     # skeleton-graph GED second opinion on the
+                                # top candidates -- gated by edge roughness,
+                                # because degraded skeletons are noise
+                                # (isolated study: +1/+2/+1 across clean/
+                                # light/heavy WITH the gate; -5 heavy
+                                # without it)
+        "ged_scale": 25.0,
+        "ged_gate": 0.72,       # perimeter/area above this = skeleton
+                                # untrustworthy, skip rerank (flip noise)
+        "ged_margin": 0.25,     # rerank only when features are UNSURE:
+                                # (d2-d1)/d1 below this -- blur corrupts
+                                # skeletons while smoothing roughness, and
+                                # unguarded GED overrode correct confident
+                                # calls (synthetic sev2 crashed -13 word)
+        "ged_top": 6,           # candidates rescored per glyph
+        "skeleton_bank": "data/skeletons.json",  # candidate depth: 5->8->10 gained +2 then +4 char
                       # on real scans (truth for unseen fonts sits deep
                       # in the ranking). Raised 10->14 when accented
                       # classes landed: accent variants crowd their base
@@ -121,6 +148,31 @@ class PrototypeRecognize(Stage):
             else:
                 topk = model.predict_topk(X, k=self.params["top_k"],
                                           q=self.params["class_q"])
+            if self.params["ged_rerank"]:
+                from ..factory.fit_theta import glyph_stats
+                from .ged import ged as _ged
+                bank = _load_bank(self.params["skeleton_bank"])
+                if bank:
+                    for n, crop in enumerate(crops):
+                        cands0 = topk[n]
+                        if len(cands0) >= 2 and cands0[0][1] > 0 and \
+                                (cands0[1][1] - cands0[0][1]) / cands0[0][1] \
+                                > self.params["ged_margin"]:
+                            continue    # features are sure; leave alone
+                        if glyph_stats(crop)[2] >= self.params["ged_gate"]:
+                            continue
+                        q = skeleton_graph(crop)
+                        cands = list(topk[n])
+                        rescored = []
+                        for rank, (c, d) in enumerate(cands):
+                            graphs = bank.get(c)
+                            if rank < self.params["ged_top"] and graphs:
+                                d = d + self.params["ged_scale"] * min(
+                                    _ged(q, g) for g in graphs)
+                            rescored.append((c, d))
+                        rescored.sort(key=lambda t: t[1])
+                        topk[n] = rescored
+
             for (li, gi, ai), cands in zip(slots, topk):
                 g = layout["lines"][li]["groups"][gi]
                 packed = [[c, round(float(d), 3)] for c, d in cands]
