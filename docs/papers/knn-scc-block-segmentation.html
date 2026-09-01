@@ -209,6 +209,16 @@ sample, end-to-end character/word accuracy through the full OCR pipeline. The
 spread-adaptive threshold &mdash; proposed by the author before seeing any
 results &mdash; wins and is now the default.</p>
 
+<p><strong>Cross-domain caveat (added after wider testing).</strong> The
+table above is letters-plus-fixture; on photo-heavy newspaper pages,
+spread-based thresholds (mean&nbsp;+&nbsp;k&sigma;, and MAD variants)
+collapse the page to a single block &mdash; residual image fragments give
+the edge-length distribution a heavy tail that inflates any spread
+statistic. The 1995 ratio rule (1.5&nbsp;&times;&nbsp;mean) is the
+domain-robust choice and is the implementation default; the
+spread-adaptive rule remains available where the domain is known to be
+clean text.</p>
+
 <p><strong>Threshold insensitivity.</strong> The striking feature of the
 table is how little the threshold matters: every variant lands within 1.2
 char points and the fixture stays at IoU&nbsp;1.00 throughout. This is a

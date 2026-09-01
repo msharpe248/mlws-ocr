@@ -32,25 +32,47 @@ from ..core.registry import register
 from ..core.stage import DebugBundle, Stage
 
 
+def edge_centers(boxes: np.ndarray) -> np.ndarray:
+    """(N, 4, 2) midpoints of each box's left/right/top/bottom edges."""
+    x0, y0, x1, y1 = boxes[:, 0], boxes[:, 1], boxes[:, 2], boxes[:, 3]
+    cx, cy = (x0 + x1) / 2, (y0 + y1) / 2
+    return np.stack([np.stack([x0, cy], 1), np.stack([x1, cy], 1),
+                     np.stack([cx, y0], 1), np.stack([cx, y1], 1)], axis=1)
+
+
 def directional_edges(centers: np.ndarray, k_per_dir: int,
-                      candidates: int = 40) -> tuple[np.ndarray, np.ndarray]:
-    """(edges Nx2, lengths N): 3 nearest per 45-degree sector per node."""
+                      candidates: int = 40, boxes: np.ndarray | None = None,
+                      mode: str = "centroid") -> tuple[np.ndarray, np.ndarray]:
+    """(edges Nx2, lengths N): k nearest per 45-degree sector per node.
+
+    mode "centroid": lengths are centroid distances (the 1995 spec).
+    mode "edge" (author's 2026 refinement): lengths are the minimum
+    distance between the two boxes' EDGE-CENTER points -- connections
+    stay short, and a big component (whose centroid sits far from where
+    it meets its neighbor) no longer inflates its own link lengths.
+    Sector classification stays centroid-based in both modes; only the
+    length -- and therefore both the k-per-sector choice and the pruning
+    statistics -- changes.
+    """
     tree = cKDTree(centers)
     k = min(len(centers), candidates)
     dists, idxs = tree.query(centers, k=k)
+    ec = edge_centers(boxes) if mode == "edge" else None
     edges, lengths = [], []
     for i in range(len(centers)):
-        best: dict[int, list[tuple[float, int]]] = {d: [] for d in range(8)}
+        cand: dict[int, list[tuple[float, int]]] = {d: [] for d in range(8)}
         for d, j in zip(dists[i][1:], idxs[i][1:]):
             if j == i or not np.isfinite(d):
                 continue
+            if mode == "edge":
+                diff = ec[i][:, None, :] - ec[int(j)][None, :, :]
+                d = float(np.sqrt((diff ** 2).sum(axis=2)).min())
             dx = centers[j][0] - centers[i][0]
             dy = centers[j][1] - centers[i][1]
             sector = int(((np.arctan2(dy, dx) + np.pi) / (np.pi / 4))) % 8
-            if len(best[sector]) < k_per_dir:
-                best[sector].append((d, int(j)))
-        for sector, items in best.items():
-            for d, j in items:
+            cand[sector].append((float(d), int(j)))
+        for sector, items in cand.items():
+            for d, j in sorted(items)[:k_per_dir]:
                 edges.append((i, j))
                 lengths.append(d)
     return np.array(edges), np.array(lengths)
@@ -83,6 +105,10 @@ class KnnSccBlocks(Stage):
     defaults = {
         "k_per_dir": 3,
         "prune_factor": 1.5,
+        "prune_mad": None,         # if set: mean + k*1.4826*MAD -- robust
+                                   # spread (photo-remnant outliers explode
+                                   # sigma: mean+std collapsed newspapers
+                                   # to ONE block)
         "prune_mode": "hybrid",    # "global": original spec (factor x mean
                                    # length) -- excellent for body text,
                                    # fragments display headlines.  "relative"
@@ -93,7 +119,11 @@ class KnnSccBlocks(Stage):
                                    # (display type reaches farther; body
                                    # text gains no new reach).
         "rel_factor": 2.0,
-        "prune_std_k": 1.0,        # global threshold = mean + k*std of edge
+        "prune_std_k": None,       # mean + k*std of edge lengths: +0.4 on
+                                   # letters but photo-remnant outliers
+                                   # explode sigma and COLLAPSE newspapers
+                                   # to one block -- the 1995 spec's
+                                   # 1.5x mean is the domain-robust default
                                    # lengths (the author's own refinement of
                                    # the spec's 1.5x-mean guess; measured
                                    # +0.4 char over the fixed ratio -- the
@@ -121,10 +151,16 @@ class KnnSccBlocks(Stage):
         centers = np.column_stack([(boxes[:, 0] + boxes[:, 2]) / 2,
                                    (boxes[:, 1] + boxes[:, 3]) / 2])
 
-        edges, lengths = directional_edges(centers, p["k_per_dir"])
+        edges, lengths = directional_edges(centers, p["k_per_dir"],
+                                           boxes=boxes,
+                                           mode=p["distance_mode"])
         sizes = np.maximum(boxes[:, 2] - boxes[:, 0],
                            boxes[:, 3] - boxes[:, 1]).astype(float)
-        if p["prune_std_k"] is not None:
+        if p["prune_mad"] is not None:
+            med = np.median(lengths)
+            mad = np.median(np.abs(lengths - med))
+            cutoff = lengths.mean() + p["prune_mad"] * 1.4826 * mad
+        elif p["prune_std_k"] is not None:
             cutoff = lengths.mean() + p["prune_std_k"] * lengths.std()
         else:
             cutoff = p["prune_factor"] * lengths.mean()

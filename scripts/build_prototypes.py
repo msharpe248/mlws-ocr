@@ -107,10 +107,13 @@ for font in fonts:
 # frequent letters from swamping the pool, and an outlier filter drops
 # exemplars far from their class medoid -- one mislabeled 'e' stored
 # under 'c' would be a perfect decoy for every future 'e'.
-harvest = Path("data/harvest_en.npz")
-if harvest.exists():
-    hv = np.load(harvest, allow_pickle=False)
-    hX, hl, hf = hv["X"], hv["labels"], hv["families"]
+harvest_files = sorted(Path("data").glob("harvest_*.npz"))
+harvest_files = [h for h in harvest_files if "backup" not in h.name]
+if harvest_files:
+    parts = [np.load(h, allow_pickle=False) for h in harvest_files]
+    hX = np.concatenate([pt["X"] for pt in parts])
+    hl = np.concatenate([pt["labels"] for pt in parts])
+    hf = np.concatenate([pt["families"] for pt in parts])
     rng = np.random.default_rng(3)
     added = 0
     CAP = 80   # swept: 250 diluted (dev-8 −1.5 char/−5.5 word)
@@ -129,7 +132,8 @@ if harvest.exists():
             labels.append(str(hl[i]))
             tags.append(str(hf[i]))
         added += len(keep)
-    print(f"merged {added} harvested real exemplars from {harvest}")
+    print(f"merged {added} harvested real exemplars from "
+          f"{[h.name for h in harvest_files]}")
 
 model = NearestPrototype().fit(np.array(X), labels, tags=tags)
 import pathlib; pathlib.Path(out_path).parent.mkdir(parents=True, exist_ok=True)

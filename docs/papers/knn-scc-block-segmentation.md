@@ -100,6 +100,15 @@ suggestion — τ = mean + k·σ — was tested at k ∈ {1, 1.5, 2}: k = 1 give
 +0.4 char on letters over the fixed ratio (80.2% vs 79.8%) with the fixture
 unchanged; it is now the default.
 
+**Cross-domain caveat (added after wider testing).** The table above is
+letters-plus-fixture; on photo-heavy newspaper pages, spread-based
+thresholds (mean + k·σ, and MAD variants) collapse the page to a single
+block — residual image fragments give the edge-length distribution a heavy
+tail that inflates any spread statistic. The 1995 ratio rule (1.5 × mean)
+is the domain-robust choice and is the implementation default; the
+spread-adaptive rule remains available where the domain is known to be
+clean text.
+
 **Threshold insensitivity.** The striking feature of the table is how little
 the threshold matters: every variant lands within 1.2 char points and the
 fixture stays at IoU 1.00 throughout. This is a property of the clustering
