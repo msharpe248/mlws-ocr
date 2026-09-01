@@ -157,6 +157,35 @@ pages (near edges merge residual fragments into text). The two distance
 definitions trade biases by domain; centroid mode remains the default.
 (Figures in the HTML edition.)
 
+**Pooled-k link collection (2026).** A second refinement by the author,
+prompted by watching single lines in the segmentation lab: the
+per-sector quota *guarantees* every direction is used, so a character
+on an isolated line is forced into long north/south links however far
+the next line is — and a bullet marker welds to the list entry below
+it. The refinement pools the per-sector candidates and keeps only the
+k_total shortest links per node. Two sub-refinements proved necessary:
+display-size characters are exempt from pooling (a pooled top-k
+measured against body text starves headline links), and the size
+reference must exclude specks (newsprint's median component is a
+3–5px dot). Measured with k_total=5, factor 1.8: the Figure 5 letter
+yields its best segmentation under any configuration tested — 19
+blocks with every bullet item, paragraph and letterhead field separate;
+fixture IoU 1.00; newspaper columns each one clean block. Downstream
+OCR slightly prefers the 1995 spec (89.2 vs 88.6% char on the
+development letters — finer blocks fragment reading order), so the
+spec remains the default and pooled-k is the layout analyst's dial: at
+k_total=3 the pruning threshold stops mattering entirely, because
+which links *exist*, not which survive, sets the granularity.
+
+Whether each bullet *should* be its own block is not a geometric
+question: strictly by whitespace they are separate, and composing them
+into a list is a logical operation. The author's 1994 IDUR system
+already drew this line — bullets were detected geometrically, and a
+definite-clause grammar recognized a bullet list as one-or-more
+bullets. The same layering, whitespace-honest segmentation below a
+grammar-based logical composer, is the natural consumer of pooled-k
+output.
+
 ## 5. Limitations and future work
 
 On photo-heavy magazine pages, overall word recall drops; the prime suspect is
