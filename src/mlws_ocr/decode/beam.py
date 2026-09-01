@@ -24,6 +24,7 @@ from ..core.registry import register
 from ..core.stage import DebugBundle, Stage
 from pathlib import Path
 
+from ..lang.gru import CharGRU, GruLM
 from ..lang.model import CharBigram, CorpusModel
 
 TALL = set("bdfhklt" + "ij"  # dotted forms group to ascender height
@@ -193,6 +194,10 @@ class BeamDecode(Stage):
         "detect_margin": 0.08,    # a challenger language must beat the
                                   # default by this calibrated-score margin
                                   # (borderline flips on noisy top-1 text)
+        "char_lm": "data/gru_{lang}.npz",  # per-language GRU character LM
+                                  # (the project's own trained model); the
+                                  # trigram remains the fallback when no
+                                  # weights exist for the locked language
         "lang_model": "auto",     # "auto": detect among data/lang_*.npz by
                                   # trigram-scoring the pixel top-1 text,
                                   # then lock for the document (one language
@@ -220,6 +225,12 @@ class BeamDecode(Stage):
         else:
             lm = CharBigram.from_words(p["words_path"])
         self._language = language
+        # Upgrade the character model to the trained GRU when weights
+        # exist for the locked language (lexicon stays with the corpus
+        # model -- the GRU replaces only the n-gram).
+        gru_path = Path(p["char_lm"].format(lang=language))
+        if isinstance(lm, CorpusModel) and gru_path.exists():
+            lm = GruLM(self._load_gru(str(gru_path)), lm)
         top1 = np.array([g["candidates"][0][1] for ln in layout["lines"]
                          for g in ln.get("groups", []) if "candidates" in g])
         if len(top1):
@@ -307,6 +318,15 @@ class BeamDecode(Stage):
         return out, debug
 
     _model_cache: dict = {}
+    _gru_cache: dict = {}
+
+    @classmethod
+    def _load_gru(cls, path: str) -> CharGRU:
+        key = (path, Path(path).stat().st_mtime)
+        if key not in cls._gru_cache:
+            cls._gru_cache.clear()
+            cls._gru_cache[key] = CharGRU.load(path)
+        return cls._gru_cache[key]
 
     @classmethod
     def _load_model(cls, path: Path) -> CorpusModel:
@@ -636,13 +656,25 @@ class BeamDecode(Stage):
                     scored[twin] = scored[best] + 0.5
             per_glyph.append(scored)
 
-        # Beam search with bigram transitions.
-        beams = [("", 0.0)]
+        # Beam search over language-model transitions.  With the GRU,
+        # every beam carries a hidden state; one batched step per glyph
+        # yields the whole next-character distribution per beam.
+        use_gru = isinstance(lm, GruLM) and lm_w > 0
+        if use_gru:
+            states, logps = lm.start(1)
+            beams = [("", 0.0, 0)]           # (prefix, score, state row)
+        else:
+            beams = [("", 0.0)]
         for scored in per_glyph:
             nxt = []
-            for prefix, score in beams:
+            for bi, beam in enumerate(beams):
+                prefix, score = beam[0], beam[1]
+                row = beam[2] if use_gru else None
                 for c, glyph_lp in scored.items():
-                    trans = lm_w * lm.score(prefix, c)
+                    if use_gru:
+                        trans = lm_w * float(logps[row, lm.char_id(c)])
+                    else:
+                        trans = lm_w * lm.score(prefix, c)
                     if prefix and prefix[-1].isalpha() and c.isalpha() \
                             and prefix[-1].isupper() != c.isupper():
                         # Allow only the Capitalized pattern: an upper->
@@ -650,9 +682,17 @@ class BeamDecode(Stage):
                         if not (len(prefix) == 1 and prefix[0].isupper()
                                 and c.islower()):
                             trans -= p["case_change_penalty"]
-                    nxt.append((prefix + c, score + glyph_lp + trans))
+                    nxt.append((prefix + c, score + glyph_lp + trans, row))
             nxt.sort(key=lambda t: -t[1])
-            beams = nxt[: p["beam_width"]]
+            survivors = nxt[: p["beam_width"]]
+            if use_gru:
+                parents = np.array([t[2] for t in survivors])
+                chars = [t[0][-1] for t in survivors]
+                states, logps = lm.advance(states[parents], chars)
+                beams = [(t[0], t[1], i) for i, t in enumerate(survivors)]
+            else:
+                beams = [(t[0], t[1]) for t in survivors]
+        beams = [(t[0], t[1]) for t in beams]
 
         best, best_score = beams[0]
         # Lexicon pass: prefer a real word within the margin, weighing how
