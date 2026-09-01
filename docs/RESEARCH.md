@@ -98,6 +98,28 @@ Status: ✅ implemented · 🔬 implemented, superseded or optional · 🗺 plan
 | ✅ Held-out-font evaluation at graded severities | Standard generalization protocol | `scripts/eval_glyphs.py`, `scripts/eval_pages.py` |
 | ✅ UNLV/ISRI corpus measurement | S.V. Rice, F.R. Jenkins & T.A. Nartker, ISRI annual tests of OCR accuracy (1992–96) | `scripts/eval_unlv.py`; sets in data/unlv (bus.3B/3A, mag.3B, news.3B/4B) | Resolution study (2026-08-31, paired same-document news 300 vs 400 dpi; after the wavy-rule fix): 4B wins 5/6 pages, mean +2.3 char — resolution helps consistently; the one former −8.2 outlier was a rule-detection bug, now fixed. Clean originals (bus.3A) vs photocopies (bus.3B): +1.8 char. Rejection-threshold sweep (3–10 MADs): flat — adaptation pins already exempt most would-be rejects. |
 
+## External benchmark (2026-08-31)
+
+Same 30-page UNLV bus.3B sample, same harness and metrics
+(`scripts/eval_tesseract.py`):
+
+| system | char acc | word acc |
+|---|---|---|
+| Tesseract 5.5 LSTM (`--oem 3`) | 95.9% | 92.2% |
+| Tesseract legacy pre-neural (`--oem 0`) | 95.3% | 90.5% |
+| **mlws-ocr** (feature+GRU stack, day 2) | **77.1%** | **47.3%** |
+
+Newspapers (10pg): Tesseract LSTM 85.0/81.6; magazines (6pg): 73.3/63.6.
+Reading: the legacy engine proves the pre-neural architecture reaches 95%+
+on this corpus — the project's founding premise is validated by its own
+benchmark rival. The 18-point gap is implementation maturity, chiefly
+(a) classifier training data: legacy Tesseract's shape classifier was
+trained on enormous real-glyph corpora versus our 26 synthetic fonts;
+(b) its character chopper/associator (a full segmentation search we
+approximate with single-cut variants); (c) two decades of accumulated
+edge-case handling. Historical context: ISRI's 1996 annual test reported
+top commercial engines around 97–99% char on these very sets.
+
 ## Design lineage (whole-system)
 
 - The overall architecture — explicit features, prototype matching, adaptive
