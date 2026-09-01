@@ -163,96 +163,116 @@ class KnnSccBlocks(Stage):
     def run(self, page: Page) -> tuple[Page, DebugBundle]:
         if page.binary is None:
             raise ValueError("blocks requires a binarized page")
-        p = self.params
-        labels, n = ndimage.label(page.binary)
-        if n < 2:
-            out = page.evolve()
-            out.meta.setdefault("layout", {})["blocks"] = []
-            return out, DebugBundle(scalars={"n_blocks": 0})
-        slices = ndimage.find_objects(labels)
-        boxes = np.array([[sl[1].start, sl[0].start, sl[1].stop, sl[0].stop]
-                          for sl in slices])
-        centers = np.column_stack([(boxes[:, 0] + boxes[:, 2]) / 2,
-                                   (boxes[:, 1] + boxes[:, 3]) / 2])
-
-        edges, lengths = directional_edges(centers, p["k_per_dir"],
-                                           boxes=boxes,
-                                           mode=p["distance_mode"])
-        sizes = np.maximum(boxes[:, 2] - boxes[:, 0],
-                           boxes[:, 3] - boxes[:, 1]).astype(float)
-        if p["prune_scope"] in ("per_axis", "per_axis_nn") and len(edges):
-            dxy = centers[edges[:, 1]] - centers[edges[:, 0]]
-            adx, ady = np.abs(dxy[:, 0]), np.abs(dxy[:, 1])
-            axis = np.where(adx >= 2 * ady, 0, np.where(ady >= 2 * adx, 1, 2))
-            global_keep = np.zeros(len(edges), bool)
-            for a in (0, 1, 2):
-                m = axis == a
-                if not m.any():
-                    continue
-                if p["prune_scope"] == "per_axis_nn":
-                    # The typographic spacing is the NEAREST link per node
-                    # (line pitch vertically, letter pitch horizontally);
-                    # the mean over all k-per-sector links is inflated by
-                    # 2nd/3rd neighbors and self-referential to k.
-                    nearest: dict[int, float] = {}
-                    for (src, _), L in zip(edges[m], lengths[m]):
-                        if L < nearest.get(int(src), np.inf):
-                            nearest[int(src)] = float(L)
-                    base = float(np.median(list(nearest.values())))
-                    global_keep[m] = lengths[m] <= p["prune_factor"] * base
-                else:
-                    global_keep[m] = (lengths[m]
-                                      <= p["prune_factor"] * lengths[m].mean())
-        elif p["prune_mad"] is not None:
-            med = np.median(lengths)
-            mad = np.median(np.abs(lengths - med))
-            global_keep = lengths <= (lengths.mean()
-                                      + p["prune_mad"] * 1.4826 * mad)
-        elif p["prune_std_k"] is not None:
-            global_keep = lengths <= (lengths.mean()
-                                      + p["prune_std_k"] * lengths.std())
-        else:
-            global_keep = lengths <= p["prune_factor"] * lengths.mean()
-        if p["prune_mode"] == "global":
-            keep = global_keep
-        elif p["prune_mode"] == "relative":
-            pair = np.maximum(sizes[edges[:, 0]], sizes[edges[:, 1]])
-            keep = lengths <= p["rel_factor"] * pair
-        else:  # hybrid
-            med = float(np.median(sizes))
-            lo, hi = p["large_char_factor"] * med, p["max_char_factor"] * med
-            both_large = ((sizes[edges[:, 0]] > lo) & (sizes[edges[:, 0]] < hi)
-                          & (sizes[edges[:, 1]] > lo) & (sizes[edges[:, 1]] < hi))
-            pair = np.minimum(sizes[edges[:, 0]], sizes[edges[:, 1]])
-            keep = global_keep | (both_large
-                                  & (lengths <= p["rel_factor"] * pair))
-        edges = edges[keep]
-
-        graph = coo_matrix((np.ones(len(edges)), (edges[:, 0], edges[:, 1])),
-                           shape=(n, n))
-        n_comp, comp = connected_components(graph, directed=True,
-                                            connection="strong")
-
-        comp_boxes = []
-        for c in range(n_comp):
-            members = boxes[comp == c]
-            if len(members) == 0:
-                continue
-            comp_boxes.append([int(members[:, 0].min()), int(members[:, 1].min()),
-                               int(members[:, 2].max()), int(members[:, 3].max())])
-        merged = merge_overlapping(comp_boxes)
-        merged = [b for b in merged if b[2] - b[0] >= p["min_block_px"]
-                  and b[3] - b[1] >= p["min_block_px"]]
-        # Reading order: top-to-bottom, left-to-right by top-left corner
-        # within horizontal bands (simple v1 -- the merit test is about
-        # the BOXES; order refinement can come later).
-        merged.sort(key=lambda b: (b[1], b[0]))
-
+        r = segment(page.binary, self.params)
         out = page.evolve()
-        out.meta.setdefault("layout", {})["blocks"] = merged
+        out.meta.setdefault("layout", {})["blocks"] = r["blocks"]
+        if r["n_ccs"] < 2:
+            return out, DebugBundle(scalars={"n_blocks": 0})
+        keep = r["keep"]
         debug = DebugBundle(
-            images={"blocks_overlay": draw_boxes(page.gray, merged)},
-            scalars={"n_blocks": len(merged), "n_sccs": int(n_comp),
-                     "edges_kept": int(keep.sum()), "edges_pruned": int((~keep).sum())},
+            images={"blocks_overlay": draw_boxes(page.gray, r["blocks"])},
+            scalars={"n_blocks": len(r["blocks"]), "n_sccs": r["n_sccs"],
+                     "edges_kept": int(keep.sum()),
+                     "edges_pruned": int((~keep).sum())},
         )
         return out, debug
+
+
+def segment(binary: np.ndarray, p: dict) -> dict:
+    """Functional core of the k-NN + SCC segmenter.
+
+    Returns every intermediate the algorithm produces -- CC boxes,
+    centers, directed edges with lengths, the pruning keep-mask, SCC
+    labels and the final merged blocks -- so tools (the segmentation
+    lab, the paper figures) can render the algorithm's inner state
+    without duplicating its logic.
+    """
+    labels, n = ndimage.label(binary)
+    if n < 2:
+        return {"n_ccs": n, "blocks": [], "boxes": np.zeros((0, 4), int),
+                "centers": np.zeros((0, 2)), "edges": np.zeros((0, 2), int),
+                "lengths": np.zeros(0), "keep": np.zeros(0, bool),
+                "comp": np.zeros(0, int), "n_sccs": 0}
+    slices = ndimage.find_objects(labels)
+    boxes = np.array([[sl[1].start, sl[0].start, sl[1].stop, sl[0].stop]
+                      for sl in slices])
+    centers = np.column_stack([(boxes[:, 0] + boxes[:, 2]) / 2,
+                               (boxes[:, 1] + boxes[:, 3]) / 2])
+
+    edges, lengths = directional_edges(centers, p["k_per_dir"],
+                                       boxes=boxes,
+                                       mode=p["distance_mode"])
+    sizes = np.maximum(boxes[:, 2] - boxes[:, 0],
+                       boxes[:, 3] - boxes[:, 1]).astype(float)
+    if p["prune_scope"] in ("per_axis", "per_axis_nn") and len(edges):
+        dxy = centers[edges[:, 1]] - centers[edges[:, 0]]
+        adx, ady = np.abs(dxy[:, 0]), np.abs(dxy[:, 1])
+        axis = np.where(adx >= 2 * ady, 0, np.where(ady >= 2 * adx, 1, 2))
+        global_keep = np.zeros(len(edges), bool)
+        for a in (0, 1, 2):
+            m = axis == a
+            if not m.any():
+                continue
+            if p["prune_scope"] == "per_axis_nn":
+                # The typographic spacing is the NEAREST link per node
+                # (line pitch vertically, letter pitch horizontally);
+                # the mean over all k-per-sector links is inflated by
+                # 2nd/3rd neighbors and self-referential to k.
+                nearest: dict[int, float] = {}
+                for (src, _), L in zip(edges[m], lengths[m]):
+                    if L < nearest.get(int(src), np.inf):
+                        nearest[int(src)] = float(L)
+                base = float(np.median(list(nearest.values())))
+                global_keep[m] = lengths[m] <= p["prune_factor"] * base
+            else:
+                global_keep[m] = (lengths[m]
+                                  <= p["prune_factor"] * lengths[m].mean())
+    elif p["prune_mad"] is not None:
+        med = np.median(lengths)
+        mad = np.median(np.abs(lengths - med))
+        global_keep = lengths <= (lengths.mean()
+                                  + p["prune_mad"] * 1.4826 * mad)
+    elif p["prune_std_k"] is not None:
+        global_keep = lengths <= (lengths.mean()
+                                  + p["prune_std_k"] * lengths.std())
+    else:
+        global_keep = lengths <= p["prune_factor"] * lengths.mean()
+    if p["prune_mode"] == "global":
+        keep = global_keep
+    elif p["prune_mode"] == "relative":
+        pair = np.maximum(sizes[edges[:, 0]], sizes[edges[:, 1]])
+        keep = lengths <= p["rel_factor"] * pair
+    else:  # hybrid
+        med = float(np.median(sizes))
+        lo, hi = p["large_char_factor"] * med, p["max_char_factor"] * med
+        both_large = ((sizes[edges[:, 0]] > lo) & (sizes[edges[:, 0]] < hi)
+                      & (sizes[edges[:, 1]] > lo) & (sizes[edges[:, 1]] < hi))
+        pair = np.minimum(sizes[edges[:, 0]], sizes[edges[:, 1]])
+        keep = global_keep | (both_large
+                              & (lengths <= p["rel_factor"] * pair))
+    kept_edges = edges[keep]
+
+    graph = coo_matrix((np.ones(len(kept_edges)),
+                        (kept_edges[:, 0], kept_edges[:, 1])),
+                       shape=(n, n))
+    n_comp, comp = connected_components(graph, directed=True,
+                                        connection="strong")
+
+    comp_boxes = []
+    for c in range(n_comp):
+        members = boxes[comp == c]
+        if len(members) == 0:
+            continue
+        comp_boxes.append([int(members[:, 0].min()), int(members[:, 1].min()),
+                           int(members[:, 2].max()), int(members[:, 3].max())])
+    merged = merge_overlapping(comp_boxes)
+    merged = [b for b in merged if b[2] - b[0] >= p["min_block_px"]
+              and b[3] - b[1] >= p["min_block_px"]]
+    # Reading order: top-to-bottom, left-to-right by top-left corner
+    # within horizontal bands (simple v1 -- the merit test is about
+    # the BOXES; order refinement can come later).
+    merged.sort(key=lambda b: (b[1], b[0]))
+
+    return {"n_ccs": n, "blocks": merged, "boxes": boxes, "centers": centers,
+            "edges": edges, "lengths": lengths, "keep": keep,
+            "comp": comp, "n_sccs": int(n_comp)}
