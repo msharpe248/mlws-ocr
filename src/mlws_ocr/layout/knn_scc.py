@@ -42,7 +42,9 @@ def edge_centers(boxes: np.ndarray) -> np.ndarray:
 
 def directional_edges(centers: np.ndarray, k_per_dir: int,
                       candidates: int = 40, boxes: np.ndarray | None = None,
-                      mode: str = "centroid") -> tuple[np.ndarray, np.ndarray]:
+                      mode: str = "centroid",
+                      k_total: int | None = None,
+                      pool_exempt: np.ndarray | None = None) -> tuple[np.ndarray, np.ndarray]:
     """(edges Nx2, lengths N): k nearest per 45-degree sector per node.
 
     mode "centroid": lengths are centroid distances (the 1995 spec).
@@ -53,6 +55,20 @@ def directional_edges(centers: np.ndarray, k_per_dir: int,
     Sector classification stays centroid-based in both modes; only the
     length -- and therefore both the k-per-sector choice and the pruning
     statistics -- changes.
+
+    k_total (author's 2026 refinement): if set, the per-sector picks are
+    POOLED and only the k_total shortest links survive per node.  The
+    per-sector quota guarantees every direction a chance; the pool cap
+    removes the guarantee that every direction is USED -- a char on an
+    isolated line keeps its immediate left/right neighbors instead of
+    being forced into long north/south links (per-sector quotas always
+    fill from whatever exists above/below, however far).
+
+    pool_exempt: nodes marked True keep their full per-sector picks even
+    under k_total -- display-type characters sit far from EVERYTHING, so
+    a pooled top-k measured against a body-text-dominated page starves
+    their links and headlines shatter (measured on newsprint; the same
+    size-awareness the hybrid prune rule applies at the keep stage).
     """
     tree = cKDTree(centers)
     k = min(len(centers), candidates)
@@ -71,10 +87,14 @@ def directional_edges(centers: np.ndarray, k_per_dir: int,
             dy = centers[j][1] - centers[i][1]
             sector = int(((np.arctan2(dy, dx) + np.pi) / (np.pi / 4))) % 8
             cand[sector].append((float(d), int(j)))
-        for sector, items in cand.items():
-            for d, j in sorted(items)[:k_per_dir]:
-                edges.append((i, j))
-                lengths.append(d)
+        picks = [(d, j) for items in cand.values()
+                 for d, j in sorted(items)[:k_per_dir]]
+        if k_total is not None and (pool_exempt is None
+                                    or not pool_exempt[i]):
+            picks = sorted(picks)[:k_total]
+        for d, j in picks:
+            edges.append((i, j))
+            lengths.append(d)
     return np.array(edges), np.array(lengths)
 
 
@@ -104,6 +124,10 @@ class KnnSccBlocks(Stage):
     impl = "knn_scc"
     defaults = {
         "k_per_dir": 3,
+        "k_total": None,           # if set: pool the per-sector picks and
+                                   # keep only this many shortest links per
+                                   # node (author's 2026 refinement; see
+                                   # directional_edges docstring)
         "prune_factor": 1.5,
         "distance_mode": "centroid",  # "centroid" (1995 spec) or "edge"
                                       # (2026 refinement; see
@@ -199,11 +223,21 @@ def segment(binary: np.ndarray, p: dict) -> dict:
     centers = np.column_stack([(boxes[:, 0] + boxes[:, 2]) / 2,
                                (boxes[:, 1] + boxes[:, 3]) / 2])
 
-    edges, lengths = directional_edges(centers, p["k_per_dir"],
-                                       boxes=boxes,
-                                       mode=p["distance_mode"])
     sizes = np.maximum(boxes[:, 2] - boxes[:, 0],
                        boxes[:, 3] - boxes[:, 1]).astype(float)
+    # Exemption reference: median GLYPH size, specks excluded -- on
+    # newsprint the raw median is a 5px dot and "large" would mean
+    # everything (measured: every body char exempt, columns welded via
+    # kept cross-gutter links).
+    glyph_sizes = sizes[sizes >= 8]
+    ref = float(np.median(glyph_sizes)) if len(glyph_sizes) else         float(np.median(sizes))
+    exempt = ((sizes > p["large_char_factor"] * ref)
+              & (sizes < p["max_char_factor"] * ref))
+    edges, lengths = directional_edges(centers, p["k_per_dir"],
+                                       boxes=boxes,
+                                       mode=p["distance_mode"],
+                                       k_total=p.get("k_total"),
+                                       pool_exempt=exempt)
     if p["prune_scope"] in ("per_axis", "per_axis_nn") and len(edges):
         dxy = centers[edges[:, 1]] - centers[edges[:, 0]]
         adx, ady = np.abs(dxy[:, 0]), np.abs(dxy[:, 1])

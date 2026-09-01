@@ -41,7 +41,7 @@ from ..layout.knn_scc import KnnSccBlocks, segment
 # segmentation, so everything upstream is fixed at pipeline defaults.
 _CLEANUP = [("deskew", "projection"), ("illumination", "median_background"),
             ("binarize", "sauvola"), ("despeckle", "components"),
-            ("imagezones", "density")]
+            ("imagezones", "density"), ("rulings", "morphological")]
 
 _cache: dict[str, Page] = {}
 _cache_lock = threading.Lock()
@@ -67,6 +67,8 @@ def _params_from_query(q: dict) -> dict:
     p["prune_scope"] = q.get("scope", ["global"])[0]
     p["prune_mode"] = q.get("mode", ["hybrid"])[0]
     p["k_per_dir"] = int(q.get("k", ["3"])[0])
+    kt = int(q.get("ktotal", ["0"])[0])
+    p["k_total"] = kt if kt > 0 else None
     rule = q.get("rule", ["ratio"])[0]
     factor = float(q.get("factor", ["1.5"])[0])
     p["prune_std_k"] = p["prune_mad"] = None
@@ -186,6 +188,8 @@ body{margin:0;font:13px system-ui;display:flex;height:100vh}
 <option>per_axis_nn</option></select>
 <label>k per sector <span class="val" id="kv">3</span></label>
 <input type="range" id="k" min="1" max="5" step="1" value="3">
+<label>k total (0 = off) <span class="val" id="ktotalv">0</span></label>
+<input type="range" id="ktotal" min="0" max="8" step="1" value="0">
 <label>overlays</label>
 <span class="togg"><input type="checkbox" id="s_cc" checked>CC boxes</span>
 <span class="togg"><input type="checkbox" id="s_kept" checked>kept links</span><br>
@@ -199,19 +203,21 @@ body{margin:0;font:13px system-ui;display:flex;height:100vh}
 <div id="view"><img id="img"></div>
 <script>
 const $=id=>document.getElementById(id);
-const controls=["page","impl","distance","rule","factor","mode","scope","k",
+const controls=["page","impl","distance","rule","factor","mode","scope","k","ktotal",
                 "s_cc","s_kept","s_pruned","s_blocks","scale"];
 function qs(){
   const show=["cc","kept","pruned","blocks"].filter(s=>$("s_"+s).checked).join(",");
   return new URLSearchParams({page:$("page").value,impl:$("impl").value,
     distance:$("distance").value,rule:$("rule").value,factor:$("factor").value,
-    mode:$("mode").value,scope:$("scope").value,k:$("k").value,show,
+    mode:$("mode").value,scope:$("scope").value,k:$("k").value,
+    ktotal:$("ktotal").value,show,
     scale:$("scale").value}).toString();
 }
 let seq=0;
 async function refresh(){
   $("factorv").textContent=$("factor").value;
   $("kv").textContent=$("k").value;
+  $("ktotalv").textContent=$("ktotal").value;
   $("scalev").textContent=$("scale").value;
   $("knn").style.display=$("impl").value==="knn_scc"?"":"none";
   const my=++seq, q=qs();
@@ -243,12 +249,21 @@ class LabHandler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(body)
 
+    _EXTS = {".tif", ".tiff", ".png", ".jpg", ".jpeg"}
+
     def _pages(self) -> list[str]:
         if self.root.is_file():
             return [str(self.root)]
-        exts = {".tif", ".tiff", ".png", ".jpg", ".jpeg"}
         return sorted(str(p) for p in self.root.rglob("*")
-                      if p.suffix.lower() in exts)[:400]
+                      if p.suffix.lower() in self._EXTS)[:1000]
+
+    def _allowed(self, path: str) -> bool:
+        """Access check by containment, independent of the listing cap."""
+        if self.root.is_file():
+            return path == str(self.root)
+        rp = Path(path).resolve()
+        return (rp.suffix.lower() in self._EXTS
+                and rp.is_relative_to(self.root.resolve()))
 
     def do_GET(self):
         url = urlparse(self.path)
@@ -261,8 +276,7 @@ class LabHandler(BaseHTTPRequestHandler):
                            "application/json")
             elif url.path in ("/api/segment", "/render"):
                 path = q.get("page", [""])[0]
-                allowed = set(self._pages())
-                if path not in allowed:
+                if not self._allowed(path):
                     raise ValueError("unknown page")
                 page = _prepared(path)
                 png, stats = _render(page, q)
