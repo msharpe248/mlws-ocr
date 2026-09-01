@@ -34,6 +34,14 @@ TALL = set("bdfhklt" + "ij"  # dotted forms group to ascender height
 DESCENDER = set("gjpqy" + "ç")   # cedilla hangs below the baseline
 PUNCT_TINY = set(".,'-\"")          # glyphs that live far below x-height
 
+# Classes made of MORE THAN ONE ink component by construction: a dot or
+# mark sits above (or below) the main stroke, and the components stage
+# groups them.  The group's part count is therefore direct evidence
+# about the class -- measured on real letters: 97% of correctly-read
+# 'i' groups have 2 parts, ~100% of 't/l/1/T' have 1, while 22% of 'I'
+# readings and 62% of 'j' readings contradict their class (misreads).
+MULTI_PART = set("ij!?:;=\"%" + "àâäéèêëîïíìôöòóùûüúñãçÉÈÀÇÄÖÜ")
+
 # Which accented letters each supported language actually uses; once the
 # document's language is locked, accents outside its alphabet are almost
 # certainly misreads (adding accented classes cost English ~1 char pt
@@ -133,6 +141,10 @@ class BeamDecode(Stage):
         "tiny_punct_prior": 1.5,  # a glyph under 40% of x-height is
                                   # punctuation, not a letter ('.'->e/s/l
                                   # x156, ','->s x66 in the corpus report)
+        "dot_prior": 1.0,        # ink-component count vs class: a dotted
+                                 # class (i/j/!) in a one-part group, or an
+                                 # undotted one (l/I/1/t) in a two-part
+                                 # group, contradicts the grouping evidence
         "punct_position_prior": 1.2,  # among tiny punct, vertical position
                                       # picks the mark: '.' on baseline,
                                       # ',' hangs, '-'/quotes float
@@ -952,6 +964,19 @@ class BeamDecode(Stage):
                         if c in fav:
                             lp[c] += (p["punct_position_prior"] if fav[c]
                                       else -p["punct_position_prior"])
+            # Dot/mark-count prior: the components stage already
+            # grouped a dot with its stem, so the part count separates
+            # dotted classes (i, j, !) from the undotted vertical family
+            # (l, I, 1, t) that pixels alone confuse.  Soft, because
+            # photocopy breaks can split any stroke into two parts.
+            parts = g.get("parts", 1)
+            if p["dot_prior"]:
+                for c in list(lp):
+                    if c in MULTI_PART:
+                        lp[c] += p["dot_prior"] if parts >= 2 \
+                            else -p["dot_prior"]
+                    elif c.isalnum() and parts >= 2:
+                        lp[c] -= p["dot_prior"]
             allowed = LANG_ACCENTS.get(self._language, ALL_ACCENTS)
             for c in list(lp):
                 if c in ALL_ACCENTS and c not in allowed:
