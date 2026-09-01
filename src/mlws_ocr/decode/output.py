@@ -51,11 +51,21 @@ class TextOutput(Stage):
                 graphic = (ln.get("graphic_suspect")
                            and not any(w["in_lexicon"] and len(w["text"]) >= 4
                                        for w in ln["words"]))
-                if graphic or (
+                # Digit-heavy lines are DATA (prices, phone numbers,
+                # receipt/zip codes): no lexicon can endorse them and
+                # their confidences run low, so the garbage gate was
+                # deleting price-table rows and footer phone lines
+                # wholesale.  Junk that decodes digit-heavy is rare;
+                # keep the data.
+                n_alnum = sum(c.isalnum() for c in text_all)
+                digit_heavy = (n_alnum >= 4
+                               and sum(c.isdigit() for c in text_all)
+                               >= 0.4 * n_alnum)
+                if not digit_heavy and (graphic or (
                         not any(w["in_lexicon"] for w in ln["words"])
                         and sum(confs) / len(confs) < self.params["garbage_max_conf"]
                         and (repeat >= self.params["garbage_repeat_frac"]
-                             or flood)):
+                             or flood))):
                     suppressed.append(" ".join(w["text"] for w in ln["words"]))
                     continue
             text = " ".join(w["text"] for w in ln["words"])
