@@ -64,3 +64,22 @@ def test_join_guard_protects_real_word_pairs():
     lm = CorpusModel.load("data/lang_en.npz")
     assert not BeamDecode._mostly_nonwords(["on", "to"], lm)
     assert BeamDecode._mostly_nonwords(["nat", "i", "ous", "l"], lm)
+
+
+def test_mixed_alnum_repair():
+    """Stray digits in words and letters in numbers get twinned back --
+    with the guards that the unit study proved necessary ("9am" must not
+    become "gam" just because 'gam' is in the dictionary)."""
+    import mlws_ocr.decode  # noqa: F401
+    from mlws_ocr.core import registry
+    from mlws_ocr.lang.model import CorpusModel
+
+    lm = CorpusModel.load("data/lang_en.npz")
+    words = [{"text": t} for t in
+             ["0f", "482D2", "CD23021", "1st", "c0mpany",
+              "0123456789", "9am", "35l4", "B2", "3M"]]
+    layout = {"lines": [{"words": words}]}
+    registry.get("decode", "beam")._mixed_alnum_repair(layout, lm)
+    assert [w["text"] for w in words] == [
+        "of", "48202", "CD23021", "1st", "company",
+        "0123456789", "9am", "3514", "B2", "3M"]

@@ -262,6 +262,66 @@ class BeamDecode(Stage):
     _ABBREV = {"mr", "mrs", "ms", "dr", "inc", "co", "corp", "no", "vs",
                "etc", "jr", "sr", "st", "dept", "attn", "re"}
 
+    # letter twins for digits misread inside words (reverse of DIGIT_TWINS)
+    _DIGIT_TO_LETTER = {"0": "o", "1": "l", "5": "s", "9": "g", "2": "z"}
+    _NUM_SUFFIXES = {"st", "nd", "rd", "th", "am", "pm"}
+
+    @classmethod
+    def _mixed_alnum_repair(cls, layout, lm) -> int:
+        """Repair stray digits in words and stray letters in numbers.
+
+        Digit mode covers tokens the decoder already believes are numeric;
+        this pass catches the leftovers the corpus report shows both ways
+        ("0f" for "Of", "482D2" for "48202").  Guards: a digit in an alpha
+        word flips only when the lexicon endorses the result; a letter in
+        a number flips only when flanked by digits on BOTH sides (leading
+        letter runs are product codes: "CD23021" stays), and ordinal/unit
+        suffixes (1st, 3rd, 9am) are exempt.
+        """
+        flips = 0
+        for ln in layout["lines"]:
+            if ln.get("graphic_suspect"):
+                continue
+            for w in ln.get("words", []):
+                t = w["text"]
+                core = t.strip("'\".,;:!?()-$%/#")
+                if not core:
+                    continue
+                n_alpha = sum(c.isalpha() for c in core)
+                n_dig = sum(c.isdigit() for c in core)
+                # number + unit/ordinal ("9am", "1st", "35mm") is neither
+                # a misread word nor a misread number
+                tail = core.lstrip("0123456789")
+                if tail.isalpha() and tail != core \
+                        and tail.lower() in cls._NUM_SUFFIXES | {"k", "m", "mm"}:
+                    continue
+                if n_alpha >= 1 and 1 <= n_dig <= 2 and n_alpha >= n_dig \
+                        and len(core) >= 2:
+                    cand = "".join(cls._DIGIT_TO_LETTER.get(c, c)
+                                   if c.isdigit() else c for c in core)
+                    if cand != core and lm.endorsed(cand.lower()):
+                        if all(c.isupper() for c in core if c.isalpha()):
+                            cand = cand.upper()
+                        w["text"] = t.replace(core, cand, 1)
+                        flips += 1
+                elif n_dig >= 3 and 1 <= n_alpha <= 2:
+                    if core[-2:].lower() in cls._NUM_SUFFIXES \
+                            or core[-1:].lower() in ("k", "m"):
+                        continue
+                    twins = dict(DIGIT_TWINS, D="0")   # D<->0 in numbers only
+                    out = list(core)
+                    for i, c in enumerate(out):
+                        if (c.isalpha() and c in twins
+                                and 0 < i < len(out) - 1
+                                and out[i - 1].isdigit()
+                                and out[i + 1].isdigit()):
+                            out[i] = twins[c]
+                    cand = "".join(out)
+                    if cand != core:
+                        w["text"] = t.replace(core, cand, 1)
+                        flips += 1
+        return flips
+
     @classmethod
     def _word_case_coherence(cls, layout) -> int:
         """Majority-case repair inside a word, ambiguous letters only.
@@ -566,6 +626,7 @@ class BeamDecode(Stage):
 
         n_caseflips = self._sentence_case_pass(layout, lm, p)
         n_caseflips += self._word_case_coherence(layout)
+        n_caseflips += self._mixed_alnum_repair(layout, lm)
         n_dehyph = self._dehyphenate_pass(layout, lm)
 
         out = page.evolve()
