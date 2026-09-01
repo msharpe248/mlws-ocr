@@ -182,6 +182,22 @@ class KnnSccBlocks(Stage):
                                    # are huge and their long links weld
                                    # unrelated regions on photo-heavy pages
         "min_block_px": 12,
+        # --- optional component conditioning (author's 2026 suggestions;
+        # all off by default = measured spec behavior). In the full
+        # pipeline despeckle/imagezones do this upstream; these guards
+        # matter for standalone use, where the algorithm should need as
+        # little a priori help as it can.
+        "cc_min_px": None,         # drop CCs smaller than this in both
+                                   # dims (2-3px = scanner noise; i-dots
+                                   # at 300dpi are 4-6px and survive)
+        "cc_max_factor": None,     # drop CCs larger than this x the
+                                   # median glyph size (images, not text)
+        "cc_drop_nested": False,   # drop CCs nested inside SOLID or
+                                   # oversized components (image content;
+                                   # hollow frames keep their boxed text)
+        "cc_merge_overlap": False, # union bbox-overlapping CCs first
+                                   # (Manhattan layouts only: italic
+                                   # overhang overlaps neighbors)
     }
 
     def run(self, page: Page) -> tuple[Page, DebugBundle]:
@@ -220,6 +236,54 @@ def segment(binary: np.ndarray, p: dict) -> dict:
     slices = ndimage.find_objects(labels)
     boxes = np.array([[sl[1].start, sl[0].start, sl[1].stop, sl[0].stop]
                       for sl in slices])
+
+    # --- Optional component conditioning (author's 2026 suggestions) ---
+    # The graph is only as clean as its nodes: specks poison the length
+    # statistics, oversized components are images not characters, and a
+    # component nested inside a SOLID one is image content (nested inside
+    # a hollow frame is boxed TEXT -- the Fig-5 letterhead address lives
+    # inside a drawn box, so containment alone must not delete it).
+    n_dropped = {"small": 0, "big": 0, "nested": 0}
+    if p.get("cc_min_px") or p.get("cc_max_factor") or p.get("cc_drop_nested"):
+        w = (boxes[:, 2] - boxes[:, 0]).astype(float)
+        h = (boxes[:, 3] - boxes[:, 1]).astype(float)
+        dim = np.maximum(w, h)
+        keep_cc = np.ones(len(boxes), bool)
+        if p.get("cc_min_px"):
+            small = np.maximum(w, h) < p["cc_min_px"]
+            keep_cc &= ~small
+            n_dropped["small"] = int(small.sum())
+        gl = dim[dim >= 8]
+        cc_ref = float(np.median(gl)) if len(gl) else float(np.median(dim))
+        big = np.zeros(len(boxes), bool)
+        if p.get("cc_max_factor"):
+            big = dim > p["cc_max_factor"] * cc_ref
+            keep_cc &= ~big
+            n_dropped["big"] = int(big.sum())
+        if p.get("cc_drop_nested"):
+            areas = np.bincount(labels.ravel())
+            fill = areas[1:len(boxes) + 1] / np.maximum(w * h, 1)
+            # containers: solid blobs, or the oversized components above
+            containers = np.flatnonzero((fill >= 0.35) & (dim > 3 * cc_ref)
+                                        | big)
+            for c in containers:
+                cb = boxes[c]
+                inside = ((boxes[:, 0] >= cb[0]) & (boxes[:, 1] >= cb[1])
+                          & (boxes[:, 2] <= cb[2]) & (boxes[:, 3] <= cb[3]))
+                inside[c] = False
+                n_dropped["nested"] += int((inside & keep_cc).sum())
+                keep_cc &= ~inside
+        boxes = boxes[keep_cc]
+        if len(boxes) < 2:
+            return {"n_ccs": int(len(boxes)), "blocks": [], "boxes": boxes,
+                    "centers": np.zeros((0, 2)),
+                    "edges": np.zeros((0, 2), int), "lengths": np.zeros(0),
+                    "keep": np.zeros(0, bool), "comp": np.zeros(0, int),
+                    "n_sccs": 0, "cc_dropped": n_dropped}
+    if p.get("cc_merge_overlap"):
+        boxes = np.array(merge_overlapping([list(b) for b in boxes]))
+    n = len(boxes)
+
     centers = np.column_stack([(boxes[:, 0] + boxes[:, 2]) / 2,
                                (boxes[:, 1] + boxes[:, 3]) / 2])
 
@@ -309,4 +373,4 @@ def segment(binary: np.ndarray, p: dict) -> dict:
 
     return {"n_ccs": n, "blocks": merged, "boxes": boxes, "centers": centers,
             "edges": edges, "lengths": lengths, "keep": keep,
-            "comp": comp, "n_sccs": int(n_comp)}
+            "comp": comp, "n_sccs": int(n_comp), "cc_dropped": n_dropped}

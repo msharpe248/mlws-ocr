@@ -69,6 +69,11 @@ def _params_from_query(q: dict) -> dict:
     p["k_per_dir"] = int(q.get("k", ["3"])[0])
     kt = int(q.get("ktotal", ["0"])[0])
     p["k_total"] = kt if kt > 0 else None
+    cc = set(q.get("cc", [""])[0].split(","))
+    p["cc_min_px"] = 3 if "small" in cc else None
+    p["cc_max_factor"] = 15.0 if "big" in cc else None
+    p["cc_drop_nested"] = "nested" in cc
+    p["cc_merge_overlap"] = "ccmerge" in cc
     rule = q.get("rule", ["ratio"])[0]
     factor = float(q.get("factor", ["1.5"])[0])
     p["prune_std_k"] = p["prune_mad"] = None
@@ -134,6 +139,7 @@ def _render(page: Page, q: dict) -> tuple[bytes, dict]:
                 draw.rectangle(b, outline=(30, 60, 220, 255), width=4)
         stats = {
             "impl": "knn_scc", "n_ccs": int(r["n_ccs"]),
+            "cc_dropped": str(r.get("cc_dropped", {})),
             "n_blocks": len(r["blocks"]), "n_sccs": r["n_sccs"],
             "edges_kept": int(keep.sum()) if len(keep) else 0,
             "edges_pruned": int((~keep).sum()) if len(keep) else 0,
@@ -190,6 +196,11 @@ body{margin:0;font:13px system-ui;display:flex;height:100vh}
 <input type="range" id="k" min="1" max="5" step="1" value="3">
 <label>k total (0 = off) <span class="val" id="ktotalv">0</span></label>
 <input type="range" id="ktotal" min="0" max="8" step="1" value="0">
+<label>component filters</label>
+<span class="togg"><input type="checkbox" id="c_small">tiny</span>
+<span class="togg"><input type="checkbox" id="c_big">huge</span><br>
+<span class="togg"><input type="checkbox" id="c_nested">nested</span>
+<span class="togg"><input type="checkbox" id="c_ccmerge">merge overlap</span>
 <label>overlays</label>
 <span class="togg"><input type="checkbox" id="s_cc" checked>CC boxes</span>
 <span class="togg"><input type="checkbox" id="s_kept" checked>kept links</span><br>
@@ -204,13 +215,15 @@ body{margin:0;font:13px system-ui;display:flex;height:100vh}
 <script>
 const $=id=>document.getElementById(id);
 const controls=["page","impl","distance","rule","factor","mode","scope","k","ktotal",
-                "s_cc","s_kept","s_pruned","s_blocks","scale"];
+                "s_cc","s_kept","s_pruned","s_blocks","scale",
+                "c_small","c_big","c_nested","c_ccmerge"];
 function qs(){
   const show=["cc","kept","pruned","blocks"].filter(s=>$("s_"+s).checked).join(",");
+  const cc=["small","big","nested","ccmerge"].filter(s=>$("c_"+s).checked).join(",");
   return new URLSearchParams({page:$("page").value,impl:$("impl").value,
     distance:$("distance").value,rule:$("rule").value,factor:$("factor").value,
     mode:$("mode").value,scope:$("scope").value,k:$("k").value,
-    ktotal:$("ktotal").value,show,
+    ktotal:$("ktotal").value,show,cc,
     scale:$("scale").value}).toString();
 }
 let seq=0;
