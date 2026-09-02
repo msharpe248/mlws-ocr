@@ -27,8 +27,10 @@ legacy on spurious insertions. Priority order follows the shares:
    model is `build_prototypes.py --condense 60` over the letter AND digit
    harvests (964 real digits via format endorsement). The digits first
    FLIPPED the confusions (letters read as digits) until digit mode became
-   a deferred, lexicon-gated decision — see RESEARCH. NEXT on this
-   thread: capitals coverage (few real capitals in the harvest); and
+   a deferred, lexicon-gated decision — see RESEARCH. Harvest round 3 under the fixed
+   pipeline added capitals coverage (S 77→207) and is merged in. NEXT on
+   this thread: the self-trained MLP (offline 99.0 vs 97.5 for
+   condensation); and
    the offline table says a self-trained MLP over the same features
    (99.0) or a 5-NN vote (99.1) sit above condensation (97.5) — the
    overnight candidates, below.
@@ -59,7 +61,7 @@ legacy on spurious insertions. Priority order follows the shares:
 Tesseract's **legacy engine has no neural net** and scores 95.3% char /
 90.5% word on our thirty-page sample; its LSTM engine scores 95.9 /
 92.2. The neural upgrade bought Tesseract 0.6 char points. We score
-86.4 / 67.8 (2026-09-01 evening: condensed model with the digit harvest,
+86.5 / 68.0 (2026-09-01 late evening: condensed model with the digit harvest,
 deferred digit mode). **The remaining gap is therefore classical engineering,
 not model class** — thirty years of it — and that is where the work
 belongs. `scripts/compare_legacy.py` produces the paired per-page table

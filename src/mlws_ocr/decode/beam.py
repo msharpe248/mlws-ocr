@@ -385,21 +385,31 @@ class BeamDecode(Stage):
                 if len(letters) < 4:
                     continue
                 n_up = sum(1 for c in letters if c.isupper())
+                # The lowercase majority is judged on the letters AFTER
+                # the first: a Capitalized word's initial is legitimately
+                # upper and must not vote against its own body ("SaVe":
+                # a, V, e is a 2:1 lowercase body).
+                rest = letters[1:]
+                n_low_rest = sum(1 for c in rest if c.islower())
                 out, li, changed = [], 0, False
+                prev = ""
                 for c in t:
                     if not c.isalpha():
-                        out.append(c)
+                        out.append(c); prev = c
                         continue
                     li += 1
                     if (c.islower() and c in cls._CASE_AMBIG
-                            and n_up >= 3 and n_up >= 0.7 * len(letters)):
+                            and n_up >= 3 and n_up >= 0.7 * len(letters)
+                            and not (prev == "'" and c == "s")):
+                        # ("TADC's": the possessive s stays lowercase)
                         out.append(c.upper()); changed = True
                     elif (c.isupper() and c.lower() in cls._CASE_AMBIG
-                            and li > 1
-                            and len(letters) - n_up >= 0.7 * len(letters)):
+                            and li > 1 and len(rest) >= 3
+                            and n_low_rest >= 0.6 * len(rest)):
                         out.append(c.lower()); changed = True
                     else:
                         out.append(c)
+                    prev = c
                 if changed:
                     w["text"] = "".join(out)
                     flips += 1
@@ -1056,16 +1066,28 @@ class BeamDecode(Stage):
                 on_base = not hangs and not floats
                 fav = None
                 if h_glyph < p["punct_small_frac"] * x_height:
+                    # Among floating marks, a hyphen sits mid-x-height and
+                    # is wider than tall; an apostrophe or quote sits near
+                    # the top and is taller than wide (measured: hyphen
+                    # bottoms 0.37-0.50 x-heights above the baseline,
+                    # apostrophes 0.65-0.93).  "you'll" was decoding as
+                    # "you-ll" with both favoured equally.
+                    high = h_box[3] < base - 0.6 * x_height
+                    tall = h_glyph > 1.2 * (h_box[2] - h_box[0])
+                    apos = floats and (high or tall)
                     fav = {".": on_base, ",": hangs, ";": hangs,
-                           "-": floats, "'": floats, '"': floats}
+                           "-": floats and not apos, "'": apos, '"': apos}
                     # A comma-shaped mark floating above the baseline IS
                     # an apostrophe -- same shape, different position --
                     # but the classifier, trained on synthetic
-                    # apostrophes, offers only ',' for real ones ("I,ll",
-                    # "Burgess,s": no "'" in the candidate list).  Position
-                    # twins, like case twins, enter with the shape's score.
-                    if floats and "," in lp and "'" not in lp:
-                        lp["'"] = lp[","]
+                    # apostrophes, offers only ',' (or '-') for real ones
+                    # ("I,ll", "Burgess,s", "you-ll": no "'" in the list).
+                    # Position twins, like case twins, enter with the
+                    # shape's score.
+                    if apos and "'" not in lp:
+                        src = [lp[c] for c in (",", "-") if c in lp]
+                        if src:
+                            lp["'"] = max(src)
                     if hangs and "'" in lp and "," not in lp:
                         lp[","] = lp["'"]
                 elif (g.get("parts", 1) >= 2

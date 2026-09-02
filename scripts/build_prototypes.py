@@ -37,6 +37,10 @@ _ap.add_argument("--cap", type=int, default=80,
                       "1-NN optimum; use a VARIANT out path for anything else)")
 _ap.add_argument("--inlier", type=float, default=70,
                  help="percentile of medoid distance kept per class")
+_ap.add_argument("--harvest", nargs="*", default=None, metavar="NPZ",
+                 help="harvest files to merge (default: data/harvest_*.npz "
+                      "minus backups); name them explicitly to test a "
+                      "re-harvest variant without touching the live set")
 _ap.add_argument("--condense", type=int, default=0, metavar="N",
                  help="k-means condense the merged pool to N prototypes per "
                       "class (see recognize/condense.py); implies --cap "
@@ -127,6 +131,8 @@ for font in fonts:
 # under 'c' would be a perfect decoy for every future 'e'.
 harvest_files = sorted(Path("data").glob("harvest_*.npz"))
 harvest_files = [h for h in harvest_files if "backup" not in h.name]
+if _args.harvest is not None:
+    harvest_files = [Path(h) for h in _args.harvest]
 if harvest_files:
     parts = [np.load(h, allow_pickle=False) for h in harvest_files]
     hX = np.concatenate([pt["X"] for pt in parts])
