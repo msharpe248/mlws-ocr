@@ -6,6 +6,25 @@ the motivation still holds before spending the effort.
 
 ## Now: close the gap to the legacy (non-neural) reference
 
+**Decomposition (2026-09-01, `scripts/compare_legacy_errors.py`).** Two
+gaps, not one. Three catastrophic pages (a broken-hairline serif, a
+price table, a signature block) explain about a quarter of the deficit;
+the merge lattice recovered most of the first. The other three quarters
+are *systematic*: on the 27 ordinary pages we score 86.8 vs 95.5, and
+that excess is 40% shape substitutions (six times legacy's count — the
+classifier), 20% character deletions, 11% case flips (legacy makes 10 in
+40k chars; we make 401), 11% digits, 10% punctuation, 7% spaces. We beat
+legacy on spurious insertions. Priority order follows the shares:
+
+1. **Classifier quality** — the largest single reason. The nearest-
+   prototype matcher uses ~4.7k of our 120k harvested real glyphs; a
+   discriminative, feature-based classifier that uses all of them is
+   the in-scope move (self-trained, not a pre-trained net).
+2. **Case** — a bounded target with a near-zero reference.
+3. **Character deletions** — needs attribution (segmentation vs decode).
+4. **Digit and punctuation priors** — cheap, individually small.
+5. **Table handling** (page 8588) — deferred by decision, not by data.
+
 Tesseract's **legacy engine has no neural net** and scores 95.3% char /
 90.5% word on our thirty-page sample; its LSTM engine scores 95.9 /
 92.2. The neural upgrade bought Tesseract 0.6 char points. We score
