@@ -37,6 +37,13 @@ class MorphologicalRulings(Stage):
                                  # glyphs inside table cells
         "tolerant": True,        # bridge breaks + cover waviness before the
                                  # opening (thin high-dpi rules need it)
+        "preserve_strokes": False,  # opt-in: give back rule-band pixels that
+                                    # continue text ink from above/below.
+                                    # Fixes underlined lines ("Gifts" had
+                                    # become "nift-") but measured NEGATIVE
+                                    # overall: legal-8 -0.5 char (restored
+                                    # stubs along pleading rules decode as
+                                    # junk), broad-30 -0.2 word. RESEARCH.
     }
 
     def run(self, page: Page) -> tuple[Page, DebugBundle]:
@@ -59,7 +66,25 @@ class MorphologicalRulings(Stage):
             horiz = ndimage.binary_opening(b, structure=np.ones((1, L), bool))
             vert = ndimage.binary_opening(b, structure=np.ones((L, 1), bool))
         rules = horiz | vert
-        text_only = b & ~ndimage.binary_dilation(rules, iterations=self.params["remove_grow"])
+        grow = self.params["remove_grow"]
+        band = ndimage.binary_dilation(rules, iterations=grow)
+        text_only = b & ~band
+        if self.params["preserve_strokes"] and band.any():
+            # Stroke preservation (cf. line removal with intersection
+            # recovery in forms processing, e.g. Yu & Jain, "A generic
+            # system for form dropout", PAMI 1996): a band pixel that is
+            # ink AND lies within a few rows of text ink outside the band
+            # is part of a glyph crossing or resting on the rule, not of
+            # the rule itself.  Horizontal rules are probed vertically and
+            # vertical rules horizontally.
+            reach = grow + 2
+            h_band = ndimage.binary_dilation(horiz, iterations=grow)
+            v_band = ndimage.binary_dilation(vert, iterations=grow)
+            touch_h = ndimage.binary_dilation(
+                text_only, structure=np.ones((3, 1), bool), iterations=reach) & h_band
+            touch_v = ndimage.binary_dilation(
+                text_only, structure=np.ones((1, 3), bool), iterations=reach) & v_band
+            text_only = text_only | (b & (touch_h | touch_v))
 
         out = page.evolve(binary=text_only)
         out.meta.setdefault("layout", {})["rules_h"] = _segments(horiz)

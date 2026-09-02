@@ -43,8 +43,10 @@ legacy on spurious insertions. Priority order follows the shares:
    07055', fixed by format endorsement), signature-block names, and
    letter-spaced display text read as letter salad ('D~E~D~I~C~A~T~E~D'
    → 'o c o 1 c a T …'). Remaining real families: letter-spaced small
-   caps (recognition + grouping), logo lines swallowed by image zones,
-   the deferred price table.
+   caps (recognition + grouping) and display-font wordmarks ("Fidelity
+   Investments" suppressed as garbage); underlined lines eaten as image
+   zones are fixed (thin-wide veto); the price table is fixed (row
+   alignment).
 4. **Digit and punctuation priors** — punctuation probe (dev-8) found
    the position prior gated at 0.4 x-height while correct commas stand
    0.46–0.62 tall, so commas, apostrophes, colons and semicolons never
@@ -61,7 +63,7 @@ legacy on spurious insertions. Priority order follows the shares:
 Tesseract's **legacy engine has no neural net** and scores 95.3% char /
 90.5% word on our thirty-page sample; its LSTM engine scores 95.9 /
 92.2. The neural upgrade bought Tesseract 0.6 char points. We score
-86.5 / 68.0 (2026-09-01 late evening: condensed model with the digit harvest,
+86.5 / 68.3 (2026-09-01 late evening: condensed model with the digit harvest,
 deferred digit mode). **The remaining gap is therefore classical engineering,
 not model class** — thirty years of it — and that is where the work
 belongs. `scripts/compare_legacy.py` produces the paired per-page table

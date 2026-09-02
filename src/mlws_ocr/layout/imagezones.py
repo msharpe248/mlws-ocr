@@ -55,6 +55,11 @@ class DensityImageZones(Stage):
                                        # dimension only)
         "hollow_blob_frac": 0.001,     # ...and bbox area at least this
                                        # fraction of the page
+        "max_aspect": 6.0,        # a giant component longer than this many
+                                  # times its thickness is a RULE or an
+                                  # underlined text line (the underline welds
+                                  # the glyphs into one component), never
+                                  # art: leave it to rulings and text
         "absorb_factor": 4.0,     # a CC touching a zone joins it when its
                                   # larger dim exceeds this x median CC dim
                                   # (glyph-sized neighbors stay text)
@@ -86,6 +91,8 @@ class DensityImageZones(Stage):
                 h = sl[0].stop - sl[0].start
                 w = sl[1].stop - sl[1].start
                 dims.append(max(h, w))
+                if max(h, w) > p["max_aspect"] * max(1, min(h, w)):
+                    continue
                 if h * w >= p["min_blob_frac"] * page_area \
                         and areas[lab] / (h * w) >= p["min_blob_fill"]:
                     zone[sl] |= labels[sl] == lab
