@@ -197,6 +197,12 @@ class BeamDecode(Stage):
                                   # trigger must see deeper)
         "digit_mode_boost": 1.2,  # in digit mode, digit candidates get
                                   # this log-prob boost
+        "alpha_mode_frac": 0.3,   # up to this share of top-1 digits a token
+                                  # is a WORD and digit candidates pay the
+                                  # mirror penalty ("1st" at 1/3 is exempt): once the classifier
+                                  # holds real digit prototypes, 'l'/'1',
+                                  # 's'/'5', 'o'/'0' inside words flipped
+                                  # to digits (dev-8 confusion report)
         "space_lo": 0.35,        # gap below this * x_height: definitely joined
                                  # (measured: sharp inter-letter gaps reach
                                  # ~0.24, real word gaps sit near ~0.65)
@@ -314,6 +320,13 @@ class BeamDecode(Stage):
                 t = w["text"]
                 core = t.strip("'\".,;:!?()-$%/#")
                 if not core:
+                    continue
+                if core == "l":
+                    # The only one-letter English words are "a" and "I";
+                    # a standalone "l" is the pronoun with its case lost
+                    # (adaptation clusters I with l and pins the majority).
+                    w["text"] = t.replace(core, "I", 1)
+                    flips += 1
                     continue
                 n_alpha = sum(c.isalpha() for c in core)
                 n_dig = sum(c.isdigit() for c in core)
@@ -943,10 +956,20 @@ class BeamDecode(Stage):
 
     def _beam_word(self, groups, x_height, lm: CharBigram, p,
                    reject_at: float):
-        # Digit-heavy tokens are numbers, not words: the letter LM and
-        # lexicon must not "correct" them.  Digit evidence is graded --
-        # a digit at rank 1 counts fully, at ranks 2-3 partially, so a
-        # date whose digits were misread as letters can still trigger.
+        """Decode one token, deciding digit mode as late as possible.
+
+        Digit-heavy tokens are numbers, not words: the letter LM and
+        lexicon must not "correct" them.  Digit evidence is graded -- a
+        digit at rank 1 counts fully, at ranks 2-3 partially, so a date
+        whose digits were misread as letters can still trigger.  But once
+        the classifier holds REAL digit prototypes, a digit twin sits at
+        rank 2-3 of most l/I/o/s glyphs, and the graded trigger alone
+        turned "so" into "50", "tool" into "t001", "allows" into "a110w5"
+        (dev-8 probe: every such glyph had the right letter at rank 1 and
+        a correct pin).  So the decision is deferred: top-1 digits decide
+        outright; graded evidence only earns a digit-mode decode when the
+        word-mode reading is not a lexicon word.
+        """
         def digit_evidence(g):
             cands = g["candidates"]
             if cands[0][0].isdigit():
@@ -954,8 +977,26 @@ class BeamDecode(Stage):
             if any(c.isdigit() for c, _ in cands[1:3]):
                 return p["digit_rank_weight"]
             return 0.0
-        digitish = sum(digit_evidence(g) for g in groups) / max(len(groups), 1)
-        digit_mode = digitish >= p["digit_mode_frac"]
+        n = max(len(groups), 1)
+        top1 = sum(g["candidates"][0][0].isdigit() for g in groups) / n
+        graded = sum(digit_evidence(g) for g in groups) / n
+        if top1 >= p["digit_mode_frac"]:
+            return self._beam_word_mode(groups, x_height, lm, p, reject_at, True)
+        alpha = self._beam_word_mode(groups, x_height, lm, p, reject_at, False)
+        # A single glyph carries no numeric PATTERN; a lone letter reading
+        # ("I", "a") outranks a lone digit unless the digit is at rank 1.
+        if (graded < p["digit_mode_frac"] or alpha[1]["in_lexicon"]
+                or len(groups) == 1):
+            return alpha
+        return self._beam_word_mode(groups, x_height, lm, p, reject_at, True)
+
+    def _beam_word_mode(self, groups, x_height, lm: CharBigram, p,
+                        reject_at: float, digit_mode: bool):
+        # Alpha mode is judged on TOP-1 digits only: with real digit
+        # prototypes a digit twin sits at rank 2-3 for most l/I/o/s glyphs.
+        top1_digits = sum(g["candidates"][0][0].isdigit() for g in groups)
+        alpha_mode = (len(groups) >= 3 and not digit_mode
+                      and top1_digits / len(groups) <= p["alpha_mode_frac"])
         lm_w = 0.0 if digit_mode else p["lm_weight"]
 
         # Per-glyph scored candidates (pixel softmax + height prior).
@@ -972,6 +1013,10 @@ class BeamDecode(Stage):
                 for c in list(lp):
                     if c.isdigit():
                         lp[c] += p["digit_mode_boost"]
+            elif alpha_mode:
+                for c in list(lp):
+                    if c.isdigit():
+                        lp[c] -= p["digit_mode_boost"]
             # Baseline-descender prior: geometry we always had but never
             # consulted.  Crossing the baseline means a descender letter.
             h_box = g["box"]
@@ -1115,6 +1160,13 @@ class BeamDecode(Stage):
                 twin = DIGIT_TWINS.get(best)
                 if twin and twin in scored:
                     scored[twin] = scored[best] + 0.5
+            elif alpha_mode:
+                # Mirror: inside a word a digit reading yields its letter
+                # twin as a candidate (a real "1" prototype can now win
+                # the pixel contest against "l" outright).
+                for d, letter in self._DIGIT_TO_LETTER.items():
+                    if d in scored and letter not in scored:
+                        scored[letter] = scored[d] - 0.4
             per_glyph.append(scored)
 
         # Beam search over language-model transitions.  With the GRU,

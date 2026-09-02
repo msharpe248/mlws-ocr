@@ -23,10 +23,12 @@ legacy on spurious insertions. Priority order follows the shares:
    imbalance: no digits in the harvest, so real digits find real letters
    first) but it does transfer by **per-class k-means condensation**
    (`recognize/condense.py`, 60 prototypes/class): broad-30 84.1→84.5
-   char / 63.7→65.0 word, synthetic +1.0 char / +2–5 word. Adopted; the
-   live model is rebuilt with `build_prototypes.py --condense 60` once
-   the digit harvest lands. NEXT on this thread: coverage — real digits
-   (`harvest_glyphs.py --digits`, format-endorsed), then capitals; and
+   char / 63.7→65.0 word, synthetic +1.0 char / +2–5 word. Adopted; the live
+   model is `build_prototypes.py --condense 60` over the letter AND digit
+   harvests (964 real digits via format endorsement). The digits first
+   FLIPPED the confusions (letters read as digits) until digit mode became
+   a deferred, lexicon-gated decision — see RESEARCH. NEXT on this
+   thread: capitals coverage (few real capitals in the harvest); and
    the offline table says a self-trained MLP over the same features
    (99.0) or a 5-NN vote (99.1) sit above condensation (97.5) — the
    overnight candidates, below.
@@ -45,15 +47,17 @@ legacy on spurious insertions. Priority order follows the shares:
    the position prior gated at 0.4 x-height while correct commas stand
    0.46–0.62 tall, so commas, apostrophes, colons and semicolons never
    received it; band widened to 0.75 plus a colon/semicolon rule for
-   two-part marks (measurement in RESEARCH.md). Digits: the harvest
-   coverage item above is the digit fix — there were zero real digit
-   exemplars.
+   two-part marks (measurement in RESEARCH.md). Digits: done through
+   coverage (real digit exemplars) plus the deferred digit-mode
+   decision; residual dev-8 digit confusions are '6'→'5' (7) and
+   'l'→'1' (9), the latter inside non-lexicon tokens.
 5. **Table handling** (page 8588) — deferred by decision, not by data.
 
 Tesseract's **legacy engine has no neural net** and scores 95.3% char /
 90.5% word on our thirty-page sample; its LSTM engine scores 95.9 /
 92.2. The neural upgrade bought Tesseract 0.6 char points. We score
-84.5 / 65.0 (2026-09-01 evening, condensed model). **The remaining gap is therefore classical engineering,
+85.1 / 67.4 (2026-09-01 evening: condensed model with the digit harvest,
+deferred digit mode). **The remaining gap is therefore classical engineering,
 not model class** — thirty years of it — and that is where the work
 belongs. `scripts/compare_legacy.py` produces the paired per-page table
 that localizes it.

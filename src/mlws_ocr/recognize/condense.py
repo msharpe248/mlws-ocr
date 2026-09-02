@@ -25,24 +25,48 @@ import numpy as np
 from .nearest import NearestPrototype
 
 
+def _seed_pp(Z: np.ndarray, k: int, rng) -> np.ndarray:
+    """k-means++ seeding (Arthur & Vassilvitskii 2007): each new centre is
+    drawn with probability proportional to its squared distance from the
+    centres so far, which spreads seeds over the class's modes instead of
+    stacking them in its densest one."""
+    cent = [Z[rng.integers(len(Z))]]
+    d2 = ((Z - cent[0]) ** 2).sum(1)
+    for _ in range(1, k):
+        probs = d2 / d2.sum() if d2.sum() > 0 else np.full(len(Z), 1 / len(Z))
+        c = Z[rng.choice(len(Z), p=probs)]
+        cent.append(c)
+        d2 = np.minimum(d2, ((Z - c) ** 2).sum(1))
+    return np.array(cent)
+
+
 def kmeans(Z: np.ndarray, k: int, iters: int = 25,
-           rng: np.random.Generator | None = None) -> tuple[np.ndarray, np.ndarray]:
-    """Lloyd's k-means; returns (centroids, assignment)."""
+           rng: np.random.Generator | None = None,
+           restarts: int = 3) -> tuple[np.ndarray, np.ndarray]:
+    """Lloyd's k-means with k-means++ seeding, best of `restarts` by
+    inertia; returns (centroids, assignment).  Restarts exist because a
+    single random seeding measured about +-0.3 char / +-1 word of pure
+    build-to-build noise on the synthetic suite."""
     rng = rng or np.random.default_rng(0)
-    cent = Z[rng.choice(len(Z), k, replace=False)].copy()
-    assign = np.full(len(Z), -1)
+    best = None
     sq_z = (Z * Z).sum(1)
-    for _ in range(iters):
-        d2 = sq_z[:, None] - 2 * Z @ cent.T + (cent * cent).sum(1)[None]
-        new = d2.argmin(1)
-        if (new == assign).all():
-            break
-        assign = new
-        for j in range(k):
-            members = Z[assign == j]
-            if len(members):
-                cent[j] = members.mean(0)
-    return cent, assign
+    for _ in range(max(1, restarts)):
+        cent = _seed_pp(Z, k, rng)
+        assign = np.full(len(Z), -1)
+        for _ in range(iters):
+            d2 = sq_z[:, None] - 2 * Z @ cent.T + (cent * cent).sum(1)[None]
+            new = d2.argmin(1)
+            if (new == assign).all():
+                break
+            assign = new
+            for j in range(k):
+                members = Z[assign == j]
+                if len(members):
+                    cent[j] = members.mean(0)
+        inertia = float(d2[np.arange(len(Z)), assign].sum())
+        if best is None or inertia < best[0]:
+            best = (inertia, cent, assign)
+    return best[1], best[2]
 
 
 def condense(model: NearestPrototype, per_class: int, iters: int = 25,
