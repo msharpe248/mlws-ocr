@@ -40,3 +40,19 @@ def test_cut_candidates_find_both_kisses_in_a_triple(font_path):
     # the two best cuts land near the two kisses (thirds of the width)
     near = sorted(min(abs(c - w / 3), abs(c - 2 * w / 3)) for c in cuts[:2])
     assert near[1] < w * 0.12, cuts
+
+
+def test_concave_cut_lands_in_the_kiss(font_path):
+    from mlws_ocr.glyph.components import _concave_cuts
+    from scipy import ndimage
+    o = render_glyph("o", font_path, px_height=32, pad_frac=0.05)
+    # overlap until the two bowls share ink (one connected component)
+    for overlap in range(2, 12):
+        mask = fuse(o, o, overlap=overlap) < 0.5
+        if ndimage.label(mask)[1] == 1:
+            break
+    assert ndimage.label(mask)[1] == 1, "fixture never fused"
+    w = mask.shape[1]
+    cuts = _concave_cuts(mask, w // 4, w - w // 4, k=1, min_sep=w // 6)
+    assert cuts, "no concave pair found"
+    assert abs(cuts[0] - w / 2) < w * 0.12, f"cut at {cuts[0]} of {w}"

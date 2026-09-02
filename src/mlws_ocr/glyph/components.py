@@ -52,6 +52,63 @@ def _cut_candidates(mask: "np.ndarray", lo: int, hi: int, k: int,
     return picked
 
 
+def _concave_cuts(mask: "np.ndarray", lo: int, hi: int, k: int,
+                  min_sep: int, tol: float = 1.5) -> list[int]:
+    """Cut columns from CONCAVE VERTICES of the outer outline (Smith 2007
+    §4.1: chop points are concave vertices of the polygonal approximation,
+    paired with a concave vertex opposite).  Two letters that touch meet in
+    a neck: the outline turns inward above and below it.  A pair of concave
+    vertices, one above the other within a stroke width, marks a neck; the
+    shorter the neck the better the cut.  Columns are limited to [lo, hi);
+    returns up to k, best first, at least min_sep apart; empty when no pair
+    is found (the caller falls back to the ink minimum)."""
+    from skimage import measure
+    padded = np.pad(mask.astype(np.float32), 1)
+    contours = measure.find_contours(padded, 0.5)
+    if not contours:
+        return []
+    # outer outline = largest enclosed area
+    def area(c):
+        x, y = c[:, 1], c[:, 0]
+        return 0.5 * float(np.dot(x, np.roll(y, -1)) - np.dot(y, np.roll(x, -1)))
+    outer = max(contours, key=lambda c: abs(area(c)))
+    winding = np.sign(area(outer))
+    poly = measure.approximate_polygon(outer, tolerance=tol)
+    if len(poly) < 4:
+        return []
+    pts = poly[:-1] if np.allclose(poly[0], poly[-1]) else poly
+    n = len(pts)
+    concave = []
+    for i in range(n):
+        p0, p1, p2 = pts[i - 1], pts[i], pts[(i + 1) % n]
+        d1, d2 = p1 - p0, p2 - p1
+        cross = d1[1] * d2[0] - d1[0] * d2[1]          # (row, col) coords
+        if np.sign(cross) == -winding and cross != 0:
+            x, y = p1[1] - 1.0, p1[0] - 1.0            # unpad
+            if lo <= x < hi:
+                concave.append((x, y))
+    if len(concave) < 2:
+        return []
+    h = mask.shape[0]
+    scored = []
+    for i in range(len(concave)):
+        for j in range(i + 1, len(concave)):
+            (xa, ya), (xb, yb) = concave[i], concave[j]
+            dx, dy = abs(xa - xb), abs(ya - yb)
+            if dx > max(3.0, 0.25 * h) or dy < 2.0:
+                continue
+            scored.append((dy + dx, (xa + xb) / 2.0))
+    scored.sort()
+    picked: list[int] = []
+    for _, xm in scored:
+        c = int(round(xm))
+        if lo <= c < hi and all(abs(c - q) >= min_sep for q in picked):
+            picked.append(c)
+            if len(picked) == k:
+                break
+    return picked
+
+
 def _group_overlapping(boxes: list[list[int]], min_overlap: float) -> list[list[int]]:
     """Union components whose x-spans overlap; returns member index lists."""
     n = len(boxes)
@@ -107,6 +164,16 @@ class OverlapComponents(Stage):
         "split_width_factor_fixed": 1.5,  # suspect threshold on fixed-pitch
                                     # pages (1.3 cost legal-8 0.6 char: in
                                     # monospace every wide letter is 1.3x)
+        "cut_tol": 1.5,             # polygon approximation tolerance (px) for
+                                    # concave-vertex detection; coarser hides
+                                    # the noise vertices of degraded outlines
+        "cut_method": "ink",        # "ink": column of least ink (default);
+                                    # "concave": neck between facing concave
+                                    # outline vertices (Smith 2007 §4.1) with
+                                    # ink as fallback -- MEASURED NEGATIVE on
+                                    # real scans (broad-30 -1.5 char, -3.5
+                                    # word): on bitonal outlines the concave
+                                    # pairs are mostly noise pits, not kisses
         "split_cuts": 1,            # cut candidates per suspect (ranked
                                     # local ink minima); the decoder picks.
                                     # 3 measured no better than 1 on
@@ -193,8 +260,14 @@ class OverlapComponents(Stage):
                     w = x1 - x0
                     cuts: list[int] = []
                     if w > split_factor * med_w:
-                        cuts = _cut_candidates(sub, piece, w - piece,
-                                               self.params["split_cuts"], piece)
+                        cuts = []
+                        if self.params["cut_method"] == "concave":
+                            cuts = _concave_cuts(sub, piece, w - piece,
+                                                 self.params["split_cuts"], piece,
+                                                 tol=self.params["cut_tol"])
+                        if not cuts:
+                            cuts = _cut_candidates(sub, piece, w - piece,
+                                                   self.params["split_cuts"], piece)
                     elif (self.params["split_under_dot"] and "_marks" in g
                           and w > self.params["dot_body_factor"] * med_w):
                         # a dot over one side of a wide body: the 'i' is
@@ -225,7 +298,13 @@ class OverlapComponents(Stage):
                         c = cuts[0]
                         for lo, hi in ((0, c), (c, w)):
                             if hi - lo > split_factor * med_w:
-                                c2 = _cut_column(sub, lo + piece, hi - piece)
+                                c2 = None
+                                if self.params["cut_method"] == "concave":
+                                    cc = _concave_cuts(sub, lo + piece, hi - piece, 1, piece,
+                                                       tol=self.params["cut_tol"])
+                                    c2 = cc[0] if cc else None
+                                if c2 is None:
+                                    c2 = _cut_column(sub, lo + piece, hi - piece)
                                 if c2 is not None:
                                     xs = sorted([c, c2])
                                     options.append([[x0, y0, x0 + xs[0], y1],
