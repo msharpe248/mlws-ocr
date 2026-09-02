@@ -21,7 +21,13 @@ legacy on spurious insertions. Priority order follows the shares:
    discriminative, feature-based classifier that uses all of them is
    the in-scope move (self-trained, not a pre-trained net).
 2. **Case** — a bounded target with a near-zero reference.
-3. **Character deletions** — needs attribution (segmentation vs decode).
+3. **Character deletions** — attributed (2026-09-01, 30 pages): of 21
+   long deleted runs only **one** was suppressed; the rest were never
+   segmented, so this is layout, not gating. They cluster into
+   display/letter-spaced text ("D~E~D~I~C~A~T~E~D", "LAS VEGAS"),
+   letterhead blocks, small print, signature/closing lines, and the
+   deferred price table. Display type is the recurring theme — the same
+   family as the open logo/display-font item.
 4. **Digit and punctuation priors** — cheap, individually small.
 5. **Table handling** (page 8588) — deferred by decision, not by data.
 

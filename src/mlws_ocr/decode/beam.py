@@ -156,6 +156,11 @@ class BeamDecode(Stage):
                                        # per-glyph flips inside caps words
                                        # were the top real-scan word killer)
         "pin_bonus": 2.5,      # log-prob boost for an adapt-pinned label
+        "pin_case_geometry": True, # a pin asserts shape; its case follows
+                                   # geometry when confident (see below)
+        "pin_tall_ratio": 1.35,    # glyph/x-height above this: pin uppercase
+        "pin_short_ratio": 1.15,   # ...below this: pin lowercase; between:
+                                   # keep the cluster's voted case
         "confusion_penalty": 1.6,  # cost of an injected shape-confusion twin
                                    # (1.0 hurt degraded synthetic -3.9 word;
                                    # 1.6 keeps the real-letter gains at -0.5
@@ -1020,7 +1025,38 @@ class BeamDecode(Stage):
                 # but the LM and height prior retain veto power -- and in
                 # digit mode a LETTER pin must not override the digits
                 # ("1993" was decoding as "l993" through an 'l' pin).
-                lp[g["pinned"]] = lp.get(g["pinned"], min(lp.values())) + p["pin_bonus"]
+                # A pin asserts SHAPE; its CASE follows geometry when
+                # geometry is confident and the cluster vote otherwise.
+                # Case twins share a shape, so document clustering puts C
+                # and c in one cluster and the majority vote pinned every
+                # member -- capitals included -- and the 2.5 pin beat the
+                # 2.0 height swing (measured: ~all Capitalized->lower
+                # errors were tall glyphs pinned lowercase).  Making pins
+                # fully case-neutral over-corrected (+33 lower->UPPER on
+                # dev-8: case-blind pins had been fixing pixel-driven
+                # uppercase misreads), hence the confident-band rule.
+                pc = g["pinned"]
+                twin = CASE_TWINS.get(pc) or next(
+                    (k for k, v in CASE_TWINS.items() if v == pc), None)
+                if twin is None and pc.isalpha() and pc.lower() != pc.upper():
+                    twin = pc.swapcase()
+                target = pc
+                # Height decides case ONLY for the pure SIZE twins
+                # (c/C, o/O, s/S ...), whose lowercase form is exactly
+                # x-height.  Applying it to any twin pinned ascender
+                # lowercase letters (b, d, l, t reach ~1.4 x-height) as
+                # capitals: measured, lower->UPPER errors tripled.
+                size_twin = (pc.lower() in CASE_TWINS
+                             or pc.lower() in ("c", "o", "s", "u", "v",
+                                               "w", "x", "z"))
+                if (twin is not None and size_twin
+                        and p["pin_case_geometry"] and x_height > 0):
+                    ratio = (g["box"][3] - g["box"][1]) / x_height
+                    if ratio > p["pin_tall_ratio"]:
+                        target = pc.upper() if pc.upper() in (pc, twin) else pc
+                    elif ratio < p["pin_short_ratio"]:
+                        target = pc.lower() if pc.lower() in (pc, twin) else pc
+                lp[target] = lp.get(target, min(lp.values())) + p["pin_bonus"]
             h = g["box"][3] - g["box"][1]
             k = p["case_prior_scale"]
             scored = {c: v + k * _height_prior(c, h, x_height) for c, v in lp.items()}
