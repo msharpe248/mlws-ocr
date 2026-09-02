@@ -19,6 +19,7 @@ from .nearest import NearestPrototype
 
 _SKELETON_BANK: dict = {}
 _MLP_CACHE: dict = {}
+_MODEL_CACHE: dict = {}
 
 
 def _family_mask(tags, family):
@@ -99,6 +100,26 @@ class PrototypeRecognize(Stage):
                                   # (measured on a real page). Swept 50/100/
                                   # 200: broad-30 char 87.1/87.1/-, word
                                   # 68.7/68.6/-, dev-8 word 81.2/80.5/79.7
+        "chop_on_confidence": False, # per-BLOB trigger (Smith 2007 §4.1):
+                                  # a poorly matched blob gets chopped
+                                  # whatever its width. Two narrow letters
+                                  # touching ('li', 'ti', 'rt') are no wider
+                                  # than an 'm' and escape every width rule;
+                                  # truth set: 'i','t','l','r','f' read whole
+                                  # as d/a/n/h/u were the largest family of
+                                  # errors with the truth outside the list.
+                                  # Measured neutral-to-negative even gated
+                                  # (broad-30 87.5/69.9 -> 87.6/69.8, legal
+                                  # -0.2/-0.7): a touching 'li' matches 'u'
+                                  # or 'h' well, so the distance never
+                                  # trips. The WORD-level trigger lives in
+                                  # recognize/chop.py (slot "chop").
+        "chop_distance_factor": 1.3,  # top-1 distance above this x page
+                                  # median = poorly matched
+        "chop_min_width_frac": 0.9,   # ...and at least this x line median
+                                  # width (a lone narrow letter cannot hide
+                                  # two characters)
+        "chop_min_piece_frac": 0.3,
         "outline_top": 6,         # candidates rated (the rest keep their cost);
                                   # ~48 ms per glyph at 14, the win is in the
                                   # top few
@@ -174,6 +195,82 @@ class PrototypeRecognize(Stage):
                                for c, d in cands), key=lambda t: t[1]))
         return out
 
+    def score_crops(self, crops: list) -> list:
+        """Candidate lists for arbitrary binary-ink crops (1.0 = ink), through
+        every channel this stage uses: prototypes (unrouted), the MLP second
+        opinion and the outline third opinion.  Used by the chop stage."""
+        model_path = Path(self.params["model_path"])
+        model = _MODEL_CACHE.get(str(model_path))
+        if model is None:
+            model = _MODEL_CACHE[str(model_path)] = NearestPrototype.load(model_path)
+        X = np.array([extract_features(c) for c in crops])
+        topk = model.predict_topk(X, k=self.params["top_k"], q=self.params["class_q"])
+        if self.params["mlp_path"]:
+            topk = self._mlp_second_opinion(X, topk)
+        if self.params["outline_path"]:
+            topk = self._outline_opinion(crops, topk)
+        return topk
+
+    def _chop_on_confidence(self, page, layout, model, pack) -> int:
+        from ..glyph.components import _cut_candidates
+        dists = [g["candidates"][0][1] for ln in layout["lines"]
+                 for g in ln.get("groups", []) if "candidates" in g]
+        if not dists:
+            return 0
+        limit = self.params["chop_distance_factor"] * float(np.median(dists))
+        crops, slots = [], []
+        for li, ln in enumerate(layout["lines"]):
+            gs = ln.get("groups", [])
+            if len(gs) < 3:
+                continue
+            med_w = float(np.median([g["box"][2] - g["box"][0] for g in gs]))
+            piece = max(2, int(self.params["chop_min_piece_frac"] * med_w))
+            for gi, g in enumerate(gs):
+                if "alts" in g or "candidates" not in g:
+                    continue
+                if g["candidates"][0][1] <= limit:
+                    continue
+                x0, y0, x1, y1 = g["box"]
+                w = x1 - x0
+                if w < self.params["chop_min_width_frac"] * med_w or w < 2 * piece + 2:
+                    continue
+                cuts = _cut_candidates(page.binary[y0:y1, x0:x1], piece, w - piece,
+                                       1, piece)
+                if not cuts:
+                    continue
+                c = cuts[0]
+                g["alts"] = [[[x0, y0, x0 + c, y1], [x0 + c, y0, x1, y1]]]
+                g["chop"] = "confidence"
+                for si, (ax0, ay0, ax1, ay1) in enumerate(g["alts"][0]):
+                    crops.append(1.0 - page.binary[ay0:ay1, ax0:ax1].astype(np.float32))
+                    slots.append((li, gi, f"0:{si}"))
+        if not crops:
+            return 0
+        X = np.array([extract_features(c) for c in crops])
+        topk = model.predict_topk(X, k=self.params["top_k"], q=self.params["class_q"])
+        if self.params["mlp_path"]:
+            topk = self._mlp_second_opinion(X, topk)
+        if self.params["outline_path"]:
+            topk = self._outline_opinion(crops, topk)
+        # "Any chop that fails to improve the confidence of the result is
+        # undone" (Smith 2007 §4.1): keep the hypothesis only when BOTH
+        # pieces match better than the whole did.  Without this the pass
+        # cut clean glyphs apart on the synthetic suite (sev0 char -0.7).
+        kept, kept_slots, kept_topk = 0, [], []
+        for j in range(0, len(slots), 2):
+            li, gi, _ = slots[j]
+            g = layout["lines"][li]["groups"][gi]
+            whole = g["candidates"][0][1]
+            if max(topk[j][0][1], topk[j + 1][0][1]) < whole:
+                kept += 1
+                kept_slots += slots[j:j + 2]
+                kept_topk += topk[j:j + 2]
+            else:
+                del g["alts"]
+                del g["chop"]
+        pack(kept_slots, kept_topk)
+        return kept
+
     def run(self, page: Page) -> tuple[Page, DebugBundle]:
         layout = page.meta.get("layout", {})
         if page.binary is None or "lines" not in layout:
@@ -207,6 +304,7 @@ class PrototypeRecognize(Stage):
                 crops.append(1.0 - mask.astype(np.float32))
                 slots.append((li, gi, None))
         family, share = "all", 0.0
+        n_chops = 0
         if crops:
             X = np.array([extract_features(c) for c in crops])
             slots_arr = slots
@@ -231,10 +329,12 @@ class PrototypeRecognize(Stage):
             # Font-family routing: restricting matching to the dominant
             # family removes other families' confusable neighbors (a
             # heterogeneous 1-NN pool measurably dilutes accuracy).
+            score_model = model
             if self.params["route_family"] and model.tags is not None:
                 sample = X[:: max(1, len(X) // self.params["route_sample"])]
                 family, share = vote(sample)
                 page_model = model.subset(_family_mask(model.tags, family))                     if family != "all" else model
+                score_model = page_model
 
                 if self.params["route_per_block"]:
                     # A letterhead's display line must not inherit the
@@ -301,16 +401,26 @@ class PrototypeRecognize(Stage):
             if self.params["outline_path"]:
                 topk = self._outline_opinion(crops, topk)
 
-            for (li, gi, ai), cands in zip(slots, topk):
-                g = layout["lines"][li]["groups"][gi]
-                packed = [[c, round(float(d), 3)] for c, d in cands]
-                if ai is None:
-                    g["candidates"] = packed
-                elif ai == "m":
-                    g["merge_candidates"] = packed
-                else:
-                    g.setdefault("alt_candidates", {})[str(ai)] = packed
+            def pack(slots_, topk_):
+                for (li, gi, ai), cands in zip(slots_, topk_):
+                    g = layout["lines"][li]["groups"][gi]
+                    packed = [[c, round(float(d), 3)] for c, d in cands]
+                    if ai is None:
+                        g["candidates"] = packed
+                    elif ai == "m":
+                        g["merge_candidates"] = packed
+                    else:
+                        g.setdefault("alt_candidates", {})[str(ai)] = packed
+            pack(slots, topk)
 
+            # Second pass -- confidence-driven chopping.  Groups that no
+            # width rule flagged but that match poorly (top-1 distance well
+            # above the page median) get one cut hypothesis at the ink
+            # minimum; their pieces are scored like any split option and
+            # the decoder chooses.  Nothing is committed here either.
+            if self.params["chop_on_confidence"]:
+                n_chops = self._chop_on_confidence(page, layout, score_model,
+                                                   pack)
         out = page.evolve()
         out.meta["layout"] = layout
         dists = [g["candidates"][0][1]
@@ -318,6 +428,7 @@ class PrototypeRecognize(Stage):
                  if "candidates" in g]
         debug = DebugBundle(
             scalars={"n_scored": len(crops),
+                     "n_confidence_chops": n_chops,
                      "font_family": family,
                      "family_share": round(float(share), 3),
                      "median_top1_distance": round(float(np.median(dists)), 2) if dists else -1},

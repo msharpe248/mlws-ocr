@@ -49,5 +49,8 @@ impl = "beam"
 [stage.output]
 impl = "text"
 
+# [stage.chop]  impl = "unendorsed" -- word-level chopping between the decode
+# passes; opt-in, measured inert until cut pieces get piece-aware scoring.
+
 [stage.adapt]
 impl = "cluster_refit"

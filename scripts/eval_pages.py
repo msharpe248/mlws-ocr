@@ -54,6 +54,7 @@ PIPELINE = [("deskew", "projection"), ("illumination", "median_background"),
             ("tables", "grid"),
             ("lines", "profile"), ("components", "overlap"),
             ("recognize", "prototypes"), ("decode", "beam"),
+            # ("chop", "unendorsed") -- opt-in: measured inert (RESEARCH)
             ("adapt", "cluster_refit"), ("decode", "beam"), ("output", "text")]
 
 
