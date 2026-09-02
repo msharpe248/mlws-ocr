@@ -18,6 +18,7 @@ from ..glyph.skeleton import skeleton_graph
 from .nearest import NearestPrototype
 
 _SKELETON_BANK: dict = {}
+_MLP_CACHE: dict = {}
 
 
 def _load_bank(path: str) -> dict:
@@ -70,7 +71,61 @@ class PrototypeRecognize(Stage):
                                   # must not inherit the body's family
                                   # (measured: logos decode as word salad)
         "route_block_min": 12,    # smaller blocks inherit the page family
+        "mlp_path": "data/mlp.npz",  # second opinion (recognize/mlp.py; "" = off):
+                                  # candidates are re-costed by the MLP's
+                                  # log-probability relative to its favourite
+                                  # among them, and its top classes join the
+                                  # list when the prototypes missed them
+        "mlp_weight": 2.0,        # distance units per nat of MLP disagreement
+                                  # (swept 0.5/1/2/4: broad-30 char 86.8 /
+                                  # 86.8 / 87.0 / 86.9; dev-8 word 80.4 /
+                                  # 80.2 / 80.8 / 81.1 -- 2 takes the
+                                  # headline, 4 trades synthetic sev0)
+        "mlp_inject": 3,          # MLP top classes added if absent
     }
+
+    def _mlp_second_opinion(self, X, topk):
+        """Re-cost each candidate list with the MLP's opinion.
+
+        cost' = cost + w * (nll_mlp(c) - min nll_mlp over the list): the
+        MLP's favourite among the candidates keeps its prototype distance
+        (so the distance SCALE that graphic detection and adaptation
+        calibrate against is untouched) and every other candidate pays
+        its disagreement in nats.  The MLP's own top classes are inserted
+        when the prototype list missed them, at the list's best cost plus
+        their disagreement.
+        """
+        from .mlp import MLP
+        mlp = _MLP_CACHE.get(self.params["mlp_path"])
+        if mlp is None:
+            path = Path(self.params["mlp_path"])
+            if not path.exists():
+                raise FileNotFoundError(
+                    f"{path} missing -- train it with scripts/train_mlp.py "
+                    f"(see its docstring), or set recognize.mlp_path=\"\"")
+            mlp = _MLP_CACHE[self.params["mlp_path"]] = MLP.load(path)
+        w = self.params["mlp_weight"]
+        nll = -mlp.log_probs(X)
+        cindex = {c: i for i, c in enumerate(mlp.classes)}
+        out = []
+        for row, cands in zip(nll, topk):
+            known = [(c, d) for c, d in cands if c in cindex]
+            if not known:
+                out.append(cands)
+                continue
+            base = min(row[cindex[c]] for c, _ in known)
+            best_d = min(d for _, d in known)
+            scored = {c: d + w * (row[cindex[c]] - base) for c, d in known}
+            for c, d in cands:
+                if c not in cindex:
+                    scored[c] = d
+            for j in np.argsort(row)[: self.params["mlp_inject"]]:
+                c = mlp.classes[j]
+                if c not in scored:
+                    scored[c] = best_d + w * (row[j] - base)
+            ranked = sorted(scored.items(), key=lambda kv: kv[1])[: len(cands)]
+            out.append([(c, float(d)) for c, d in ranked])
+        return out
 
     def run(self, page: Page) -> tuple[Page, DebugBundle]:
         layout = page.meta.get("layout", {})
@@ -189,6 +244,9 @@ class PrototypeRecognize(Stage):
                             rescored.append((c, d))
                         rescored.sort(key=lambda t: t[1])
                         topk[n] = rescored
+
+            if self.params["mlp_path"]:
+                topk = self._mlp_second_opinion(X, topk)
 
             for (li, gi, ai), cands in zip(slots, topk):
                 g = layout["lines"][li]["groups"][gi]

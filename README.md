@@ -33,6 +33,22 @@ python3 -m venv .venv && .venv/bin/pip install -e ".[dev]"
 .venv/bin/mlws-ocr-lab data/unlv/bus.3B             # segmentation lab at http://127.0.0.1:8801
 ```
 
+**Models** live under `data/` (gitignored) and are all built here, from
+our own renders and our own self-labeled harvest — nothing pre-trained:
+
+```sh
+.venv/bin/python scripts/build_langmodel.py            # lexicon + char n-grams (data/lang_*.npz)
+.venv/bin/python scripts/train_charlm.py               # char-GRU language model (data/gru_en.npz)
+.venv/bin/python scripts/build_prototypes.py data/prototypes.npz --condense 60   # condensed glyph prototypes
+.venv/bin/python scripts/build_prototypes.py data/pool_all.npz --cap 1000000000 --inlier 100
+.venv/bin/python scripts/train_mlp.py data/pool_all.npz data/mlp.npz             # 12-second second-opinion MLP
+.venv/bin/python scripts/build_skeletons.py            # skeleton bank for GED reranking
+```
+
+Harvest files (`data/harvest_*.npz`, from `scripts/harvest_glyphs.py`)
+are merged automatically when present; without them the prototypes are
+synthetic-only and accuracy on real scans drops accordingly.
+
 The **segmentation lab** (`mlws-ocr-lab <image-or-directory> [port]`)
 re-runs block segmentation live as you change parameters and draws the
 algorithm's inner state: every connected-component box, every directed

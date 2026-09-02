@@ -28,9 +28,11 @@ legacy on spurious insertions. Priority order follows the shares:
    harvests (964 real digits via format endorsement). The digits first
    FLIPPED the confusions (letters read as digits) until digit mode became
    a deferred, lexicon-gated decision — see RESEARCH. Harvest round 3 under the fixed
-   pipeline added capitals coverage (S 77→207) and is merged in. NEXT on
-   this thread: the self-trained MLP (offline 99.0 vs 97.5 for
-   condensation); and
+   pipeline added capitals coverage (S 77→207) and is merged in. The self-trained MLP
+   second opinion is in (`recognize/mlp.py`, 12 s to train): synthetic
+   +0.6–0.8 char / +2.4–3.8 word, broad-30 86.5→87.0 at weight 2. NEXT on this
+   thread: more real exemplars for the classes the harvest gates still
+   starve (punctuation, rare capitals), and a proper held-out truth set; and
    the offline table says a self-trained MLP over the same features
    (99.0) or a 5-NN vote (99.1) sit above condensation (97.5) — the
    overnight candidates, below.
@@ -63,7 +65,7 @@ legacy on spurious insertions. Priority order follows the shares:
 Tesseract's **legacy engine has no neural net** and scores 95.3% char /
 90.5% word on our thirty-page sample; its LSTM engine scores 95.9 /
 92.2. The neural upgrade bought Tesseract 0.6 char points. We score
-86.5 / 68.3 (2026-09-01 late evening: condensed model with the digit harvest,
+87.0 / 68.6 (2026-09-01 night: condensed model with the digit harvest,
 deferred digit mode). **The remaining gap is therefore classical engineering,
 not model class** — thirty years of it — and that is where the work
 belongs. `scripts/compare_legacy.py` produces the paired per-page table
@@ -80,14 +82,12 @@ scope). Ranked by expected value per unit of risk:
    by fetching text rather than by training. We use 12 MB; govinfo
    holds far more public-domain federal text.
    `scripts/fetch_modern_corpus.sh` already does the fetch.
-2. **A classifier that can absorb the harvest.** Ceiling now measured
-   (`scripts/classifier_ceiling.py`, 2026-09-01): held-out real-glyph
-   top-1 — incumbent 91.9, k-means 60/class 97.5 (adopted, no training
-   needed), regularized QDA 98.7, 1-NN all 98.7, 5-NN vote 99.1, numpy
-   MLP 95-256-C **99.0** in ten seconds of training. The MLP is the
-   overnight candidate: it needs a recognizer implementation that emits
-   (class, cost) lists from logits, and the coverage fix (real digits and
-   capitals) first, or it inherits the same imbalance the 1-NN showed.
+2. **A classifier that can absorb the harvest.** DONE in daylight, not
+   overnight: per-class condensation carries the harvest, and a numpy MLP
+   over the same 95 features trains in 12 seconds and now re-costs the
+   candidate list (`scripts/train_mlp.py`). Overnight is for DATA — a
+   wider harvest (more domains, punctuation and capitals through new
+   gates) — not for training time.
 3. **A bigger char LM.** Hidden 256 → 512, two layers, ~10× data;
    overnight is enough in numpy. Expect one to two word points, from
    the curve so far: trigram → GRU (perplexity 10 → 3.27) gave +2.5
