@@ -39,9 +39,13 @@ classification. Priority order follows the shares:
    the rest of the shape bucket sits on lines where segmentation was
    active (70% of degraded-page shape errors), on heavy grotesque
    capitals from letterhead faces, and on fi/ffi ligatures (classes
-   measured negative as a junk magnet — see RESEARCH). NEXT on this
-   thread: more real exemplars for the classes the harvest gates still
-   starve (punctuation, rare capitals), and a proper held-out truth set; and
+   measured negative as a junk magnet — see RESEARCH). A truth-labeled set now exists
+   (`scripts/harvest_truth.py`, 134k glyphs) and says: truth is outside
+   the top-14 for 41% of residual errors, split pieces err 5× more than
+   whole glyphs, and truth-labeled exemplars as training data measured
+   mixed-to-negative (RESEARCH). NEXT on this thread: the chopper — where
+   cuts are placed (Tesseract cuts at concave outline vertices, we cut at
+   the ink minimum) and the scoring of cut pieces; and
    the offline table says a self-trained MLP over the same features
    (99.0) or a 5-NN vote (99.1) sit above condensation (97.5) — the
    overnight candidates, below.
