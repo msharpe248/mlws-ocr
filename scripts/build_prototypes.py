@@ -36,6 +36,9 @@ _ap.add_argument("--truth", nargs="*", default=None, metavar="NPZ",
                  help="truth-labeled harvests (scripts/harvest_truth.py) to "
                       "merge as well, labels taken from their 'truth' field; "
                       "default: data/truth_*.npz when present")
+_ap.add_argument("--truth-kinds", default="whole,split,merge",
+                 help="which read kinds of truth glyphs to merge (e.g. "
+                      "'split,merge' to add only cut/joined pieces)")
 _ap.add_argument("--condense", type=int, default=0, metavar="N",
                  help="k-means condense the merged pool to N prototypes per "
                       "class (see recognize/condense.py); implies --cap "
@@ -128,10 +131,15 @@ if harvest_files or truth_files:
     # and capitals the lexicon-word gate of the self-labeled harvest
     # never admits, and they carry the pipeline's own mistakes correctly
     # labeled.  Family tag: "truth" (routing treats it as untagged body).
-    hX = np.concatenate([pt["X"] for pt in parts] + [tp["X"] for tp in tparts])
-    hl = np.concatenate([pt["labels"] for pt in parts] + [tp["truth"] for tp in tparts])
+    # (truth labels outside the charset -- the ground truth's '~' marker
+    # for unreadable print, stray symbols -- are not classes)
+    kinds = set(_args.truth_kinds.split(","))
+    tkeep = [np.isin(tp["truth"], list(CHARSET)) & np.isin(tp["kind"], list(kinds))
+             for tp in tparts]
+    hX = np.concatenate([pt["X"] for pt in parts] + [tp["X"][k] for tp, k in zip(tparts, tkeep)])
+    hl = np.concatenate([pt["labels"] for pt in parts] + [tp["truth"][k] for tp, k in zip(tparts, tkeep)])
     hf = np.concatenate([pt["families"] for pt in parts]
-                        + [np.full(len(tp["truth"]), "truth") for tp in tparts])
+                        + [np.full(int(k.sum()), "truth") for k in tkeep])
     rng = np.random.default_rng(3)
     added = 0
     CAP = _args.cap   # 80 swept best for 1-NN: 250 diluted (dev-8 −1.5 char/−5.5 word)
