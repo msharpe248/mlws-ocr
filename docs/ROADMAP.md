@@ -33,7 +33,13 @@ classification. Priority order follows the shares:
    a deferred, lexicon-gated decision — see RESEARCH. Harvest round 3 under the fixed
    pipeline added capitals coverage (S 77→207) and is merged in. The self-trained MLP
    second opinion is in (`recognize/mlp.py`, 12 s to train): synthetic
-   +0.6–0.8 char / +2.4–3.8 word, broad-30 86.5→87.0 at weight 2. NEXT on this
+   +0.6–0.8 char / +2.4–3.8 word, broad-30 86.5→87.0 at weight 2. The Tesseract-style outline-segment
+   channel (`recognize/outline.py`, third opinion, weight 50) added
+   another 0.1 char and lifted every column; the shape-residual probe says
+   the rest of the shape bucket sits on lines where segmentation was
+   active (70% of degraded-page shape errors), on heavy grotesque
+   capitals from letterhead faces, and on fi/ffi ligatures (classes
+   measured negative as a junk magnet — see RESEARCH). NEXT on this
    thread: more real exemplars for the classes the harvest gates still
    starve (punctuation, rare capitals), and a proper held-out truth set; and
    the offline table says a self-trained MLP over the same features
@@ -68,7 +74,7 @@ classification. Priority order follows the shares:
 Tesseract's **legacy engine has no neural net** and scores 95.3% char /
 90.5% word on our thirty-page sample; its LSTM engine scores 95.9 /
 92.2. The neural upgrade bought Tesseract 0.6 char points. We score
-87.0 / 68.6 (2026-09-01 night: condensed model with the digit harvest,
+87.1 / 68.7 (2026-09-02, outline channel: condensed model with the digit harvest,
 deferred digit mode). **The remaining gap is therefore classical engineering,
 not model class** — thirty years of it — and that is where the work
 belongs. `scripts/compare_legacy.py` produces the paired per-page table
@@ -104,6 +110,13 @@ measurement rather than a changed pipeline. Every leg of 2026-09-01 was
 separately attributable because of this.
 
 ## Open threads
+
+- **Ligature classes, gated.** Plain classes measured negative (3 true
+  ligatures vs 17 junk decodes on dev-8); the plumbing is in place. Try
+  admitting a ligature only when the expanded word is lexicon-endorsed.
+- **Unseen heavy grotesque capitals** in letterheads (F→r, Y→o, N→c on
+  broad-30): a stock-coverage question the outline channel should soften;
+  otherwise a measured widening experiment with one bold grotesque.
 
 - **Reading order.** Measured share on letters: 1.4 char points (zone-
   ordered scoring). Column-first XY-cut for tall gutters recovered 0.2 of

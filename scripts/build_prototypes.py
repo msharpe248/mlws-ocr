@@ -8,26 +8,17 @@ for page-level evaluation.
     .venv/bin/python scripts/build_prototypes.py [out.npz]
 """
 import json
-import string
 import sys
 from pathlib import Path
 
 import numpy as np
 
 from mlws_ocr.factory.fonts import font_family, print_fonts
-from mlws_ocr.factory.synth import Degradation, degrade, render_glyph
+from mlws_ocr.factory.synth import Degradation, degrade, glyph_available, render_glyph
 from mlws_ocr.glyph.features import extract_features
 from mlws_ocr.recognize.nearest import NearestPrototype
 
-# Accented classes complete the Latin-multilingual scope: the components
-# stage already merges a diacritic with its base glyph (same overlap
-# mechanism as i-dots), so each accented letter is one class here.  The
-# curated prototype fonts all carry Latin-1/Extended-A.
-ACCENTED = "àâäæçéèêëîïíìôöòóœßùûüúñã" + "ÉÈÀÇÄÖÜ"
-# "&$%/#" joined late: ground truth contains them constantly (business
-# docs!) yet they were unclassifiable -- "&" decoded as 'a' forever.
-CHARSET = string.ascii_letters + string.digits + ".,;:!?()-'\"" + "&$%/#" + ACCENTED
-HOLDOUT = ("Verdana", "Tahoma")
+from mlws_ocr.factory.stock import ACCENTED, BODY_NAMES, CHARSET, HOLDOUT  # noqa: F401
 
 import argparse
 _ap = argparse.ArgumentParser()
@@ -62,20 +53,7 @@ from mlws_ocr.factory.fonts import font_family
 # and each reshuffle cost accuracy somewhere (a 30-body experiment with
 # new .ttc serifs crashed synthetic sev0 92.7->75.4).  Widening body is a
 # deliberate, measured experiment, not a side effect.
-BODY_NAMES = [
-    "Andale Mono", "Arial Black", "Arial Bold Italic", "Arial Bold",
-    "Arial Italic", "Arial Rounded Bold", "Arial Unicode", "Arial",
-    "BigCaslon", "Courier New Bold Italic", "Courier New Bold",
-    "Courier New Italic", "Courier New", "DIN Alternate Bold",
-    "Georgia Bold Italic", "Georgia Bold", "Georgia Italic", "Georgia",
-    "Microsoft Sans Serif", "STIXTwoText-Italic", "STIXTwoText", "Skia",
-    "Times New Roman Italic",
-    # A widening experiment (append AmericanTypewriter/Athelas/Baskerville/
-    # Charter/Cochin/Didot to this base) was measured TWICE harmful:
-    # displacing old faces crashed sev0; pure appending still cost letters
-    # -1.3 char / -3.6 word and sev0 -2.2.  This 23-face body is a genuine
-    # local optimum; dilution is intrinsic, not an artifact.  See RESEARCH.
-]
+# BODY_NAMES: see mlws_ocr/factory/stock.py (pinned composition + why).
 pool = print_fonts(limit=80, exclude=HOLDOUT)
 by_stem = {f.stem: f for f in pool}
 body = [by_stem[n] for n in BODY_NAMES if n in by_stem]
@@ -111,6 +89,8 @@ X, labels, tags = [], [], []
 for font in fonts:
     fam = font_family(font)
     for ch in CHARSET:
+        if not glyph_available(ch, font):
+            continue
         # (16 px small-type variants were tried and measured flat on
         # newsprint -- see docs/RESEARCH.md; not included.)
         for px in (32, 48):

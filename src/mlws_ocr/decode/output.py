@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import re
+import unicodedata
 
 from ..core.artifacts import Page
 from ..core.registry import register
@@ -94,7 +95,8 @@ class TextOutput(Stage):
             # insertions clustered exactly there once rejection retired).
             toks = []
             for w in ln["words"]:
-                t = _RE_DASHRUN.sub("", w["text"])
+                # ligature classes (fi, fl, ff, ffi) become their letters
+                t = _RE_DASHRUN.sub("", unicodedata.normalize("NFKC", w["text"]))
                 if t:
                     toks.append(t)
             if not toks:

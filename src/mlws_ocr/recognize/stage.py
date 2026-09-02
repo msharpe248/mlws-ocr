@@ -19,6 +19,7 @@ from .nearest import NearestPrototype
 
 _SKELETON_BANK: dict = {}
 _MLP_CACHE: dict = {}
+_OUTLINE_CACHE: dict = {}
 
 
 def _load_bank(path: str) -> dict:
@@ -82,6 +83,18 @@ class PrototypeRecognize(Stage):
                                   # 80.2 / 80.8 / 81.1 -- 2 takes the
                                   # headline, 4 trades synthetic sev0)
         "mlp_inject": 3,          # MLP top classes added if absent
+        "outline_path": "data/outline_protos.npz",  # third opinion: outline-
+                                  # segment matching (recognize/outline.py,
+                                  # the Tesseract §5 mechanism); "" = off
+        "outline_weight": 50.0,   # distance units per unit of outline cost
+                                  # disagreement: prototype candidate gaps
+                                  # run ~20 units, outline cost gaps ~0.07
+                                  # (measured on a real page). Swept 50/100/
+                                  # 200: broad-30 char 87.1/87.1/-, word
+                                  # 68.7/68.6/-, dev-8 word 81.2/80.5/79.7
+        "outline_top": 6,         # candidates rated (the rest keep their cost);
+                                  # ~48 ms per glyph at 14, the win is in the
+                                  # top few
     }
 
     def _mlp_second_opinion(self, X, topk):
@@ -125,6 +138,33 @@ class PrototypeRecognize(Stage):
                     scored[c] = best_d + w * (row[j] - base)
             ranked = sorted(scored.items(), key=lambda kv: kv[1])[: len(cands)]
             out.append([(c, float(d)) for c, d in ranked])
+        return out
+
+    def _outline_opinion(self, crops, topk):
+        """Re-cost candidates by outline-segment evidence (see outline.py):
+        cost' = cost + w * (oc(c) - min oc over the list), the same additive
+        form as the MLP second opinion, so the best-agreeing candidate keeps
+        its prototype distance and the scale is preserved."""
+        from .outline import OutlineMatcher
+        om = _OUTLINE_CACHE.get(self.params["outline_path"])
+        if om is None:
+            path = Path(self.params["outline_path"])
+            if not path.exists():
+                raise FileNotFoundError(
+                    f"{path} missing -- build it with scripts/build_outline_protos.py")
+            om = _OUTLINE_CACHE[self.params["outline_path"]] = OutlineMatcher.load(path)
+        w = self.params["outline_weight"]
+        out = []
+        top = self.params["outline_top"]
+        for crop, cands in zip(crops, topk):
+            classes = [c for c, _ in cands[:top] if c in om.configs]
+            if not classes:
+                out.append(cands)
+                continue
+            oc = om.costs(crop > 0.5, classes)
+            base = min(oc.values())
+            out.append(sorted(((c, d + w * (oc[c] - base)) if c in oc else (c, d)
+                               for c, d in cands), key=lambda t: t[1]))
         return out
 
     def run(self, page: Page) -> tuple[Page, DebugBundle]:
@@ -247,6 +287,8 @@ class PrototypeRecognize(Stage):
 
             if self.params["mlp_path"]:
                 topk = self._mlp_second_opinion(X, topk)
+            if self.params["outline_path"]:
+                topk = self._outline_opinion(crops, topk)
 
             for (li, gi, ai), cands in zip(slots, topk):
                 g = layout["lines"][li]["groups"][gi]

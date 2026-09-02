@@ -17,6 +17,8 @@ the cut-candidate lattice for merged/split glyphs builds on top of it.
 """
 from __future__ import annotations
 
+import unicodedata
+
 import numpy as np
 
 from ..core.artifacts import Page
@@ -27,7 +29,7 @@ from pathlib import Path
 from ..lang.gru import CharGRU, GruLM
 from ..lang.model import CharBigram, CorpusModel
 
-TALL = set("bdfhklt" + "ij"  # dotted forms group to ascender height
+TALL = set("bdfhklt" + "ij" + "\ufb01\ufb02\ufb00\ufb03"  # f-ligatures  # dotted forms group to ascender height
            + "ABCDEFGHIJKLMNOPQRSTUVWXYZ" + "0123456789" + "!?\"'()"
            # a mark above lifts the group to ascender height:
            + "àâäéèêëîïíìôöòóùûüúñãÉÈÀÄÖÜß")
@@ -1234,7 +1236,8 @@ class BeamDecode(Stage):
         # common the word actually is -- a frequent word may displace the
         # pixel-best reading, an obscure one only breaks near-ties.
         def _core(w):
-            return w.lower().strip("'\".,;:!?()-")
+            # ligature classes expand to their letters before the lexicon
+            return unicodedata.normalize("NFKC", w).lower().strip("'\".,;:!?()-")
         in_lex = lm.endorsed(_core(best))
         lm_override = 0
         # Scan alternatives not only for junk, but also for words known

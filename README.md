@@ -42,6 +42,7 @@ our own renders and our own self-labeled harvest — nothing pre-trained:
 .venv/bin/python scripts/build_prototypes.py data/prototypes.npz --condense 60   # condensed glyph prototypes
 .venv/bin/python scripts/build_prototypes.py data/pool_all.npz --cap 1000000000 --inlier 100
 .venv/bin/python scripts/train_mlp.py data/pool_all.npz data/mlp.npz             # 12-second second-opinion MLP
+.venv/bin/python scripts/build_outline_protos.py       # outline-segment prototypes (Tesseract-style third opinion)
 .venv/bin/python scripts/build_skeletons.py            # skeleton bank for GED reranking
 ```
 

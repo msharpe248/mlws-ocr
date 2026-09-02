@@ -55,6 +55,27 @@ def render_glyph(char: str, font_path, px_height: int = 48,
     return np.asarray(im, dtype=np.float32) / 255.0
 
 
+def glyph_available(char: str, font_path, px_height: int = 48) -> bool:
+    """Does the font really have this glyph, or would it draw a fallback?
+
+    Compatibility characters (ligatures) are the case that matters: a
+    missing glyph renders as a narrow notdef box, which would poison a
+    class.  Test: the rendered ink must be roughly as wide as the
+    character's NFKC expansion rendered plainly.
+    """
+    import unicodedata
+    plain = unicodedata.normalize("NFKC", char)
+    if plain == char:
+        return True
+    try:
+        a = render_glyph(char, font_path, px_height=px_height) < 0.5
+        b = render_glyph(plain, font_path, px_height=px_height) < 0.5
+    except Exception:
+        return False
+    wa, wb = int(a.any(axis=0).sum()), int(b.any(axis=0).sum())
+    return a.sum() > 50 and 0.6 * wb < wa < 1.2 * wb
+
+
 def render_text_page(lines: list[str], font_path, px_height: int = 32,
                      line_spacing: float = 1.6, margin: int = 60,
                      page_width: int | None = None) -> np.ndarray:
