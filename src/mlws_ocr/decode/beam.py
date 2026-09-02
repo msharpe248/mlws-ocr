@@ -659,6 +659,7 @@ class BeamDecode(Stage):
                             g["dconf"] = meta["confidence"] + (0.3 if meta["in_lexicon"] else 0.0)
                     n_reject += text.count("?") if meta["rejected"] else 0
                     n_lm_override += meta["lm_override"]
+                    chars = list(meta.get("chars", []))
                     if p["word_split"] and not meta["in_lexicon"] and len(text) >= 7:
                         core = text.lower().strip("'\".,;:!?()-")
                         for cut in range(3, len(core) - 2):
@@ -666,8 +667,10 @@ class BeamDecode(Stage):
                                     and lm.endorsed(core[cut:])):
                                 text = text[:cut] + " " + text[cut:]
                                 meta = dict(meta, in_lexicon=True)
+                                if len(chars) >= cut:
+                                    chars.insert(cut, None)     # the space
                                 break
-                    ln["words"].append({
+                    word = {
                         "text": text,
                         "box": [min(g["box"][0] for g in word_groups),
                                 min(g["box"][1] for g in word_groups),
@@ -675,12 +678,24 @@ class BeamDecode(Stage):
                                 max(g["box"][3] for g in word_groups)],
                         "confidence": meta["confidence"],
                         "in_lexicon": meta["in_lexicon"],
-                    })
+                    }
+                    # Per-character provenance (box, source group, how it
+                    # was read: whole / split / merge) -- for the inspector's
+                    # glyph view, the probes and the truth-labeled harvest.
+                    # Kept only while it lines up with the text; later
+                    # repair passes that change the length drop it.
+                    if len(chars) == len(text):
+                        word["chars"] = chars
+                    ln["words"].append(word)
 
         n_caseflips = self._sentence_case_pass(layout, lm, p)
         n_caseflips += self._word_case_coherence(layout)
         n_caseflips += self._mixed_alnum_repair(layout, lm)
         n_dehyph = self._dehyphenate_pass(layout, lm)
+        for ln in layout["lines"]:
+            for w in ln.get("words", []):
+                if "chars" in w and len(w["chars"]) != len(w["text"]):
+                    del w["chars"]      # a repair pass changed the length
 
         out = page.evolve()
         out.meta["layout"] = layout
@@ -938,7 +953,10 @@ class BeamDecode(Stage):
         best = None
         for split_set in variants:
             for merge_set in merge_sets:
-                cand_seq, skip = [], False
+                # cand_seq: one entry per output character; prov: where
+                # each came from (group index and how it was read), the
+                # per-character provenance the output carries as "chars".
+                cand_seq, prov, skip = [], [], False
                 for i, g in enumerate(groups):
                     if skip:
                         skip = False
@@ -946,6 +964,7 @@ class BeamDecode(Stage):
                     if i in merge_set and i not in split_set:
                         cand_seq.append({"candidates": g["merge_candidates"],
                                          "box": g["merge"]})
+                        prov.append({"box": g["merge"], "group": i, "kind": "merge"})
                         skip = True          # the right piece is absorbed
                     elif i in split_set:
                         ac = g["alt_candidates"]
@@ -953,8 +972,11 @@ class BeamDecode(Stage):
                                          "box": g["alt"][0]})
                         cand_seq.append({"candidates": ac["1"],
                                          "box": g["alt"][1]})
+                        prov.append({"box": g["alt"][0], "group": i, "kind": "split"})
+                        prov.append({"box": g["alt"][1], "group": i, "kind": "split"})
                     else:
                         cand_seq.append(g)
+                        prov.append({"box": g["box"], "group": i, "kind": "whole"})
                 if not cand_seq:
                     continue
                 text, meta, score = self._beam_word(cand_seq, x_height, lm, p,
@@ -963,7 +985,7 @@ class BeamDecode(Stage):
                 score += p["merge_char_bonus"] * len(merge_set)
                 score += 2.0 if meta["in_lexicon"] else 0.0
                 if best is None or score > best[2]:
-                    best = (text, meta, score)
+                    best = (text, dict(meta, chars=prov), score)
         return best
 
     def _beam_word(self, groups, x_height, lm: CharBigram, p,
