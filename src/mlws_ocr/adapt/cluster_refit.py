@@ -67,6 +67,10 @@ class ClusterRefit(Stage):
         "min_cluster": 3,
         "min_purity": 0.7,
         "top_k": 5,
+        "member_gate": False,  # pin a member only if the voted class is in
+                               # ITS OWN candidate list (the cluster gate
+                               # asks for any member); truth-labeled probe
+                               # found 73% of residual errors pinned wrong
     }
 
     def run(self, page: Page) -> tuple[Page, DebugBundle]:
@@ -117,6 +121,9 @@ class ClusterRefit(Stage):
                 continue
             n_labeled_clusters += 1
             for i in members:
+                if p["member_gate"] and voted not in [
+                        c for c, _ in group(*slots[i])["candidates"]]:
+                    continue
                 labeled[int(i)] = voted
 
         if len(set(labeled.values())) < 8:

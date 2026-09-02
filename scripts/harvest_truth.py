@@ -39,14 +39,16 @@ from harvest_glyphs import eval_pages_set  # noqa: E402
 
 
 def line_records(ln) -> tuple[str, list]:
-    """Decoded line text and a per-character list of (box, kind) or None."""
+    """Decoded line text and, per character, (box, kind, group, word) or None."""
     text, refs = [], []
+    groups = ln.get("groups", [])
     for w in ln.get("words", []):
         chars = w.get("chars")
         for k, ch in enumerate(w["text"]):
             text.append(ch)
             c = chars[k] if chars and k < len(chars) else None
-            refs.append((c["box"], c["kind"]) if c else None)
+            g = groups[c["group"]] if c and c["group"] < len(groups) else None
+            refs.append((c["box"], c["kind"], g, w) if c else None)
         text.append(" ")
         refs.append(None)
     return "".join(text).strip(), refs[:len("".join(text).strip())]
@@ -64,6 +66,7 @@ def main():
     pairs = [(t, g) for t, g in find_pairs(args.root) if t.name not in excluded]
     random.Random(11).shuffle(pairs)
     X, truth_l, dec_l, kinds, crops, shapes, pages = [], [], [], [], [], [], []
+    pinned, cands, in_lex, conf = [], [], [], []      # attribution fields
     stats = {"eq": 0, "sub": 0, "lines": 0}
     for n, (tif, gt) in enumerate(pairs[: args.pages], 1):
         truth_lines = [normalize(l) for l in gt.read_text(errors="ignore").splitlines()]
@@ -93,12 +96,19 @@ def main():
                 ref = refs[i - 1] if 0 < i <= len(refs) else None
                 if ref is None:
                     continue
-                (x0, y0, x1, y1), kind = ref
+                (x0, y0, x1, y1), kind, g, w = ref
                 m = b[y0:y1, x0:x1]
                 if m.shape[0] < 2 or m.shape[1] < 2 or not m.any():
                     continue
                 X.append(extract_features(1.0 - m.astype(np.float32)))
                 truth_l.append(tc); dec_l.append(gc); kinds.append(kind)
+                # who could have overridden the classifier: the adaptation
+                # pin, the lexicon endorsement of the word, its confidence,
+                # and the recognizer's own top-6 (final, all opinions in)
+                pinned.append(g.get("pinned", "") if g else "")
+                cl = g.get("candidates", []) if (g and kind == "whole") else []
+                cands.append("".join(c for c, _ in cl[:6]).ljust(6)[:6])
+                in_lex.append(bool(w["in_lexicon"])); conf.append(float(w["confidence"]))
                 crops.append(np.packbits(m.astype(np.uint8).ravel()))
                 shapes.append(m.shape); pages.append(tif.name)
                 stats[op] += 1; kept += 1
@@ -110,7 +120,9 @@ def main():
                         truth=np.array(truth_l), decoded=np.array(dec_l),
                         kind=np.array(kinds), pages=np.array(pages),
                         crops=np.concatenate(crops) if crops else np.zeros(0, np.uint8),
-                        offsets=offsets, shapes=np.array(shapes, np.int32))
+                        offsets=offsets, shapes=np.array(shapes, np.int32),
+                        pinned=np.array(pinned), cands=np.array(cands),
+                        in_lexicon=np.array(in_lex), confidence=np.array(conf, np.float32))
     print(f"saved {len(truth_l)} truth-labeled glyphs ({stats['sub']} where the "
           f"pipeline was wrong) from {stats['lines']} matched lines -> {args.out}")
 
