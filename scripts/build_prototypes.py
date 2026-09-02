@@ -29,7 +29,25 @@ ACCENTED = "àâäæçéèêëîïíìôöòóœßùûüúñã" + "ÉÈÀÇÄÖ�
 CHARSET = string.ascii_letters + string.digits + ".,;:!?()-'\"" + "&$%/#" + ACCENTED
 HOLDOUT = ("Verdana", "Tahoma")
 
-out_path = sys.argv[1] if len(sys.argv) > 1 else "data/prototypes.npz"
+import argparse
+_ap = argparse.ArgumentParser()
+_ap.add_argument("out", nargs="?", default="data/prototypes.npz")
+_ap.add_argument("--cap", type=int, default=80,
+                 help="harvested exemplars kept per class (80 = measured "
+                      "1-NN optimum; use a VARIANT out path for anything else)")
+_ap.add_argument("--inlier", type=float, default=70,
+                 help="percentile of medoid distance kept per class")
+_ap.add_argument("--condense", type=int, default=0, metavar="N",
+                 help="k-means condense the merged pool to N prototypes per "
+                      "class (see recognize/condense.py); implies --cap "
+                      "unlimited and --inlier 100 unless given explicitly")
+_args = _ap.parse_args()
+if _args.condense:
+    if "--cap" not in sys.argv:
+        _args.cap = 10 ** 9
+    if "--inlier" not in sys.argv:
+        _args.inlier = 100
+out_path = _args.out
 # Explicit composition (alphabetical-limit roulette kept reshuffling the
 # set): 23 body faces + up to 6 display faces.  Display serves per-block
 # routing of letterhead lines only; body composition is the measured-best
@@ -116,7 +134,7 @@ if harvest_files:
     hf = np.concatenate([pt["families"] for pt in parts])
     rng = np.random.default_rng(3)
     added = 0
-    CAP = 80   # swept: 250 diluted (dev-8 −1.5 char/−5.5 word)
+    CAP = _args.cap   # 80 swept best for 1-NN: 250 diluted (dev-8 −1.5 char/−5.5 word)
     for cls in sorted(set(hl)):
         idx = np.flatnonzero(hl == cls)
         if len(idx) < 5:
@@ -124,7 +142,7 @@ if harvest_files:
         Xc = hX[idx]
         med = np.median(Xc, axis=0)
         d = np.linalg.norm(Xc - med, axis=1)
-        keep = idx[d <= np.percentile(d, 70)]     # inlier core only
+        keep = idx[d <= np.percentile(d, _args.inlier)]     # inlier core only
         if len(keep) > CAP:
             keep = rng.choice(keep, CAP, replace=False)
         for i in keep:
@@ -136,6 +154,11 @@ if harvest_files:
           f"{[h.name for h in harvest_files]}")
 
 model = NearestPrototype().fit(np.array(X), labels, tags=tags)
-import pathlib; pathlib.Path(out_path).parent.mkdir(parents=True, exist_ok=True)
+if _args.condense:
+    from mlws_ocr.recognize.condense import condense
+    model = condense(model, _args.condense)
+    print(f"condensed {len(labels)} exemplars -> {len(model.y)} prototypes "
+          f"({_args.condense}/class)")
+Path(out_path).parent.mkdir(parents=True, exist_ok=True)
 model.save(out_path)
-print(f"saved {len(labels)} exemplars, {len(model.classes)} classes -> {out_path}")
+print(f"saved {len(model.y)} exemplars, {len(model.classes)} classes -> {out_path}")

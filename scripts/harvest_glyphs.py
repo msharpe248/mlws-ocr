@@ -32,6 +32,7 @@ import mlws_ocr.decode, mlws_ocr.adapt  # noqa: F401
 from mlws_ocr.core import registry
 from mlws_ocr.core.artifacts import Page
 from mlws_ocr.core.imgio import load_gray
+from mlws_ocr.decode.formats import numeric_endorsed
 from mlws_ocr.glyph.features import extract_features
 
 sys.path.insert(0, str(Path(__file__).parent))
@@ -59,6 +60,12 @@ def main():
     ap.add_argument("--min-conf", type=float, default=0.3)
     ap.add_argument("--out", default="data/harvest_en.npz")
     ap.add_argument("--doc-type", default="letter")
+    ap.add_argument("--digits", action="store_true",
+                    help="harvest ONLY digits, from format-endorsed numeric "
+                         "tokens (ZIPs, phones, years, dates, amounts). Pass "
+                         "--min-conf 0: the word confidence is lexicon-"
+                         "driven and sits near 0.05 for every numeric token; "
+                         "the rigid format IS the endorsement here")
     args = ap.parse_args()
 
     excluded = eval_pages_set(args.root)
@@ -88,12 +95,19 @@ def main():
                 continue
             words = {}
             for w in ln.get("words", []):
-                if (w["in_lexicon"] and len(w["text"]) >= 4
-                        and w["confidence"] >= args.min_conf):
+                if w["confidence"] < args.min_conf:
+                    continue
+                if args.digits:
+                    ok = numeric_endorsed(w["text"])
+                else:
+                    ok = w["in_lexicon"] and len(w["text"]) >= 4
+                if ok:
                     words[(w["box"][0], w["box"][2])] = w
             for g in ln.get("groups", []):
                 ch = g.get("decoded")
                 if not ch or ch == "?":
+                    continue
+                if args.digits and not ch.isdigit():
                     continue
                 gb = g["box"]
                 if not any(x0 <= gb[0] and gb[2] <= x1 + 2

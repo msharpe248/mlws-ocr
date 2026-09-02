@@ -6,6 +6,7 @@ import re
 from ..core.artifacts import Page
 from ..core.registry import register
 from ..core.stage import DebugBundle, Stage
+from .formats import numeric_endorsed
 
 _RE_DASHRUN = re.compile(r"-{3,}")
 
@@ -65,7 +66,12 @@ class TextOutput(Stage):
                 digit_heavy = (n_alnum >= 4
                                and sum(c.isdigit() for c in text_all)
                                >= 0.4 * n_alnum)
-                if not digit_heavy and (graphic or (
+                # A format-endorsed number (ZIP, phone, date, amount) marks
+                # an address or data line even when the words around it
+                # misread ("PAssAIc, Na 07055"): deletion attribution found
+                # such lines suppressed whole, 16 deletions for 2 errors.
+                formatted = any(numeric_endorsed(w["text"]) for w in ln["words"])
+                if not digit_heavy and not formatted and (graphic or (
                         not any(w["in_lexicon"] for w in ln["words"])
                         and sum(confs) / len(confs) < self.params["garbage_max_conf"]
                         and (repeat >= self.params["garbage_repeat_frac"]

@@ -23,7 +23,7 @@ from mlws_ocr.core.artifacts import Page
 from mlws_ocr.core.imgio import load_gray
 
 sys.path.insert(0, str(Path(__file__).parent))
-from eval_pages import PIPELINE  # noqa: E402
+from eval_pages import PIPELINE, parse_overrides  # noqa: E402
 from eval_unlv import find_pairs, normalize  # noqa: E402
 
 
@@ -62,7 +62,10 @@ def main():
     ap.add_argument("--pages", type=int, default=30)
     ap.add_argument("--seed", type=int, default=2)
     ap.add_argument("--doc-type", default="letter")
+    ap.add_argument("--set", action="append", default=[], metavar="SLOT.KEY=VAL",
+                    help="override a stage parameter for this run only")
     args = ap.parse_args()
+    overrides = parse_overrides(args.set)
 
     pairs = list(find_pairs(args.root))
     random.Random(args.seed).shuffle(pairs)
@@ -76,7 +79,8 @@ def main():
                     meta={"doc_type": args.doc_type})
         try:
             for slot, impl in PIPELINE:
-                page, _ = registry.get(slot, impl)().run(page)
+                page, _ = registry.get(slot, impl)(
+                    **overrides.get(slot, {})).run(page)
         except Exception as e:
             print(f"  {tif.name}: ERROR {e}")
             continue

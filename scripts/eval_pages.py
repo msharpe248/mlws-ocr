@@ -67,19 +67,47 @@ def edit_distance(a: str, b: str) -> int:
     return dp[-1]
 
 
-def run_pipeline_on(img):
+def parse_overrides(items: list[str] | None) -> dict[str, dict]:
+    """Turn ["recognize.model_path=x.npz", "decode.pin_bonus=2"] into
+    {slot: {key: value}}; values parse as int/float/bool when they can.
+    Lets an evaluation try a variant model or parameter WITHOUT touching
+    the live configuration (variant-file discipline)."""
+    out: dict[str, dict] = {}
+    for item in items or []:
+        key, _, raw = item.partition("=")
+        slot, _, name = key.partition(".")
+        val: object = raw
+        if raw.lower() in ("true", "false"):
+            val = raw.lower() == "true"
+        else:
+            for cast in (int, float):
+                try:
+                    val = cast(raw)
+                    break
+                except ValueError:
+                    pass
+        out.setdefault(slot, {})[name] = val
+    return out
+
+
+def run_pipeline_on(img, overrides: dict | None = None):
     page = Page(gray=img.astype(np.float32), dpi=300.0)
     for slot, impl in PIPELINE:
-        page, _ = registry.get(slot, impl)().run(page)
+        page, _ = registry.get(slot, impl)(**(overrides or {}).get(slot, {})).run(page)
     return page.meta.get("text", "")
 
 
 def main():
+    import argparse
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--set", action="append", default=[], metavar="SLOT.KEY=VAL",
+                    help="override a stage parameter for this run")
+    overrides = parse_overrides(ap.parse_args().set)
     font = next(f for f in find_fonts() if f.name == "Verdana.ttf")
     truth = "\n".join(LINES)
     clean = render_text_page(LINES, font, px_height=32)
     for sev, theta in SEVERITIES.items():
-        got = run_pipeline_on(degrade(clean, theta))
+        got = run_pipeline_on(degrade(clean, theta), overrides)
         flat_t = " ".join(truth.split())
         flat_g = " ".join(got.split())
         cer = edit_distance(flat_g, flat_t) / len(flat_t)

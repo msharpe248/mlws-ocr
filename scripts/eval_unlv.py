@@ -23,7 +23,7 @@ from mlws_ocr.core.artifacts import Page
 from mlws_ocr.core.imgio import load_gray
 
 sys.path.insert(0, str(Path(__file__).parent))
-from eval_pages import PIPELINE, edit_distance, edit_distance_words  # noqa: E402
+from eval_pages import PIPELINE, parse_overrides, edit_distance, edit_distance_words  # noqa: E402
 
 
 def find_pairs(root: Path):
@@ -98,7 +98,11 @@ def main():
                          "zones before scoring (ISRI practice: measures "
                          "recognition separately from reading-order "
                          "convention)")
+    ap.add_argument("--set", action="append", default=[], metavar="SLOT.KEY=VAL",
+                    help="override a stage parameter (e.g. recognize."
+                         "model_path=data/variant.npz) for this run only")
     args = ap.parse_args()
+    overrides = parse_overrides(args.set)
 
     pairs = list(find_pairs(args.root))
     if not pairs:
@@ -119,7 +123,8 @@ def main():
             for slot, impl in PIPELINE:
                 if slot == "blocks":
                     impl = args.blocks
-                page, _ = registry.get(slot, impl)().run(page)
+                page, _ = registry.get(slot, impl)(
+                    **overrides.get(slot, {})).run(page)
         except Exception as e:
             print(f"  {img_path.name}: PIPELINE ERROR {e}")
             continue
