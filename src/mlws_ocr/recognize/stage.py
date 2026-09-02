@@ -19,6 +19,13 @@ from .nearest import NearestPrototype
 
 _SKELETON_BANK: dict = {}
 _MLP_CACHE: dict = {}
+
+
+def _family_mask(tags, family):
+    """Exemplars admitted when matching within a font family: the family's
+    own, plus truth-labeled real glyphs (tag "truth"), whose face is
+    unknown -- they are scanner glyphs of every family at once."""
+    return (tags == family) | (tags == "truth")
 _OUTLINE_CACHE: dict = {}
 
 
@@ -206,7 +213,9 @@ class PrototypeRecognize(Stage):
                 """(family, share) by confident-half dominance vote."""
                 d1 = np.array([t[0][1] for t in model.predict_topk(Xs, k=1)])
                 confident = Xs[d1 <= np.median(d1)]
-                votes = model.top1_tags(confident)
+                votes = [v for v in model.top1_tags(confident) if v != "truth"]
+                if not votes:
+                    return "all", 0.0
                 fams, counts = np.unique(votes, return_counts=True)
                 order = np.argsort(-counts)
                 top = order[0]
@@ -223,7 +232,7 @@ class PrototypeRecognize(Stage):
             if self.params["route_family"] and model.tags is not None:
                 sample = X[:: max(1, len(X) // self.params["route_sample"])]
                 family, share = vote(sample)
-                page_model = model.subset(model.tags == family)                     if family != "all" else model
+                page_model = model.subset(_family_mask(model.tags, family))                     if family != "all" else model
 
                 if self.params["route_per_block"]:
                     # A letterhead's display line must not inherit the
@@ -236,7 +245,7 @@ class PrototypeRecognize(Stage):
                         idx = np.flatnonzero(block_of == b)
                         if len(idx) >= self.params["route_block_min"]:
                             bfam, _ = vote(X[idx])
-                            m = model.subset(model.tags == bfam)                                 if bfam != "all" else model
+                            m = model.subset(_family_mask(model.tags, bfam))                                 if bfam != "all" else model
                         else:
                             m = page_model
                         for i, t in zip(idx, m.predict_topk(

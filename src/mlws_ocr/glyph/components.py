@@ -70,10 +70,20 @@ class OverlapComponents(Stage):
                                  # receipt tear-off line emitted 313 junk
                                  # words); solid-line morphology can't see it
         "dot_max_px_300dpi": 8,
-        "split_width_factor": 1.5,  # a group this much wider than the line's
+        "split_width_factor": 1.3,  # a group this much wider than the line's
                                     # median is suspected of touching chars
+                                    # (1.5 missed bold-serif 'ti'/'li'/'fi'
+                                    # pairs; 1.3 broad-30 +0.2 char/+0.6
+                                    # word, 1.15 slightly worse on dev-8)
         "min_piece_frac": 0.3,      # each split piece must be at least this
                                     # fraction of the median glyph width
+        "split_under_dot": True,    # a dot-sized part over one side of a
+                                    # body wider than a letter marks an 'i'
+                                    # (or 'j') touching its neighbour: 'ti',
+                                    # 'li', 'fi', 'ri' in bold serif were the
+                                    # top shape confusion on broad-30; cut at
+                                    # the dot's edge
+        "dot_body_factor": 1.1,     # ...for bodies wider than this x median
     }
 
     def run(self, page: Page) -> tuple[Page, DebugBundle]:
@@ -100,7 +110,13 @@ class OverlapComponents(Stage):
                 ys0 = min(boxes[i][1] for i in idxs)
                 xs1 = max(boxes[i][2] for i in idxs)
                 ys1 = max(boxes[i][3] for i in idxs)
-                merged.append({"box": [xs0, ys0, xs1, ys1], "parts": len(idxs)})
+                g = {"box": [xs0, ys0, xs1, ys1], "parts": len(idxs)}
+                if len(idxs) > 1:
+                    # the small parts (dots, accents) and the largest body
+                    parts = sorted((boxes[i] for i in idxs),
+                                   key=lambda b: (b[2] - b[0]) * (b[3] - b[1]))
+                    g["_body"], g["_marks"] = parts[-1], parts[:-1]
+                merged.append(g)
             merged.sort(key=lambda g: g["box"][0])
             # Dotted-rule filter: many dot-sized groups in one line.
             dot = max(2, self.params["dot_max_px_300dpi"] * page.dpi / 300.0)
@@ -118,13 +134,35 @@ class OverlapComponents(Stage):
                 med_w = float(np.median([g["box"][2] - g["box"][0] for g in merged]))
                 for g in merged:
                     x0, y0, x1, y1 = g["box"]
+                    piece = int(self.params["min_piece_frac"] * med_w)
                     if x1 - x0 > self.params["split_width_factor"] * med_w:
-                        piece = int(self.params["min_piece_frac"] * med_w)
                         cut = _cut_column(page.binary[y0:y1, x0:x1],
                                           piece, (x1 - x0) - piece)
                         if cut is not None:
                             g["alt"] = [[x0, y0, x0 + cut, y1],
                                         [x0 + cut, y0, x1, y1]]
+                    elif (self.params["split_under_dot"] and "_marks" in g
+                          and x1 - x0 > self.params["dot_body_factor"] * med_w):
+                        # a dot over one side of a wide body: the 'i' is
+                        # under the dot, the neighbour is the other side
+                        bx0, by0, bx1, by1 = g["_body"]
+                        for m in g["_marks"]:
+                            if m[3] > by0 + 0.5 * (by1 - by0):
+                                continue            # not above the body
+                            mc = (m[0] + m[2]) / 2.0
+                            if mc > bx0 + 0.6 * (bx1 - bx0):
+                                lo, hi = max(piece, m[0] - x0 - piece), m[0] - x0 + 2
+                            elif mc < bx0 + 0.4 * (bx1 - bx0):
+                                lo, hi = m[2] - x0 - 2, min((x1 - x0) - piece, m[2] - x0 + piece)
+                            else:
+                                continue
+                            cut = _cut_column(page.binary[y0:y1, x0:x1], lo, hi)
+                            if cut is not None and piece <= cut <= (x1 - x0) - piece:
+                                g["alt"] = [[x0, y0, x0 + cut, y1],
+                                            [x0 + cut, y0, x1, y1]]
+                                break
+                for g in merged:
+                    g.pop("_body", None); g.pop("_marks", None)
             # Broken-character suspects (the inverse of the split
             # hypothesis above).  Fine old-style serifs lose their thin
             # top/bottom hairlines in print and scan, so a round letter

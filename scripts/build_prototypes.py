@@ -32,6 +32,10 @@ _ap.add_argument("--harvest", nargs="*", default=None, metavar="NPZ",
                  help="harvest files to merge (default: data/harvest_*.npz "
                       "minus backups); name them explicitly to test a "
                       "re-harvest variant without touching the live set")
+_ap.add_argument("--truth", nargs="*", default=None, metavar="NPZ",
+                 help="truth-labeled harvests (scripts/harvest_truth.py) to "
+                      "merge as well, labels taken from their 'truth' field; "
+                      "default: data/truth_*.npz when present")
 _ap.add_argument("--condense", type=int, default=0, metavar="N",
                  help="k-means condense the merged pool to N prototypes per "
                       "class (see recognize/condense.py); implies --cap "
@@ -113,11 +117,21 @@ harvest_files = sorted(Path("data").glob("harvest_*.npz"))
 harvest_files = [h for h in harvest_files if "backup" not in h.name]
 if _args.harvest is not None:
     harvest_files = [Path(h) for h in _args.harvest]
-if harvest_files:
+truth_files = sorted(Path("data").glob("truth_*.npz"))
+if _args.truth is not None:
+    truth_files = [Path(t) for t in _args.truth]
+if harvest_files or truth_files:
     parts = [np.load(h, allow_pickle=False) for h in harvest_files]
-    hX = np.concatenate([pt["X"] for pt in parts])
-    hl = np.concatenate([pt["labels"] for pt in parts])
-    hf = np.concatenate([pt["families"] for pt in parts])
+    tparts = [np.load(t, allow_pickle=False) for t in truth_files]
+    # Truth-labeled glyphs (aligned to ground truth on non-evaluation
+    # pages) join with their TRUTH label: they cover punctuation, digits
+    # and capitals the lexicon-word gate of the self-labeled harvest
+    # never admits, and they carry the pipeline's own mistakes correctly
+    # labeled.  Family tag: "truth" (routing treats it as untagged body).
+    hX = np.concatenate([pt["X"] for pt in parts] + [tp["X"] for tp in tparts])
+    hl = np.concatenate([pt["labels"] for pt in parts] + [tp["truth"] for tp in tparts])
+    hf = np.concatenate([pt["families"] for pt in parts]
+                        + [np.full(len(tp["truth"]), "truth") for tp in tparts])
     rng = np.random.default_rng(3)
     added = 0
     CAP = _args.cap   # 80 swept best for 1-NN: 250 diluted (dev-8 −1.5 char/−5.5 word)
@@ -137,7 +151,7 @@ if harvest_files:
             tags.append(str(hf[i]))
         added += len(keep)
     print(f"merged {added} harvested real exemplars from "
-          f"{[h.name for h in harvest_files]}")
+          f"{[h.name for h in harvest_files]} + {[t.name for t in truth_files]}")
 
 model = NearestPrototype().fit(np.array(X), labels, tags=tags)
 if _args.condense:
