@@ -59,7 +59,7 @@ legacy on spurious insertions. Priority order follows the shares:
 Tesseract's **legacy engine has no neural net** and scores 95.3% char /
 90.5% word on our thirty-page sample; its LSTM engine scores 95.9 /
 92.2. The neural upgrade bought Tesseract 0.6 char points. We score
-86.2 / 67.7 (2026-09-01 evening: condensed model with the digit harvest,
+86.4 / 67.8 (2026-09-01 evening: condensed model with the digit harvest,
 deferred digit mode). **The remaining gap is therefore classical engineering,
 not model class** — thirty years of it — and that is where the work
 belongs. `scripts/compare_legacy.py` produces the paired per-page table
@@ -98,9 +98,12 @@ separately attributable because of this.
 
 ## Open threads
 
-- **Reading order.** Word recall (75.0) runs well ahead of word
-  accuracy (62.1); part of that gap is ordering, not recognition. The
-  SCC graph likely already contains the information.
+- **Reading order.** Measured share on letters: 1.4 char points (zone-
+  ordered scoring). Column-first XY-cut for tall gutters recovered 0.2 of
+  it (sidebar letters); it is a single-column prior — it cost magazines
+  2.6 char when applied there. Word recall (77.3) still runs well ahead
+  of word accuracy (67.8). The SCC graph likely already contains the
+  information for the rest.
 - **Logical layout stage.** A grammar over blocks (bullet list ::=
   bullet+, address block, signature block), the natural consumer of the
   pooled-k segmentation and a revival of IDUR's 1994 DCG approach.

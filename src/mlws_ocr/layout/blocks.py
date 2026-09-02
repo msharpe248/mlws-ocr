@@ -44,7 +44,8 @@ def _trim(binary: np.ndarray, box: list[int]) -> list[int] | None:
             x0 + int(cols[-1]) + 1, y0 + int(rows[-1]) + 1]
 
 
-def _xycut(binary, box, min_gap_x, min_gap_y, noise_frac, out):
+def _xycut(binary, box, min_gap_x, min_gap_y, noise_frac, out,
+           column_first_h: int = 0):
     box = _trim(binary, box)
     if box is None:
         return
@@ -60,23 +61,33 @@ def _xycut(binary, box, min_gap_x, min_gap_y, noise_frac, out):
         out.append(box)
         return
     # Prefer the axis with the widest gap; columns split left->right,
-    # rows top->bottom, giving depth-first reading order.
-    cuts, axis = (gx, "x") if widest_x >= widest_y else (gy, "y")
+    # rows top->bottom, giving depth-first reading order.  EXCEPT that a
+    # gutter running the height of a tall region is a column structure
+    # (a letterhead sidebar beside the body) and must be cut first even
+    # when some horizontal gap is wider: cutting rows first interleaves
+    # the sidebar's sections with the body's paragraphs.
+    if widest_x > 0 and column_first_h and (y1 - y0) >= column_first_h:
+        cuts, axis = gx, "x"
+    else:
+        cuts, axis = (gx, "x") if widest_x >= widest_y else (gy, "y")
     limit = (x1 - x0) if axis == "x" else (y1 - y0)
     prev = 0
     for a, b in cuts:
-        _segment(binary, box, (prev, a), axis, min_gap_x, min_gap_y, noise_frac, out)
+        _segment(binary, box, (prev, a), axis, min_gap_x, min_gap_y, noise_frac, out,
+                 column_first_h)
         prev = b
-    _segment(binary, box, (prev, limit), axis, min_gap_x, min_gap_y, noise_frac, out)
+    _segment(binary, box, (prev, limit), axis, min_gap_x, min_gap_y, noise_frac, out,
+             column_first_h)
 
 
-def _segment(binary, box, seg, axis, min_gap_x, min_gap_y, noise_frac, out):
+def _segment(binary, box, seg, axis, min_gap_x, min_gap_y, noise_frac, out,
+             column_first_h=0):
     x0, y0, x1, y1 = box
     a, b = seg
     if b <= a:
         return
     child = [x0 + a, y0, x0 + b, y1] if axis == "x" else [x0, y0 + a, x1, y0 + b]
-    _xycut(binary, child, min_gap_x, min_gap_y, noise_frac, out)
+    _xycut(binary, child, min_gap_x, min_gap_y, noise_frac, out, column_first_h)
 
 
 @register
@@ -88,6 +99,10 @@ class XYCutBlocks(Stage):
         "min_gap_y_300dpi": 30,   # block break: >= 0.10" (line gaps are less)
         "noise_frac": 0.002,      # profile bins below this fraction count as empty
         "min_block_px": 12,       # drop slivers smaller than this on a side
+        "column_first_frac": 0.5, # letters/legal/book: a gutter spanning at
+                                  # least this fraction of the PAGE height
+                                  # is cut before any row gap (sidebar
+                                  # beside body); set > 1 to disable
         "river_retry_blocks": 80, # a page shredding into this many blocks
                                   # means whitespace rivers (monospace text
                                   # stacks spaces into full-height channels;
@@ -107,8 +122,13 @@ class XYCutBlocks(Stage):
         # vertical whitespace rivers that shredded pages into ~187
         # single-line blocks.
         gap_x = p["min_gap_x_300dpi"]
+        column_first_h = 0
         if page.meta.get("doc_type") in ("letter", "book", "legal"):
             gap_x = gap_x * 2.5
+            # Column-first cutting is a single-column-document prior too:
+            # on magazines it measured -2.6 char (their gutters are real
+            # columns whose order the widest-gap rule already gets right).
+            column_first_h = int(p["column_first_frac"] * page.binary.shape[0])
 
         def cut(gx):
             found: list[list[int]] = []
@@ -116,7 +136,7 @@ class XYCutBlocks(Stage):
                    [0, 0, page.binary.shape[1], page.binary.shape[0]],
                    max(4, int(gx * s)),
                    max(4, int(p["min_gap_y_300dpi"] * s)),
-                   p["noise_frac"], found)
+                   p["noise_frac"], found, column_first_h)
             return [b for b in found if b[2] - b[0] >= p["min_block_px"]
                     and b[3] - b[1] >= p["min_block_px"]]
 
