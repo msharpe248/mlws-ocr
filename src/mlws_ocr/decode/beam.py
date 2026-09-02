@@ -931,13 +931,22 @@ class BeamDecode(Stage):
                      reject_at: float) -> tuple[str, dict, float]:
         """Try every segmentation variant (each touching-suspect group read
         as one glyph or as its split pair) and keep the best reading."""
-        suspects = [i for i, g in enumerate(groups) if "alt_candidates" in g]
-        variants = [frozenset()]
+        # Split hypotheses: each touching-suspect group offers ranked cut
+        # OPTIONS (two or three pieces); a variant picks none or one option
+        # per suspect.  Enumeration is best-first (no cut, then the top
+        # option of each suspect, ...) and capped, so truncation keeps the
+        # likeliest readings.
+        suspects = [i for i, g in enumerate(groups)
+                    if "alt_candidates" in g and g.get("alts")]
+        variants: list[dict] = [{}]
         for i in suspects:
-            if len(variants) * 2 > p["max_split_variants"]:
-                break
-            variants = variants + [v | {i} for v in variants]
-
+            n_opt = len(groups[i]["alts"])
+            grown = list(variants)
+            for oi in range(n_opt):
+                grown += [{**v, i: oi} for v in variants]
+                if len(grown) >= p["max_split_variants"]:
+                    break
+            variants = grown[: p["max_split_variants"]]
         # Merge (broken-character) hypotheses: the inverse operation.
         # Adjacent merges conflict, so a variant may not select both
         # i and i+1.
@@ -956,7 +965,7 @@ class BeamDecode(Stage):
                 # cand_seq: one entry per output character; prov: where
                 # each came from (group index and how it was read), the
                 # per-character provenance the output carries as "chars".
-                cand_seq, prov, skip = [], [], False
+                cand_seq, prov, skip, extra_chars = [], [], False, 0
                 for i, g in enumerate(groups):
                     if skip:
                         skip = False
@@ -967,13 +976,14 @@ class BeamDecode(Stage):
                         prov.append({"box": g["merge"], "group": i, "kind": "merge"})
                         skip = True          # the right piece is absorbed
                     elif i in split_set:
+                        oi = split_set[i]
                         ac = g["alt_candidates"]
-                        cand_seq.append({"candidates": ac["0"],
-                                         "box": g["alt"][0]})
-                        cand_seq.append({"candidates": ac["1"],
-                                         "box": g["alt"][1]})
-                        prov.append({"box": g["alt"][0], "group": i, "kind": "split"})
-                        prov.append({"box": g["alt"][1], "group": i, "kind": "split"})
+                        for si, box in enumerate(g["alts"][oi]):
+                            cand_seq.append({"candidates": ac[f"{oi}:{si}"],
+                                             "box": box})
+                            prov.append({"box": box, "group": i, "kind": "split"})
+                            extra_chars += 1
+                        extra_chars -= 1
                     else:
                         cand_seq.append(g)
                         prov.append({"box": g["box"], "group": i, "kind": "whole"})
@@ -981,7 +991,7 @@ class BeamDecode(Stage):
                     continue
                 text, meta, score = self._beam_word(cand_seq, x_height, lm, p,
                                                     reject_at)
-                score += p["split_char_bonus"] * len(split_set)
+                score += p["split_char_bonus"] * extra_chars
                 score += p["merge_char_bonus"] * len(merge_set)
                 score += 2.0 if meta["in_lexicon"] else 0.0
                 if best is None or score > best[2]:

@@ -187,10 +187,12 @@ class PrototypeRecognize(Stage):
         crops, slots = [], []
         for li, ln in enumerate(layout["lines"]):
             for gi, g in enumerate(ln.get("groups", [])):
-                for ai, (ax0, ay0, ax1, ay1) in enumerate(g.get("alt", [])):
-                    m = page.binary[ay0:ay1, ax0:ax1]
-                    crops.append(1.0 - m.astype(np.float32))
-                    slots.append((li, gi, ai))
+                # split hypotheses: every piece of every option is scored
+                for oi, option in enumerate(g.get("alts", [])):
+                    for si, (ax0, ay0, ax1, ay1) in enumerate(option):
+                        m = page.binary[ay0:ay1, ax0:ax1]
+                        crops.append(1.0 - m.astype(np.float32))
+                        slots.append((li, gi, f"{oi}:{si}"))
                 if "merge" in g:
                     mx0, my0, mx1, my1 = g["merge"]
                     m = page.binary[my0:my1, mx0:mx1]

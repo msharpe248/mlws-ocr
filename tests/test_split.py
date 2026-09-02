@@ -26,3 +26,17 @@ def test_cut_lands_between_fused_glyphs(font_path):
     assert abs(cut - w / 2) < w * 0.15, f"cut at {cut} of {w}"
     left, right = mask[:, :cut], mask[:, cut:]
     assert left.any() and right.any()
+
+
+def test_cut_candidates_find_both_kisses_in_a_triple(font_path):
+    from mlws_ocr.glyph.components import _cut_candidates
+    o = render_glyph("o", font_path, px_height=32, pad_frac=0.05)
+    fused = fuse(fuse(o, o, overlap=2), o, overlap=2)
+    mask = fused < 0.5
+    w = mask.shape[1]
+    piece = w // 6
+    cuts = _cut_candidates(mask, piece, w - piece, k=3, min_sep=piece)
+    assert len(cuts) >= 2
+    # the two best cuts land near the two kisses (thirds of the width)
+    near = sorted(min(abs(c - w / 3), abs(c - 2 * w / 3)) for c in cuts[:2])
+    assert near[1] < w * 0.12, cuts

@@ -29,6 +29,29 @@ def _cut_column(mask: "np.ndarray", lo: int, hi: int) -> int | None:
     return lo + int(np.argmin(profile + tiebreak))
 
 
+def _cut_candidates(mask: "np.ndarray", lo: int, hi: int, k: int,
+                    min_sep: int) -> list[int]:
+    """Up to k cut columns inside [lo, hi), best first: local minima of the
+    column ink profile, ranked by ink (ties toward the centre), at least
+    min_sep apart.  One global minimum is not enough: in a touching pair
+    the true kiss is often the second-lowest column, and a triple ('rti')
+    needs two cuts (Smith 2007 §4.1 allows up to three chop pairs)."""
+    if hi <= lo:
+        return []
+    profile = mask[:, lo:hi].sum(axis=0).astype(float)
+    center = (hi - lo) / 2.0
+    score = profile + np.abs(np.arange(hi - lo) - center) * 1e-3
+    order = np.argsort(score)
+    picked: list[int] = []
+    for i in order:
+        c = lo + int(i)
+        if all(abs(c - q) >= min_sep for q in picked):
+            picked.append(c)
+            if len(picked) == k:
+                break
+    return picked
+
+
 def _group_overlapping(boxes: list[list[int]], min_overlap: float) -> list[list[int]]:
     """Union components whose x-spans overlap; returns member index lists."""
     n = len(boxes)
@@ -77,6 +100,19 @@ class OverlapComponents(Stage):
                                     # word, 1.15 slightly worse on dev-8)
         "min_piece_frac": 0.3,      # each split piece must be at least this
                                     # fraction of the median glyph width
+        "fixed_pitch_cv": 0.22,     # page median of per-line width CV under
+                                    # this = fixed-pitch type (Smith 2007
+                                    # §3.3 treats it apart): measured legal
+                                    # (typewriter) 0.17 vs letters 0.29
+        "split_width_factor_fixed": 1.5,  # suspect threshold on fixed-pitch
+                                    # pages (1.3 cost legal-8 0.6 char: in
+                                    # monospace every wide letter is 1.3x)
+        "split_cuts": 1,            # cut candidates per suspect (ranked
+                                    # local ink minima); the decoder picks.
+                                    # 3 measured no better than 1 on
+                                    # broad-30 and worse with triples on
+        "split_triple": True,       # a piece still wider than a letter
+                                    # after the best cut gets a second cut
         "split_under_dot": True,    # a dot-sized part over one side of a
                                     # body wider than a letter marks an 'i'
                                     # (or 'j') touching its neighbour: 'ti',
@@ -93,6 +129,24 @@ class OverlapComponents(Stage):
         min_area = max(1, round(self.params["min_area_300dpi"] * (page.dpi / 300) ** 2))
 
         all_boxes = []
+        # Pre-pass: fixed-pitch detection from the width variation of the
+        # components on each line (page-level median).
+        width_cvs: list[float] = []
+        for ln in layout["lines"]:
+            x0, y0, x1, y1 = ln["box"]
+            labels, n = ndimage.label(page.binary[y0:y1, x0:x1])
+            ws = [sl[1].stop - sl[1].start for sl in ndimage.find_objects(labels)
+                  if sl is not None and (sl[1].stop - sl[1].start) * (sl[0].stop - sl[0].start) >= min_area]
+            if len(ws) >= 12:
+                width_cvs.append(float(np.std(ws)) / max(float(np.median(ws)), 1.0))
+        # The doc_type hint is the surer signal (legal filings are typewriter
+        # pages): the width statistic alone read 0.22-0.47 on legal
+        # evaluation pages and missed most of them.
+        fixed_pitch = (page.meta.get("doc_type") == "legal") or (
+            bool(width_cvs) and float(np.median(width_cvs)) < self.params["fixed_pitch_cv"])
+        split_factor = (self.params["split_width_factor_fixed"] if fixed_pitch
+                        else self.params["split_width_factor"])
+
         for ln in layout["lines"]:
             x0, y0, x1, y1 = ln["box"]
             sub = page.binary[y0:y1, x0:x1]
@@ -135,14 +189,14 @@ class OverlapComponents(Stage):
                 for g in merged:
                     x0, y0, x1, y1 = g["box"]
                     piece = int(self.params["min_piece_frac"] * med_w)
-                    if x1 - x0 > self.params["split_width_factor"] * med_w:
-                        cut = _cut_column(page.binary[y0:y1, x0:x1],
-                                          piece, (x1 - x0) - piece)
-                        if cut is not None:
-                            g["alt"] = [[x0, y0, x0 + cut, y1],
-                                        [x0 + cut, y0, x1, y1]]
+                    sub = page.binary[y0:y1, x0:x1]
+                    w = x1 - x0
+                    cuts: list[int] = []
+                    if w > split_factor * med_w:
+                        cuts = _cut_candidates(sub, piece, w - piece,
+                                               self.params["split_cuts"], piece)
                     elif (self.params["split_under_dot"] and "_marks" in g
-                          and x1 - x0 > self.params["dot_body_factor"] * med_w):
+                          and w > self.params["dot_body_factor"] * med_w):
                         # a dot over one side of a wide body: the 'i' is
                         # under the dot, the neighbour is the other side
                         bx0, by0, bx1, by1 = g["_body"]
@@ -153,14 +207,32 @@ class OverlapComponents(Stage):
                             if mc > bx0 + 0.6 * (bx1 - bx0):
                                 lo, hi = max(piece, m[0] - x0 - piece), m[0] - x0 + 2
                             elif mc < bx0 + 0.4 * (bx1 - bx0):
-                                lo, hi = m[2] - x0 - 2, min((x1 - x0) - piece, m[2] - x0 + piece)
+                                lo, hi = m[2] - x0 - 2, min(w - piece, m[2] - x0 + piece)
                             else:
                                 continue
-                            cut = _cut_column(page.binary[y0:y1, x0:x1], lo, hi)
-                            if cut is not None and piece <= cut <= (x1 - x0) - piece:
-                                g["alt"] = [[x0, y0, x0 + cut, y1],
-                                            [x0 + cut, y0, x1, y1]]
+                            cut = _cut_column(sub, lo, hi)
+                            if cut is not None and piece <= cut <= w - piece:
+                                cuts = [cut]
                                 break
+                    if not cuts:
+                        continue
+                    # Options, best first: each cut alone; and, for the best
+                    # cut, a second cut inside a piece that is still wider
+                    # than a letter (three touching characters).
+                    options = [[[x0, y0, x0 + c, y1], [x0 + c, y0, x1, y1]]
+                               for c in cuts]
+                    if self.params["split_triple"]:
+                        c = cuts[0]
+                        for lo, hi in ((0, c), (c, w)):
+                            if hi - lo > split_factor * med_w:
+                                c2 = _cut_column(sub, lo + piece, hi - piece)
+                                if c2 is not None:
+                                    xs = sorted([c, c2])
+                                    options.append([[x0, y0, x0 + xs[0], y1],
+                                                    [x0 + xs[0], y0, x0 + xs[1], y1],
+                                                    [x0 + xs[1], y0, x1, y1]])
+                                    break
+                    g["alts"] = options
                 for g in merged:
                     g.pop("_body", None); g.pop("_marks", None)
             # Broken-character suspects (the inverse of the split
@@ -197,10 +269,12 @@ class OverlapComponents(Stage):
         out = page.evolve()
         out.meta["layout"] = layout
         n_suspect = sum(1 for ln in layout["lines"]
-                        for g in ln.get("groups", []) if "alt" in g)
+                        for g in ln.get("groups", []) if "alts" in g)
         debug = DebugBundle(
             images={"groups_overlay": draw_boxes(page.gray, all_boxes,
                                                  color=(220, 120, 40), thickness=2)},
-            scalars={"n_groups": len(all_boxes), "n_split_suspects": n_suspect},
+            scalars={"n_groups": len(all_boxes), "n_split_suspects": n_suspect,
+                     "fixed_pitch": fixed_pitch,
+                     "width_cv": round(float(np.median(width_cvs)), 3) if width_cvs else -1.0},
         )
         return out, debug
