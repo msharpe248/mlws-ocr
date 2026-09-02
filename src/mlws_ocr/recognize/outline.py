@@ -74,10 +74,22 @@ def _normalized_outlines(mask: np.ndarray) -> list[np.ndarray]:
     return out
 
 
-def outline_features(mask: np.ndarray, feature_len: float = FEATURE_LEN
-                     ) -> np.ndarray:
-    """(N, 3) features: x, y, theta (radians) of fixed-length outline pieces."""
+def outline_features(mask: np.ndarray, feature_len: float = FEATURE_LEN,
+                     cut_edges: tuple[str, ...] = ()) -> np.ndarray:
+    """(N, 3) features: x, y, theta (radians) of fixed-length outline pieces.
+
+    cut_edges: "left" and/or "right" when the mask is a PIECE of a chopped
+    blob.  The cut itself is a straight vertical run of outline that no
+    prototype has, and it would be charged as unmatched evidence; features
+    within two pixels of that edge are dropped so the piece is rated on
+    the sides it really has (the many-to-one matching then costs the
+    missing stretch only as uncovered prototype length).
+    """
     feats = []
+    cy, cx, sy, sx = _normalizer(mask)
+    w = mask.shape[1]
+    x_lo = (2.0 - cx) * sx if "left" in cut_edges else -np.inf
+    x_hi = (w - 3.0 - cx) * sx if "right" in cut_edges else np.inf
     for pts in _normalized_outlines(mask):
         seg = np.diff(pts, axis=0)
         lens = np.hypot(seg[:, 0], seg[:, 1])
@@ -94,7 +106,10 @@ def outline_features(mask: np.ndarray, feature_len: float = FEATURE_LEN
             d = p1 - p0
             if not d.any():
                 continue
-            feats.append([(p0[0] + p1[0]) / 2, (p0[1] + p1[1]) / 2,
+            mx = (p0[0] + p1[0]) / 2
+            if mx < x_lo or mx > x_hi:
+                continue                    # on a cut edge
+            feats.append([mx, (p0[1] + p1[1]) / 2,
                           float(np.arctan2(d[1], d[0]))])
     return np.array(feats, np.float32).reshape(-1, 3)
 
@@ -211,10 +226,17 @@ class OutlineMatcher:
         L = _proto_lengths(segs, FEATURE_LEN)
         return float(_rating_from_evidence(E, L, groups).max())
 
-    def costs(self, mask: np.ndarray, classes: list[str]) -> dict[str, float]:
+    def costs(self, mask: np.ndarray, classes: list[str],
+              cut_edges: tuple[str, ...] = ()) -> dict[str, float]:
         """1 - rating for each requested class."""
-        feats = outline_features(mask)
+        feats = outline_features(mask, cut_edges=cut_edges)
         return {c: 1.0 - self.rating(feats, c) for c in classes}
+
+    def costs_all(self, mask: np.ndarray,
+                  cut_edges: tuple[str, ...] = ()) -> dict[str, float]:
+        """1 - rating for EVERY class (used for chopped pieces, whose
+        whole-glyph candidate lists are unreliable)."""
+        return self.costs(mask, list(self.configs), cut_edges)
 
     # -- storage: ragged configurations flattened with index arrays
     def save(self, path) -> None:

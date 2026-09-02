@@ -46,3 +46,14 @@ def test_broken_h_still_matches_h_best():
     m2.save("/tmp/_outline_test.npz")
     m3 = OutlineMatcher.load("/tmp/_outline_test.npz")
     assert len(m3.configs["h"]) == 1
+
+
+def test_cut_edge_features_are_masked():
+    font = _body_fonts(1)[0]
+    m = _mask("h", font)
+    piece = m[:, : m.shape[1] * 2 // 3]           # right side is a cut
+    full = outline_features(piece)
+    masked = outline_features(piece, cut_edges=("right",))
+    assert 0 < len(masked) < len(full)
+    # every dropped feature sat at the right edge of the piece
+    assert masked[:, 0].max() < full[:, 0].max()

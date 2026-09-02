@@ -120,6 +120,16 @@ class PrototypeRecognize(Stage):
                                   # width (a lone narrow letter cannot hide
                                   # two characters)
         "chop_min_piece_frac": 0.3,
+        "piece_outline": False,   # opt-in: chopped PIECES rated against every
+                                  # class by the outline channel with their
+                                  # cut edge masked, and its top classes
+                                  # join the list: a cut edge wrecks the
+                                  # whole-glyph candidates (word-level chop
+                                  # study: 397 hypotheses, 9 accepted).
+                                  # MEASURED NEGATIVE (dev-8 -0.4/-1.0,
+                                  # broad-30 -0.4/-0.7): all-class rating of
+                                  # small pieces injects implausible classes
+        "piece_inject": 3,
         "outline_top": 6,         # candidates rated (the rest keep their cost);
                                   # ~48 ms per glyph at 14, the win is in the
                                   # top few
@@ -193,6 +203,35 @@ class PrototypeRecognize(Stage):
             base = min(oc.values())
             out.append(sorted(((c, d + w * (oc[c] - base)) if c in oc else (c, d)
                                for c, d in cands), key=lambda t: t[1]))
+        return out
+
+    def _piece_outline(self, layout, crops, slots, topk):
+        """Re-rank chopped pieces by outline evidence with the cut edge
+        masked and every class in play.  cost' = cost + w*(oc - min oc) over
+        the union of the prototype list and the outline's own top classes."""
+        from .outline import OutlineMatcher
+        om = _OUTLINE_CACHE[self.params["outline_path"]]
+        w = self.params["outline_weight"]
+        out = list(topk)
+        for n, (li, gi, ai) in enumerate(slots):
+            if not isinstance(ai, str) or ":" not in ai:
+                continue
+            g = layout["lines"][li]["groups"][gi]
+            oi, si = (int(t) for t in ai.split(":"))
+            n_pieces = len(g["alts"][oi])
+            edges = tuple(e for e, on in (("left", si > 0), ("right", si < n_pieces - 1)) if on)
+            oc = om.costs_all(crops[n] > 0.5, edges)
+            if not oc:
+                continue
+            base = min(oc.values())
+            cands = dict(topk[n])
+            best_d = min(cands.values())
+            for c in sorted(oc, key=oc.get)[: self.params["piece_inject"]]:
+                if c not in cands:
+                    cands[c] = best_d
+            ranked = sorted(((c, d + w * (oc.get(c, base) - base)) for c, d in cands.items()),
+                            key=lambda t: t[1])[: len(topk[n])]
+            out[n] = [(c, float(d)) for c, d in ranked]
         return out
 
     def score_crops(self, crops: list) -> list:
@@ -400,6 +439,8 @@ class PrototypeRecognize(Stage):
                 topk = self._mlp_second_opinion(X, topk)
             if self.params["outline_path"]:
                 topk = self._outline_opinion(crops, topk)
+                if self.params["piece_outline"]:
+                    topk = self._piece_outline(layout, crops, slots, topk)
 
             def pack(slots_, topk_):
                 for (li, gi, ai), cands in zip(slots_, topk_):
