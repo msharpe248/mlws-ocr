@@ -6,15 +6,18 @@ the motivation still holds before spending the effort.
 
 ## Now: close the gap to the legacy (non-neural) reference
 
-**Decomposition (2026-09-01, `scripts/compare_legacy_errors.py`).** Two
-gaps, not one. Three catastrophic pages (a broken-hairline serif, a
-price table, a signature block) explain about a quarter of the deficit;
-the merge lattice recovered most of the first. The other three quarters
-are *systematic*: on the 27 ordinary pages we score 86.8 vs 95.5, and
-that excess is 40% shape substitutions (six times legacy's count — the
-classifier), 20% character deletions, 11% case flips (legacy makes 10 in
-40k chars; we make 401), 11% digits, 10% punctuation, 7% spaces. We beat
-legacy on spurious insertions. Priority order follows the shares:
+**Decomposition (2026-09-01, `scripts/compare_legacy_errors.py`).**
+Morning: two gaps, not one — three catastrophic pages (about a quarter)
+and a systematic remainder of shape substitutions (40%), deletions
+(20%), case (11%), digits (11%), punctuation (10%), spaces (7%). END OF
+DAY, all 30 pages: ours 87.0 vs legacy 95.3, excess 3,861 errors —
+shape 43% (still 5.5× legacy's count), deletions 25%, case 9%,
+punctuation 7%, digits 6%, spaces 8%. Digits, punctuation, case and
+the one-page catastrophes moved; shape substitutions did not, despite
+the classifier's offline real-glyph top-1 rising from 91.9 to ~99 —
+so the residual shape errors live in broken/merged/eroded glyphs
+(segmentation and feature robustness), not in single-glyph
+classification. Priority order follows the shares:
 
 1. **Classifier quality** — MEASURED (2026-09-01, `scripts/
    classifier_ceiling.py`): on held-out real glyphs the cap-80 1-NN scores
