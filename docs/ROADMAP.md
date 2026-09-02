@@ -16,25 +16,44 @@ classifier), 20% character deletions, 11% case flips (legacy makes 10 in
 40k chars; we make 401), 11% digits, 10% punctuation, 7% spaces. We beat
 legacy on spurious insertions. Priority order follows the shares:
 
-1. **Classifier quality** — the largest single reason. The nearest-
-   prototype matcher uses ~4.7k of our 120k harvested real glyphs; a
-   discriminative, feature-based classifier that uses all of them is
-   the in-scope move (self-trained, not a pre-trained net).
-2. **Case** — a bounded target with a near-zero reference.
-3. **Character deletions** — attributed (2026-09-01, 30 pages): of 21
-   long deleted runs only **one** was suppressed; the rest were never
-   segmented, so this is layout, not gating. They cluster into
-   display/letter-spaced text ("D~E~D~I~C~A~T~E~D", "LAS VEGAS"),
-   letterhead blocks, small print, signature/closing lines, and the
-   deferred price table. Display type is the recurring theme — the same
-   family as the open logo/display-font item.
-4. **Digit and punctuation priors** — cheap, individually small.
+1. **Classifier quality** — MEASURED (2026-09-01, `scripts/
+   classifier_ceiling.py`): on held-out real glyphs the cap-80 1-NN scores
+   91.9% top-1; anything that uses the whole harvest scores 98.7–99.0.
+   The gain does not transfer by enlarging the 1-NN pool (coverage
+   imbalance: no digits in the harvest, so real digits find real letters
+   first) but it does transfer by **per-class k-means condensation**
+   (`recognize/condense.py`, 60 prototypes/class): broad-30 84.1→84.5
+   char / 63.7→65.0 word, synthetic +1.0 char / +2–5 word. Adopted; the
+   live model is rebuilt with `build_prototypes.py --condense 60` once
+   the digit harvest lands. NEXT on this thread: coverage — real digits
+   (`harvest_glyphs.py --digits`, format-endorsed), then capitals; and
+   the offline table says a self-trained MLP over the same features
+   (99.0) or a 5-NN vote (99.1) sit above condensation (97.5) — the
+   overnight candidates, below.
+2. **Case** — done (adaptation pins assert shape, not case).
+3. **Character deletions** — attribution CORRECTED (2026-09-01): the
+   "never segmented" runs were mostly (a) reading-order bookkeeping —
+   text present but in a different order from the ground truth; zone-
+   ordered scoring puts the order share at **1.4 char points** on
+   broad-30 — and (b) suppressed misreads: address lines ('PAssAIc, Na
+   07055', fixed by format endorsement), signature-block names, and
+   letter-spaced display text read as letter salad ('D~E~D~I~C~A~T~E~D'
+   → 'o c o 1 c a T …'). Remaining real families: letter-spaced small
+   caps (recognition + grouping), logo lines swallowed by image zones,
+   the deferred price table.
+4. **Digit and punctuation priors** — punctuation probe (dev-8) found
+   the position prior gated at 0.4 x-height while correct commas stand
+   0.46–0.62 tall, so commas, apostrophes, colons and semicolons never
+   received it; band widened to 0.75 plus a colon/semicolon rule for
+   two-part marks (measurement in RESEARCH.md). Digits: the harvest
+   coverage item above is the digit fix — there were zero real digit
+   exemplars.
 5. **Table handling** (page 8588) — deferred by decision, not by data.
 
 Tesseract's **legacy engine has no neural net** and scores 95.3% char /
 90.5% word on our thirty-page sample; its LSTM engine scores 95.9 /
 92.2. The neural upgrade bought Tesseract 0.6 char points. We score
-83.1 / 62.1. **The remaining gap is therefore classical engineering,
+84.5 / 65.0 (2026-09-01 evening, condensed model). **The remaining gap is therefore classical engineering,
 not model class** — thirty years of it — and that is where the work
 belongs. `scripts/compare_legacy.py` produces the paired per-page table
 that localizes it.
@@ -50,12 +69,14 @@ scope). Ranked by expected value per unit of risk:
    by fetching text rather than by training. We use 12 MB; govinfo
    holds far more public-domain federal text.
    `scripts/fetch_modern_corpus.sh` already does the fetch.
-2. **A classifier that can absorb the harvest.** We hold ~120k
-   self-labeled real glyphs but the nearest-prototype matcher can use
-   only ~4.7k of them: a 1-NN pool saturates, and diluting it measured
-   worse. This is the reason harvest round two flattened. A small
-   self-trained classifier over the existing 106 features could use all
-   of it while staying feature-based and readable.
+2. **A classifier that can absorb the harvest.** Ceiling now measured
+   (`scripts/classifier_ceiling.py`, 2026-09-01): held-out real-glyph
+   top-1 — incumbent 91.9, k-means 60/class 97.5 (adopted, no training
+   needed), regularized QDA 98.7, 1-NN all 98.7, 5-NN vote 99.1, numpy
+   MLP 95-256-C **99.0** in ten seconds of training. The MLP is the
+   overnight candidate: it needs a recognizer implementation that emits
+   (class, cost) lists from logits, and the coverage fix (real digits and
+   capitals) first, or it inherits the same imbalance the 1-NN showed.
 3. **A bigger char LM.** Hidden 256 → 512, two layers, ~10× data;
    overnight is enough in numpy. Expect one to two word points, from
    the curve so far: trigram → GRU (perplexity 10 → 3.27) gave +2.5

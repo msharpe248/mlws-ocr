@@ -145,6 +145,9 @@ class BeamDecode(Stage):
                                  # class (i/j/!) in a one-part group, or an
                                  # undotted one (l/I/1/t) in a two-part
                                  # group, contradicts the grouping evidence
+        "punct_small_frac": 0.85,  # marks under this x x-height take the
+                                   # position prior (commas 0.46-0.62,
+                                   # apostrophes up to ~0.75; letters >= 1)
         "punct_position_prior": 1.2,  # among tiny punct, vertical position
                                       # picks the mark: '.' on baseline,
                                       # ',' hangs, '-'/quotes float
@@ -982,23 +985,48 @@ class BeamDecode(Stage):
                     elif descends and (c.isupper() or c.isdigit()):
                         lp[c] -= p["descender_prior"] * 0.7
             # Tiny-glyph punctuation prior.
-            if x_height > 0 and (h_box[3] - h_box[1]) < 0.4 * x_height:
+            h_glyph = h_box[3] - h_box[1]
+            if x_height > 0 and h_glyph < 0.4 * x_height:
                 for c in list(lp):
                     if c in PUNCT_TINY:
                         lp[c] += p["tiny_punct_prior"]
                     elif c.isalnum():
                         lp[c] -= p["tiny_punct_prior"]
-                # Tiny punctuation differs mostly by VERTICAL POSITION:
-                # '.' sits on the baseline, ',' hangs below it, '-' and
-                # apostrophes float above (corpus report: '.'->'-' x69,
-                # '.'->',' x51 -- pure position facts the shapes cannot
-                # settle at 3x4 pixels).
-                if base is not None:
-                    hangs = h_box[3] > base + 0.10 * x_height
-                    floats = h_box[3] < base - 0.25 * x_height
-                    on_base = not hangs and not floats
+            # Punctuation differs mostly by VERTICAL POSITION: '.' sits
+            # on the baseline, ',' hangs below it, '-' and apostrophes
+            # float above (corpus report: '.'->'-' x69, '.'->',' x51 --
+            # pure position facts the shapes cannot settle at 3x4
+            # pixels).  The band is wider than the tiny gate on purpose:
+            # a comma with its tail stands 0.46-0.62 x-heights tall
+            # (measured, dev-8), so a 0.4 gate never reached the
+            # comma/apostrophe confusions.  Two-part marks of about
+            # x-height are the colon/semicolon pair, settled the same
+            # way (':' on the baseline, ';' hanging).
+            if x_height > 0 and base is not None:
+                # Thresholds sit midway between the measured populations
+                # (dev-8): '.' and ':' bottoms end by 0.09 x-heights below
+                # the baseline, ',' and ';' start at 0.22.
+                hangs = h_box[3] > base + 0.15 * x_height
+                floats = h_box[3] < base - 0.25 * x_height
+                on_base = not hangs and not floats
+                fav = None
+                if h_glyph < p["punct_small_frac"] * x_height:
                     fav = {".": on_base, ",": hangs, ";": hangs,
                            "-": floats, "'": floats, '"': floats}
+                    # A comma-shaped mark floating above the baseline IS
+                    # an apostrophe -- same shape, different position --
+                    # but the classifier, trained on synthetic
+                    # apostrophes, offers only ',' for real ones ("I,ll",
+                    # "Burgess,s": no "'" in the candidate list).  Position
+                    # twins, like case twins, enter with the shape's score.
+                    if floats and "," in lp and "'" not in lp:
+                        lp["'"] = lp[","]
+                    if hangs and "'" in lp and "," not in lp:
+                        lp[","] = lp["'"]
+                elif (g.get("parts", 1) >= 2
+                      and 0.8 * x_height < h_glyph < 1.3 * x_height):
+                    fav = {":": on_base, ";": hangs}
+                if fav:
                     for c in list(lp):
                         if c in fav:
                             lp[c] += (p["punct_position_prior"] if fav[c]
