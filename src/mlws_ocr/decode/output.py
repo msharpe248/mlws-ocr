@@ -7,6 +7,7 @@ from ..core.artifacts import Page
 from ..core.registry import register
 from ..core.stage import DebugBundle, Stage
 from .formats import numeric_endorsed
+from ..layout.rows import row_groups, rows_text
 
 _RE_DASHRUN = re.compile(r"-{3,}")
 
@@ -20,6 +21,14 @@ class TextOutput(Stage):
                                          # near-zero confidence is almost
                                          # always a signature, logo, or
                                          # graphic read as text
+        "align_columns": True,           # side-by-side blocks whose lines
+                                         # share baselines (unruled tables,
+                                         # rosters) are emitted as ROWS
+        "align_min_lines": 3,
+        "align_baseline_tol": 0.5,       # x median line height
+        "align_match_frac": 0.6,
+        "align_max_words": 4.0,          # median words/line above this is
+                                         # running text, never a table cell
         "garbage_max_conf": 0.15,
         "garbage_repeat_frac": 0.4,      # ...but only when its SHAPE is
                                          # degenerate too: one character
@@ -36,6 +45,7 @@ class TextOutput(Stage):
         if "lines" not in layout:
             raise ValueError("output requires decoded lines")
         blocks: dict[int, list[str]] = {}
+        kept_lines: list[dict] = []          # survivors, for row alignment
         suppressed = []
         for ln in layout["lines"]:
             if "words" not in ln or not ln["words"]:
@@ -91,6 +101,23 @@ class TextOutput(Stage):
                 continue
             text = " ".join(toks)
             blocks.setdefault(ln.get("block", 0), []).append(text)
+            kept_lines.append(dict(ln, words=[{"text": t} for t in toks]))
+
+        # Unruled tables: column blocks whose lines pair up by baseline
+        # are read row by row, at the position of their first block.
+        if self.params["align_columns"] and \
+                page.meta.get("doc_type") not in ("newspaper", "magazine"):
+            n_blocks = len(layout.get("blocks", []))
+            for group in row_groups(kept_lines, n_blocks,
+                                    self.params["align_min_lines"],
+                                    self.params["align_baseline_tol"],
+                                    self.params["align_match_frac"],
+                                    self.params["align_max_words"]):
+                members = [l for l in kept_lines if l.get("block", 0) in group]
+                blocks[group[0]] = rows_text(members,
+                                             self.params["align_baseline_tol"])
+                for b in group[1:]:
+                    blocks.pop(b, None)
         full = "\n\n".join("\n".join(lines) for _, lines in sorted(blocks.items()))
 
         # Table text: place decoded words into their cells by box center.

@@ -51,12 +51,15 @@ legacy on spurious insertions. Priority order follows the shares:
    coverage (real digit exemplars) plus the deferred digit-mode
    decision; residual dev-8 digit confusions are '6'→'5' (7) and
    'l'→'1' (9), the latter inside non-lexicon tokens.
-5. **Table handling** (page 8588) — deferred by decision, not by data.
+5. **Table handling** — the unruled case is DONE by baseline row alignment
+   of column blocks (`layout/rows.py`; 8588 50.6→82.2 char, broad-30
+   +1.1). Ruled tables still go through `tables.grid`; cell-internal word
+   spacing on tabular lines ('3 x 5'→'3x5') is the open piece.
 
 Tesseract's **legacy engine has no neural net** and scores 95.3% char /
 90.5% word on our thirty-page sample; its LSTM engine scores 95.9 /
 92.2. The neural upgrade bought Tesseract 0.6 char points. We score
-85.1 / 67.4 (2026-09-01 evening: condensed model with the digit harvest,
+86.2 / 67.7 (2026-09-01 evening: condensed model with the digit harvest,
 deferred digit mode). **The remaining gap is therefore classical engineering,
 not model class** — thirty years of it — and that is where the work
 belongs. `scripts/compare_legacy.py` produces the paired per-page table
