@@ -8,3 +8,6 @@ __pycache__/
 demo_multicol.png
 eval_glyphs.json
 theta_fit.json
+
+# third-party reference papers fetched for reading (copyright: not redistributed)
+docs/papers/refs/
