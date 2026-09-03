@@ -947,17 +947,15 @@ class BeamDecode(Stage):
                 if len(grown) >= p["max_split_variants"]:
                     break
             variants = grown[: p["max_split_variants"]]
-        # Merge (broken-character) hypotheses: the inverse operation.
-        # Adjacent merges conflict, so a variant may not select both
-        # i and i+1.
-        mergeable = [i for i, g in enumerate(groups)
-                     if "merge_candidates" in g and i + 1 < len(groups)]
-        merge_sets = [frozenset()]
-        for i in mergeable:
-            if len(merge_sets) * 2 > p["max_merge_variants"]:
-                break
-            merge_sets = merge_sets + [v | {i} for v in merge_sets
-                                       if (i - 1) not in v]
+        # Merge (broken-character) hypotheses: the inverse operation, as a
+        # SEGMENTATION SEARCH (Smith 2007 §4.2: the associator searches the
+        # graph of fragment combinations).  A path through the word consumes
+        # each group either alone or as a run of 2..K pieces the components
+        # stage offered; its cost is the sum of the pieces' best candidate
+        # costs.  The k best paths become the merge variants -- so a word
+        # shredded into ten fragments can still be reassembled, which
+        # subsets of single pair-merges under a small cap never could.
+        merge_sets = self._merge_paths(groups, p["max_merge_variants"])
 
         best = None
         for split_set in variants:
@@ -965,16 +963,18 @@ class BeamDecode(Stage):
                 # cand_seq: one entry per output character; prov: where
                 # each came from (group index and how it was read), the
                 # per-character provenance the output carries as "chars".
-                cand_seq, prov, skip, extra_chars = [], [], False, 0
+                cand_seq, prov, skip, extra_chars = [], [], 0, 0
                 for i, g in enumerate(groups):
                     if skip:
-                        skip = False
+                        skip -= 1
                         continue
                     if i in merge_set and i not in split_set:
-                        cand_seq.append({"candidates": g["merge_candidates"],
-                                         "box": g["merge"]})
-                        prov.append({"box": g["merge"], "group": i, "kind": "merge"})
-                        skip = True          # the right piece is absorbed
+                        k = merge_set[i]
+                        box = next(b for kk, b in g["merges"] if kk == k)
+                        cand_seq.append({"candidates": g["merge_candidates"][str(k)],
+                                         "box": box})
+                        prov.append({"box": box, "group": i, "kind": "merge"})
+                        skip = k - 1         # the absorbed pieces
                     elif i in split_set:
                         oi = split_set[i]
                         ac = g["alt_candidates"]
@@ -992,11 +992,49 @@ class BeamDecode(Stage):
                 text, meta, score = self._beam_word(cand_seq, x_height, lm, p,
                                                     reject_at)
                 score += p["split_char_bonus"] * extra_chars
-                score += p["merge_char_bonus"] * len(merge_set)
+                score += p["merge_char_bonus"] * sum(k - 1 for k in merge_set.values())
                 score += 2.0 if meta["in_lexicon"] else 0.0
                 if best is None or score > best[2]:
                     best = (text, dict(meta, chars=prov), score)
         return best
+
+    @staticmethod
+    def _merge_paths(groups, k_best: int) -> list[dict]:
+        """k best segmentations of the group sequence into single groups and
+        offered merge runs, by summed best-candidate cost.  Returns dicts
+        {start index: run length}; the first is always the all-singles path
+        (which the decoder must be able to choose) even when a merge path
+        scores better -- ranking is for TRUNCATION, the beam decides."""
+        n = len(groups)
+        if not any("merges" in g and "merge_candidates" in g for g in groups):
+            return [{}]
+
+        def cost(g, key=None):
+            cl = g["candidates"] if key is None else g["merge_candidates"].get(key)
+            return float(cl[0][1]) if cl else float("inf")
+
+        # paths[i] = list of (cost, dict) for the best ways to reach boundary i
+        paths: list[list[tuple[float, dict]]] = [[] for _ in range(n + 1)]
+        paths[0] = [(0.0, {})]
+        for i in range(n):
+            if not paths[i]:
+                continue
+            steps = [(1, cost(groups[i]), None)]
+            for k, _box in groups[i].get("merges", []):
+                if i + k <= n and str(k) in groups[i].get("merge_candidates", {}):
+                    steps.append((k, cost(groups[i], str(k)), k))
+            for k, c, tag in steps:
+                if c == float("inf"):
+                    continue
+                for pc, pd in paths[i]:
+                    nd = pd if tag is None else {**pd, i: tag}
+                    paths[i + k].append((pc + c, nd))
+            for j in range(i + 1, min(n, i + 3) + 1):
+                paths[j] = sorted(paths[j], key=lambda t: t[0])[:k_best]
+        ranked = [d for _, d in sorted(paths[n], key=lambda t: t[0])]
+        singles = {}
+        out = [singles] + [d for d in ranked if d != singles]
+        return out[:k_best]
 
     def _beam_word(self, groups, x_height, lm: CharBigram, p,
                    reject_at: float):

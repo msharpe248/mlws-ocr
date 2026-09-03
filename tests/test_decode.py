@@ -83,3 +83,23 @@ def test_mixed_alnum_repair():
     assert [w["text"] for w in words] == [
         "of", "48202", "CD23021", "1st", "company",
         "0123456789", "9am", "3514", "B2", "3M"]
+
+
+def test_merge_paths_reassemble_a_shredded_word():
+    """Six fragments of 'abc' (each letter in two pieces): the k-best
+    segmentation search must offer the three-merge path, which subsets of
+    pair merges under a small cap could not, and keep the all-singles path
+    first for the beam to choose."""
+    from mlws_ocr.core import registry
+    import mlws_ocr.decode  # noqa: F401
+    Beam = registry.get("decode", "beam")
+    groups = []
+    for i in range(6):
+        g = {"candidates": [["l", 30.0], ["(", 31.0]], "box": [i * 10, 0, i * 10 + 6, 20]}
+        if i % 2 == 0:
+            g["merges"] = [[2, [i * 10, 0, i * 10 + 16, 20]]]
+            g["merge_candidates"] = {"2": [["abc"[i // 2], 8.0], ["o", 12.0]]}
+        groups.append(g)
+    paths = Beam._merge_paths(groups, k_best=4)
+    assert paths[0] == {}
+    assert {0: 2, 2: 2, 4: 2} in paths

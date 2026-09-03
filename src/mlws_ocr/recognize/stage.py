@@ -130,6 +130,12 @@ class PrototypeRecognize(Stage):
                                   # broad-30 -0.4/-0.7): all-class rating of
                                   # small pieces injects implausible classes
         "piece_inject": 3,
+        "outline_margin": 0.0,    # skip the outline channel when the prototype
+                                  # match is already SURE: (d2-d1)/d1 above
+                                  # this (0 = rate every glyph). The channel
+                                  # is the runtime bottleneck (~30 ms/glyph,
+                                  # minutes on a dense page) and a confident
+                                  # 1-NN rarely needs a second opinion
         "outline_top": 6,         # candidates rated (the rest keep their cost);
                                   # ~48 ms per glyph at 14, the win is in the
                                   # top few
@@ -194,7 +200,12 @@ class PrototypeRecognize(Stage):
         w = self.params["outline_weight"]
         out = []
         top = self.params["outline_top"]
+        margin = self.params["outline_margin"]
         for crop, cands in zip(crops, topk):
+            if (margin > 0 and len(cands) >= 2 and cands[0][1] > 0
+                    and (cands[1][1] - cands[0][1]) / cands[0][1] > margin):
+                out.append(cands)           # prototypes are sure; skip
+                continue
             classes = [c for c, _ in cands[:top] if c in om.configs]
             if not classes:
                 out.append(cands)
@@ -214,7 +225,7 @@ class PrototypeRecognize(Stage):
         w = self.params["outline_weight"]
         out = list(topk)
         for n, (li, gi, ai) in enumerate(slots):
-            if not isinstance(ai, str) or ":" not in ai:
+            if not isinstance(ai, str) or ":" not in ai or ai.startswith("m:"):
                 continue
             g = layout["lines"][li]["groups"][gi]
             oi, si = (int(t) for t in ai.split(":"))
@@ -329,11 +340,10 @@ class PrototypeRecognize(Stage):
                         m = page.binary[ay0:ay1, ax0:ax1]
                         crops.append(1.0 - m.astype(np.float32))
                         slots.append((li, gi, f"{oi}:{si}"))
-                if "merge" in g:
-                    mx0, my0, mx1, my1 = g["merge"]
+                for k, (mx0, my0, mx1, my1) in g.get("merges", []):
                     m = page.binary[my0:my1, mx0:mx1]
                     crops.append(1.0 - m.astype(np.float32))
-                    slots.append((li, gi, "m"))
+                    slots.append((li, gi, f"m:{k}"))
                 x0, y0, x1, y1 = g["box"]
                 # Binary crops measured best overall (crop-mode study:
                 # gray wins on clean pages, binary on degraded; neither
@@ -448,8 +458,8 @@ class PrototypeRecognize(Stage):
                     packed = [[c, round(float(d), 3)] for c, d in cands]
                     if ai is None:
                         g["candidates"] = packed
-                    elif ai == "m":
-                        g["merge_candidates"] = packed
+                    elif ai.startswith("m:"):
+                        g.setdefault("merge_candidates", {})[ai[2:]] = packed
                     else:
                         g.setdefault("alt_candidates", {})[str(ai)] = packed
             pack(slots, topk)

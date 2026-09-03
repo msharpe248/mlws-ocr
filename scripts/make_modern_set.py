@@ -4,8 +4,9 @@ Everything measured so far is 1990s UNLV photocopy.  This set has two
 halves, both with exact truth:
 
   * born-digital public-domain PDFs (govinfo: congressional bills and a
-    Federal Register issue -- 17 U.S.C. 105) rasterized at 300 dpi with
-    poppler, truth from the PDF text layer (pypdf);
+    Federal Register issue -- 17 U.S.C. 105) rasterized with poppler
+    through a print model (600 dpi, one-pixel toner spread, area
+    downsample to 300), truth from the PDF text layer (pypdf);
   * templated business documents -- invoices, payslips, letters -- rendered
     with the modern faces on this machine (Helvetica Neue, Avenir, Arial
     Narrow, Helvetica) at 300 dpi, truth known by construction.
@@ -67,16 +68,29 @@ def pdf_pages(pdf: Path, pages: list[int], tag: str) -> int:
         truth = reader.pages[p].extract_text() or ""
         if len(truth.split()) < 40:
             continue
-        with subprocess.Popen(["pdftoppm", "-r", str(DPI), "-gray", "-f", str(p + 1),
+        # PRINT MODEL.  A born-digital page rasterized straight to 300 dpi is
+        # not a printed page: this face's hairlines are thinner than one
+        # 300-dpi pixel and anti-alias to light grey (or to nothing), so
+        # every letter shreds under any threshold -- 78 components for the
+        # 20 glyphs of "and for other purposes." (measured).  Toner does not
+        # do that: dot gain spreads ink about a 600-dpi pixel.  So: render
+        # at 2x, spread ink by one pixel (grey minimum filter), and area-
+        # downsample to 300 dpi -- 19 components for those 20 glyphs, median
+        # stroke 2 px, like a real scan of the same page.
+        with subprocess.Popen(["pdftoppm", "-r", str(2 * DPI), "-gray", "-f", str(p + 1),
                                "-l", str(p + 1), "-png", str(pdf), "/tmp/_mlws_modern"],
                               stdout=subprocess.DEVNULL) as proc:
             proc.wait()
         pngs = sorted(Path("/tmp").glob("_mlws_modern*.png"))
         if not pngs:
             continue
-        gray = np.asarray(Image.open(pngs[-1]).convert("L"), dtype=np.float32) / 255.0
+        hi = np.asarray(Image.open(pngs[-1]).convert("L"), dtype=np.float32) / 255.0
         for q in pngs:
             q.unlink()
+        from scipy import ndimage
+        hi = ndimage.minimum_filter(hi, size=3)
+        h, w = hi.shape
+        gray = hi[: h // 2 * 2, : w // 2 * 2].reshape(h // 2, 2, w // 2, 2).mean(axis=(1, 3))
         write_page(f"{tag}-p{p + 1:03d}", gray, truth)
         n += 1
     return n

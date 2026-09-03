@@ -145,6 +145,8 @@ class OverlapComponents(Stage):
         "merge_max_factor": 1.05,   # ...if the union is still no wider
                                     # than an ordinary character
         "merge_max_gap_frac": 0.22, # ...and the pieces nearly touch
+        "merge_max_pieces": 3,      # longest run of pieces offered as one
+                                    # character (Smith 2007 §4.2 associator)
         "dotted_rule_min": 20,   # a "line" of this many DOT-sized groups is
                                  # a perforation/dotted rule, not text (one
                                  # receipt tear-off line emitted 313 junk
@@ -332,16 +334,32 @@ class OverlapComponents(Stage):
                                        for g in merged]))
                 narrow = self.params["merge_narrow_frac"] * ref
                 widest = self.params["merge_max_factor"] * ref
-                for a, b in zip(merged, merged[1:]):
-                    ax0, ay0, ax1, ay1 = a["box"]
-                    bx0, by0, bx1, by1 = b["box"]
-                    if bx0 - ax1 > self.params["merge_max_gap_frac"] * ref:
-                        continue
-                    if min(ax1 - ax0, bx1 - bx0) > narrow:
-                        continue          # neither piece is sub-glyph
-                    if bx1 - ax0 > widest:
-                        continue          # union too wide to be one char
-                    a["merge"] = [ax0, min(ay0, by0), bx1, max(ay1, by1)]
+                # Runs of 2..merge_max_pieces consecutive pieces (a broken
+                # 'a' or 'e' arrives in three); each run whose union is
+                # still one character wide, whose gaps are small and which
+                # contains a sub-glyph piece is a hypothesis.  The decoder
+                # searches over them (k-best segmentation), so many
+                # hypotheses on a shredded word are affordable.
+                for i, a in enumerate(merged):
+                    runs = []
+                    x0, y0, x1, y1 = a["box"]
+                    for k in range(2, self.params["merge_max_pieces"] + 1):
+                        if i + k - 1 >= len(merged):
+                            break
+                        b = merged[i + k - 1]
+                        prev = merged[i + k - 2]["box"]
+                        bx0, by0, bx1, by1 = b["box"]
+                        if bx0 - prev[2] > self.params["merge_max_gap_frac"] * ref:
+                            break         # run broken by a real gap
+                        x1, y0, y1 = bx1, min(y0, by0), max(y1, by1)
+                        if x1 - x0 > widest:
+                            break         # union too wide to be one char
+                        pieces = merged[i:i + k]
+                        if min(g["box"][2] - g["box"][0] for g in pieces) > narrow:
+                            continue      # no piece is sub-glyph
+                        runs.append([k, [x0, y0, x1, y1]])
+                    if runs:
+                        a["merges"] = runs
             ln["groups"] = merged
             all_boxes.extend(g["box"] for g in merged)
 
