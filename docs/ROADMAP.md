@@ -95,13 +95,14 @@ that localizes it.
    Avenir, Arial), all put through the degradation stack at three
    severities to stand in for a scanner. Measure ours and legacy
    Tesseract on it. This ranks everything below.
-2. **A self-trained glyph CNN as a fourth opinion.** Small convolutional
-   net on 32x32 crops (~100k parameters, minutes on a laptop CPU, runs
-   locally), trained on the truth-labeled set; convolutional features are
-   local, so breaks and erosion cost a few filters rather than the whole
-   vector -- the property the outline features have without their
-   fragility on ragged bitonal outlines. Plugged in through the same
-   additive hook as the MLP.
+2. ~~A self-trained glyph CNN as a fourth opinion.~~ DONE and measured
+   NEGATIVE (RESEARCH): 95.4% on a page-disjoint holdout, 99.1% agreement
+   with correct reads, yet broad-30 −0.1/−0.4 and legal −0.2/−1.0 as a
+   re-coster and catastrophic when it injects classes. The ensemble is
+   saturated: the residual errors are decided by pins, the lexicon and
+   segmentation, not by the candidate list. **Consequence: stop adding
+   opinions on the same crop.** The next classifier work that can pay is
+   on glyphs that are mis-segmented before any classifier sees them.
 3. **Real modern glyphs through the print-and-scan loop.** Print the
    modern set on the real printer, scan on the real scanner, align to
    the known text: a modern-font test set with real scanner physics, and

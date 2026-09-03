@@ -53,20 +53,31 @@ def synthetic() -> tuple[list, list]:
     return X, y
 
 
-def truth_crops(files: list[Path]) -> tuple[list, list]:
-    X, y = [], []
+def truth_crops(files: list[Path], hold_pages: float = 0.0
+                ) -> tuple[list, list, list, list]:
+    """(train X, train y, held X, held y).  The holdout is PAGE-DISJOINT
+    when hold_pages > 0: crops from the same page are near-duplicates, so a
+    random 5% split flatters the model badly (measured: 62% vs 41% on the
+    same glyphs)."""
+    X, y, hx, hy = [], [], [], []
     charset = set(CHARSET)
     for f in files:
         d = np.load(f, allow_pickle=False)
         crops, offs, shapes, truth = d["crops"], d["offsets"], d["shapes"], d["truth"]
+        pages = d["pages"] if "pages" in d.files else np.zeros(len(truth), int)
+        uniq = sorted(set(str(p) for p in pages))
+        n_hold = int(round(hold_pages * len(uniq)))
+        held = set(np.random.default_rng(7).permutation(uniq)[:n_hold].tolist())
         for i, cls in enumerate(truth):
             if str(cls) not in charset:
                 continue
             h, w = shapes[i]
             m = np.unpackbits(crops[offs[i]:offs[i + 1]])[:h * w].reshape(h, w).astype(bool)
-            X.append(to_input(m))
-            y.append(str(cls))
-    return X, y
+            if str(pages[i]) in held:
+                hx.append(to_input(m)); hy.append(str(cls))
+            else:
+                X.append(to_input(m)); y.append(str(cls))
+    return X, y, hx, hy
 
 
 def main():
@@ -75,27 +86,35 @@ def main():
     ap.add_argument("--epochs", type=int, default=12)
     ap.add_argument("--truth", nargs="*", default=None)
     ap.add_argument("--no-synthetic", action="store_true")
+    ap.add_argument("--hold-pages", type=float, default=0.0,
+                    help="fraction of PAGES held out (honest evaluation)")
     args = ap.parse_args()
 
     X, y = ([], []) if args.no_synthetic else synthetic()
     print(f"{len(y)} synthetic renders")
     files = ([Path(t) for t in args.truth] if args.truth is not None
              else sorted(Path("data").glob("truth_*.npz")))
-    tx, ty = truth_crops(files)
-    print(f"{len(ty)} truth-labeled real crops from {[f.name for f in files]}")
+    tx, ty, hx, hy = truth_crops(files, args.hold_pages)
+    print(f"{len(ty)} truth-labeled real crops from {[f.name for f in files]}"
+          + (f"; {len(hy)} crops on {args.hold_pages:.0%} of pages held out" if hy else ""))
     X = np.array(X + tx, np.float32)
     y = y + ty
     rng = np.random.default_rng(0)
-    hold = rng.random(len(y)) < 0.05
+    hold = rng.random(len(y)) < (0.0 if hy else 0.05)
     t0 = time.time()
     model = GlyphCNN(epochs=args.epochs).fit(
         X[~hold], [c for c, h in zip(y, hold) if not h],
         log=lambda ep: print(f"  epoch {ep} ({time.time()-t0:.0f}s)", flush=True))
-    acc = np.mean([p == t for p, t in
-                   zip(model.predict(X[hold]), [c for c, h in zip(y, hold) if h])])
+    if hy:
+        acc = np.mean([p == t for p, t in zip(model.predict(np.array(hx, np.float32)), hy)])
+        what = f"held-out PAGES top-1 {acc*100:.2f}%"
+    else:
+        acc = np.mean([p == t for p, t in
+                       zip(model.predict(X[hold]), [c for c, h in zip(y, hold) if h])])
+        what = f"held-out 5% top-1 {acc*100:.2f}%"
     model.save(args.out)
     print(f"trained on {int((~hold).sum())} crops, {len(model.classes)} classes "
-          f"in {time.time()-t0:.0f}s; held-out 5% top-1 {acc*100:.2f}% -> {args.out}")
+          f"in {time.time()-t0:.0f}s; {what} -> {args.out}")
 
 
 if __name__ == "__main__":
