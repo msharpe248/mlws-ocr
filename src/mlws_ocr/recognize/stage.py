@@ -28,6 +28,7 @@ def _family_mask(tags, family):
     unknown -- they are scanner glyphs of every family at once."""
     return (tags == family) | (tags == "truth")
 _OUTLINE_CACHE: dict = {}
+_CNN_CACHE: dict = {}
 
 
 def _load_bank(path: str) -> dict:
@@ -120,6 +121,10 @@ class PrototypeRecognize(Stage):
                                   # width (a lone narrow letter cannot hide
                                   # two characters)
         "chop_min_piece_frac": 0.3,
+        "cnn_path": "",           # optional fourth opinion: the self-trained
+                                  # glyph CNN (recognize/cnn.py); "" = off
+        "cnn_weight": 2.0,        # distance units per nat of disagreement
+        "cnn_inject": 3,          # CNN top classes added if absent
         "piece_outline": False,   # opt-in: chopped PIECES rated against every
                                   # class by the outline channel with their
                                   # cut edge masked, and its top classes
@@ -130,12 +135,14 @@ class PrototypeRecognize(Stage):
                                   # broad-30 -0.4/-0.7): all-class rating of
                                   # small pieces injects implausible classes
         "piece_inject": 3,
-        "outline_margin": 0.0,    # skip the outline channel when the prototype
+        "outline_margin": 0.3,    # skip the outline channel when the prototype
                                   # match is already SURE: (d2-d1)/d1 above
                                   # this (0 = rate every glyph). The channel
                                   # is the runtime bottleneck (~30 ms/glyph,
                                   # minutes on a dense page) and a confident
-                                  # 1-NN rarely needs a second opinion
+                                  # 1-NN rarely needs a second opinion.
+                                  # 0.3 skips 80% of glyphs; 0.3 and 0.6
+                                  # measured identical on real pages
         "outline_top": 6,         # candidates rated (the rest keep their cost);
                                   # ~48 ms per glyph at 14, the win is in the
                                   # top few
@@ -182,6 +189,44 @@ class PrototypeRecognize(Stage):
                     scored[c] = best_d + w * (row[j] - base)
             ranked = sorted(scored.items(), key=lambda kv: kv[1])[: len(cands)]
             out.append([(c, float(d)) for c, d in ranked])
+        return out
+
+    def _cnn_opinion(self, crops, topk):
+        """Re-cost candidates by the glyph CNN, in the same additive form as
+        the MLP opinion: the CNN's favourite among the candidates keeps its
+        prototype distance and the others pay their disagreement in nats,
+        so the distance scale the later stages calibrate against survives.
+        Its own top classes join the list when the prototypes missed them."""
+        from .cnn import GlyphCNN, to_input
+        cnn = _CNN_CACHE.get(self.params["cnn_path"])
+        if cnn is None:
+            path = Path(self.params["cnn_path"])
+            if not path.exists():
+                raise FileNotFoundError(
+                    f"{path} missing -- train it with scripts/train_cnn.py")
+            cnn = _CNN_CACHE[self.params["cnn_path"]] = GlyphCNN.load(path)
+        X = np.array([to_input(c > 0.5) for c in crops], np.float32)
+        nll = -cnn.log_probs(X)
+        cindex = {c: i for i, c in enumerate(cnn.classes)}
+        w = self.params["cnn_weight"]
+        out = []
+        for row, cands in zip(nll, topk):
+            known = [(c, d) for c, d in cands if c in cindex]
+            if not known:
+                out.append(cands)
+                continue
+            base = min(row[cindex[c]] for c, _ in known)
+            best_d = min(d for _, d in known)
+            scored = {c: d + w * (row[cindex[c]] - base) for c, d in known}
+            for c, d in cands:
+                if c not in cindex:
+                    scored[c] = d
+            for j in np.argsort(row)[: self.params["cnn_inject"]]:
+                c = cnn.classes[j]
+                if c not in scored:
+                    scored[c] = best_d + w * (row[j] - base)
+            out.append([(c, float(d)) for c, d in
+                        sorted(scored.items(), key=lambda kv: kv[1])[: len(cands)]])
         return out
 
     def _outline_opinion(self, crops, topk):
@@ -447,6 +492,8 @@ class PrototypeRecognize(Stage):
 
             if self.params["mlp_path"]:
                 topk = self._mlp_second_opinion(X, topk)
+            if self.params["cnn_path"]:
+                topk = self._cnn_opinion(crops, topk)
             if self.params["outline_path"]:
                 topk = self._outline_opinion(crops, topk)
                 if self.params["piece_outline"]:
