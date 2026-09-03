@@ -115,6 +115,15 @@ separately attributable because of this.
 
 ## Open threads
 
+- **Font stock widening, re-run under the new consumers.** Every widening
+  experiment that failed (RESEARCH: +6 faces cost letters −1.3 char) ran
+  under the capped 1-NN pool, where more faces diluted the neighbourhood.
+  The consumers have changed since: per-class condensation, the MLP
+  second opinion and the outline channel. Re-run the widening with a bold
+  grotesque family or two (the letterhead capitals F→r, Y→o, N→c are a
+  coverage hole the truth set confirms), measured on dev-8, broad-30 and
+  legal-8, and keep only what holds on all three.
+
 - **Ligature classes, gated.** Plain classes measured negative (3 true
   ligatures vs 17 junk decodes on dev-8); the plumbing is in place. Try
   admitting a ligature only when the expanded word is lexicon-endorsed.
