@@ -84,6 +84,36 @@ not model class** — thirty years of it — and that is where the work
 belongs. `scripts/compare_legacy.py` produces the paired per-page table
 that localizes it.
 
+## Now (2026-09-02, agreed plan): modern documents, then wider opinions
+
+1. **A modern test set, and our number on it.** Everything measured so
+   far is 1990s UNLV photocopies. Build `data/modern/`: born-digital
+   public-domain documents (govinfo Federal Register pages and bills, GAO
+   reports; SEC EDGAR exhibits such as contracts) rasterized at 300 dpi
+   with exact truth from the PDF text layer, plus templated invoices and
+   payslips rendered in the modern faces on this machine (Helvetica Neue,
+   Avenir, Arial), all put through the degradation stack at three
+   severities to stand in for a scanner. Measure ours and legacy
+   Tesseract on it. This ranks everything below.
+2. **A self-trained glyph CNN as a fourth opinion.** Small convolutional
+   net on 32x32 crops (~100k parameters, minutes on a laptop CPU, runs
+   locally), trained on the truth-labeled set; convolutional features are
+   local, so breaks and erosion cost a few filters rather than the whole
+   vector -- the property the outline features have without their
+   fragility on ragged bitonal outlines. Plugged in through the same
+   additive hook as the MLP.
+3. **Real modern glyphs through the print-and-scan loop.** Print the
+   modern set on the real printer, scan on the real scanner, align to
+   the known text: a modern-font test set with real scanner physics, and
+   a truth-labeled modern harvest for every channel behind it. Then
+   self-label on the customer's own documents.
+4. **Reading order** (1.4 measured points on letters).
+5. **Font-stock widening** under the new consumers (below).
+6. **Doc-type-aware outline weight** (recovers legal's 0.2 / 1.0 trade).
+
+Constraint reminder: self-trained networks are in scope when they train
+on home hardware and run locally; no language models, no vision models.
+
 ## Later: overnight training jobs
 
 Self-trained models only (the project's constraint is no *pre-trained*
