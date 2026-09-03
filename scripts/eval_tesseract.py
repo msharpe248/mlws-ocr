@@ -45,6 +45,9 @@ def main():
         cers.append(cer); wers.append(wer)
         recalls.append(ov / max(sum(tw.values()), 1))
         precisions.append(ov / max(sum(gw.values()), 1))
+        # per page, in eval_unlv's format, so both engines' outputs parse alike
+        print(f"  {tif.name}: char acc {1-cer:.1%}  word acc {1-wer:.1%}  "
+              f"recall {recalls[-1]:.1%}  precision {precisions[-1]:.1%}", flush=True)
     print(f"TESSERACT oem={args.oem} MEAN over {len(cers)} pages: "
           f"char acc {1-np.mean(cers):.1%}  word acc {1-np.mean(wers):.1%}  "
           f"word recall {np.mean(recalls):.1%}  precision {np.mean(precisions):.1%}")

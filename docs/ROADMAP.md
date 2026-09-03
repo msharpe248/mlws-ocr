@@ -86,7 +86,11 @@ that localizes it.
 
 ## Now (2026-09-02, agreed plan): modern documents, then wider opinions
 
-1. **A modern test set, and our number on it.** Everything measured so
+1. ~~A modern test set, and our number on it.~~ BUILT and measured
+   (RESEARCH): ours 74.2 char / 71.4 recall vs legacy 67.4 / 85.7 on 59
+   pages. We beat legacy on characters and on reading order for business
+   forms; we lose a third of the words. **Recall on sparse column
+   layouts is now the top item.** Original description: Everything measured so
    far is 1990s UNLV photocopies. Build `data/modern/`: born-digital
    public-domain documents (govinfo Federal Register pages and bills, GAO
    reports; SEC EDGAR exhibits such as contracts) rasterized at 300 dpi
@@ -109,7 +113,11 @@ that localizes it.
    a truth-labeled modern harvest for every channel behind it. Then
    self-label on the customer's own documents.
 4. **Reading order** (1.4 measured points on letters).
-5. **Font-stock widening** under the new consumers (below).
+5. ~~Font-stock widening~~ MEASURED: it finally helps (modern +2.0 char /
+   +3.8 recall, dev-8 +0.5) but costs legal 1.1 char, because a denser
+   pool compresses the distance scale other thresholds are tuned to.
+   `data/prototypes_wide90.npz` ships as an option; adopting it as the
+   default needs those thresholds re-tuned first.
 6. **Doc-type-aware outline weight** (recovers legal's 0.2 / 1.0 trade).
 
 Constraint reminder: self-trained networks are in scope when they train

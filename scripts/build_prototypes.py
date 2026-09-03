@@ -32,6 +32,9 @@ _ap.add_argument("--harvest", nargs="*", default=None, metavar="NPZ",
                  help="harvest files to merge (default: data/harvest_*.npz "
                       "minus backups); name them explicitly to test a "
                       "re-harvest variant without touching the live set")
+_ap.add_argument("--add-fonts", default="", metavar="NAME,NAME",
+                 help="extra body faces beyond the pinned stock (a measured "
+                      "widening experiment, never a side effect)")
 _ap.add_argument("--truth", nargs="*", default=None, metavar="NPZ",
                  help="truth-labeled harvests (scripts/harvest_truth.py) to "
                       "merge as well, labels taken from their 'truth' field; "
@@ -63,7 +66,8 @@ from mlws_ocr.factory.fonts import font_family
 # BODY_NAMES: see mlws_ocr/factory/stock.py (pinned composition + why).
 pool = print_fonts(limit=80, exclude=HOLDOUT)
 by_stem = {f.stem: f for f in pool}
-body = [by_stem[n] for n in BODY_NAMES if n in by_stem]
+extra = [n.strip() for n in (_args.add_fonts or "").split(",") if n.strip()]
+body = [by_stem[n] for n in BODY_NAMES + extra if n in by_stem]
 display = [f for f in pool if font_family(f) == "display"][:6]
 fonts = body + display
 missing = [n for n in BODY_NAMES if n not in by_stem]
