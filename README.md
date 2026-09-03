@@ -62,6 +62,10 @@ this way?" questions by looking, not guessing.
 
 ## Architecture
 
+The full design — every stage, why it is shaped that way, the three
+recognition channels, the decoder's priors, the models and how we
+measure — is in [docs/DESIGN.md](docs/DESIGN.md).
+
 The pipeline is a sequence of **slots** (deskew, illumination, binarize,
 despeckle, …), each filled by one of possibly many registered
 **implementations**, chosen per run by a TOML config. Every stage takes a
