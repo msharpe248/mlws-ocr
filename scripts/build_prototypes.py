@@ -42,7 +42,7 @@ _ap.add_argument("--truth", nargs="*", default=None, metavar="NPZ",
 _ap.add_argument("--truth-kinds", default="whole,split,merge",
                  help="which read kinds of truth glyphs to merge (e.g. "
                       "'split,merge' to add only cut/joined pieces)")
-_ap.add_argument("--condense", type=int, default=0, metavar="N",
+_ap.add_argument("--condense", type=int, default=0, metavar="N",  # live build uses 90
                  help="k-means condense the merged pool to N prototypes per "
                       "class (see recognize/condense.py); implies --cap "
                       "unlimited and --inlier 100 unless given explicitly")

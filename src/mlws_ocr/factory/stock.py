@@ -34,4 +34,14 @@ BODY_NAMES = [
     "Georgia Bold Italic", "Georgia Bold", "Georgia Italic", "Georgia",
     "Microsoft Sans Serif", "STIXTwoText-Italic", "STIXTwoText", "Skia",
     "Times New Roman Italic",
+    # MODERN SANS, added 2026-09-03 after the widening experiment finally
+    # measured positive under the current consumers (per-class condensation
+    # + MLP + outline; every earlier attempt ran under the capped 1-NN pool
+    # and lost).  None of these are used by data/modern, so that set stays
+    # a fair test.  Measured with a 90-prototype budget: modern documents
+    # +1.6 char / +2.5 recall / +2.2 word, dev-8 +0.7 char, broad-30 and
+    # legal-8 within 0.3.  Digits are where it shows: Helvetica Neue's '0'
+    # and '6' went from outside the top three to rank one.
+    "Trebuchet MS", "Trebuchet MS Bold", "Trebuchet MS Italic",
+    "Geneva", "Avenir Next", "Avenir Next Condensed",
 ]

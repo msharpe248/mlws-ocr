@@ -156,9 +156,10 @@ emits a ranked list of up to 14 candidate characters with *costs*. The
 list is produced by one channel and re-costed by two more:
 
 1. **Condensed nearest-prototype.** Z-scored 1-NN against a library of
-   6,600 vectors: 60 k-means prototypes per class (k-means++ seeding,
+   6,600 vectors: 90 k-means prototypes per class (k-means++ seeding,
    best of three restarts) condensed from ~145k exemplars — clean and
-   degraded renders of 23 pinned body faces and 6 display faces, plus the
+   degraded renders of 29 pinned body faces (23 classic + 6 modern sans)
+   and 6 display faces, plus the
    real-glyph harvests (§6). Condensation is what lets the harvest be
    used at all: a capped 1-NN pool saturated at ~4.7k real glyphs, and
    an uncapped one let dense real lowercase swallow every real digit.
@@ -330,9 +331,10 @@ Rules: three oscillations on dev-8 stop a sweep; a change is kept only if
 the headline and the other sets agree; anything that loses on one set is
 recorded before it is reverted or made opt-in.
 
-Current numbers: broad-30 87.5 / 69.9 (recall 80.6, precision 78.5),
-dev-8 93.0 / 81.7, legal-8 86.1 / 65.5, synthetic 98.8 / 99.3 / 98.3
-char. Two days earlier broad-30 was 77.3 / 52.4.
+Current numbers: broad-30 88.2 / 71.0 (recall 81.5, precision 78.7),
+dev-8 93.6 / 82.1, legal-8 87.0 / 67.0, modern 76.0 / 50.0 (recall 74.6),
+synthetic 98.8 / 99.1 / 98.4 char. Two days earlier broad-30 was
+77.3 / 52.4; the legacy reference is 95.3 / 90.5.
 
 ## 8. Tooling
 

@@ -78,7 +78,7 @@ classification. Priority order follows the shares:
 Tesseract's **legacy engine has no neural net** and scores 95.3% char /
 90.5% word on our thirty-page sample; its LSTM engine scores 95.9 /
 92.2. The neural upgrade bought Tesseract 0.6 char points. We score
-87.7 / 70.4 (2026-09-03, outline gate, outline channel, touching-pair splits, three-piece chopper, fragment associator: condensed model with the digit harvest,
+88.2 / 71.0 (2026-09-03, widened stock, outline gate, outline channel, touching-pair splits, three-piece chopper, fragment associator: condensed model with the digit harvest,
 deferred digit mode). **The remaining gap is therefore classical engineering,
 not model class** — thirty years of it — and that is where the work
 belongs. `scripts/compare_legacy.py` produces the paired per-page table
@@ -113,11 +113,9 @@ that localizes it.
    a truth-labeled modern harvest for every channel behind it. Then
    self-label on the customer's own documents.
 4. **Reading order** (1.4 measured points on letters).
-5. ~~Font-stock widening~~ MEASURED: it finally helps (modern +2.0 char /
-   +3.8 recall, dev-8 +0.5) but costs legal 1.1 char, because a denser
-   pool compresses the distance scale other thresholds are tuned to.
-   `data/prototypes_wide90.npz` ships as an option; adopting it as the
-   default needs those thresholds re-tuned first.
+5. ~~Font-stock widening~~ DONE and ADOPTED: six modern sans faces, all
+   three channels rebuilt together (the apparent domain trade was a
+   mismatched ensemble). Every real set improved; broad-30 88.2/71.0.
 6. **Doc-type-aware outline weight** (recovers legal's 0.2 / 1.0 trade).
 
 Constraint reminder: self-trained networks are in scope when they train

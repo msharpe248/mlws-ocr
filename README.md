@@ -39,7 +39,7 @@ our own renders and our own self-labeled harvest — nothing pre-trained:
 ```sh
 .venv/bin/python scripts/build_langmodel.py            # lexicon + char n-grams (data/lang_*.npz)
 .venv/bin/python scripts/train_charlm.py               # char-GRU language model (data/gru_en.npz)
-.venv/bin/python scripts/build_prototypes.py data/prototypes.npz --condense 60   # condensed glyph prototypes
+.venv/bin/python scripts/build_prototypes.py data/prototypes.npz --condense 90   # condensed glyph prototypes
 .venv/bin/python scripts/build_prototypes.py data/pool_all.npz --cap 1000000000 --inlier 100
 .venv/bin/python scripts/train_mlp.py data/pool_all.npz data/mlp.npz             # 12-second second-opinion MLP
 .venv/bin/python scripts/build_outline_protos.py       # outline-segment prototypes (Tesseract-style third opinion)
