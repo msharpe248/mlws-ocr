@@ -283,7 +283,7 @@ provenance.
 All models live under `data/` (gitignored) and are built here; README
 lists the commands. Nothing is downloaded pre-trained.
 
-**6.1 Language.** `build_langmodel.py` builds the lexicon (814k forms with
+**6.1 Language.** `build_langmodel.py data/corpus_en_plus data/lang_en.npz` builds the lexicon (814k forms with
 regular inflections) and character trigrams from a corpus of public-domain
 text: Gutenberg novels plus modern US federal text (Congressional bills,
 Federal Register — 17 U.S.C. §105), 2.4M words. `train_charlm.py` trains

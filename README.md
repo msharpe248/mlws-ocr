@@ -37,7 +37,7 @@ python3 -m venv .venv && .venv/bin/pip install -e ".[dev]"
 our own renders and our own self-labeled harvest — nothing pre-trained:
 
 ```sh
-.venv/bin/python scripts/build_langmodel.py            # lexicon + char n-grams (data/lang_*.npz)
+.venv/bin/python scripts/build_langmodel.py data/corpus_en_plus data/lang_en.npz   # lexicon + char n-grams
 .venv/bin/python scripts/train_charlm.py               # char-GRU language model (data/gru_en.npz)
 .venv/bin/python scripts/build_prototypes.py data/prototypes.npz --condense 90   # condensed glyph prototypes
 .venv/bin/python scripts/build_prototypes.py data/pool_all.npz --cap 1000000000 --inlier 100
