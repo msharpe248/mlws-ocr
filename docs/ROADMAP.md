@@ -117,6 +117,24 @@ that localizes it.
    three channels rebuilt together (the apparent domain trade was a
    mismatched ensemble). Every real set improved; broad-30 88.2/71.0.
 6. **Doc-type-aware outline weight** (recovers legal's 0.2 / 1.0 trade).
+7. **Optimization pass.** A business letter takes ~40–50 s; measured
+   stage by stage (2026-09-03, one dev-8 page, 1,556 glyph crops):
+   recognize 24.4 s (64%), the two decode passes 8.2 s (21%), rulings
+   2.2 s, everything else under 1 s. Inside the recognizer the outline
+   channel is 21.3 of 26 s, and 16.7 s of that is one function:
+   `outline.evidence`, the pairwise feature×segment Gaussian, called
+   3,096 times (517 gated glyphs × 6 candidates) at 5.4 ms each because
+   every class carries ~90 font configurations × ~20 segments and every
+   pair is evaluated. Levers, in order: (a) Tesseract's proto pruner —
+   skip segments whose bounding box is far from the feature before the
+   exponential (their intmatcher.cpp does exactly this with coarse
+   buckets); (b) condense the per-font configurations per class to a
+   representative dozen (they are near-duplicates across similar faces);
+   (c) batch the six candidate classes into one matrix; (d) GED rerank
+   1.5 s and features 1.7 s are the next tier. The decode passes are
+   GRU steps per glyph in Python; batching beams is the lever there.
+   Target: a letter in under 10 s without touching accuracy (the outline
+   gate already showed speed and accuracy are not in tension here).
 
 Constraint reminder: self-trained networks are in scope when they train
 on home hardware and run locally; no language models, no vision models.
