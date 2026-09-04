@@ -78,7 +78,7 @@ classification. Priority order follows the shares:
 Tesseract's **legacy engine has no neural net** and scores 95.3% char /
 90.5% word on our thirty-page sample; its LSTM engine scores 95.9 /
 92.2. The neural upgrade bought Tesseract 0.6 char points. We score
-88.2 / 71.0 (2026-09-03, widened stock, outline gate, outline channel, touching-pair splits, three-piece chopper, fragment associator: condensed model with the digit harvest,
+88.3 / 72.5 (2026-09-04, sparse-layout decoding, widened stock, outline gate, outline channel, touching-pair splits, three-piece chopper, fragment associator: condensed model with the digit harvest,
 deferred digit mode). **The remaining gap is therefore classical engineering,
 not model class** — thirty years of it — and that is where the work
 belongs. `scripts/compare_legacy.py` produces the paired per-page table
@@ -88,9 +88,9 @@ that localizes it.
 
 1. ~~A modern test set, and our number on it.~~ BUILT and measured
    (RESEARCH): ours 74.2 char / 71.4 recall vs legacy 67.4 / 85.7 on 59
-   pages. We beat legacy on characters and on reading order for business
-   forms; we lose a third of the words. **Recall on sparse column
-   layouts is now the top item.** Original description: Everything measured so
+   pages. After the sparse-layout decoding work: 77.9 / 62.2 / 78.0
+   recall / 82.3 precision against legacy 67.4 / 62.2 / 85.7 / 93.1 —
+   word accuracy now equal, recall 7.7 behind. Original description: Everything measured so
    far is 1990s UNLV photocopies. Build `data/modern/`: born-digital
    public-domain documents (govinfo Federal Register pages and bills, GAO
    reports; SEC EDGAR exhibits such as contracts) rasterized at 300 dpi
@@ -169,6 +169,13 @@ measurement rather than a changed pipeline. Every leg of 2026-09-01 was
 separately attributable because of this.
 
 ## Open threads
+
+- **Background (distance-to-ink) profile features.** The classic
+  silhouette features — distance from each of the four edges to the first
+  ink pixel, sampled along the edge (Trier, Jain & Taxt 1996; Bokser's
+  Calera) — are the one family of the classical feature set the 95-vector
+  lacks. They separate b/h, c/o, E/F and 3/8 by outer shape. ~32 features;
+  one afternoon including the rebuild of all three channels.
 
 - **Font stock widening, re-run under the new consumers.** Every widening
   experiment that failed (RESEARCH: +6 faces cost letters −1.3 char) ran

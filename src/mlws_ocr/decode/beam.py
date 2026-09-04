@@ -26,6 +26,7 @@ from ..core.registry import register
 from ..core.stage import DebugBundle, Stage
 from pathlib import Path
 
+from .formats import numeric_endorsed
 from ..lang.gru import CharGRU, GruLM
 from ..lang.model import CharBigram, CorpusModel
 
@@ -64,6 +65,7 @@ CASE_TWINS = ({c: c.upper() for c in "cosuvwxz"} | {"1": "l"}
 # evidence says "this is a number", a leading letter reading like 'l' in
 # "l993" or 'o' in "2o" gets its digit twin as a candidate even when the
 # digit itself missed the top-k ("357l", "92l23" measured on real letters).
+NUMERIC_PUNCT = set("/-.,:$%")   # characters that belong inside numbers
 DIGIT_TWINS = {"l": "1", "I": "1", "i": "1", "|": "1", "o": "0", "O": "0",
                "s": "5", "S": "5", "z": "2", "Z": "2", "B": "8", "g": "9",
                "q": "9", "G": "6", "b": "6"}
@@ -210,6 +212,15 @@ class BeamDecode(Stage):
                                  # ~0.24, real word gaps sit near ~0.65)
         "space_hi": 0.55,        # gap above this * x_height: definitely a space
                                  # (between the two: the dictionary decides)
+        "digit_mode_separators": True,  # in digit mode the number separators
+                                  # (/ - . , : $ %) share the digit boost
+        "numeric_join_context": True,  # join only on data lines ('$'/'%' or
+                                  # two digit-separator-digit triplets)
+        "numeric_sep_frac": 0.4,  # the joining separator's width, x-heights
+        "numeric_join": True,     # a gap right after a thousands comma or a
+                                  # decimal point does not end a word, however
+                                  # wide it looks (invoice money amounts were
+                                  # split into "$7,1" and "65.00")
         "space_geom_weight": 2.0, # weight of gap size in uncertain-gap scoring
         "word_freq_weight": 0.35, # per-word log-frequency bonus in variants
                                   # (words of 3+ chars only, capped -- short
@@ -850,14 +861,71 @@ class BeamDecode(Stage):
         gaps = [g["box"][0] - prev["box"][2]
                 for prev, g in zip(groups, groups[1:])]
         band = gap_band(gaps)
+        # The 2-means band is only trustworthy when it found REAL word
+        # spaces: on a line with one word gap among many letter gaps
+        # ("Project management" in a table cell) k-means splits the letter
+        # gaps among themselves and calls 3 px a word space on a 21 px
+        # x-height -- "Proj act management".  A word space narrower than
+        # the minimum plausible one is not a word space; fall back to the
+        # x-height ratios, which is what short lines need anyway.
+        if band is not None and band[1] < p["space_lo"] * max(x_height, 1.0):
+            band = None
         if band is not None:
             lo, hi = band
         else:
             lo = p["space_lo"] * max(x_height, 1.0)
             hi = p["space_hi"] * max(x_height, 1.0)
         mid = (lo + hi) / 2.0
+
+        def numeric_join(prev, nxt, prev2) -> bool:
+            """A thousands comma or a decimal point inside a number leaves a
+            gap as wide as a word space ("$7,165.00" split into "$7,1" and
+            "65.00" on every invoice), but a number does not end there.
+
+            Strict, because a loose version welds ordinary words together
+            and cost 2.4 recall on every set: the separator must be the
+            left glyph's FIRST choice, a digit must be the right glyph's
+            first choice, and the glyph before the separator must be a
+            digit too -- i.e. the pattern is digit, separator, digit.
+            """
+            if not p["numeric_join"] or prev2 is None:
+                return False
+            def top1(g):
+                cl = g.get("candidates") or []
+                return cl[0][0] if cl else ""
+            if not (top1(prev) in ",./" and top1(nxt).isdigit()
+                    and top1(prev2).isdigit()):
+                return False
+            # ...and the separator must really be one: a comma or point is
+            # tiny.  Without this the rule fired on scans where a full-size
+            # glyph was merely misread as ',' and welded two words together
+            # (dev-8 and broad-30 each lost 0.4 word).
+            b = prev["box"]
+            xh = max(x_height, 1.0)
+            return (b[2] - b[0]) < p["numeric_sep_frac"] * xh and \
+                   (b[3] - b[1]) < p["numeric_sep_frac"] * 1.6 * xh
+
+        # Context gate: the join only earns a hearing on lines that read
+        # as DATA -- a '$' or '%' among the top-1 candidates, or two or
+        # more digit-separator-digit triplets.  Isolated on dev-8, the
+        # ungated join cost 0.5 word: on running text a comma between two
+        # letters misread as digits was enough to weld two words.
+        tops = [(g.get("candidates") or [["", 0]])[0][0] for g in groups]
+        triplets = sum(1 for i in range(1, len(tops) - 1)
+                       if tops[i] in ",./" and tops[i - 1].isdigit() and tops[i + 1].isdigit())
+        data_line = (not p["numeric_join_context"]) or any(t in "$%" for t in tops) or triplets >= 2
+
         segments, current, uncertain = [], [groups[0]], []
         for gap, g in zip(gaps, groups[1:]):
+            if gap > hi and data_line and numeric_join(current[-1], g,
+                                                       current[-2] if len(current) > 1 else None):
+                # Not a forced join: the gap becomes UNCERTAIN, so the
+                # variant search below reads it both ways and the lexicon
+                # (here: the numeric formats) picks.  Forcing it measured
+                # -0.4 word on every scan set for +0.3 on the modern one.
+                uncertain.append((len(current) - 1, gap / mid * 0.45))
+                current.append(g)
+                continue
             if gap > hi:
                 segments.append((current, uncertain))
                 current, uncertain = [g], []
@@ -908,6 +976,10 @@ class BeamDecode(Stage):
                 total += score
                 core = text.lower().strip("'\".,;:!?()-")
                 cores.append(core)
+                if numeric_endorsed(text):
+                    # a whole-shape numeric format (money, date, ZIP, phone)
+                    # is as good an endorsement as a dictionary hit
+                    lexq += p["word_freq_weight"] * 8.0
                 if lm.endorsed(core):
                     lexq += 1.0
                 elif len(core) >= 2 and core not in lm.lexicon:
@@ -1093,7 +1165,10 @@ class BeamDecode(Stage):
             lp = _glyph_logprobs(cands)
             if digit_mode:
                 for c in list(lp):
-                    if c.isdigit():
+                    # separators belong to numbers as much as digits do: in
+                    # digit mode a boosted '1' was beating the '/' of a date
+                    # ("09/01/2024" -> "0910112024")
+                    if c.isdigit() or (p["digit_mode_separators"] and c in NUMERIC_PUNCT):
                         lp[c] += p["digit_mode_boost"]
             elif alpha_mode:
                 for c in list(lp):

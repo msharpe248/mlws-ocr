@@ -192,7 +192,14 @@ whose top two candidates are close and whose outlines are smooth.
 
 Per line, groups are split into words by the gap distribution (a 2-means
 split of gap widths finds the letter/word boundary; uncertain gaps become
-variants). Per word, every combination of split option / merge option /
+variants). Two guards learned from invoices: a 2-means "word space"
+narrower than the minimum plausible one (0.35 x-height) is spurious —
+on a line with a single word gap k-means splits the letter gaps among
+themselves — and the x-height ratios are used instead; and on data lines
+(a '$' or '%', or two digit-separator-digit triplets) a wide gap after a
+thousands comma or decimal point is read both ways, with a whole-shape
+numeric format counting as lexicon quality, so "$7,165.00" stays one
+token. Per word, every combination of split option / merge option /
 no-change is decoded and the best-scoring reading wins, with a per-added-
 character bonus for splits (merges need none: they remove a term).
 
@@ -212,7 +219,8 @@ classifier does not see:
   candidate the classifier never offers for real apostrophes; ':' vs ';'
   by the same test for two-part marks near x-height;
 - **digit mode**, decided late: a token whose *top-1* candidates are half
-  digits is numeric (LM muted, digits boosted); graded evidence from
+  digits is numeric (LM muted, digits and the number separators / - . , : $ %
+  boosted — a boosted '1' was beating the '/' of every date); graded evidence from
   ranks 2–3 only earns a numeric decode if the word-mode reading is not
   a lexicon word, and a single glyph never enters on graded evidence
   (real digit prototypes put a digit twin under most l/I/o/s glyphs);
@@ -331,8 +339,8 @@ Rules: three oscillations on dev-8 stop a sweep; a change is kept only if
 the headline and the other sets agree; anything that loses on one set is
 recorded before it is reverted or made opt-in.
 
-Current numbers: broad-30 88.2 / 71.0 (recall 81.5, precision 78.7),
-dev-8 93.6 / 82.1, legal-8 87.0 / 67.0, modern 76.0 / 50.0 (recall 74.6),
+Current numbers: broad-30 88.3 / 72.5 (recall 80.7, precision 80.9),
+dev-8 94.1 / 84.7, legal-8 86.9 / 68.5, modern 77.9 / 62.2 (recall 78.0),
 synthetic 98.8 / 99.1 / 98.4 char. Two days earlier broad-30 was
 77.3 / 52.4; the legacy reference is 95.3 / 90.5.
 

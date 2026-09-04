@@ -65,6 +65,15 @@ def glyph_available(char: str, font_path, px_height: int = 48) -> bool:
     """
     import unicodedata
     plain = unicodedata.normalize("NFKC", char)
+    if char == "@":
+        # symbols with no NFKC expansion: a real '@' is a large round glyph,
+        # a fallback box is not -- compare against the face's own 'e'
+        try:
+            a = render_glyph(char, font_path, px_height=px_height) < 0.5
+            e = render_glyph("e", font_path, px_height=px_height) < 0.5
+        except Exception:
+            return False
+        return a.sum() > 2 * e.sum() and a.any(axis=0).sum() > 1.2 * e.any(axis=0).sum()
     if plain == char:
         return True
     try:
