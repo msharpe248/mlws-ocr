@@ -68,7 +68,8 @@ CASE_TWINS = ({c: c.upper() for c in "cosuvwxz"} | {"1": "l"}
 NUMERIC_PUNCT = set("/-.,:$%")   # characters that belong inside numbers
 DIGIT_TWINS = {"l": "1", "I": "1", "i": "1", "|": "1", "o": "0", "O": "0",
                "s": "5", "S": "5", "z": "2", "Z": "2", "B": "8", "g": "9",
-               "q": "9", "G": "6", "b": "6"}
+               "q": "9", "G": "6", "b": "6",
+               "e": "3"}   # geometric sans '3' (Avenir) reads as 'e' -- payslip amounts
 
 # Classic shape-confusion pairs, injected like case twins: when one is a
 # candidate, the other joins at a penalty so language context can
@@ -893,9 +894,17 @@ class BeamDecode(Stage):
             def top1(g):
                 cl = g.get("candidates") or []
                 return cl[0][0] if cl else ""
-            if not (top1(prev) in ",./" and top1(nxt).isdigit()
-                    and top1(prev2).isdigit()):
+            sep_pattern = (top1(prev) in ",./" and top1(nxt).isdigit()
+                           and top1(prev2).isdigit())
+            # ...or a digit|digit gap inside a token that already carries a
+            # numeric separator: a narrow '1' leaves a kerning gap that
+            # lands just above the band ("06/1" + "5/2025" on a payslip)
+            digit_run = (top1(prev).isdigit() and top1(nxt).isdigit()
+                         and any(top1(g) in NUMERIC_PUNCT for g in current))
+            if not (sep_pattern or digit_run):
                 return False
+            if digit_run and not sep_pattern:
+                return True
             # ...and the separator must really be one: a comma or point is
             # tiny.  Without this the rule fired on scans where a full-size
             # glyph was merely misread as ',' and welded two words together

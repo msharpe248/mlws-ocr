@@ -352,6 +352,10 @@ synthetic 98.8 / 99.1 / 98.4 char. Two days earlier broad-30 was
 - `scripts/build_*.py`, `train_*.py`, `harvest_*.py` — models and data.
 - `scripts/compare_legacy*.py`, `confusion_report.py`,
   `classifier_ceiling.py`, `classifier_truth_eval.py` — diagnosis.
+- `scripts/missing_words.py <page>` — one page's missing, spurious and
+  suppressed words side by side; the fastest way from a score to a
+  mechanism (it found the money splits, the deleted quantity cells and
+  the date slashes).
 
 ## 9. Known limits
 

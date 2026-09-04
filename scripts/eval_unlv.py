@@ -40,8 +40,22 @@ def find_pairs(root: Path):
                 break
 
 
+_FOLD = str.maketrans({"\u2018": "'", "\u2019": "'", "\u201a": "'", "\u201c": '"',
+                       "\u201d": '"', "\u201e": '"', "\u2013": "-", "\u2014": "-",
+                       "\u2212": "-", "\u00a0": " "})
+
+
 def normalize(text: str) -> str:
-    return " ".join(text.split())
+    """Whitespace-collapse, and fold typographic punctuation to ASCII.
+
+    Born-digital truth (the modern set's PDF text layers) carries curly
+    quotes, en/em dashes and non-breaking spaces; scanned truth (UNLV) is
+    ASCII.  Neither engine has classes for the typographic forms, so
+    scoring them as distinct characters punished both for a convention.
+    UNLV numbers are unaffected (no such characters in its truth).
+    """
+    text = text.replace("\u2018\u2018", '"').replace("\u2019\u2019", '"')   # ‘‘ ’’ first
+    return " ".join(text.translate(_FOLD).split())
 
 
 def read_zones(uzn_path: Path) -> list[list[int]]:
