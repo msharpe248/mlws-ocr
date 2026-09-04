@@ -58,14 +58,49 @@ def write_page(stem: str, gray: np.ndarray, truth: str) -> None:
 
 
 # ------------------------------------------------------------- PDF pages
+import re
+
+_SLUG = re.compile(r"^(VerDate|Jkt |PO 0|Frm |Fmt |Sfmt |E:\\|.*\.SGM$|.*\.IH$|.*\.XXX$|\S*prod$)", re.I)
+
+
+def clean_truth(text: str) -> str:
+    """Remove what the PDF text layer contains but the page image does not
+    show legibly, and un-glue what it glues.
+
+    govinfo pages carry a vertical production slug in the margin ('VerDate
+    Sep<11>2014 03:20 Jan 14, 2023 Jkt 039200 PO 00000 Frm 00001 Fmt 6652
+    Sfmt 6652 E:\\BILLS\\H21.IH') set in 4-pt type along the page edge -- in
+    the text layer, unreadable in any 300-dpi image.  Bills also print a
+    line number at the right margin, and the extractor appends it to the
+    last word of the line ('jurisdic-17'); on the page they are separate
+    tokens.  Both engines are scored against the cleaned text."""
+    out = []
+    for line in text.splitlines():
+        toks = [t for t in line.split() if not _SLUG.match(t)]
+        if not toks or _SLUG.match(line.strip()) or re.match(r"^\S+\s+\S+\s+\d{2}:\d{2}\s", line):
+            if any(k in line for k in ("VerDate", "Jkt ", "Sfmt", "E:\\")):
+                continue
+        # 'word-17' at line end -> 'word- 17' (only a trailing 1-2 digit number)
+        if toks:
+            m = re.match(r"^(.*?[A-Za-z][-.,;:]?)(\d{1,2})$", toks[-1])
+            if m and not toks[-1][0].isdigit():
+                toks[-1:] = [m.group(1), m.group(2)]
+        out.append(" ".join(toks))
+    return "\n".join(out)
+
+
 def pdf_pages(pdf: Path, pages: list[int], tag: str) -> int:
     import pypdf
-    reader = pypdf.PdfReader(str(pdf))
+    try:
+        reader = pypdf.PdfReader(str(pdf))
+    except Exception as e:           # a fetch that returned an HTML page
+        print(f"skipping {pdf.name}: {type(e).__name__}")
+        return 0
     n = 0
     for p in pages:
         if p >= len(reader.pages):
             continue
-        truth = reader.pages[p].extract_text() or ""
+        truth = clean_truth(reader.pages[p].extract_text() or "")
         if len(truth.split()) < 40:
             continue
         # PRINT MODEL.  A born-digital page rasterized straight to 300 dpi is
