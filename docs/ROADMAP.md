@@ -88,9 +88,12 @@ that localizes it.
 
 1. ~~A modern test set, and our number on it.~~ BUILT and measured
    (RESEARCH): ours 74.2 char / 71.4 recall vs legacy 67.4 / 85.7 on 59
-   pages. After the sparse-layout decoding work: 77.9 / 62.2 / 78.0
-   recall / 82.3 precision against legacy 67.4 / 62.2 / 85.7 / 93.1 —
-   word accuracy now equal, recall 7.7 behind. Original description: Everything measured so
+   pages. After the sparse-layout decoding work and a cleaned truth
+   (production slug and glued line numbers removed): **82.8 / 66.8 /
+   84.4 recall / 84.9 precision** against legacy 72.0 / 67.5 / 92.0 /
+   95.7 — we lead by 10.8 char, trail word by 0.7; the remaining gap is
+   PRECISION (spurious tokens) and recall on small type. Original
+   description: Everything measured so
    far is 1990s UNLV photocopies. Build `data/modern/`: born-digital
    public-domain documents (govinfo Federal Register pages and bills, GAO
    reports; SEC EDGAR exhibits such as contracts) rasterized at 300 dpi

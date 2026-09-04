@@ -31,6 +31,13 @@ LIGATURES = "\ufb01\ufb02\ufb00\ufb03"          # fi fl ff ffi
 # with an inner loop steals from 'a', 'e', '0' and 'O' on every page while
 # reading one address per document.  The right shape is a gated class
 # (admitted only inside an e-mail pattern), like the ligatures.  RESEARCH.
+# Ligatures are NOT classes (second attempt measured 2026-09-04): even
+# GATED by a decoder penalty that the lexicon pass refunds
+# (decode/beam.py `ligature_penalty`), adding them cost dev-8 0.3 word and
+# legal-8 0.5 char / 0.7 word, and the case that motivated the retry
+# ('first' -> 'irst' on bills) turned out to be italic touching letters,
+# not a ligature.  The penalty plumbing stays; append LIGATURES here to
+# test again when a set with real ligature losses exists.
 CHARSET = string.ascii_letters + string.digits + ".,;:!?()-'\"" + "&$%/#" + ACCENTED
 HOLDOUT = ("Verdana", "Tahoma")
 BODY_NAMES = [

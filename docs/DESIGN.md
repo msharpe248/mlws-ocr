@@ -340,7 +340,7 @@ the headline and the other sets agree; anything that loses on one set is
 recorded before it is reverted or made opt-in.
 
 Current numbers: broad-30 88.3 / 72.5 (recall 80.7, precision 80.9),
-dev-8 94.1 / 84.7, legal-8 86.9 / 68.5, modern 77.9 / 62.2 (recall 78.0),
+dev-8 94.1 / 84.7, legal-8 86.9 / 68.5, modern 82.8 / 66.8 (recall 84.4, precision 84.9; legacy 72.0 / 67.5 / 92.0 / 95.7),
 synthetic 98.8 / 99.1 / 98.4 char. Two days earlier broad-30 was
 77.3 / 52.4; the legacy reference is 95.3 / 90.5.
 

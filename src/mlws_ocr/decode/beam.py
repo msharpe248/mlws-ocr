@@ -26,6 +26,7 @@ from ..core.registry import register
 from ..core.stage import DebugBundle, Stage
 from pathlib import Path
 
+from ..factory.stock import LIGATURES
 from .formats import numeric_endorsed
 from ..lang.gru import CharGRU, GruLM
 from ..lang.model import CharBigram, CorpusModel
@@ -215,6 +216,11 @@ class BeamDecode(Stage):
                                  # (between the two: the dictionary decides)
         "digit_mode_separators": True,  # in digit mode the number separators
                                   # (/ - . , : $ %) share the digit boost
+        "ligature_penalty": 2.5,  # ligature classes (fi fl ff ffi) pay this in
+                                  # the per-glyph scores; the lexicon pass
+                                  # refunds it when the expanded word is a
+                                  # dictionary word (junk never is), so
+                                  # ligatures read only where they exist
         "numeric_join_context": True,  # join only on data lines ('$'/'%' or
                                   # two digit-separator-digit triplets)
         "numeric_sep_frac": 0.4,  # the joining separator's width, x-heights
@@ -1195,6 +1201,12 @@ class BeamDecode(Stage):
                             else -p["descender_prior"]
                     elif descends and (c.isupper() or c.isdigit()):
                         lp[c] -= p["descender_prior"] * 0.7
+            # Ligature gate: a ligature is only ever right inside a real word,
+            # so it pays here and is refunded by the lexicon pass below.
+            if p["ligature_penalty"]:
+                for c in list(lp):
+                    if c in LIGATURES:
+                        lp[c] -= p["ligature_penalty"]
             # Tiny-glyph punctuation prior.
             h_glyph = h_box[3] - h_box[1]
             if x_height > 0 and h_glyph < 0.4 * x_height:
@@ -1405,6 +1417,7 @@ class BeamDecode(Stage):
                     break
                 if _core(cand) in lm.lexicon:
                     bonus = max(0.0, (lm.frequency(_core(cand)) + 14.0) / 3.0)
+                    bonus += p["ligature_penalty"] * sum(ch in LIGATURES for ch in cand)
                     adj = score + bonus
                     if best_alt is None or adj > best_alt[1]:
                         best_alt = (cand, adj)
