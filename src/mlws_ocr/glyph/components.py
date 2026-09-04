@@ -109,8 +109,21 @@ def _concave_cuts(mask: "np.ndarray", lo: int, hi: int, k: int,
     return picked
 
 
-def _group_overlapping(boxes: list[list[int]], min_overlap: float) -> list[list[int]]:
-    """Union components whose x-spans overlap; returns member index lists."""
+def _group_overlapping(boxes: list[list[int]], min_overlap: float,
+                       nested_overlap: float = 1.0, min_nested_h: int = 10**9) -> list[list[int]]:
+    """Union components whose x-spans overlap; returns member index lists.
+
+    Two rules.  (1) Stacked parts -- a dot or accent OVER a body -- share
+    x-extent: overlap above ``min_overlap`` of the narrower part.  (2) Nested
+    parts -- a part at least ``min_nested_h`` tall whose whole y-span lies
+    INSIDE another part's y-span -- need only ``nested_overlap`` of the
+    narrower width.  Latin print puts no separate blob beside a letter within
+    that letter's own height except in the multi-part signs '%' and '‰'
+    (whose lower circle overlaps the slash's foot by only a few pixels) and
+    in a letter broken by the scanner; both want merging.  A kerned period
+    beside an 'r' or 'f' overhang would qualify by position, so the height
+    floor (above dot size) keeps punctuation out.  Measured: '99.95%' read
+    '99.95-40' on every modern letter page before rule (2)."""
     n = len(boxes)
     parent = list(range(n))
 
@@ -124,7 +137,11 @@ def _group_overlapping(boxes: list[list[int]], min_overlap: float) -> list[list[
         for j in range(i + 1, n):
             a, b = boxes[i], boxes[j]
             ov = min(a[2], b[2]) - max(a[0], b[0])
-            if ov > min_overlap * min(a[2] - a[0], b[2] - b[0]):
+            need = min_overlap
+            lo, hi = (a, b) if (a[3] - a[1]) <= (b[3] - b[1]) else (b, a)
+            if (lo[3] - lo[1]) >= min_nested_h and lo[1] >= hi[1] and lo[3] <= hi[3]:
+                need = min(need, nested_overlap)
+            if ov > need * min(a[2] - a[0], b[2] - b[0]):
                 parent[find(i)] = find(j)
     groups: dict[int, list[int]] = {}
     for i in range(n):
@@ -189,6 +206,12 @@ class OverlapComponents(Stage):
                                     # top shape confusion on broad-30; cut at
                                     # the dot's edge
         "dot_body_factor": 1.1,     # ...for bodies wider than this x median
+        "nested_overlap": 0.4,      # a part inside another's y-span (the
+                                    # lower circle of '%') joins it at this
+                                    # fraction of the narrower width; parts
+                                    # must be taller than a dot (see
+                                    # _group_overlapping)
+        "nested_min_h_factor": 1.5, # ...at least this x dot size tall
     }
 
     def run(self, page: Page) -> tuple[Page, DebugBundle]:
@@ -226,7 +249,10 @@ class OverlapComponents(Stage):
                       x0 + sl[1].stop, y0 + sl[0].stop]
                 if (bx[2] - bx[0]) * (bx[3] - bx[1]) >= min_area:
                     boxes.append([int(v) for v in bx])
-            groups = _group_overlapping(boxes, self.params["min_overlap"])
+            dot_px = max(2, self.params["dot_max_px_300dpi"] * page.dpi / 300.0)
+            groups = _group_overlapping(
+                boxes, self.params["min_overlap"], self.params["nested_overlap"],
+                int(round(self.params["nested_min_h_factor"] * dot_px)))
             merged = []
             for idxs in groups:
                 xs0 = min(boxes[i][0] for i in idxs)

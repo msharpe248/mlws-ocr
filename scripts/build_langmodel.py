@@ -121,7 +121,11 @@ if merge_dict and dict_path.exists():
             if w not in top_words:
                 dict_extra.add(w)
     if not NO_INFLECT:
-        for w in base:
+        # Inflect the CORPUS words too, not only the dictionary's base forms:
+        # 'airline' and 'onboard' reached the lexicon from the corpus, so
+        # 'airlines' and 'onboarding' never did, and the variant search then
+        # preferred 'air'+'lines' and 'onboard'+'ing' (modern-set diagnosis).
+        for w in base | {w for w in top_words if w.isalpha()}:
             for form in inflections(w):
                 if form not in top_words and all(c in IDX for c in form):
                     dict_extra.add(form)

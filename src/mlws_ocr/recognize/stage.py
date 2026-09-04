@@ -13,7 +13,7 @@ import numpy as np
 from ..core.artifacts import Page
 from ..core.registry import register
 from ..core.stage import DebugBundle, Stage
-from ..glyph.features import extract_features
+from ..glyph.features import FEATURE_NAMES, extract_features
 from ..glyph.skeleton import skeleton_graph
 from .nearest import NearestPrototype
 
@@ -101,7 +101,7 @@ class PrototypeRecognize(Stage):
                                   # (measured on a real page). Swept 50/100/
                                   # 200: broad-30 char 87.1/87.1/-, word
                                   # 68.7/68.6/-, dev-8 word 81.2/80.5/79.7
-        "chop_on_confidence": False, # per-BLOB trigger (Smith 2007 §4.1):
+        "chop_on_confidence": True, # per-BLOB trigger (Smith 2007 §4.1):
                                   # a poorly matched blob gets chopped
                                   # whatever its width. Two narrow letters
                                   # touching ('li', 'ti', 'rt') are no wider
@@ -109,11 +109,17 @@ class PrototypeRecognize(Stage):
                                   # truth set: 'i','t','l','r','f' read whole
                                   # as d/a/n/h/u were the largest family of
                                   # errors with the truth outside the list.
-                                  # Measured neutral-to-negative even gated
-                                  # (broad-30 87.5/69.9 -> 87.6/69.8, legal
-                                  # -0.2/-0.7): a touching 'li' matches 'u'
-                                  # or 'h' well, so the distance never
-                                  # trips. The WORD-level trigger lives in
+                                  # First measured neutral-to-negative
+                                  # gated (broad-30 87.5/69.9 -> 87.6/69.8,
+                                  # legal -0.2/-0.7): a touching 'li'
+                                  # matches 'u' or 'h' well, so the distance
+                                  # never trips.  Re-measured 2026-09-04
+                                  # after font widening and the outline
+                                  # channel sharpened the distances: ON on
+                                  # modern (+0.6 word: 'Depatment' ->
+                                  # 'Department'), broad-30 +0.4 word,
+                                  # legal-8 +0.3, dev-8 -0.1 -- adopted.
+                                  # The WORD-level trigger lives in
                                   # recognize/chop.py (slot "chop").
         "chop_distance_factor": 1.3,  # top-1 distance above this x page
                                   # median = poorly matched
@@ -375,6 +381,9 @@ class PrototypeRecognize(Stage):
             raise FileNotFoundError(
                 f"{model_path} missing -- build it with scripts/build_prototypes.py")
         model = NearestPrototype.load(model_path)
+        # The aspect ratio each class was trained at, for the decoder's
+        # width prior (beam.py "aspect_prior").
+        layout["class_aspect"] = model.class_geometry(FEATURE_NAMES.index("aspect"))
 
         crops, slots = [], []
         for li, ln in enumerate(layout["lines"]):

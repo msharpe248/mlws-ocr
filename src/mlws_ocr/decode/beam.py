@@ -66,7 +66,10 @@ CASE_TWINS = ({c: c.upper() for c in "cosuvwxz"} | {"1": "l"}
 # evidence says "this is a number", a leading letter reading like 'l' in
 # "l993" or 'o' in "2o" gets its digit twin as a candidate even when the
 # digit itself missed the top-k ("357l", "92l23" measured on real letters).
-NUMERIC_PUNCT = set("/-.,:$%")   # characters that belong inside numbers
+NUMERIC_PUNCT = set("/-.,:$%()")  # characters that belong inside numbers
+                                  # ('(8.25%)', '(206) 555-0142', '401(k)':
+                                  # a ')' outbid by a boosted '0' read as
+                                  # '(8.25560')
 DIGIT_TWINS = {"l": "1", "I": "1", "i": "1", "|": "1", "o": "0", "O": "0",
                "s": "5", "S": "5", "z": "2", "Z": "2", "B": "8", "g": "9",
                "q": "9", "G": "6", "b": "6",
@@ -140,6 +143,16 @@ class BeamDecode(Stage):
                                # sharper than the trigram (which used 0.7)
         "lexicon_margin": 4.0,   # accept a lexicon word within this log-score
         "case_prior_scale": 1.0,
+        "aspect_prior": 0.0,      # per log-unit that a glyph box's height/width
+                                  # departs from the class's trained aspect
+                                  # (recognize publishes layout["class_aspect"])
+                                  # beyond aspect_tol.  Tesseract's width
+                                  # expectation in another guise: 'ail' merged
+                                  # into one blob read as a confident 't' three
+                                  # letters wide, and touching 'rt' as a 't'
+                                  # twice its width -- the classifier sees a
+                                  # normalized crop and cannot know.  0 = off.
+        "aspect_tol": 0.35,       # free band: ±40% covers face-to-face variation
         "descender_prior": 1.2,   # a glyph whose box crosses the line's
                                   # baseline is a descender letter (p/y/g,
                                   # not P/Y/D/9) and vice versa -- corpus
@@ -179,13 +192,20 @@ class BeamDecode(Stage):
                                   # longer path inevitably accumulates)
         "max_split_variants": 8,
         "max_merge_variants": 8,   # broken-character (associator) variants
-        "merge_char_bonus": 0.0,   # NOT the mirror of split_char_bonus:
+        "merge_char_bonus": -1.0,  # NOT the mirror of split_char_bonus:
                                    # a split ADDS a character and must
                                    # offset the extra glyph+LM terms it
                                    # accumulates, whereas a merge REMOVES
                                    # one and its shorter path is already
-                                   # favoured.  Swept on dev-8: 0.0 best
-                                   # (91.1 char), 2.2 over-merges (90.8)
+                                   # favoured -- so a merge is CHARGED.
+                                   # Swept: +2.2 over-merges (dev-8 90.8 vs
+                                   # 91.1 char at 0); -1.0 gained on all
+                                   # four sets (dev-8 +0.2 char, broad-30
+                                   # +0.3/+0.2, legal-8 +0.3/+0.5, modern
+                                   # +0.1/+0.2 char/word): 'tailspin' and
+                                   # 'Priya' were being merged into
+                                   # confident wrong single letters; -2.2
+                                   # started shredding ('Priva Date')
         "word_split": True,       # lexicon-driven missing-space repair
         "word_join": True,        # merge runs of short fragments whose
                                   # concatenation is a real word: letter-
@@ -320,6 +340,16 @@ class BeamDecode(Stage):
     _DIGIT_TO_LETTER = {"0": "o", "1": "l", "5": "s", "9": "g", "2": "z"}
     _NUM_SUFFIXES = {"st", "nd", "rd", "th", "am", "pm"}
 
+    @staticmethod
+    def _is_bar(box, ln, tall: float = 1.5, drop: float = 0.12) -> bool:
+        """True for a glyph taller than ``tall`` x-heights whose foot is
+        ``drop`` x-heights below the baseline: '|' spans ascender to
+        descender; l, I, 1 and ! sit on the baseline."""
+        xh, bl = ln.get("x_height"), ln.get("baseline")
+        if not xh or bl is None:
+            return False
+        return (box[3] - box[1]) > tall * xh and box[3] > bl + drop * xh
+
     @classmethod
     def _mixed_alnum_repair(cls, layout, lm) -> int:
         """Repair stray digits in words and stray letters in numbers.
@@ -340,6 +370,16 @@ class BeamDecode(Stage):
                 t = w["text"]
                 core = t.strip("'\".,;:!?()-$%/#")
                 if not core:
+                    continue
+                if core in ("l", "I", "1", "!", "|") and len(w.get("chars", ())) == 1 \
+                        and cls._is_bar(w["chars"][0]["box"], ln):
+                    # A lone stroke taller than an ascender that also drops
+                    # below the baseline is the vertical bar '|' -- the
+                    # field separator of modern letterheads ("Tel ... | www").
+                    # '|' is not a trained class (it would only steal from
+                    # l/I/1); geometry names it.
+                    w["text"] = t.replace(core, "|", 1)
+                    flips += 1
                     continue
                 if core == "l":
                     # The only one-letter English words are "a" and "I";
@@ -583,6 +623,7 @@ class BeamDecode(Stage):
         if "lines" not in layout:
             raise ValueError("decode requires recognized lines")
         p = self.params
+        self._class_aspect = layout.get("class_aspect") or None
         language = "n/a"
         if p["lang_model"] == "auto":
             lm, language = self._detect_language(
@@ -648,6 +689,7 @@ class BeamDecode(Stage):
             x_height = self._line_x_height(groups, ln.get("baseline"),
                                            page_x, heights)
             baseline = ln.get("baseline")
+            ln["x_height"] = float(x_height)   # for the geometric post-passes
             if baseline is not None:
                 for g in groups:
                     g["_baseline"] = baseline
@@ -884,6 +926,14 @@ class BeamDecode(Stage):
             hi = p["space_hi"] * max(x_height, 1.0)
         mid = (lo + hi) / 2.0
 
+        def _tiny_mark(g) -> str:
+            """Top-1 reading of a mark under punct_small_frac x-heights tall
+            (a comma with its tail stands 0.46-0.62), else ''."""
+            b = g["box"]
+            if (b[3] - b[1]) >= p["punct_small_frac"] * max(x_height, 1.0) or not g.get("candidates"):
+                return ""
+            return g["candidates"][0][0]
+
         def numeric_join(prev, nxt, prev2) -> bool:
             """A thousands comma or a decimal point inside a number leaves a
             gap as wide as a word space ("$7,165.00" split into "$7,1" and
@@ -941,6 +991,15 @@ class BeamDecode(Stage):
                 uncertain.append((len(current) - 1, gap / mid * 0.45))
                 current.append(g)
                 continue
+            if gap > lo and _tiny_mark(g) in (",", "."):
+                # No printed word begins with a comma or a period: a wide
+                # gap BEFORE one ("$1 ,200.00" on the modern invoices) is
+                # tracking or a kerned figure, so the mark joins the word
+                # before it -- for uncertain gaps too (merely leaving the
+                # gap uncertain lost: the variant scorer counts "$1" and
+                # "200.00" as two endorsements against the whole's one).
+                current.append(g)
+                continue
             if gap > hi:
                 segments.append((current, uncertain))
                 current, uncertain = [g], []
@@ -984,14 +1043,15 @@ class BeamDecode(Stage):
             # the trigram context, so shredding always looks locally
             # cheaper.  Scores + geometry only break lexical ties.
             lexq, total, decoded = 0.0, 0.0, []
-            cores = []
+            endorsed_parts = []
             for part in parts:
                 text, meta, score = self._decode_word(part, x_height, lm, p,
                                                       reject_at)
                 total += score
                 core = text.lower().strip("'\".,;:!?()-")
-                cores.append(core)
-                if numeric_endorsed(text):
+                numeric = numeric_endorsed(text)
+                endorsed_parts.append(lm.endorsed(core) or numeric)
+                if numeric:
                     # a whole-shape numeric format (money, date, ZIP, phone)
                     # is as good an endorsement as a dictionary hit
                     lexq += p["word_freq_weight"] * 8.0
@@ -1001,10 +1061,13 @@ class BeamDecode(Stage):
                     lexq -= 0.5
                 decoded.append((part, (text, meta)))
             # Strict admissibility: a cut is only allowed when both parts
-            # it creates read as frequent real words -- the dictionary
-            # must actively endorse every inserted space.  (The no-cut
+            # it creates read as frequent real words or whole numeric
+            # formats -- the dictionary (or the format grammar) must
+            # actively endorse every inserted space.  Letterhead phone
+            # numbers "(415) 555-0190" were glued on every modern letter
+            # page while only words could admit a cut.  (The no-cut
             # variant is always admissible.)
-            if cut_after and not all(lm.endorsed(c) for c in cores):
+            if cut_after and not all(endorsed_parts):
                 continue
             for pos, gap in uncertain:
                 sign = 1.0 if pos in cut_after else -1.0
@@ -1080,7 +1143,16 @@ class BeamDecode(Stage):
                                                     reject_at)
                 score += p["split_char_bonus"] * extra_chars
                 score += p["merge_char_bonus"] * sum(k - 1 for k in merge_set.values())
-                score += 2.0 if meta["in_lexicon"] else 0.0
+                # A whole-shape numeric format is an endorsement HERE, among
+                # the segmentation variants: the split reading '5'+'6' of a
+                # '%' glyph collected the split bonus while the correct
+                # '(8.25%)' had nothing to answer with.  It must NOT count
+                # as in_lexicon for the digit-mode gate in _decode_word_modes
+                # -- "$35.55" is a valid amount too, and treating it as a
+                # known word skipped the digit-mode re-read that turns it
+                # into the printed "$39.99" (measured: -3.4 word on the
+                # modern invoices).
+                score += 2.0 if (meta["in_lexicon"] or meta["numeric_format"]) else 0.0
                 if best is None or score > best[2]:
                     best = (text, dict(meta, chars=prov), score)
         return best
@@ -1178,6 +1250,16 @@ class BeamDecode(Stage):
                 rejected = True
                 continue
             lp = _glyph_logprobs(cands)
+            aspects = getattr(self, "_class_aspect", None)
+            if aspects and p["aspect_prior"] > 0:
+                b = g["box"]
+                asp = (b[3] - b[1]) / max(b[2] - b[0], 1)   # h/w, as the feature
+                for c in list(lp):
+                    exp = aspects.get(c)
+                    if exp and exp > 0:
+                        dev = abs(np.log(asp / exp)) - p["aspect_tol"]
+                        if dev > 0:
+                            lp[c] -= p["aspect_prior"] * dev
             if digit_mode:
                 for c in list(lp):
                     # separators belong to numbers as much as digits do: in
@@ -1426,4 +1508,5 @@ class BeamDecode(Stage):
         margin = best_score - (beams[1][1] if len(beams) > 1 else best_score - 10)
         return best, {"confidence": round(float(min(margin, 10.0)) / 10.0, 3),
                       "in_lexicon": in_lex, "rejected": rejected,
-                      "lm_override": lm_override}, best_score
+                      "lm_override": lm_override,
+                      "numeric_format": numeric_endorsed(best)}, best_score

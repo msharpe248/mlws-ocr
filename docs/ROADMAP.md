@@ -78,7 +78,7 @@ classification. Priority order follows the shares:
 Tesseract's **legacy engine has no neural net** and scores 95.3% char /
 90.5% word on our thirty-page sample; its LSTM engine scores 95.9 /
 92.2. The neural upgrade bought Tesseract 0.6 char points. We score
-88.3 / 72.6 (2026-09-04, sparse-layout decoding, widened stock, outline gate, outline channel, touching-pair splits, three-piece chopper, fragment associator: condensed model with the digit harvest,
+88.6 / 73.1 (2026-09-04, merge charge, confidence chopper, inflected lexicon, sparse-layout decoding, widened stock, outline gate, outline channel, touching-pair splits, three-piece chopper, fragment associator: condensed model with the digit harvest,
 deferred digit mode). **The remaining gap is therefore classical engineering,
 not model class** — thirty years of it — and that is where the work
 belongs. `scripts/compare_legacy.py` produces the paired per-page table
@@ -89,10 +89,14 @@ that localizes it.
 1. ~~A modern test set, and our number on it.~~ BUILT and measured
    (RESEARCH): ours 74.2 char / 71.4 recall vs legacy 67.4 / 85.7 on 59
    pages. After the sparse-layout decoding work and a cleaned truth
-   (production slug and glued line numbers removed): **82.8 / 66.8 /
-   84.4 recall / 84.9 precision** against legacy 72.0 / 67.5 / 92.0 /
-   95.7 — we lead by 10.8 char, trail word by 0.7; the remaining gap is
-   PRECISION (spurious tokens) and recall on small type. Original
+   (production slug and glued line numbers removed): **83.0 / 68.0 /
+   85.9 recall / 86.3 precision** against legacy 72.0 / 67.5 / 92.0 /
+   95.7 — we lead by 11.0 char and now 0.5 word; the remaining gap is
+   PRECISION (spurious tokens) and recall on small type. Per kind:
+   letters 98.5 / 92.5, invoices 90.3 / 77.7, payslips 73.8 / 67.5,
+   bills 88.3 / 64.0, Federal Register 64.0 / 53.2 (small type). The
+   payslips' char score is a layout matter (two-column key/value rows
+   read in the wrong order), the invoices' is Avenir's 9 read as 5. Original
    description: Everything measured so
    far is 1990s UNLV photocopies. Build `data/modern/`: born-digital
    public-domain documents (govinfo Federal Register pages and bills, GAO

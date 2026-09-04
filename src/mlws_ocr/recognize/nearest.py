@@ -31,6 +31,15 @@ class NearestPrototype:
         m.tags = self.tags[mask] if self.tags is not None else None
         return m
 
+    def class_geometry(self, feature_index: int) -> dict[str, float]:
+        """Per-class median of one feature in RAW units (de-standardized)
+        over the exemplars -- e.g. the aspect ratio every class was trained
+        at, which the decoder holds glyph boxes against (a 't' three letters
+        wide is not a 't')."""
+        col = self.X[:, feature_index] * self.std[feature_index] + self.mean[feature_index]
+        return {self.classes[int(c)]: float(np.median(col[self.y == c]))
+                for c in np.unique(self.y)}
+
     def top1_tags(self, X: np.ndarray) -> list[str]:
         """Tag (font family) of the single nearest exemplar per query."""
         Q = self._normalize(X)
