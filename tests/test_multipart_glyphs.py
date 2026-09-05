@@ -42,3 +42,18 @@ def test_numeric_formats_endorse_percent_and_amounts_only():
     # the format cannot pick between them, so it must not gate the digit-mode re-read
     assert not numeric_endorsed("(8.2556)")   # the split reading of the '%' glyph
     assert not numeric_endorsed("8.255Q")
+
+
+def test_digit_mode_digit_spawns_no_letter_twin():
+    """An Avenir '9' on an all-figure line: x-height equals digit height, so an
+    injected lowercase 's' would collect the height bonus, beat the 9, and hand
+    the word to its digit twin '5'.  In digit mode a digit spawns no letter."""
+    import numpy as np
+    from mlws_ocr.decode.beam import BeamDecode
+    from mlws_ocr.lang.model import CharBigram
+    dec = BeamDecode(); dec._language = "en"; dec._class_aspect = None
+    lm = CharBigram.from_words()
+    g = {"box": [0, 0, 18, 29], "_baseline": 28, "parts": 1,
+         "candidates": [["9", 26.98], ["g", 65.76], ["5", 74.39], ["q", 91.26]]}
+    text, _, _ = dec._beam_word_mode([g], 29.0, lm, dec.params, np.inf, True)
+    assert text == "9"

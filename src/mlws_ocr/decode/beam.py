@@ -1412,8 +1412,15 @@ class BeamDecode(Stage):
                 if twin and twin not in scored:
                     scored[twin] = scored[c] + k * (_height_prior(twin, h, x_height)
                                                     - _height_prior(c, h, x_height))
-            # And shape-confusion twins, at a small penalty.
+            # And shape-confusion twins, at a small penalty.  In digit mode a
+            # digit spawns no LETTER twin: on an all-figure line the
+            # x-height IS the digit height, so an injected 's' collected the
+            # lowercase height bonus, outscored the '9' it came from, and
+            # the categorical twin rule below then promoted ITS twin '5' --
+            # every Avenir 9 read as 5 ("$495.00" -> "$455.00").
             for a, twin in CONFUSION_PAIRS:
+                if digit_mode and a.isdigit() and not twin.isdigit():
+                    continue
                 if a in scored and twin not in scored:
                     scored[twin] = (scored[a] - p["confusion_penalty"]
                                     + k * (_height_prior(twin, h, x_height)

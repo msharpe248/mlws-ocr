@@ -95,8 +95,13 @@ that localizes it.
    PRECISION (spurious tokens) and recall on small type. Per kind:
    letters 98.5 / 92.5, invoices 90.3 / 77.7, payslips 73.8 / 67.5,
    bills 88.3 / 64.0, Federal Register 64.0 / 53.2 (small type). The
-   payslips' char score is a layout matter (two-column key/value rows
-   read in the wrong order), the invoices' is Avenir's 9 read as 5. Original
+   payslips' char score is reading-order convention, not recognition:
+   their key/value header is two columns, our row alignment emits it
+   row-major (as the invoice TABLES want), the template's text layer
+   lists it column-major; recall is 93. Not worth chasing — a scorer
+   that pairs lines would be truer than either order. The invoices' 9
+   read as 5 was a decoder bug (a digit spawning a letter twin in digit
+   mode), fixed 2026-09-04. Original
    description: Everything measured so
    far is 1990s UNLV photocopies. Build `data/modern/`: born-digital
    public-domain documents (govinfo Federal Register pages and bills, GAO
