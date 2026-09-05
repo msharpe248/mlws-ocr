@@ -56,3 +56,15 @@ def test_line_counts(layout_page):
         bi = max(range(len(detected)), key=lambda i: iou(g, detected[i]))
         got = sum(1 for l in lines if l["block"] == bi)
         assert got == expect, f"block {g}: {got} lines, expected {expect}"
+
+
+def test_open_with_line_equals_scipy_opening():
+    import numpy as np
+    from scipy import ndimage
+    from mlws_ocr.layout.rulings import open_with_line
+    rng = np.random.default_rng(5)
+    b = rng.random((60, 200)) < 0.5
+    b[10, 20:150] = True; b[:, 90] = True; b[30, 0:15] = True     # a rule, a column rule, a short run
+    for L, axis, shape in ((40, 1, (1, 40)), (40, 0, (40, 1)), (10, 1, (1, 10))):
+        ref = ndimage.binary_opening(b, structure=np.ones(shape, bool))
+        assert np.array_equal(open_with_line(b, L, axis), ref)
