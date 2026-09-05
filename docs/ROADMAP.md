@@ -151,6 +151,10 @@ that localizes it.
    GRU steps per glyph in Python; batching beams is the lever there.
    Target: a letter in under 10 s without touching accuracy (the outline
    gate already showed speed and accuracy are not in tension here).
+   First step done (2026-09-05): the evidence kernel in float32 with
+   precomputed segment geometry — 5.8× on the kernel, the letter
+   20.6 → 14.1 s, text byte-identical (RESEARCH). Lever (c) measured
+   only 7%; (a) and (b) are next, then the decoder's GRU steps.
 
 Constraint reminder: self-trained networks are in scope when they train
 on home hardware and run locally; no language models, no vision models.

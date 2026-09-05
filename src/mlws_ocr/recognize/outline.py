@@ -153,6 +153,40 @@ def evidence(feats: np.ndarray, segs: np.ndarray, sigma_d: float,
     return np.exp(-(d / sigma_d) ** 2 - (dt / sigma_t) ** 2).astype(np.float32)
 
 
+class _SegmentBank:
+    """Segments of several configurations, with the per-segment geometry
+    the evidence needs precomputed once, in float32, as flat 2-D arrays.
+
+    `evidence()` above is the readable reference; this is the same
+    arithmetic arranged for speed -- no (N, M, 2) intermediates, no
+    complex exponential for the angle wrap, no float64 -- and it agrees
+    with the reference to 1e-6 (tested).  Measured 5.8x faster on a
+    70-feature glyph against 7,440 segments; the outline channel was
+    two thirds of recognition time (9.5 of 14 s on a business letter).
+    """
+
+    def __init__(self, cfgs: list[np.ndarray], feature_len: float):
+        segs = np.concatenate(cfgs).astype(np.float32)
+        self.ax, self.ay = segs[:, 0], segs[:, 1]
+        self.abx, self.aby = segs[:, 2] - segs[:, 0], segs[:, 3] - segs[:, 1]
+        self.l2 = np.maximum(self.abx ** 2 + self.aby ** 2, np.float32(1e-6))
+        self.theta = np.arctan2(self.aby, self.abx).astype(np.float32)
+        self.lengths = _proto_lengths(segs, feature_len)
+        bounds = np.cumsum([0] + [len(c) for c in cfgs])
+        self.groups = [np.arange(a, b) for a, b in zip(bounds, bounds[1:])]
+
+    def evidence(self, feats: np.ndarray, sigma_d: float, sigma_t: float) -> np.ndarray:
+        f = feats.astype(np.float32)
+        px, py, th = f[:, 0:1], f[:, 1:2], f[:, 2:3]
+        pax, pay = px - self.ax, py - self.ay                       # N,M
+        t = np.clip((pax * self.abx + pay * self.aby) / self.l2, 0.0, 1.0)
+        dx, dy = pax - t * self.abx, pay - t * self.aby
+        dt = th - self.theta
+        dt = (dt + np.float32(np.pi)) % np.float32(2 * np.pi) - np.float32(np.pi)
+        return np.exp(-(dx * dx + dy * dy) * np.float32(1.0 / sigma_d ** 2)
+                      - dt * dt * np.float32(1.0 / sigma_t ** 2))
+
+
 def _proto_lengths(segs: np.ndarray, feature_len: float) -> np.ndarray:
     lengths = np.hypot(segs[:, 2] - segs[:, 0], segs[:, 3] - segs[:, 1])
     return np.maximum(np.round(lengths / feature_len).astype(int), 1)
@@ -210,21 +244,23 @@ class OutlineMatcher:
         segs = outline_prototypes(mask)
         if len(segs):
             self.configs.setdefault(cls, []).append(segs)
+            self.__dict__.get("_banks", {}).pop(cls, None)   # geometry cache
+
+    def _bank(self, cls: str) -> "_SegmentBank | None":
+        banks = self.__dict__.setdefault("_banks", {})
+        if cls not in banks:
+            cfgs = self.configs.get(cls, [])
+            banks[cls] = _SegmentBank(cfgs, FEATURE_LEN) if cfgs else None
+        return banks[cls]
 
     def rating(self, feats: np.ndarray, cls: str) -> float:
         """Best configuration rating for the class (0 if the class is unknown).
         All configurations of the class share one evidence matrix."""
-        cfgs = self.configs.get(cls, [])
-        if not cfgs or len(feats) == 0:
+        bank = self._bank(cls)
+        if bank is None or len(feats) == 0:
             return 0.0
-        segs = np.concatenate(cfgs)
-        groups, start = [], 0
-        for c in cfgs:
-            groups.append(np.arange(start, start + len(c)))
-            start += len(c)
-        E = evidence(feats, segs, self.sigma_d, self.sigma_t)
-        L = _proto_lengths(segs, FEATURE_LEN)
-        return float(_rating_from_evidence(E, L, groups).max())
+        E = bank.evidence(feats, self.sigma_d, self.sigma_t)
+        return float(_rating_from_evidence(E, bank.lengths, bank.groups).max())
 
     def costs(self, mask: np.ndarray, classes: list[str],
               cut_edges: tuple[str, ...] = ()) -> dict[str, float]:

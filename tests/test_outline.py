@@ -57,3 +57,15 @@ def test_cut_edge_features_are_masked():
     assert 0 < len(masked) < len(full)
     # every dropped feature sat at the right edge of the piece
     assert masked[:, 0].max() < full[:, 0].max()
+
+
+def test_segment_bank_matches_reference_evidence():
+    import numpy as np
+    from mlws_ocr.recognize.outline import _SegmentBank, evidence, FEATURE_LEN
+    rng = np.random.default_rng(3)
+    cfgs = [rng.uniform(0, 100, (n, 4)) for n in (5, 9, 3)]
+    feats = np.column_stack([rng.uniform(0, 100, 20), rng.uniform(0, 100, 20), rng.uniform(-np.pi, np.pi, 20)])
+    bank = _SegmentBank(cfgs, FEATURE_LEN)
+    ref = evidence(feats, np.concatenate(cfgs), 35.0, 0.7)
+    assert np.abs(bank.evidence(feats, 35.0, 0.7) - ref).max() < 1e-5
+    assert [len(g) for g in bank.groups] == [5, 9, 3]
