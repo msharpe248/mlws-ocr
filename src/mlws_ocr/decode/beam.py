@@ -644,7 +644,7 @@ class BeamDecode(Stage):
             if lm is None:
                 lm = CharBigram.from_words(p["words_path"])
         elif Path(p["lang_model"]).exists():
-            lm = CorpusModel.load(p["lang_model"])
+            lm = self._load_model(Path(p["lang_model"]))
             language = Path(p["lang_model"]).stem.removeprefix("lang_")
         else:
             lm = CharBigram.from_words(p["words_path"])
@@ -793,9 +793,16 @@ class BeamDecode(Stage):
 
     @classmethod
     def _load_model(cls, path: Path) -> CorpusModel:
+        """Loaded language models, keyed by path and mtime so a rebuilt
+        file is picked up.  Language detection reads every data/lang_*.npz
+        on every decode pass; clearing the cache on each new key (the
+        first version) evicted each model as the next one loaded -- six
+        0.13-s loads per pass, twice a page, for nothing (profiled)."""
         key = (str(path), path.stat().st_mtime)
         if key not in cls._model_cache:
-            cls._model_cache.clear()   # models are few; avoid stale copies
+            stale = [k for k in cls._model_cache if k[0] == key[0]]
+            for k in stale:
+                del cls._model_cache[k]
             cls._model_cache[key] = CorpusModel.load(path)
         return cls._model_cache[key]
 
