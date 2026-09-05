@@ -59,3 +59,19 @@ def test_despeckle_removes_salt_keeps_text(clean_page):
     assert speck_left < 0.05, f"{speck_left:.2%} of speckles survived"
     assert text_kept > 0.99, f"only {text_kept:.2%} of text kept"
     assert debug.scalars["components_removed"] > 0
+
+
+def test_ink_projector_matches_rotation_variance():
+    import numpy as np
+    from mlws_ocr.cleanup.deskew import _InkProjector, _profile_variance
+    rng = np.random.default_rng(7)
+    ink = np.zeros((200, 300), np.float32)
+    for r in range(20, 180, 12):                      # text lines, skewed 1.5 degrees
+        for c in range(30, 270):
+            ink[int(round(r + (c - 150) * np.tan(np.deg2rad(1.5)))), c] = 1.0
+    ink[rng.random(ink.shape) < 0.01] = 1.0
+    angles = np.arange(-3, 3.01, 0.25)
+    ref = [_profile_variance(ink, a) for a in angles]
+    new = [_InkProjector(ink).variance(a) for a in angles]
+    assert angles[int(np.argmax(ref))] == angles[int(np.argmax(new))]
+    assert abs(angles[int(np.argmax(new))]) == 1.5          # the fixture's skew, either sign convention
