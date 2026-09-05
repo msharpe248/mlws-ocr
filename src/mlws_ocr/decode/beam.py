@@ -143,7 +143,7 @@ class BeamDecode(Stage):
                                # sharper than the trigram (which used 0.7)
         "lexicon_margin": 4.0,   # accept a lexicon word within this log-score
         "case_prior_scale": 1.0,
-        "aspect_prior": 0.0,      # per log-unit that a glyph box's height/width
+        "aspect_prior": 1.0,      # per log-unit that a glyph box's height/width
                                   # departs from the class's trained aspect
                                   # (recognize publishes layout["class_aspect"])
                                   # beyond aspect_tol.  Tesseract's width
@@ -152,6 +152,11 @@ class BeamDecode(Stage):
                                   # letters wide, and touching 'rt' as a 't'
                                   # twice its width -- the classifier sees a
                                   # normalized crop and cannot know.  0 = off.
+                                  # Measured at 1.0: dev-8 +0.1/+0.3, broad-30
+                                  # +0.1/+0.3, modern +0.1/+0.1 char/word;
+                                  # legal-8 -0.7 char UNTIL gated off on
+                                  # fixed-pitch pages (see run()), then flat.
+                                  # 2.0 over-punishes narrow faces.
         "aspect_tol": 0.35,       # free band: ±40% covers face-to-face variation
         "descender_prior": 1.2,   # a glyph whose box crosses the line's
                                   # baseline is a descender letter (p/y/g,
@@ -221,6 +226,9 @@ class BeamDecode(Stage):
         "digit_rank_weight": 0.6, # a digit at rank 2-3 counts this much
                                   # (misread digits leave top-1 -- the
                                   # trigger must see deeper)
+        "digit_mode_parens": True,  # ...and whether '(' ')' share the boost
+                                    # (off: pieces of a small 'x' stop reading
+                                    # as '(' but "5466(6)" loses its ')')
         "digit_mode_boost": 1.2,  # in digit mode, digit candidates get
                                   # this log-prob boost
         "alpha_mode_frac": 0.3,   # up to this share of top-1 digits a token
@@ -623,7 +631,11 @@ class BeamDecode(Stage):
         if "lines" not in layout:
             raise ValueError("decode requires recognized lines")
         p = self.params
-        self._class_aspect = layout.get("class_aspect") or None
+        # Fixed-pitch faces (typewriter legal filings) stretch every glyph
+        # toward one advance width, so the stock's per-class aspects do not
+        # apply there (measured: the prior cost legal-8 0.7 char).
+        self._class_aspect = (layout.get("class_aspect") or None) \
+            if not layout.get("fixed_pitch") else None
         language = "n/a"
         if p["lang_model"] == "auto":
             lm, language = self._detect_language(
@@ -1243,13 +1255,20 @@ class BeamDecode(Stage):
         # Per-glyph scored candidates (pixel softmax + height prior).
         rejected = False
         per_glyph = []
-        for g in groups:
+        for gi, g in enumerate(groups):
             cands = g["candidates"]
             if cands[0][1] > reject_at and "pinned" not in g:
                 per_glyph.append({"?": 0.0})
                 rejected = True
                 continue
             lp = _glyph_logprobs(cands)
+            # A lone letter between parentheses inside a numeric token is a
+            # citation label -- "234.3(a)(17)(ix)" -- and keeps its letter
+            # reading: no digit boost for it (Federal Register pages read
+            # "(a)" as "(3)" on every citation).
+            flanked = (0 < gi < len(groups) - 1
+                       and "(" in [c for c, _ in groups[gi - 1]["candidates"][:3]]
+                       and ")" in [c for c, _ in groups[gi + 1]["candidates"][:3]])
             aspects = getattr(self, "_class_aspect", None)
             if aspects and p["aspect_prior"] > 0:
                 b = g["box"]
@@ -1260,12 +1279,13 @@ class BeamDecode(Stage):
                         dev = abs(np.log(asp / exp)) - p["aspect_tol"]
                         if dev > 0:
                             lp[c] -= p["aspect_prior"] * dev
-            if digit_mode:
+            if digit_mode and not flanked:
                 for c in list(lp):
                     # separators belong to numbers as much as digits do: in
                     # digit mode a boosted '1' was beating the '/' of a date
                     # ("09/01/2024" -> "0910112024")
-                    if c.isdigit() or (p["digit_mode_separators"] and c in NUMERIC_PUNCT):
+                    if c.isdigit() or (p["digit_mode_separators"] and c in NUMERIC_PUNCT
+                                       and (p["digit_mode_parens"] or c not in "()")):
                         lp[c] += p["digit_mode_boost"]
             elif alpha_mode:
                 for c in list(lp):
@@ -1425,7 +1445,9 @@ class BeamDecode(Stage):
                     scored[twin] = (scored[a] - p["confusion_penalty"]
                                     + k * (_height_prior(twin, h, x_height)
                                            - _height_prior(a, h, x_height)))
-            if digit_mode:
+            if digit_mode and not flanked:
+                # (a citation label "(a)" is exempt: its rank-2 'e' spawned a
+                # '3' that beat the top-1 'a' by the boost alone)
                 for a, twin in DIGIT_TWINS.items():
                     if a in scored and twin not in scored:
                         scored[twin] = (scored[a] - 0.4

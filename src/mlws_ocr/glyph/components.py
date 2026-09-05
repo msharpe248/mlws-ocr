@@ -197,6 +197,16 @@ class OverlapComponents(Stage):
                                     # local ink minima); the decoder picks.
                                     # 3 measured no better than 1 on
                                     # broad-30 and worse with triples on
+        "lattice_cuts": 0,          # segmentation LATTICE: offer this many
+                                    # ranked ink-minimum cut columns per
+                                    # suspect and let the recognizer score
+                                    # every span between them; the best
+                                    # paths become the split options (see
+                                    # recognize/stage.py _lattice_options).
+                                    # Replaces the fixed 2/3-piece options
+                                    # when > 0: a bill title in a large
+                                    # serif sets 'dmini' as one blob, and
+                                    # no fixed number of cuts reads it.
         "split_triple": True,       # a piece still wider than a letter
                                     # after the best cut gets a second cut
         "split_under_dot": True,    # a dot-sized part over one side of a
@@ -236,6 +246,7 @@ class OverlapComponents(Stage):
         # evaluation pages and missed most of them.
         fixed_pitch = (page.meta.get("doc_type") == "legal") or (
             bool(width_cvs) and float(np.median(width_cvs)) < self.params["fixed_pitch_cv"])
+        layout["fixed_pitch"] = bool(fixed_pitch)   # for width-based priors downstream
         split_factor = (self.params["split_width_factor_fixed"] if fixed_pitch
                         else self.params["split_width_factor"])
 
@@ -316,6 +327,18 @@ class OverlapComponents(Stage):
                                 cuts = [cut]
                                 break
                     if not cuts:
+                        continue
+                    if self.params["lattice_cuts"] > 0:
+                        # Lattice mode: ranked minima (the dot-guided cut
+                        # first, when there is one) -- the recognizer scores
+                        # every span and ranks the paths.
+                        ranked = cuts[:1] + _cut_candidates(
+                            sub, piece, w - piece, self.params["lattice_cuts"], piece)
+                        kept: list[int] = []
+                        for c in ranked:
+                            if all(abs(c - q) >= piece for q in kept):
+                                kept.append(c)
+                        g["cuts"] = sorted(x0 + c for c in kept[: self.params["lattice_cuts"]])
                         continue
                     # Options, best first: each cut alone; and, for the best
                     # cut, a second cut inside a piece that is still wider

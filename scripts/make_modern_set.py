@@ -73,9 +73,14 @@ def clean_truth(text: str) -> str:
     the text layer, unreadable in any 300-dpi image.  Bills also print a
     line number at the right margin, and the extractor appends it to the
     last word of the line ('jurisdic-17'); on the page they are separate
-    tokens.  Both engines are scored against the cleaned text."""
+    tokens.  Sponsor names are set in small caps ('Mr. BIGGS'), which the
+    extractor emits as a capital, a space, and the rest ('Mr. B IGGS');
+    the page shows one word.  Only title-preceded names are joined:
+    'A BILL' and 'IN GENERAL' are real two-word phrases.  Both engines
+    are scored against the cleaned text."""
     out = []
     for line in text.splitlines():
+        line = re.sub(r"\b(M(?:r|rs|s)\.) ([A-Z]) ([A-Z]{2,})", r"\1 \2\3", line)
         toks = [t for t in line.split() if not _SLUG.match(t)]
         if not toks or _SLUG.match(line.strip()) or re.match(r"^\S+\s+\S+\s+\d{2}:\d{2}\s", line):
             if any(k in line for k in ("VerDate", "Jkt ", "Sfmt", "E:\\")):

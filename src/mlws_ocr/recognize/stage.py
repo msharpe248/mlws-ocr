@@ -101,6 +101,8 @@ class PrototypeRecognize(Stage):
                                   # (measured on a real page). Swept 50/100/
                                   # 200: broad-30 char 87.1/87.1/-, word
                                   # 68.7/68.6/-, dev-8 word 81.2/80.5/79.7
+        "lattice_paths": 6,       # split options kept per suspect from the
+                                  # cut lattice (components.lattice_cuts)
         "chop_on_confidence": True, # per-BLOB trigger (Smith 2007 §4.1):
                                   # a poorly matched blob gets chopped
                                   # whatever its width. Two narrow letters
@@ -276,7 +278,7 @@ class PrototypeRecognize(Stage):
         w = self.params["outline_weight"]
         out = list(topk)
         for n, (li, gi, ai) in enumerate(slots):
-            if not isinstance(ai, str) or ":" not in ai or ai.startswith("m:"):
+            if not isinstance(ai, str) or ":" not in ai or ai.startswith(("m:", "s:")):
                 continue
             g = layout["lines"][li]["groups"][gi]
             oi, si = (int(t) for t in ai.split(":"))
@@ -311,6 +313,52 @@ class PrototypeRecognize(Stage):
         if self.params["outline_path"]:
             topk = self._outline_opinion(crops, topk)
         return topk
+
+    def _lattice_options(self, layout) -> None:
+        """Turn each suspect's scored cut lattice into ranked split options.
+
+        Boundaries are the group's edges plus its ranked cut columns; a
+        path is a sequence of spans covering the group.  Path cost sums
+        each span's top-1 distance MINUS the page's median top-1 distance,
+        so a piece that reads better than a typical glyph earns credit and
+        a shred pays -- a plain sum would favour few pieces regardless of
+        how badly they read.  The k best paths (the whole excluded; it is
+        the group's own candidate list) become `alts` with matching
+        `alt_candidates`, the format the decoder already consumes, ranked
+        for its best-first enumeration.  Tesseract's chopper searches the
+        same space one chop at a time, keeping a chop only when confidence
+        improves (Smith 2007 §4.1); ranking whole paths lets the decoder's
+        lexicon see 'd m i n i' even when no single chop improves on 'e'."""
+        k_best = self.params["lattice_paths"]
+        wholes = [g["candidates"][0][1] for ln in layout["lines"]
+                  for g in ln.get("groups", []) if g.get("candidates")]
+        med = float(np.median(wholes)) if wholes else 0.0
+        for ln in layout["lines"]:
+            for g in ln.get("groups", []):
+                spans = g.pop("span_candidates", None)
+                if not spans or "cuts" not in g:
+                    continue
+                x0, y0, x1, y1 = g["box"]
+                bounds = [x0] + list(g["cuts"]) + [x1]
+                n = len(bounds) - 1
+                paths: list[list[tuple[float, list[int]]]] = [[] for _ in range(n + 1)]
+                paths[0] = [(0.0, [0])]
+                for a in range(n):
+                    for cost, path in paths[a]:
+                        for b in range(a + 1, n + 1):
+                            key = f"{a}:{b}"
+                            if key not in spans or not spans[key]:
+                                continue
+                            paths[b].append((cost + spans[key][0][1] - med, path + [b]))
+                    for b in range(a + 1, n + 1):
+                        paths[b] = sorted(paths[b], key=lambda t: t[0])[:k_best]
+                ranked = [pth for _, pth in sorted(paths[n], key=lambda t: t[0])
+                          if len(pth) > 2][:k_best]
+                g["alts"] = [[[bounds[a], y0, bounds[b], y1] for a, b in zip(pth, pth[1:])]
+                             for pth in ranked]
+                g["alt_candidates"] = {f"{oi}:{si}": spans[f"{a}:{b}"]
+                                       for oi, pth in enumerate(ranked)
+                                       for si, (a, b) in enumerate(zip(pth, pth[1:]))}
 
     def _chop_on_confidence(self, page, layout, model, pack) -> int:
         from ..glyph.components import _cut_candidates
@@ -388,6 +436,17 @@ class PrototypeRecognize(Stage):
         crops, slots = [], []
         for li, ln in enumerate(layout["lines"]):
             for gi, g in enumerate(ln.get("groups", [])):
+                # cut lattice: every span between two boundaries is scored
+                if "cuts" in g:
+                    x0, y0, x1, y1 = g["box"]
+                    bounds = [x0] + list(g["cuts"]) + [x1]
+                    for a in range(len(bounds)):
+                        for b in range(a + 1, len(bounds)):
+                            if a == 0 and b == len(bounds) - 1:
+                                continue          # the whole is scored below
+                            m = page.binary[y0:y1, bounds[a]:bounds[b]]
+                            crops.append(1.0 - m.astype(np.float32))
+                            slots.append((li, gi, f"s:{a}:{b}"))
                 # split hypotheses: every piece of every option is scored
                 for oi, option in enumerate(g.get("alts", [])):
                     for si, (ax0, ay0, ax1, ay1) in enumerate(option):
@@ -516,9 +575,12 @@ class PrototypeRecognize(Stage):
                         g["candidates"] = packed
                     elif ai.startswith("m:"):
                         g.setdefault("merge_candidates", {})[ai[2:]] = packed
+                    elif ai.startswith("s:"):
+                        g.setdefault("span_candidates", {})[ai[2:]] = packed
                     else:
                         g.setdefault("alt_candidates", {})[str(ai)] = packed
             pack(slots, topk)
+            self._lattice_options(layout)
 
             # Second pass -- confidence-driven chopping.  Groups that no
             # width rule flagged but that match poorly (top-1 distance well

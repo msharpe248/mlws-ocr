@@ -18,3 +18,11 @@ def test_slug_lines_are_dropped_and_glued_line_numbers_split():
     assert "jurisdic- 17" in out          # line number un-glued from the fragment
     assert "Conservation 5" in out        # already-separate numbers untouched
     assert "1993" in out
+
+
+def test_clean_truth_joins_small_caps_sponsor_names():
+    from make_modern_set import clean_truth
+    line = "Mr. B IGGS (for himself, Mr. P ERRY, and Mrs. M ILLER of Illinois) introduced"
+    assert clean_truth(line) == "Mr. BIGGS (for himself, Mr. PERRY, and Mrs. MILLER of Illinois) introduced"
+    assert clean_truth("A BILL") == "A BILL"                 # a real two-word heading
+    assert clean_truth("(a) I N GENERAL.") == "(a) I N GENERAL."   # not a sponsor name: untouched

@@ -57,3 +57,22 @@ def test_digit_mode_digit_spawns_no_letter_twin():
          "candidates": [["9", 26.98], ["g", 65.76], ["5", 74.39], ["q", 91.26]]}
     text, _, _ = dec._beam_word_mode([g], 29.0, lm, dec.params, np.inf, True)
     assert text == "9"
+
+
+def test_citation_label_keeps_its_letter_in_digit_mode():
+    """'234.3(a)(17)': the 'a' between parentheses is top-1 by a wide margin
+    and '3' is not even a candidate; digit mode injected '3' as the twin of
+    the rank-2 'e' with the boost attached and it won.  A lone glyph flanked
+    by parentheses is a label and takes no digit-mode bias."""
+    import numpy as np
+    from mlws_ocr.decode.beam import BeamDecode
+    from mlws_ocr.lang.model import CharBigram
+    dec = BeamDecode(); dec._language = "en"; dec._class_aspect = None
+    lm = CharBigram.from_words()
+    def glyph(x, w, cands, h=20):
+        return {"box": [x, 0, x + w, h], "_baseline": 19, "parts": 1, "candidates": cands}
+    groups = [glyph(0, 10, [["(", 22.4], ["0", 62.7]], h=30),
+              glyph(12, 18, [["a", 19.0], ["e", 39.3], ["8", 80.7]]),
+              glyph(32, 10, [[")", 15.7], ["0", 36.6]], h=30)]
+    text, _, _ = dec._beam_word_mode(groups, 20.0, lm, dec.params, np.inf, True)
+    assert text == "(a)"
