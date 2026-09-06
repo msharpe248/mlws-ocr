@@ -91,10 +91,16 @@ CONFUSION_PAIRS = [("n", "h"), ("h", "n"), ("c", "e"), ("e", "c"),
                    ("N", "H"), ("H", "N"), ("C", "E"), ("E", "C")]
 
 
-def _glyph_logprobs(cands: list) -> dict[str, float]:
+def _glyph_logprobs(cands: list, temp_frac: float = 0.0) -> dict[str, float]:
+    """Softmax over candidate distances.  Temperature: the list's standard
+    deviation (default), or ``temp_frac`` x the top-1 distance when
+    ``temp_frac`` > 0 -- the std is inflated by the far junk at the tail of
+    a top-k list, so an 'E' at 8 against 'b' at 25 came out only 0.3 nats
+    apart and the language model overturned it ("Elm" read "blm")."""
     chars = [c for c, _ in cands]
     d = np.array([dist for _, dist in cands], dtype=float)
-    s = -d / max(d.std(), 1.0)
+    temp = max(temp_frac * d.min(), 1.0) if temp_frac > 0 else max(d.std(), 1.0)
+    s = -d / temp
     s -= s.max()
     p = np.exp(s) / np.exp(s).sum()
     return dict(zip(chars, np.log(np.maximum(p, 1e-9))))
@@ -145,6 +151,11 @@ class BeamDecode(Stage):
         "wrapper_lm_logp": -4.0,  # flat LM log-prob for quotes and brackets
                                   # (a common letter costs about this; the
                                   # trigram floor they paid before is -13.8)
+        "evidence_temp_frac": 0.5,  # softmax temperature as a fraction of the
+                                  # top-1 distance (0 = the list's std, the
+                                  # original); see _glyph_logprobs.  Measured
+                                  # legal-8 69.3 -> 78.4 word, broad-30
+                                  # 76.5 -> 77.6 (precision +2.1), dev-8 flat
         "lm_weight": 0.5,      # calibrated for the GRU: its log-probs are
                                # sharper than the trigram (which used 0.7)
         "lexicon_margin": 4.0,   # accept a lexicon word within this log-score
@@ -310,6 +321,39 @@ class BeamDecode(Stage):
     }
 
     @staticmethod
+    def _low_mode(asc: np.ndarray) -> float | None:
+        """2-means over ascents; the low centre when the split is real
+        (both clusters populated, high >= 1.3 x low), else None."""
+        if len(asc) < 3:
+            return None
+        c_lo, c_hi = float(asc.min()), float(asc.max())
+        for _ in range(8):
+            assign = np.abs(asc - c_lo) <= np.abs(asc - c_hi)
+            if assign.all() or not assign.any():
+                break
+            c_lo, c_hi = float(asc[assign].mean()), float(asc[~assign].mean())
+        else:
+            assign = np.abs(asc - c_lo) <= np.abs(asc - c_hi)
+        if assign.any() and (~assign).any() and c_hi >= 1.3 * c_lo and assign.sum() >= 2:
+            return c_lo
+        return None
+
+    @staticmethod
+    def _page_x_height(line_asc: list[float]) -> float:
+        """The page's lowercase anchor.  `line_asc` holds, per line, its
+        TRUE x-height when the line is bimodal (a mixed-case line's low
+        ascent mode) or None; the anchor is the median over those lines.
+        The first version took the median of per-line median ascents: on
+        a pleading -- mostly capitals, and typewriter lowercase full of
+        ascenders -- that median IS a cap height (27.5 on legal-8 page
+        9462, whose caps lines stand at 29-31 and lowercase x-height at
+        20), so the per-line caps rule could never fire and every size
+        twin on the caps lines went lowercase ('CONSENT' read 'consENT'
+        with the classifier having every letter upper at rank 1)."""
+        xs = [a for a in line_asc if a is not None]
+        return float(np.median(xs)) if xs else 0.0
+
+    @staticmethod
     def _line_x_height(groups, baseline, page_x, heights) -> float:
         """Robust per-line x-height for the case prior.
 
@@ -329,18 +373,9 @@ class BeamDecode(Stage):
         asc = asc[asc > 0.3 * asc.max()] if len(asc) else asc
         if len(asc) < 3:
             return fallback
-        lo, hi = float(asc.min()), float(asc.max())
-        c_lo, c_hi = lo, hi
-        for _ in range(8):
-            assign = np.abs(asc - c_lo) <= np.abs(asc - c_hi)
-            if assign.all() or not assign.any():
-                break
-            c_lo, c_hi = float(asc[assign].mean()), float(asc[~assign].mean())
-        else:
-            assign = np.abs(asc - c_lo) <= np.abs(asc - c_hi)
-        if (assign.any() and (~assign).any()
-                and c_hi >= 1.3 * c_lo and assign.sum() >= 2):
-            return c_lo
+        low = BeamDecode._low_mode(asc)
+        if low is not None:
+            return low
         med = float(np.median(asc))
         if page_x > 0 and med >= 1.25 * page_x:
             return page_x            # caps-suspect line: lowercase anchor
@@ -690,10 +725,11 @@ class BeamDecode(Stage):
             gs = [g for g in ln.get("groups", []) if "candidates" in g]
             if len(gs) >= 3:
                 bl = ln.get("baseline")
-                line_asc.append(float(np.median(
-                    [(bl - g["box"][1]) if bl is not None
-                     else g["box"][3] - g["box"][1] for g in gs])))
-        page_x = float(np.median(line_asc)) if line_asc else 0.0
+                asc = np.array([(bl - g["box"][1]) if bl is not None
+                                else g["box"][3] - g["box"][1] for g in gs], dtype=float)
+                asc = asc[asc > 0.3 * asc.max()] if len(asc) else asc
+                line_asc.append(self._low_mode(asc))
+        page_x = self._page_x_height(line_asc)
 
         n_reject = n_lm_override = n_joins = 0
         for ln in layout["lines"]:
@@ -722,6 +758,9 @@ class BeamDecode(Stage):
 
             # Word boundaries: definite gaps split immediately; uncertain
             # gaps become variants the dictionary and LM vote on.
+            # (Scaling the gaps by the line's median glyph height instead
+            # of x-height was measured: legal-8 flat, dev-8 and broad-30
+            # -1.5 word together with the capital reward below; reverted.)
             segments = self._segment_line(groups, x_height, p)
 
             decoded = []
@@ -1294,7 +1333,7 @@ class BeamDecode(Stage):
                 per_glyph.append({"?": 0.0})
                 rejected = True
                 continue
-            lp = _glyph_logprobs(cands)
+            lp = _glyph_logprobs(cands, p["evidence_temp_frac"])
             # A lone letter between parentheses inside a numeric token is a
             # citation label -- "234.3(a)(17)(ix)" -- and keeps its letter
             # reading: no digit boost for it (Federal Register pages read

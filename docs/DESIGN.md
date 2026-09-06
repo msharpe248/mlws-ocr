@@ -203,9 +203,11 @@ token. Per word, every combination of split option / merge option /
 no-change is decoded and the best-scoring reading wins, with a per-added-
 character bonus for splits (merges need none: they remove a term).
 
-Per glyph, candidate costs become log-probabilities by a softmax
-normalized by the list's spread; then priors adjust them from geometry the
-classifier does not see:
+Per glyph, candidate costs become log-probabilities by a softmax whose
+temperature is half the top-1 distance (the list's standard deviation, the
+first choice, was inflated by the junk at the tail of every top-k list and
+flattened a 3x distance ratio to 0.3 nats); then priors adjust them from
+geometry the classifier does not see:
 
 - **height** relative to the line's x-height (2-means over glyph ascents;
   a unimodal line 1.25× taller than the page anchor is a caps line);
@@ -339,8 +341,8 @@ Rules: three oscillations on dev-8 stop a sweep; a change is kept only if
 the headline and the other sets agree; anything that loses on one set is
 recorded before it is reverted or made opt-in.
 
-Current numbers (2026-09-06): broad-30 89.6 / 76.5 (recall 82.9, precision 84.6),
-dev-8 94.3 / 86.0, legal-8 86.4 / 69.3, modern 83.8 / 70.5 (recall 87.6, precision 88.6; legacy 72.0 / 67.5 / 92.0 / 95.7;
+Current numbers (2026-09-06): broad-30 90.8 / 79.8 (recall 85.1, precision 87.1),
+dev-8 94.7 / 87.2, legal-8 90.3 / 78.5, modern 84.2 / 70.7 (recall 88.4, precision 89.0; legacy 72.0 / 67.5 / 92.0 / 95.7;
 our modern business pages alone — letters, invoices, payslips — 87.5 / 79.2 / 92.6 / 91.3),
 synthetic 98.8 / 99.1 / 98.4 char. Two days earlier broad-30 was
 77.3 / 52.4; the legacy reference is 95.3 / 90.5.

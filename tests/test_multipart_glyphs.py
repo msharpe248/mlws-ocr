@@ -111,3 +111,16 @@ def test_quote_wrappers_are_language_model_transparent():
     groups = [tick_pair, letter(30, "t", "l"), letter(48, "h", "b"), letter(66, "e", "c")]
     text, _, _ = dec._beam_word_mode(groups, xh, lm, dec.params, np.inf, False)
     assert text == '"the'
+
+
+def test_page_x_height_anchors_on_mixed_case_lines():
+    import numpy as np
+    from mlws_ocr.decode.beam import BeamDecode
+    caps = np.array([30.0, 31, 29, 30, 30, 31])                       # a caps line: unimodal
+    mixed = np.array([20.0, 21, 30, 20, 20, 31, 20, 29, 21])          # lowercase with ascenders
+    assert BeamDecode._low_mode(caps) is None
+    assert abs(BeamDecode._low_mode(mixed) - 20.3) < 0.5
+    # a pleading: nine caps lines, four mixed lines -> the anchor is the x-height
+    anchor = BeamDecode._page_x_height([None] * 9 + [20.3] * 4)
+    assert abs(anchor - 20.3) < 0.1
+    assert BeamDecode._page_x_height([None, None]) == 0.0

@@ -78,7 +78,7 @@ classification. Priority order follows the shares:
 Tesseract's **legacy engine has no neural net** and scores 95.3% char /
 90.5% word on our thirty-page sample; its LSTM engine scores 95.9 /
 92.2. The neural upgrade bought Tesseract 0.6 char points. We score
-89.6 / 76.5 (2026-09-06, feature-extractor fix + regenerated harvests; census fixes: LM-transparent quotes, two ranked cuts, zone crumbs, position pins; class-aspect prior, digit-twin fix, merge charge, confidence chopper, inflected lexicon, sparse-layout decoding, widened stock, outline gate, outline channel, touching-pair splits, three-piece chopper, fragment associator: condensed model with the digit harvest,
+90.8 / 79.8 (2026-09-06, evidence temperature from the top-1 distance, page x-height anchor, feature-extractor fix + regenerated harvests; census fixes: LM-transparent quotes, two ranked cuts, zone crumbs, position pins; class-aspect prior, digit-twin fix, merge charge, confidence chopper, inflected lexicon, sparse-layout decoding, widened stock, outline gate, outline channel, touching-pair splits, three-piece chopper, fragment associator: condensed model with the digit harvest,
 deferred digit mode). **The remaining gap is therefore classical engineering,
 not model class** — thirty years of it — and that is where the work
 belongs. `scripts/compare_legacy.py` produces the paired per-page table
@@ -89,9 +89,9 @@ that localizes it.
 1. ~~A modern test set, and our number on it.~~ BUILT and measured
    (RESEARCH): ours 74.2 char / 71.4 recall vs legacy 67.4 / 85.7 on 59
    pages. After the sparse-layout decoding work and a cleaned truth
-   (production slug, glued line numbers and split small-caps names removed): **83.8 / 70.5 /
-   87.6 recall / 88.6 precision** against legacy 72.0 / 67.5 / 92.0 /
-   95.7 — we lead by 11.8 char and 3.0 word; the remaining gap is
+   (production slug, glued line numbers and split small-caps names removed): **84.2 / 70.7 /
+   88.4 recall / 89.0 precision** against legacy 72.0 / 67.5 / 92.0 /
+   95.7 — we lead by 12.2 char and 3.2 word; the remaining gap is
    PRECISION (spurious tokens) and recall on small type. Per kind:
    letters 98.5 / 92.5, invoices 90.3 / 77.7, payslips 73.8 / 67.5,
    bills 88.3 / 64.0, Federal Register 64.0 / 53.2 (small type). The

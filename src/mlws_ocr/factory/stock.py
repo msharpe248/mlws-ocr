@@ -58,4 +58,10 @@ BODY_NAMES = [
     # and '6' went from outside the top three to rank one.
     "Trebuchet MS", "Trebuchet MS Bold", "Trebuchet MS Italic",
     "Geneva", "Avenir Next", "Avenir Next Condensed",
+    # Serif italics from the open TeX Gyre faces (Schola/Pagella/Bonum,
+    # installed under ~/Library/Fonts/mlws-ocr-stock) were measured twice:
+    # +0.2/+0.3 word on the old evidence calibration, then char +0.1..0.5
+    # but word -0.4..-0.5 on three of four sets once the softmax
+    # temperature was fixed (RESEARCH 2026-09-06).  Not stocked; the
+    # fonts stay installed for the next try (--add-fonts).
 ]
