@@ -92,3 +92,22 @@ def test_pinned_comma_floating_above_baseline_is_an_apostrophe():
     hanging = {"box": [0, base - 8, 13, base + 10], "_baseline": base, "parts": 1, "candidates": cands, "pinned": ","}
     assert dec._beam_word_mode([floating], xh, lm, dec.params, np.inf, False)[0] == "'"
     assert dec._beam_word_mode([hanging], xh, lm, dec.params, np.inf, False)[0] == ","
+
+
+def test_quote_wrappers_are_language_model_transparent():
+    """A quote-initial word: the trigram alphabet has no quote, so the quote
+    paid the floor and the following letter paid it again through the
+    poisoned context; 'u' won on every quoted bill citation."""
+    import numpy as np
+    from mlws_ocr.decode.beam import BeamDecode
+    from mlws_ocr.lang.model import CorpusModel
+    dec = BeamDecode(); dec._language = "en"; dec._class_aspect = None
+    lm = CorpusModel.load("data/lang_en.npz")
+    xh, base = 26.0, 100
+    tick_pair = {"box": [0, base - 42, 24, base - 24], "_baseline": base, "parts": 2,
+                 "candidates": [["ü", 88.0], ["t", 90.1], ['"', 92.1], ["u", 92.2], ["o", 95.8]]}
+    def letter(x, c, alt):
+        return {"box": [x, base - 26, x + 15, base], "_baseline": base, "parts": 1, "candidates": [[c, 10.0], [alt, 60.0]]}
+    groups = [tick_pair, letter(30, "t", "l"), letter(48, "h", "b"), letter(66, "e", "c")]
+    text, _, _ = dec._beam_word_mode(groups, xh, lm, dec.params, np.inf, False)
+    assert text == '"the'

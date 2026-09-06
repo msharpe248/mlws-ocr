@@ -70,6 +70,9 @@ NUMERIC_PUNCT = set("/-.,:$%()")  # characters that belong inside numbers
                                   # ('(8.25%)', '(206) 555-0142', '401(k)':
                                   # a ')' outbid by a boosted '0' read as
                                   # '(8.25560')
+WRAPPERS = set('"()[]')          # LM-transparent: they enclose words, not spell them
+_STRIP_WRAPPERS = str.maketrans("", "", '"()[]')
+
 DIGIT_TWINS = {"l": "1", "I": "1", "i": "1", "|": "1", "o": "0", "O": "0",
                "s": "5", "S": "5", "z": "2", "Z": "2", "B": "8", "g": "9",
                "q": "9", "G": "6", "b": "6",
@@ -139,6 +142,9 @@ class BeamDecode(Stage):
     impl = "beam"
     defaults = {
         "beam_width": 8,
+        "wrapper_lm_logp": -4.0,  # flat LM log-prob for quotes and brackets
+                                  # (a common letter costs about this; the
+                                  # trigram floor they paid before is -13.8)
         "lm_weight": 0.5,      # calibrated for the GRU: its log-probs are
                                # sharper than the trigram (which used 0.7)
         "lexicon_margin": 4.0,   # accept a lexicon word within this log-score
@@ -391,6 +397,12 @@ class BeamDecode(Stage):
                     w["text"] = t.replace(core, "|", 1)
                     flips += 1
                     continue
+                if "''" in t or "``" in t or '""' in t:
+                    # Two apostrophes are one double quote (the TeX and
+                    # typewriter convention; curly `` '' arrive as two
+                    # tick glyphs).  The scorer folds the truth the same way.
+                    w["text"] = t = t.replace("''", '"').replace("``", '"').replace('""', '"')
+                    flips += 1
                 if core == "l":
                     # The only one-letter English words are "a" and "I";
                     # a standalone "l" is the pronoun with its case lost
@@ -1150,8 +1162,12 @@ class BeamDecode(Stage):
                     if i in merge_set and i not in split_set:
                         k = merge_set[i]
                         box = next(b for kk, b in g["merges"] if kk == k)
+                        # the merged pseudo-glyph keeps the line's baseline
+                        # so the position priors judge it too (a merged pair
+                        # of quote ticks floating high was reading 'u')
                         cand_seq.append({"candidates": g["merge_candidates"][str(k)],
-                                         "box": box})
+                                         "box": box, "_baseline": g.get("_baseline"),
+                                         "parts": k})   # k components: a multi-part mark may be right
                         prov.append({"box": box, "group": i, "kind": "merge"})
                         skip = k - 1         # the absorbed pieces
                     elif i in split_set:
@@ -1159,7 +1175,7 @@ class BeamDecode(Stage):
                         ac = g["alt_candidates"]
                         for si, box in enumerate(g["alts"][oi]):
                             cand_seq.append({"candidates": ac[f"{oi}:{si}"],
-                                             "box": box})
+                                             "box": box, "_baseline": g.get("_baseline")})
                             prov.append({"box": box, "group": i, "kind": "split"})
                             extra_chars += 1
                         extra_chars -= 1
@@ -1351,6 +1367,15 @@ class BeamDecode(Stage):
                 hangs = h_box[3] > base + 0.15 * x_height
                 floats = h_box[3] < base - 0.25 * x_height
                 on_base = not hangs and not floats
+                if floats and h_glyph < p["punct_small_frac"] * x_height:
+                    # Letters and digits do not float: a short glyph whose
+                    # foot is a quarter x-height above the baseline is a
+                    # mark (quote, hyphen, degree, asterisk).  The curly
+                    # opening quote of a bill -- two ticks -- merged into a
+                    # 'u' and read "u(i)" on every quoted citation.
+                    for c in list(lp):
+                        if c.isalnum():
+                            lp[c] -= p["punct_position_prior"]
                 fav = None
                 if h_glyph < p["punct_small_frac"] * x_height:
                     # Among floating marks, a hyphen sits mid-x-height and
@@ -1516,10 +1541,20 @@ class BeamDecode(Stage):
                 prefix, score = beam[0], beam[1]
                 row = beam[2] if use_gru else None
                 for c, glyph_lp in scored.items():
-                    if use_gru:
+                    if c in WRAPPERS:
+                        # Quotes and brackets wrap language; they are not
+                        # language.  The trigram alphabet has no quote, so a
+                        # quote-initial word paid the floor (-13.8 against
+                        # -4.2 for 'u') and its next letter paid the floor
+                        # again through the poisoned context: every quoted
+                        # citation on the bills read "u(i)".  A wrapper costs
+                        # a flat neutral log-prob and is invisible to the
+                        # trigram context.
+                        trans = lm_w * p["wrapper_lm_logp"]
+                    elif use_gru:
                         trans = lm_w * float(logps[row, lm.char_id(c)])
                     else:
-                        trans = lm_w * lm.score(prefix, c)
+                        trans = lm_w * lm.score(prefix.translate(_STRIP_WRAPPERS), c)
                     if prefix and prefix[-1].isalpha() and c.isalpha() \
                             and prefix[-1].isupper() != c.isupper():
                         # Allow only the Capitalized pattern: an upper->

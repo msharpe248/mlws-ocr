@@ -155,8 +155,10 @@ that localizes it.
    precomputed segment geometry — 5.8× on the kernel, the letter
    20.6 → 14.1 s; then rulings as run-length tests and deskew by
    projected coordinates: 11.6 s, text byte-identical (RESEARCH).
-   Lever (c) measured only 7%; (a) and (b) are next (the recognizer is
-   now 5.9 s: evidence 2.4, rating 1.9), then the decoder's GRU steps.
+   Lever (c) measured only 7%; (b), 31 → 12 configurations per class by
+   coverage-greedy condensation, took the recognizer to 4.0 s and the
+   letter to 9.9 s with accuracy flat-to-up — TARGET MET (2026-09-06).
+   (a) and the decoder's GRU steps remain if more is wanted.
 
 Constraint reminder: self-trained networks are in scope when they train
 on home hardware and run locally; no language models, no vision models.

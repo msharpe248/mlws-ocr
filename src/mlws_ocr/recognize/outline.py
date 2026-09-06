@@ -262,6 +262,43 @@ class OutlineMatcher:
         E = bank.evidence(feats, self.sigma_d, self.sigma_t)
         return float(_rating_from_evidence(E, bank.lengths, bank.groups).max())
 
+    def condense(self, feats_by_class: dict[str, list[np.ndarray]],
+                 k: int, min_cover: float) -> dict[str, int]:
+        """Keep, per class, the configurations that between them explain
+        every rendering: greedy max-min coverage over the class's own
+        renders (each render's outline features rated against each
+        configuration).  Pick the configuration whose worst-covered render
+        is best, repeat until every render is covered to ``min_cover`` or
+        ``k`` are chosen.  Configurations from similar faces are near-
+        duplicates (31 per class from the font stock; the roadmap's lever
+        (b)), so a dozen cover the stock and the evidence kernel does a
+        third of the work.  Returns the kept count per class."""
+        kept: dict[str, int] = {}
+        for cls, cfgs in list(self.configs.items()):
+            feats = feats_by_class.get(cls, [])
+            if len(cfgs) <= k or len(feats) != len(cfgs):
+                kept[cls] = len(cfgs)
+                continue
+            n = len(cfgs)
+            R = np.zeros((n, n), np.float32)          # render i vs config j
+            for j, cfg in enumerate(cfgs):
+                bank = _SegmentBank([cfg], FEATURE_LEN)
+                for i, f in enumerate(feats):
+                    E = bank.evidence(f, self.sigma_d, self.sigma_t)
+                    R[i, j] = _rating_from_evidence(E, bank.lengths, bank.groups)[0]
+            chosen: list[int] = []
+            cover = np.zeros(n, np.float32)
+            while len(chosen) < k and cover.min() < min_cover:
+                gain = [np.maximum(cover, R[:, j]).min() if j not in chosen else -1.0
+                        for j in range(n)]
+                j = int(np.argmax(gain))
+                chosen.append(j)
+                cover = np.maximum(cover, R[:, j])
+            self.configs[cls] = [cfgs[j] for j in sorted(chosen)]
+            self.__dict__.get("_banks", {}).pop(cls, None)
+            kept[cls] = len(chosen)
+        return kept
+
     def costs(self, mask: np.ndarray, classes: list[str],
               cut_edges: tuple[str, ...] = ()) -> dict[str, float]:
         """1 - rating for each requested class."""

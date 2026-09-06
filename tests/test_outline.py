@@ -69,3 +69,22 @@ def test_segment_bank_matches_reference_evidence():
     ref = evidence(feats, np.concatenate(cfgs), 35.0, 0.7)
     assert np.abs(bank.evidence(feats, 35.0, 0.7) - ref).max() < 1e-5
     assert [len(g) for g in bank.groups] == [5, 9, 3]
+
+
+def test_condense_keeps_a_covering_subset():
+    import numpy as np
+    from mlws_ocr.recognize.outline import OutlineMatcher, outline_features
+    rng = np.random.default_rng(11)
+    m = OutlineMatcher(); feats = {}
+    base = np.zeros((48, 30), bool); base[4:44, 4:10] = True; base[4:10, 4:26] = True   # an 'r'-like corner
+    for k in range(9):                       # nine near-duplicate renders + one odd shape
+        mask = base.copy()
+        if k % 3 == 0: mask[38:44, 4:26] = True    # a foot on every third
+        m.add("r", mask); feats.setdefault("r", []).append(outline_features(mask))
+    odd = np.zeros((48, 30), bool); odd[20:28, 2:28] = True
+    m.add("r", odd); feats["r"].append(outline_features(odd))
+    kept = m.condense(feats, k=4, min_cover=0.9)
+    assert 2 <= kept["r"] <= 4 and len(m.configs["r"]) == kept["r"]
+    # every render still rates well against the kept set
+    for f in feats["r"]:
+        assert m.rating(f, "r") >= 0.85
