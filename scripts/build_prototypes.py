@@ -64,9 +64,9 @@ from mlws_ocr.factory.fonts import font_family
 # new .ttc serifs crashed synthetic sev0 92.7->75.4).  Widening body is a
 # deliberate, measured experiment, not a side effect.
 # BODY_NAMES: see mlws_ocr/factory/stock.py (pinned composition + why).
-pool = print_fonts(limit=80, exclude=HOLDOUT)
-by_stem = {f.stem: f for f in pool}
 extra = [n.strip() for n in (_args.add_fonts or "").split(",") if n.strip()]
+pool = print_fonts(limit=80, exclude=HOLDOUT, include=tuple(BODY_NAMES) + tuple(extra))
+by_stem = {f.stem: f for f in pool}
 body = [by_stem[n] for n in BODY_NAMES + extra if n in by_stem]
 display = [f for f in pool if font_family(f) == "display"][:6]
 fonts = body + display

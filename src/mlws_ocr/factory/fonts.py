@@ -17,13 +17,16 @@ FONT_DIRS = [
 ]
 
 
-def find_fonts(pattern: str = "*.tt[fc]") -> list[Path]:
-    """All TrueType files -- .ttc collections included (PIL loads face 0;
-    Copperplate and friends ship only as .ttc on macOS)."""
+def find_fonts(patterns: tuple[str, ...] = ("*.tt[fc]", "*.otf")) -> list[Path]:
+    """All TrueType and OpenType files -- .ttc collections included (PIL
+    loads face 0; Copperplate and friends ship only as .ttc on macOS), and
+    .otf because the open TeX Gyre faces (Century Schoolbook, Times,
+    Palatino and Bookman clones with real italics) ship as CFF OpenType."""
     found: list[Path] = []
     for d in FONT_DIRS:
         if d.is_dir():
-            found.extend(sorted(d.rglob(pattern)))
+            for pattern in patterns:
+                found.extend(sorted(d.rglob(pattern)))
     return found
 
 
@@ -57,7 +60,8 @@ NON_PRINT_HINTS = (
 )
 
 
-def print_fonts(limit: int | None = None, exclude: tuple[str, ...] = ()) -> list[Path]:
+def print_fonts(limit: int | None = None, exclude: tuple[str, ...] = (),
+                include: tuple[str, ...] = ()) -> list[Path]:
     """Fonts suitable for printed-document glyph rendering.
 
     Name-filtered against decorative families, then shape-checked: 'o'
@@ -70,7 +74,19 @@ def print_fonts(limit: int | None = None, exclude: tuple[str, ...] = ()) -> list
     i_aspect = FEATURE_NAMES.index("aspect")
 
     out = []
-    for f in find_fonts():
+    # Faces stocked BY NAME come first and outside the cap: the pool of 80
+    # fills from the system directories before the user's is reached.
+    all_fonts = find_fonts()
+    for f in all_fonts:
+        if f.stem in include and not any(e.lower() in f.stem.lower() for e in exclude):
+            try:
+                render_glyph("o", f, px_height=32)
+            except Exception:
+                continue
+            out.append(f)
+    for f in all_fonts:
+        if f.stem in include:
+            continue
         name = f.name.lower()
         if any(e.lower() in name for e in exclude):
             continue
@@ -106,7 +122,8 @@ def print_fonts(limit: int | None = None, exclude: tuple[str, ...] = ()) -> list
 FAMILY_HINTS = {
     "serif": ("times", "georgia", "caslon", "stix", "newyork", "new york",
               "palatino", "baskerville", "hoefler", "charter", "athelas",
-              "cochin", "didot", "garamond", "book antiqua", "bookman"),
+              "cochin", "didot", "garamond", "book antiqua", "bookman",
+              "texgyre"),   # TeX Gyre: open Schola/Termes/Pagella/Bonum clones
     "mono": ("courier", "andale", "monaco", "menlo", "consolas",
              "american typewriter", "prestige"),
     "sans": ("arial", "helvetica", "verdana", "tahoma", "trebuchet", "skia",

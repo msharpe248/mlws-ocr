@@ -6,7 +6,7 @@ feature design, not the data, carries the robustness.  One configuration
 per font render of each class (48 px; moment normalization makes a
 second size a near-duplicate).
 
-    .venv/bin/python scripts/build_outline_protos.py [out.npz] [--condense=12] [--min-cover=0.85]
+    .venv/bin/python scripts/build_outline_protos.py [out.npz] [--condense=12] [--min-cover=0.85] [--add-fonts=NAME,NAME]
 """
 import sys
 
@@ -19,9 +19,11 @@ args = [a for a in sys.argv[1:] if not a.startswith("--")]
 out = args[0] if args else "data/outline_protos.npz"
 condense = next((int(a.split("=")[1]) for a in sys.argv[1:] if a.startswith("--condense=")), 0)
 min_cover = next((float(a.split("=")[1]) for a in sys.argv[1:] if a.startswith("--min-cover=")), 0.85)
-pool = print_fonts(limit=80, exclude=HOLDOUT)
+extra = next((a.split("=", 1)[1].split(",") for a in sys.argv[1:] if a.startswith("--add-fonts=")), [])
+extra = [n.strip() for n in extra if n.strip()]
+pool = print_fonts(limit=80, exclude=HOLDOUT, include=tuple(BODY_NAMES) + tuple(extra))
 by_stem = {f.stem: f for f in pool}
-fonts = [by_stem[n] for n in BODY_NAMES if n in by_stem]
+fonts = [by_stem[n] for n in BODY_NAMES + extra if n in by_stem]
 fonts += [f for f in pool if font_family(f) == "display"][:6]
 from mlws_ocr.recognize.outline import outline_features
 m = OutlineMatcher()
