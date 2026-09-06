@@ -339,8 +339,8 @@ Rules: three oscillations on dev-8 stop a sweep; a change is kept only if
 the headline and the other sets agree; anything that loses on one set is
 recorded before it is reverted or made opt-in.
 
-Current numbers (2026-09-06): broad-30 89.0 / 75.3 (recall 82.1, precision 83.6),
-dev-8 94.3 / 85.2, legal-8 86.9 / 69.8, modern 83.6 / 70.5 (recall 88.0, precision 88.8; legacy 72.0 / 67.5 / 92.0 / 95.7;
+Current numbers (2026-09-06): broad-30 89.6 / 76.5 (recall 82.9, precision 84.6),
+dev-8 94.3 / 86.0, legal-8 86.4 / 69.3, modern 83.8 / 70.5 (recall 87.6, precision 88.6; legacy 72.0 / 67.5 / 92.0 / 95.7;
 our modern business pages alone — letters, invoices, payslips — 87.5 / 79.2 / 92.6 / 91.3),
 synthetic 98.8 / 99.1 / 98.4 char. Two days earlier broad-30 was
 77.3 / 52.4; the legacy reference is 95.3 / 90.5.
