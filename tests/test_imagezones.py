@@ -59,3 +59,26 @@ def test_line_art_removed_text_kept(font_path):
     assert art.sum() < 0.05 * binary[:, :390].sum(), "line art survived"
     kept = (out.binary & text_ink).sum() / text_ink.sum()
     assert kept > 0.98, f"text ink lost: kept only {kept:.1%}"
+
+
+def test_crumbs_inside_an_emblem_are_art(font_path):
+    """An emblem's glyph-sized crumbs sit inside its box; they are art, not
+    lone letters (census page 8519 shed 'x', 'u', 'J' from a church logo)."""
+    img = render_text_page(["the quick brown fox jumps over the dog"] * 6,
+                           font_path, px_height=32)
+    h, w = img.shape
+    img = np.concatenate([img, np.ones((h, 400), np.float32)], axis=1)
+    img[40:h - 40, w + 30:w + 370] = 0.05              # the emblem: a solid block
+    img[100:h - 100, w + 90:w + 310] = 1.0             # ...hollowed out
+    rng = np.random.default_rng(1)
+    for _ in range(12):                                # glyph-sized crumbs inside it
+        y, x = rng.integers(110, h - 130), rng.integers(100, 290)
+        img[y:y + 14, w + x:w + x + 9] = 0.05
+    binary = img < 0.5
+    text_ink = binary.copy(); text_ink[:, w:] = False
+
+    out, dbg = registry.get("imagezones", "density")().run(Page(gray=img, binary=binary, dpi=300.0))
+    assert dbg.scalars["n_zones"] >= 1
+    assert not out.binary[:, w + 40:].any(), "emblem crumbs survived as text"
+    kept = (out.binary & text_ink).sum() / text_ink.sum()
+    assert kept > 0.98, f"text ink lost: kept only {kept:.1%}"

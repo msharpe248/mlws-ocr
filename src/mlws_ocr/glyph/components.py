@@ -193,10 +193,15 @@ class OverlapComponents(Stage):
                                     # real scans (broad-30 -1.5 char, -3.5
                                     # word): on bitonal outlines the concave
                                     # pairs are mostly noise pits, not kisses
-        "split_cuts": 1,            # cut candidates per suspect (ranked
+        "split_cuts": 2,            # cut candidates per suspect (ranked
                                     # local ink minima); the decoder picks.
-                                    # 3 measured no better than 1 on
-                                    # broad-30 and worse with triples on
+                                    # With alternatives a full piece apart,
+                                    # 3 measured no better than 1 on broad-30
+                                    # -- the second minimum was never the
+                                    # kiss. At half a piece apart, 2 reads
+                                    # every 'the' on census page 8726 (was
+                                    # 4 of 14: the 'th' minimum lies inside
+                                    # the 'h').
         "lattice_cuts": 0,          # segmentation LATTICE: offer this many
                                     # ranked ink-minimum cut columns per
                                     # suspect and let the recognizer score
@@ -305,8 +310,15 @@ class OverlapComponents(Stage):
                                                  self.params["split_cuts"], piece,
                                                  tol=self.params["cut_tol"])
                         if not cuts:
+                            # Ranked ALTERNATIVE cuts need only differ by a
+                            # few pixels; a full piece apart excluded the
+                            # true kiss.  A 'th' blob's ink minimum lies
+                            # inside the 'h' (between stem and leg); the
+                            # t|h join 9 px away was dropped and 'the' read
+                            # 'he' 41 times on broad-30 (census).
                             cuts = _cut_candidates(sub, piece, w - piece,
-                                                   self.params["split_cuts"], piece)
+                                                   self.params["split_cuts"],
+                                                   max(2, piece // 2))
                     elif (self.params["split_under_dot"] and "_marks" in g
                           and w > self.params["dot_body_factor"] * med_w):
                         # a dot over one side of a wide body: the 'i' is

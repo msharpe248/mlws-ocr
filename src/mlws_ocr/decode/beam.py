@@ -212,6 +212,8 @@ class BeamDecode(Stage):
                                    # confident wrong single letters; -2.2
                                    # started shredding ('Priva Date')
         "word_split": True,       # lexicon-driven missing-space repair
+        "split_min_gap": 0.18,    # ...only across a gap at least this x
+                                  # x-height (letter pairs sit at ~0.1)
         "word_join": True,        # merge runs of short fragments whose
                                   # concatenation is a real word: letter-
                                   # spaced caps ("N a t i o n a l") make
@@ -735,6 +737,14 @@ class BeamDecode(Stage):
                     if p["word_split"] and not meta["in_lexicon"] and len(text) >= 7:
                         core = text.lower().strip("'\".,;:!?()-")
                         for cut in range(3, len(core) - 2):
+                            # A lost space leaves a gap wider than a letter
+                            # pair's; a compound name does not ("Mathcad" was
+                            # split into "Math cad" 15 times on one page).
+                            if (p["split_min_gap"] > 0 and len(chars) > cut
+                                    and chars[cut - 1] and chars[cut]
+                                    and (chars[cut]["box"][0] - chars[cut - 1]["box"][2])
+                                    < p["split_min_gap"] * x_height):
+                                continue
                             if (lm.endorsed(core[:cut])
                                     and lm.endorsed(core[cut:])):
                                 text = text[:cut] + " " + text[cut:]
@@ -1428,6 +1438,20 @@ class BeamDecode(Stage):
                         target = pc.upper() if pc.upper() in (pc, twin) else pc
                     elif ratio < p["pin_short_ratio"]:
                         target = pc.lower() if pc.lower() in (pc, twin) else pc
+                # Position twins: a comma and an apostrophe are one shape at
+                # two heights, so adaptation clusters them together and pins
+                # the majority.  A pinned ',' whose box FLOATS above the
+                # baseline is the apostrophe ("you'll" read "you,ll", 6 of 6
+                # on one census page); a pinned "'" that hangs is the comma.
+                base = g.get("_baseline")
+                if (pc in (",", "'") and base is not None and x_height > 0
+                        and p["pin_case_geometry"]):
+                    floats = g["box"][3] < base - 0.25 * x_height
+                    hangs = g["box"][3] > base + 0.15 * x_height
+                    if pc == "," and floats:
+                        target = "'"
+                    elif pc == "'" and hangs:
+                        target = ","
                 lp[target] = lp.get(target, min(lp.values())) + p["pin_bonus"]
             h = g["box"][3] - g["box"][1]
             k = p["case_prior_scale"]

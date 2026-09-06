@@ -76,3 +76,19 @@ def test_citation_label_keeps_its_letter_in_digit_mode():
               glyph(32, 10, [[")", 15.7], ["0", 36.6]], h=30)]
     text, _, _ = dec._beam_word_mode(groups, 20.0, lm, dec.params, np.inf, True)
     assert text == "(a)"
+
+
+def test_pinned_comma_floating_above_baseline_is_an_apostrophe():
+    """Adaptation pins the comma/apostrophe cluster to its majority; the pin
+    follows the glyph's position ("you'll" was reading "you,ll")."""
+    import numpy as np
+    from mlws_ocr.decode.beam import BeamDecode
+    from mlws_ocr.lang.model import CharBigram
+    dec = BeamDecode(); dec._language = "en"; dec._class_aspect = None
+    lm = CharBigram.from_words()
+    xh, base = 24.0, 100
+    cands = [[",", 5.3], ["'", 13.7], [";", 20.1]]
+    floating = {"box": [0, base - 30, 13, base - 12], "_baseline": base, "parts": 1, "candidates": cands, "pinned": ","}
+    hanging = {"box": [0, base - 8, 13, base + 10], "_baseline": base, "parts": 1, "candidates": cands, "pinned": ","}
+    assert dec._beam_word_mode([floating], xh, lm, dec.params, np.inf, False)[0] == "'"
+    assert dec._beam_word_mode([hanging], xh, lm, dec.params, np.inf, False)[0] == ","

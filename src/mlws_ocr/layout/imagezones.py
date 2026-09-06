@@ -63,6 +63,9 @@ class DensityImageZones(Stage):
         "absorb_factor": 4.0,     # a CC touching a zone joins it when its
                                   # larger dim exceeds this x median CC dim
                                   # (glyph-sized neighbors stay text)
+        "inside_min_fill": 0.15,  # a zone whose ink fills at least this
+                                  # fraction of its box is solid art; every
+                                  # component inside its box joins it
         "absorb_gap_300dpi": 12,  # "touching" tolerance -- scraps sit
                                   # near, not on, their parent art
                                   # (captions stand farther off)
@@ -156,6 +159,28 @@ class DensityImageZones(Stage):
                                    int(sl[1].stop), int(sl[0].stop)])
         zone = keep & b
 
+        # Whatever lies INSIDE an art zone's box is art too: the emblem's
+        # glyph-sized crumbs (edge speckle, the gaps between its strokes)
+        # were passing the size-gated absorption above and reading as lone
+        # letters -- 11 of 13 junk lines on census page 8519 sat inside the
+        # one zone box.  Text does not live inside a picture; a caption
+        # stands beside it.  Only SOLID art qualifies: a handwritten
+        # signature is a zone too, but a sprawling thin one whose box
+        # covers the typed "Sincerely" beneath it (fill 0.08, measured;
+        # the emblem fills 0.28 of its box).
+        if zone_boxes and n:
+            pad = max(1, int(p["absorb_gap_300dpi"] * scale))
+            solid = [zb for zb in zone_boxes
+                     if zone[zb[1]:zb[3], zb[0]:zb[2]].mean() >= p["inside_min_fill"]]
+            for sl, lab in zip(slices, range(1, n + 1)):
+                if sl is None or not solid:
+                    continue
+                y0, y1, x0, x1 = sl[0].start, sl[0].stop, sl[1].start, sl[1].stop
+                for zx0, zy0, zx1, zy1 in solid:
+                    if (x0 >= zx0 - pad and x1 <= zx1 + pad
+                            and y0 >= zy0 - pad and y1 <= zy1 + pad):
+                        zone[sl] |= labels[sl] == lab
+                        break
         text_only = b & ~zone
 
         out = page.evolve(binary=text_only)

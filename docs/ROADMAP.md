@@ -78,7 +78,7 @@ classification. Priority order follows the shares:
 Tesseract's **legacy engine has no neural net** and scores 95.3% char /
 90.5% word on our thirty-page sample; its LSTM engine scores 95.9 /
 92.2. The neural upgrade bought Tesseract 0.6 char points. We score
-88.7 / 73.4 (2026-09-05, class-aspect prior, digit-twin fix, merge charge, confidence chopper, inflected lexicon, sparse-layout decoding, widened stock, outline gate, outline channel, touching-pair splits, three-piece chopper, fragment associator: condensed model with the digit harvest,
+88.9 / 75.0 (2026-09-06, census fixes: two ranked cuts, zone crumbs, position pins; class-aspect prior, digit-twin fix, merge charge, confidence chopper, inflected lexicon, sparse-layout decoding, widened stock, outline gate, outline channel, touching-pair splits, three-piece chopper, fragment associator: condensed model with the digit harvest,
 deferred digit mode). **The remaining gap is therefore classical engineering,
 not model class** — thirty years of it — and that is where the work
 belongs. `scripts/compare_legacy.py` produces the paired per-page table
@@ -89,9 +89,9 @@ that localizes it.
 1. ~~A modern test set, and our number on it.~~ BUILT and measured
    (RESEARCH): ours 74.2 char / 71.4 recall vs legacy 67.4 / 85.7 on 59
    pages. After the sparse-layout decoding work and a cleaned truth
-   (production slug, glued line numbers and split small-caps names removed): **83.3 / 68.7 /
-   86.8 recall / 87.0 precision** against legacy 72.0 / 67.5 / 92.0 /
-   95.7 — we lead by 11.3 char and 1.2 word; the remaining gap is
+   (production slug, glued line numbers and split small-caps names removed): **83.5 / 70.0 /
+   87.5 recall / 88.3 precision** against legacy 72.0 / 67.5 / 92.0 /
+   95.7 — we lead by 11.5 char and 2.5 word; the remaining gap is
    PRECISION (spurious tokens) and recall on small type. Per kind:
    letters 98.5 / 92.5, invoices 90.3 / 77.7, payslips 73.8 / 67.5,
    bills 88.3 / 64.0, Federal Register 64.0 / 53.2 (small type). The
@@ -153,8 +153,10 @@ that localizes it.
    gate already showed speed and accuracy are not in tension here).
    First step done (2026-09-05): the evidence kernel in float32 with
    precomputed segment geometry — 5.8× on the kernel, the letter
-   20.6 → 14.1 s, text byte-identical (RESEARCH). Lever (c) measured
-   only 7%; (a) and (b) are next, then the decoder's GRU steps.
+   20.6 → 14.1 s; then rulings as run-length tests and deskew by
+   projected coordinates: 11.6 s, text byte-identical (RESEARCH).
+   Lever (c) measured only 7%; (a) and (b) are next (the recognizer is
+   now 5.9 s: evidence 2.4, rating 1.9), then the decoder's GRU steps.
 
 Constraint reminder: self-trained networks are in scope when they train
 on home hardware and run locally; no language models, no vision models.
