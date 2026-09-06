@@ -42,6 +42,8 @@ _ap.add_argument("--truth", nargs="*", default=None, metavar="NPZ",
 _ap.add_argument("--truth-kinds", default="whole,split,merge",
                  help="which read kinds of truth glyphs to merge (e.g. "
                       "'split,merge' to add only cut/joined pieces)")
+_ap.add_argument("--sizes", default="32,48", metavar="PX,PX",
+                 help="render heights in px; 24 adds the hairline loss of small type")
 _ap.add_argument("--condense", type=int, default=0, metavar="N",  # live build uses 90
                  help="k-means condense the merged pool to N prototypes per "
                       "class (see recognize/condense.py); implies --cap "
@@ -64,6 +66,7 @@ from mlws_ocr.factory.fonts import font_family
 # new .ttc serifs crashed synthetic sev0 92.7->75.4).  Widening body is a
 # deliberate, measured experiment, not a side effect.
 # BODY_NAMES: see mlws_ocr/factory/stock.py (pinned composition + why).
+SIZES = tuple(int(v) for v in _args.sizes.split(","))
 extra = [n.strip() for n in (_args.add_fonts or "").split(",") if n.strip()]
 pool = print_fonts(limit=80, exclude=HOLDOUT, include=tuple(BODY_NAMES) + tuple(extra))
 by_stem = {f.stem: f for f in pool}
@@ -104,7 +107,7 @@ for font in fonts:
             continue
         # (16 px small-type variants were tried and measured flat on
         # newsprint -- see docs/RESEARCH.md; not included.)
-        for px in (32, 48):
+        for px in SIZES:
             try:
                 clean = render_glyph(ch, font, px_height=px)
             except Exception:

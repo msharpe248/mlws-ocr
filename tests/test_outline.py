@@ -11,8 +11,13 @@ def _mask(ch, font, px=48):
 
 
 def _body_fonts(n):
+    """A stable trio by name when present (the pool's order changes as
+    fonts are installed), else the first body faces of the pool."""
     from mlws_ocr.factory.fonts import font_family
-    return [f for f in print_fonts(limit=40) if font_family(f) != "display"][:n]
+    pool = [f for f in print_fonts(limit=60) if font_family(f) != "display"]
+    by_stem = {f.stem: f for f in pool}
+    preferred = [by_stem[n] for n in ("Arial", "Georgia", "Times New Roman") if n in by_stem]
+    return (preferred + [f for f in pool if f not in preferred])[:n]
 
 
 def test_features_and_prototypes_cover_the_outline():

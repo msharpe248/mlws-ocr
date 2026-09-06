@@ -101,7 +101,13 @@ that localizes it.
    lists it column-major; recall is 93. Not worth chasing — a scorer
    that pairs lines would be truer than either order. The invoices' 9
    read as 5 was a decoder bug (a digit spawning a letter twin in digit
-   mode), fixed 2026-09-04. The Federal Register's small type (12 px
+   mode), fixed 2026-09-04. The bills' italic enacting clause led to
+   the feature extractor itself (2026-09-06, RESEARCH): the deslant lost
+   a hairline's ink and the stroke target was measured on the render
+   canvas, so every synthetic prototype stood off its page crop and the
+   harvests had been compensating. Fixed; renders alone now reach
+   within 1.5 word points of the live model with harvests. Harvests
+   are being regenerated under the new extractor. The Federal Register's small type (12 px
    x-height) is a CAPTURE limit, not an algorithm: the same pages at
    400 dpi gain 5.5 recall and 5.5 precision, while the 300-dpi scans
    upscaled to 400 lose 2.5 (RESEARCH, 2026-09-05) — scan 8-pt text at

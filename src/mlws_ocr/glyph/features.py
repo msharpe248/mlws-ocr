@@ -58,15 +58,32 @@ def _deslant(mask: np.ndarray) -> np.ndarray:
     shear = np.clip(mu11 / mu02, -0.6, 0.6)
     if abs(shear) < 0.05:
         return mask
-    # x' = x - shear*(y - y0): apply with an affine map, order 0 keeps it binary.
+    # x' = x - shear*(y - y0), applied as a linear resample of the mask as
+    # a float image and re-thresholded at 0.5.  Order 0 on the binary mask
+    # (the first version) dropped a quarter of a hairline italic's ink --
+    # wherever the nearest-neighbour sample fell beside a 1-px stroke --
+    # and the stroke normalizer then dilated the remnant into a blob:
+    # Times New Roman Italic's own 'e' at 28 px read as '-' (measured).
+    # Sheared at 3x resolution (order 0) and brought back by block majority,
+    # so a 1-px stroke stays connected and keeps its ink (order 0 at 1x lost
+    # a quarter of Times New Roman Italic's 'e' at 28 px; order 1 with a
+    # 0.5 threshold lost the same).
+    up = 3
+    big = np.repeat(np.repeat(mask, up, axis=0), up, axis=1)
+    pad = int(abs(shear) * big.shape[0]) + up
+    padded = np.pad(big, ((0, 0), (pad, pad)))
+    # affine_transform maps each OUTPUT (row, col) to an input position:
+    # row stays, col shifts by shear * (row - y0)  (plus the padding).
     matrix = np.array([[1.0, 0.0], [shear, 1.0]])
-    offset = np.array([0.0, -shear * y0])
-    pad = int(abs(shear) * mask.shape[0]) + 1
-    padded = np.pad(mask, ((0, 0), (pad, pad)))
-    out = ndimage.affine_transform(padded, matrix.T,
-                                   offset=offset + np.array([0.0, -pad]),
+    offset = np.array([0.0, -shear * y0 * up + pad - pad])
+    out = ndimage.affine_transform(padded, matrix, offset=offset,
                                    order=0, output=bool)
-    return out
+    h, w = out.shape[0] // up, out.shape[1] // up
+    # majority of the 3x3 block, not any: any-vote thickened every stroke
+    # by up to a pixel a side, closed italic counters ('e' read '8') and
+    # narrowed 'o' toward '0'; majority keeps the ink count exactly
+    out = out[: h * up, : w * up].reshape(h, up, w, up).sum(axis=(1, 3)) >= 5
+    return _crop_to_ink(out)
 
 
 def _normalize_stroke_width(mask: np.ndarray) -> np.ndarray:
@@ -141,7 +158,11 @@ def _skeleton_stats(mask: np.ndarray) -> tuple[int, int]:
 def extract_features(glyph: np.ndarray) -> np.ndarray:
     """Compute the feature vector for one glyph crop (see module docstring)."""
     mask = np.asarray(glyph) < 0.5
-    mask = _crop_to_ink(_normalize_stroke_width(_deslant(mask)))
+    # crop BEFORE the stroke normalizer: its target width is a fraction of
+    # the glyph's size, and the deslant's padding was inflating that size
+    # for italics only (a 28-px italic 'e' dilated to 3.8x its ink and
+    # lost its counter; the roman 'e' beside it did not)
+    mask = _crop_to_ink(_normalize_stroke_width(_crop_to_ink(_deslant(mask))))
     h, w = mask.shape
     if mask.sum() < 3:  # blank or speck: no meaningful shape
         return np.zeros(N_FEATURES, np.float32)

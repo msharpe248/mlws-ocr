@@ -74,19 +74,14 @@ def print_fonts(limit: int | None = None, exclude: tuple[str, ...] = (),
     i_aspect = FEATURE_NAMES.index("aspect")
 
     out = []
-    # Faces stocked BY NAME come first and outside the cap: the pool of 80
-    # fills from the system directories before the user's is reached.
+    # Faces stocked BY NAME are examined first, outside the cap: the pool
+    # of 80 fills from the system directories before the user's is
+    # reached.  They still pass the shape gate below -- it was right about
+    # TeX Gyre Termes Italic, whose 'e' renders as junk at every size.
     all_fonts = find_fonts()
-    for f in all_fonts:
-        if f.stem in include and not any(e.lower() in f.stem.lower() for e in exclude):
-            try:
-                render_glyph("o", f, px_height=32)
-            except Exception:
-                continue
-            out.append(f)
-    for f in all_fonts:
-        if f.stem in include:
-            continue
+    ordered = [f for f in all_fonts if f.stem in include] + [f for f in all_fonts if f.stem not in include]
+    for f in ordered:
+        stocked = f.stem in include
         name = f.name.lower()
         if any(e.lower() in name for e in exclude):
             continue
@@ -114,7 +109,7 @@ def print_fonts(limit: int | None = None, exclude: tuple[str, ...] = (),
         # (Courier New measures 1.35) but is still a bar.
         if o[i_hole] >= 1 and l[i_hole] == 0 and l[i_aspect] > 1.2:
             out.append(f)
-        if limit and len(out) >= limit:
+        if limit and not stocked and len(out) >= limit:
             break
     return out
 
