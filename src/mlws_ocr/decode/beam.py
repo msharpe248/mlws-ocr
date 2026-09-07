@@ -70,6 +70,7 @@ NUMERIC_PUNCT = set("/-.,:$%()")  # characters that belong inside numbers
                                   # ('(8.25%)', '(206) 555-0142', '401(k)':
                                   # a ')' outbid by a boosted '0' read as
                                   # '(8.25560')
+SLANTED = set("/")               # classes whose identity IS their lean (see the slant prior)
 WRAPPERS = set('"()[]')          # LM-transparent: they enclose words, not spell them
 _STRIP_WRAPPERS = str.maketrans("", "", '"()[]')
 
@@ -151,6 +152,11 @@ class BeamDecode(Stage):
         "wrapper_lm_logp": -4.0,  # flat LM log-prob for quotes and brackets
                                   # (a common letter costs about this; the
                                   # trigram floor they paid before is -13.8)
+        "slant_prior": 1.5,        # '/' favoured when the glyph leans right
+                                   # against its line by slant_min, else
+                                   # penalized (a sans 'l' is featurewise a
+                                   # '/' after deslant); 0 = off
+        "slant_min": 0.15,
         "abs_quality_weight": 0.0, # per-glyph cost of its top-1 distance
                                    # (absolute quality, for path choices);
                                    # 0 = off; see _beam_word_mode
@@ -1381,6 +1387,8 @@ class BeamDecode(Stage):
         # Per-glyph scored candidates (pixel softmax + height prior).
         rejected = False
         per_glyph = []
+        shears = [g["shear"] for g in groups if "shear" in g]
+        line_shear = float(np.median(shears)) if len(shears) >= 2 else None
         for gi, g in enumerate(groups):
             cands = g["candidates"]
             if cands[0][1] > reject_at and "pinned" not in g:
@@ -1405,6 +1413,15 @@ class BeamDecode(Stage):
             flanked = (0 < gi < len(groups) - 1
                        and "(" in [c for c, _ in groups[gi - 1]["candidates"][:3]]
                        and ")" in [c for c, _ in groups[gi + 1]["candidates"][:3]])
+            # Slant prior: the deslant removed each glyph's lean before the
+            # features saw it, so a sans 'l', an 'I' and a '/' are the same
+            # vector.  A glyph leaning right against its LINE (italic lines
+            # lean as a whole) is a slash; one that does not lean is not.
+            if p["slant_prior"] > 0 and "shear" in g and line_shear is not None:
+                rel = g["shear"] - line_shear
+                for c in list(lp):
+                    if c in SLANTED:
+                        lp[c] += p["slant_prior"] if rel < -p["slant_min"] else -p["slant_prior"]
             aspects = getattr(self, "_class_aspect", None)
             if aspects and p["aspect_prior"] > 0:
                 b = g["box"]

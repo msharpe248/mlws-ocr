@@ -40,6 +40,22 @@ FEATURE_NAMES: list[str] = (
 N_FEATURES = len(FEATURE_NAMES)
 
 
+def glyph_shear(mask: np.ndarray) -> float:
+    """The lean the deslant removes: mu11/mu02 of the ink, clipped to
+    +-0.6 (negative = leaning right in image coordinates, like '/').
+    Kept per glyph because the deslanted features cannot tell a sans 'l'
+    from a '/' (distance 0.0 between them, measured): the slant IS the
+    difference, and the decoder judges it against the line's own lean."""
+    ys, xs = np.nonzero(mask)
+    if len(xs) < 3:
+        return 0.0
+    y0, x0 = ys.mean(), xs.mean()
+    mu02 = ((ys - y0) ** 2).mean()
+    if mu02 < 1e-6:
+        return 0.0
+    return float(np.clip(((xs - x0) * (ys - y0)).mean() / mu02, -0.6, 0.6))
+
+
 def _deslant(mask: np.ndarray) -> np.ndarray:
     """Shear-correct an italic/oblique glyph using its second moments.
 

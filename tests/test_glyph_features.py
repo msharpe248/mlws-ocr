@@ -75,3 +75,13 @@ def test_small_italic_e_keeps_one_counter(font_path):
         st = F._normalize_stroke_width(F._crop_to_ink(F._deslant(mask)))
         assert F._hole_count(st, 0) == 1
         assert st.sum() < 2.0 * mask.sum()
+
+
+def test_glyph_shear_sign_and_bar():
+    import numpy as np
+    from mlws_ocr.glyph.features import glyph_shear
+    bar = np.zeros((30, 10), bool); bar[3:27, 4:6] = True
+    slash = np.zeros((30, 30), bool)
+    for y in range(3, 27): slash[y, int(round(15 + (15 - y) * 0.4))] = True   # leans right
+    assert abs(glyph_shear(bar)) < 0.02
+    assert glyph_shear(slash) < -0.25

@@ -13,7 +13,7 @@ import numpy as np
 from ..core.artifacts import Page
 from ..core.registry import register
 from ..core.stage import DebugBundle, Stage
-from ..glyph.features import FEATURE_NAMES, extract_features
+from ..glyph.features import FEATURE_NAMES, extract_features, glyph_shear
 from ..glyph.skeleton import skeleton_graph
 from .nearest import NearestPrototype
 
@@ -463,6 +463,7 @@ class PrototypeRecognize(Stage):
                 # fixes the universal-prototype plateau -- the adapt stage
                 # does, by rebuilding prototypes from this document).
                 mask = page.binary[y0:y1, x0:x1]
+                g["shear"] = round(glyph_shear(mask), 3)   # for the decoder's slant prior
                 crops.append(1.0 - mask.astype(np.float32))
                 slots.append((li, gi, None))
         family, share = "all", 0.0
