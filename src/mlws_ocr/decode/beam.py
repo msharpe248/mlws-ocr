@@ -174,7 +174,7 @@ class BeamDecode(Stage):
                                # sharper than the trigram (which used 0.7)
         "lexicon_margin": 4.0,   # accept a lexicon word within this log-score
         "case_prior_scale": 1.0,
-        "aspect_prior": 1.0,      # per log-unit that a glyph box's height/width
+        "aspect_prior": 2.0,      # per log-unit that a glyph box's height/width
                                   # departs from the class's trained aspect
                                   # (recognize publishes layout["class_aspect"])
                                   # beyond aspect_tol.  Tesseract's width
@@ -187,7 +187,12 @@ class BeamDecode(Stage):
                                   # +0.1/+0.3, modern +0.1/+0.1 char/word;
                                   # legal-8 -0.7 char UNTIL gated off on
                                   # fixed-pitch pages (see run()), then flat.
-                                  # 2.0 over-punishes narrow faces.
+                                  # 2.0 over-punished narrow faces on the
+                                  # OLD features; re-swept 2026-09-07 on
+                                  # the fixed features and calibration: 2.0
+                                  # gains dev-8 +0.5 word, legal-8 +0.3
+                                  # (precision +1.1), broad-30 +0.4, modern
+                                  # -0.1; 3.0 no better.  Adopted 2.0.
         "aspect_tol": 0.35,       # free band: ±40% covers face-to-face variation
         "descender_prior": 1.2,   # a glyph whose box crosses the line's
                                   # baseline is a descender letter (p/y/g,
