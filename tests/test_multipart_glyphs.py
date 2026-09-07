@@ -148,3 +148,22 @@ def test_output_drops_page_edge_slivers():
     out, _ = registry.get("output", "text")().run(page)
     assert out.meta["text"].split() == ["Dear", "Sir"]
     assert out.meta["suppressed_lines"] == ["-"]
+
+
+def test_merged_letters_are_not_a_double_quote():
+    """Two merged full-height letters ('ll') must not count as a two-part
+    mark: the multi-part '"' class collected the dot prior and 'payroll'
+    read 'payro"'."""
+    import numpy as np
+    from mlws_ocr.decode.beam import BeamDecode
+    from mlws_ocr.lang.model import CharBigram
+    dec = BeamDecode(); dec._language = "en"; dec._class_aspect = None
+    lm = CharBigram.from_words()
+    xh, base = 20.0, 100
+    def L(x, w, cands, top=base - 30):
+        return {"box": [x, top, x + w, base], "_baseline": base, "parts": 1, "candidates": cands}
+    l1 = L(0, 6, [["l", 12.0], ["I", 20.0], ['"', 30.0]]); l1["merges"] = [[2, [0, base - 30, 16, base]]]
+    l1["merge_candidates"] = {"2": [['"', 14.0], ["ll", 99.0], ["H", 26.0], ["l", 30.0]]}
+    l2 = L(10, 6, [["l", 12.5], ["I", 21.0]])
+    text, _, _ = dec._decode_word([l1, l2], xh, lm, dec.params, np.inf)
+    assert '"' not in text

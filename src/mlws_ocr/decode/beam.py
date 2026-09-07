@@ -151,6 +151,10 @@ class BeamDecode(Stage):
         "wrapper_lm_logp": -4.0,  # flat LM log-prob for quotes and brackets
                                   # (a common letter costs about this; the
                                   # trigram floor they paid before is -13.8)
+        "abs_quality_weight": 0.0, # per-glyph cost of its top-1 distance
+                                   # (absolute quality, for path choices);
+                                   # 0 = off; see _beam_word_mode
+        "abs_quality_scale": 20.0, # ...distance units per nat
         "evidence_temp_frac": 0.35, # softmax temperature as a fraction of the
                                   # top-1 distance (0 = the list's std, the
                                   # original); see _glyph_logprobs.  0.5
@@ -1247,9 +1251,16 @@ class BeamDecode(Stage):
                         # the merged pseudo-glyph keeps the line's baseline
                         # so the position priors judge it too (a merged pair
                         # of quote ticks floating high was reading 'u')
+                        # The merged glyph counts as multi-part only when its
+                        # pieces are tick-sized (the two strokes of a quote);
+                        # two merged LETTERS are not a '"' -- 'payroll' read
+                        # 'payro"' on every payslip when every merge counted.
+                        pieces = groups[i:i + k]
+                        ticks = all((pg["box"][3] - pg["box"][1]) < 0.6 * max(x_height, 1.0)
+                                    for pg in pieces)
                         cand_seq.append({"candidates": g["merge_candidates"][str(k)],
                                          "box": box, "_baseline": g.get("_baseline"),
-                                         "parts": k})   # k components: a multi-part mark may be right
+                                         "parts": k if ticks else 1})
                         prov.append({"box": box, "group": i, "kind": "merge"})
                         skip = k - 1         # the absorbed pieces
                     elif i in split_set:
@@ -1377,6 +1388,16 @@ class BeamDecode(Stage):
                 rejected = True
                 continue
             lp = _glyph_logprobs(cands, p["evidence_temp_frac"])
+            if p["abs_quality_weight"] > 0:
+                # The softmax is relative to the glyph's own list: a junk
+                # piece at distance 98 scores like a perfect glyph at 5, so
+                # only the split bonus and boosts decided split-vs-whole
+                # (a '%' at 14.7 lost to its halves at 38 and 44, read
+                # '96').  Tesseract sums absolute ratings for exactly this
+                # comparison; a per-glyph cost from the top-1 distance,
+                # constant within the list, restores it for path choices.
+                penalty = p["abs_quality_weight"] * cands[0][1] / p["abs_quality_scale"]
+                lp = {c: v - penalty for c, v in lp.items()}
             # A lone letter between parentheses inside a numeric token is a
             # citation label -- "234.3(a)(17)(ix)" -- and keeps its letter
             # reading: no digit boost for it (Federal Register pages read
