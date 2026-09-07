@@ -122,7 +122,10 @@ that localizes it.
    the known text: a modern-font test set with real scanner physics, and
    a truth-labeled modern harvest for every channel behind it. Then
    self-label on the customer's own documents.
-4. **Reading order** (1.4 measured points on letters).
+4. ~~Reading order~~ (was 1.4 points on letters). Re-measured 2026-09-07
+   on the adopted model: scoring dev-8 in the truth's zone order gives
+   94.5 / 86.4 against 94.4 / 87.2 in our own order — nothing left to
+   win there; the column-first cut and row alignment closed it.
 5. ~~Font-stock widening~~ DONE and ADOPTED: six modern sans faces, all
    three channels rebuilt together (the apparent domain trade was a
    mismatched ensemble). Every real set improved; broad-30 88.2/71.0.
