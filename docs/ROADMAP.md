@@ -78,7 +78,7 @@ classification. Priority order follows the shares:
 Tesseract's **legacy engine has no neural net** and scores 95.3% char /
 90.5% word on our thirty-page sample; its LSTM engine scores 95.9 /
 92.2. The neural upgrade bought Tesseract 0.6 char points. We score
-91.1 / 80.4 (2026-09-07, spacing by the line's own size, evidence temperature 0.35 x top-1 distance, valley-ranked cuts, page x-height anchor, feature-extractor fix + regenerated harvests; census fixes: LM-transparent quotes, two ranked cuts, zone crumbs, position pins; class-aspect prior, digit-twin fix, merge charge, confidence chopper, inflected lexicon, sparse-layout decoding, widened stock, outline gate, outline channel, touching-pair splits, three-piece chopper, fragment associator: condensed model with the digit harvest,
+91.1 / 80.6 (2026-09-07, bullets and edge slivers, spacing by the line's own size, evidence temperature 0.35 x top-1 distance, valley-ranked cuts, page x-height anchor, feature-extractor fix + regenerated harvests; census fixes: LM-transparent quotes, two ranked cuts, zone crumbs, position pins; class-aspect prior, digit-twin fix, merge charge, confidence chopper, inflected lexicon, sparse-layout decoding, widened stock, outline gate, outline channel, touching-pair splits, three-piece chopper, fragment associator: condensed model with the digit harvest,
 deferred digit mode). **The remaining gap is therefore classical engineering,
 not model class** — thirty years of it — and that is where the work
 belongs. `scripts/compare_legacy.py` produces the paired per-page table
