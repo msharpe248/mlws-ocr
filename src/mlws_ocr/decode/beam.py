@@ -400,6 +400,16 @@ class BeamDecode(Stage):
     _NUM_SUFFIXES = {"st", "nd", "rd", "th", "am", "pm"}
 
     @staticmethod
+    def _is_bullet(box, ln, lo: float = 0.6, hi: float = 1.3) -> bool:
+        """True for a roughly square glyph between lo and hi x-heights tall:
+        a period is under 0.4, a bullet about the x-height."""
+        xh = ln.get("x_height")
+        if not xh:
+            return False
+        w, h = box[2] - box[0], box[3] - box[1]
+        return lo * xh <= h <= hi * xh and 0.7 <= w / max(h, 1) <= 1.4
+
+    @staticmethod
     def _is_bar(box, ln, tall: float = 1.5, drop: float = 0.12) -> bool:
         """True for a glyph taller than ``tall`` x-heights whose foot is
         ``drop`` x-heights below the baseline: '|' spans ascender to
@@ -427,6 +437,15 @@ class BeamDecode(Stage):
                 continue
             for w in ln.get("words", []):
                 t = w["text"]
+                if t == "." and len(w.get("chars", ())) == 1 \
+                        and cls._is_bullet(w["chars"][0]["box"], ln):
+                    # A lone square blob the size of an x-height is a
+                    # BULLET, not a period: list markers on business
+                    # letters (UNLV writes them '~', 559 in bus.3B).  Not
+                    # a trained class; geometry names it.
+                    w["text"] = "\u2022"
+                    flips += 1
+                    continue
                 core = t.strip("'\".,;:!?()-$%/#")
                 if not core:
                     continue

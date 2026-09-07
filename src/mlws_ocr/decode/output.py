@@ -32,6 +32,8 @@ class TextOutput(Stage):
         "align_match_frac": 0.6,
         "align_max_words": 4.0,          # median words/line above this is
                                          # running text, never a table cell
+        "min_line_xheight_px": 5,        # a line shorter than this is a
+                                         # page-edge scrap, not text
         "garbage_max_conf": 0.15,
         "line_number_doc_types": "legal",  # where a margin line-number
                                          # column is APPARATUS rather than
@@ -124,6 +126,10 @@ class TextOutput(Stage):
                                  and text_all.strip(".,$%").isdigit())
                 single = sum(1 for w in ln["words"] if len(w["text"]) == 1)
                 flood = len(ln["words"]) >= 10 and single >= 0.8 * len(ln["words"])
+                # A "line" whose x-height is a few pixels is a scanner
+                # scrap at the page edge (a 9x2 sliver read '-' on census
+                # page 8522, top rows 16 and 47), never text at any dpi
+                sliver = (ln.get("x_height") or 99) < self.params["min_line_xheight_px"]
                 # Graphic-suspect lines (pixel distances far above page
                 # median = shapes matching no prototype) are suppressed
                 # unless a substantial real word survived -- protects
@@ -146,7 +152,7 @@ class TextOutput(Stage):
                 # misread ("PAssAIc, Na 07055"): deletion attribution found
                 # such lines suppressed whole, 16 deletions for 2 errors.
                 formatted = any(numeric_endorsed(w["text"]) for w in ln["words"])
-                if not digit_heavy and not formatted and not short_numeric and (graphic or (
+                if not digit_heavy and not formatted and not short_numeric and (graphic or sliver or (
                         not any(w["in_lexicon"] for w in ln["words"])
                         and sum(confs) / len(confs) < self.params["garbage_max_conf"]
                         and (repeat >= self.params["garbage_repeat_frac"]

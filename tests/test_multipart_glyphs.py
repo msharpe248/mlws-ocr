@@ -124,3 +124,27 @@ def test_page_x_height_anchors_on_mixed_case_lines():
     anchor = BeamDecode._page_x_height([None] * 9 + [20.3] * 4)
     assert abs(anchor - 20.3) < 0.1
     assert BeamDecode._page_x_height([None, None]) == 0.0
+
+
+def test_bullet_named_by_geometry():
+    from mlws_ocr.decode.beam import BeamDecode
+    ln = {"x_height": 16.0, "baseline": 100}
+    assert BeamDecode._is_bullet([0, 84, 15, 99], ln)          # a 15x15 square at x-height
+    assert not BeamDecode._is_bullet([0, 95, 4, 99], ln)       # a period
+    assert not BeamDecode._is_bullet([0, 84, 40, 99], ln)      # a dash-like wide blob
+
+
+def test_output_drops_page_edge_slivers():
+    import numpy as np
+    import mlws_ocr.decode  # noqa: F401
+    from mlws_ocr.core import registry
+    from mlws_ocr.core.artifacts import Page
+    word = lambda t: {"text": t, "confidence": 0.9, "in_lexicon": t.isalpha(), "box": [0, 0, 10, 10]}
+    layout = {"lines": [
+        {"box": [200, 10, 220, 13], "x_height": 2.0, "words": [word("-")]},          # a 9x2 scanner scrap
+        {"box": [100, 100, 600, 130], "x_height": 20.0, "words": [word("Dear"), word("Sir")]},
+    ]}
+    page = Page(gray=np.ones((300, 800), np.float32), dpi=300.0, meta={"layout": layout})
+    out, _ = registry.get("output", "text")().run(page)
+    assert out.meta["text"].split() == ["Dear", "Sir"]
+    assert out.meta["suppressed_lines"] == ["-"]

@@ -26,7 +26,10 @@ def main():
     ap.add_argument("--seed", type=int, default=2)
     ap.add_argument("--oem", default="3", help="3=LSTM (default), 0=legacy "
                     "pre-neural engine (needs legacy-capable traineddata "
-                    "via TESSDATA_PREFIX)")
+                    "via TESSDATA_PREFIX: the tessdata repository's "
+                    "eng.traineddata carries both engines -- "
+                    "https://github.com/tesseract-ocr/tessdata/raw/main/"
+                    "eng.traineddata -- Homebrew's is LSTM-only)")
     args = ap.parse_args()
 
     pairs = list(find_pairs(args.root))

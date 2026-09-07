@@ -42,7 +42,8 @@ def find_pairs(root: Path):
 
 _FOLD = str.maketrans({"\u2018": "'", "\u2019": "'", "\u201a": "'", "\u201c": '"',
                        "\u201d": '"', "\u201e": '"', "\u2013": "-", "\u2014": "-",
-                       "\u2212": "-", "\u00a0": " "})
+                       "\u2212": "-", "\u00a0": " ",
+                       "\u2022": "~"})   # UNLV writes bullets '~'; we emit U+2022
 
 
 def normalize(text: str) -> str:
