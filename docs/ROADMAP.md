@@ -87,40 +87,28 @@ that localizes it.
 ## Now (2026-09-02, agreed plan): modern documents, then wider opinions
 
 1. ~~A modern test set, and our number on it.~~ BUILT and measured
-   (RESEARCH): ours 74.2 char / 71.4 recall vs legacy 67.4 / 85.7 on 59
-   pages. After the sparse-layout decoding work and a cleaned truth
-   (production slug, glued line numbers and split small-caps names removed): **84.3 / 71.7 /
+   (RESEARCH). Current (2026-09-07, cleaned truth): **84.3 / 71.7 /
    89.1 recall / 90.1 precision** against legacy 72.0 / 67.5 / 92.0 /
-   95.7 — we lead by 12.3 char and 4.2 word; the remaining gap is
-   PRECISION (spurious tokens) and recall on small type. Per kind:
-   letters 98.5 / 92.5, invoices 90.3 / 77.7, payslips 73.8 / 67.5,
-   bills 88.3 / 64.0, Federal Register 64.0 / 53.2 (small type). The
-   payslips' char score is reading-order convention, not recognition:
-   their key/value header is two columns, our row alignment emits it
-   row-major (as the invoice TABLES want), the template's text layer
-   lists it column-major; recall is 93. Not worth chasing — a scorer
-   that pairs lines would be truer than either order. The invoices' 9
-   read as 5 was a decoder bug (a digit spawning a letter twin in digit
-   mode), fixed 2026-09-04. The bills' italic enacting clause led to
-   the feature extractor itself (2026-09-06, RESEARCH): the deslant lost
-   a hairline's ink and the stroke target was measured on the render
-   canvas, so every synthetic prototype stood off its page crop and the
-   harvests had been compensating. Fixed; renders alone now reach
-   within 1.5 word points of the live model with harvests. Harvests
-   are being regenerated under the new extractor. The Federal Register's small type (12 px
-   x-height) is a CAPTURE limit, not an algorithm: the same pages at
-   400 dpi gain 5.5 recall and 5.5 precision, while the 300-dpi scans
-   upscaled to 400 lose 2.5 (RESEARCH, 2026-09-05) — scan 8-pt text at
-   400 dpi; no magnify stage. Original
-   description: Everything measured so
-   far is 1990s UNLV photocopies. Build `data/modern/`: born-digital
-   public-domain documents (govinfo Federal Register pages and bills, GAO
-   reports; SEC EDGAR exhibits such as contracts) rasterized at 300 dpi
-   with exact truth from the PDF text layer, plus templated invoices and
-   payslips rendered in the modern faces on this machine (Helvetica Neue,
-   Avenir, Arial), all put through the degradation stack at three
-   severities to stand in for a scanner. Measure ours and legacy
-   Tesseract on it. This ranks everything below.
+   95.7 — we lead by 12.3 char and 4.2 word. Per kind (char / word,
+   recall, precision): letters 98.5 / 93.0 (95.2, 94.9), invoices
+   90.5 / 81.8 (91.4, 92.2), payslips 73.4 / 66.8 (92.5, 91.1), bills
+   90.6 / 70.0 (85.9, 87.9), Federal Register 65.9 / 57.1 (87.2, 88.9).
+   Business pages alone: 87.5 / 80.5 / 93.0 / 92.7. What the set
+   taught, each in RESEARCH: the payslips' char score is reading-order
+   convention (two-column key/value header, truth column-major, ours
+   row-major; recall 92.5); the Federal Register's 12-px x-height is a
+   CAPTURE limit (400 dpi +5.5 recall, upscaling 300 → 400 −2.5 — scan
+   8-pt text at 400 dpi); the invoices' 9-as-5 was a digit-twin bug;
+   the bills' italic clause led to two foundational defects — the
+   feature extractor's deslant and stroke target (2026-09-06) and the
+   per-glyph softmax temperature (2026-09-06) — whose fixes moved every
+   set more than anything before them. Original description: Everything
+   measured so far is 1990s UNLV photocopies. Build `data/modern/`:
+   born-digital public-domain documents (govinfo Federal Register pages
+   and bills) rasterized at 300 dpi through a print model with exact
+   truth from the PDF text layer, plus templated invoices, payslips and
+   letters in the modern faces on this machine, measured against legacy
+   Tesseract. This ranks everything below.
 2. ~~A self-trained glyph CNN as a fourth opinion.~~ DONE and measured
    NEGATIVE (RESEARCH): 95.4% on a page-disjoint holdout, 99.1% agreement
    with correct reads, yet broad-30 −0.1/−0.4 and legal −0.2/−1.0 as a
