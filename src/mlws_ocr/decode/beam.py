@@ -260,6 +260,10 @@ class BeamDecode(Stage):
                                   # holds real digit prototypes, 'l'/'1',
                                   # 's'/'5', 'o'/'0' inside words flipped
                                   # to digits (dev-8 confusion report)
+        "space_scale": "line",    # "xheight" | "line" | "size": what the
+                                  # gap thresholds below are relative to
+                                  # (measured: modern +0.9 word, broad-30
+                                  # +0.1, dev-8 -0.1; legal-8 exempted)
         "space_lo": 0.35,        # gap below this * x_height: definitely joined
                                  # (measured: sharp inter-letter gaps reach
                                  # ~0.24, real word gaps sit near ~0.65)
@@ -761,11 +765,27 @@ class BeamDecode(Stage):
                     g["_baseline"] = baseline
 
             # Word boundaries: definite gaps split immediately; uncertain
-            # gaps become variants the dictionary and LM vote on.
-            # (Scaling the gaps by the line's median glyph height instead
-            # of x-height was measured: legal-8 flat, dev-8 and broad-30
-            # -1.5 word together with the capital reward below; reverted.)
-            segments = self._segment_line(groups, x_height, p)
+            # gaps become variants the dictionary and LM vote on.  The
+            # gap thresholds scale with the lowercase x-height, or with
+            # the line's TYPE SIZE (median glyph height) when space_scale
+            # is "size": a digits-only line anchored on the page's
+            # x-height splits "$150.90" into "$1 50.90" (payslips -6 word
+            # after the anchor fix).
+            if p["space_scale"] == "size" and heights:
+                scale = float(np.median(heights))
+            elif p["space_scale"] == "line" and not layout.get("fixed_pitch"):
+                # the line's OWN estimate, no page-anchor substitution: a
+                # mixed-case line gives its x-height, a digits or caps line
+                # its glyph height -- what spacing had before the anchor
+                # fix, on every line ("size" wrecked prose: a line rich in
+                # ascenders puts the median glyph height on the tall mode).
+                # Fixed-pitch pages keep the anchored scale: their uniform
+                # caps lines widened the thresholds and fused words
+                # (legal-8 -0.5 word, measured).
+                scale = self._line_x_height(groups, baseline, 0.0, heights)
+            else:
+                scale = x_height
+            segments = self._segment_line(groups, scale, p)
 
             decoded = []
             for seg_groups, uncertain in segments:
