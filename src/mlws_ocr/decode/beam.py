@@ -151,11 +151,15 @@ class BeamDecode(Stage):
         "wrapper_lm_logp": -4.0,  # flat LM log-prob for quotes and brackets
                                   # (a common letter costs about this; the
                                   # trigram floor they paid before is -13.8)
-        "evidence_temp_frac": 0.5,  # softmax temperature as a fraction of the
+        "evidence_temp_frac": 0.35, # softmax temperature as a fraction of the
                                   # top-1 distance (0 = the list's std, the
-                                  # original); see _glyph_logprobs.  Measured
-                                  # legal-8 69.3 -> 78.4 word, broad-30
-                                  # 76.5 -> 77.6 (precision +2.1), dev-8 flat
+                                  # original); see _glyph_logprobs.  0.5
+                                  # measured legal-8 69.3 -> 78.5 word,
+                                  # broad-30 76.5 -> 79.8; swept 0.7 (worse
+                                  # everywhere), 0.35 (+0.1..+0.7 word on all
+                                  # four sets over 0.5), 0.25 (no better than
+                                  # 0.35).  lm_weight re-swept at this scale:
+                                  # 0.35/0.7 within 0.3 of 0.5, kept.
         "lm_weight": 0.5,      # calibrated for the GRU: its log-probs are
                                # sharper than the trigram (which used 0.7)
         "lexicon_margin": 4.0,   # accept a lexicon word within this log-score
@@ -1516,6 +1520,13 @@ class BeamDecode(Stage):
                         target = "'"
                     elif pc == "'" and hangs:
                         target = ","
+                    if target != pc and pc in lp:
+                        # geometry has ruled the pinned twin out: it pays
+                        # what the target gains (under the sharper
+                        # evidence scale a pixel gap of 4 nats survived a
+                        # +2.5 pin and the position prior; "you'll" fell
+                        # back to "you,ll")
+                        lp[pc] -= p["pin_bonus"]
                 lp[target] = lp.get(target, min(lp.values())) + p["pin_bonus"]
             h = g["box"][3] - g["box"][1]
             k = p["case_prior_scale"]

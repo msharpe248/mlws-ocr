@@ -39,12 +39,29 @@ def _cut_candidates(mask: "np.ndarray", lo: int, hi: int, k: int,
     if hi <= lo:
         return []
     profile = mask[:, lo:hi].sum(axis=0).astype(float)
-    center = (hi - lo) / 2.0
-    score = profile + np.abs(np.arange(hi - lo) - center) * 1e-3
-    order = np.argsort(score)
+    n = hi - lo
+    center = (n - 1) / 2.0
+    # One candidate per VALLEY: a maximal run of equal profile values no
+    # higher than both flanks, represented by its centre column.  Ranking
+    # raw columns let a wide trough (the arch of an 'h', four columns at
+    # 4 px of ink) take every slot while the true t|h kiss beside it, one
+    # unit deeper than nothing but a different valley, went unoffered:
+    # 'the' read 'he' on census page 8531 with two ranked cuts.
+    valleys: list[tuple[float, float, int]] = []
+    i = 0
+    while i < n:
+        j = i
+        while j + 1 < n and profile[j + 1] == profile[i]:
+            j += 1
+        left = profile[i - 1] if i > 0 else np.inf
+        right = profile[j + 1] if j + 1 < n else np.inf
+        if profile[i] <= left and profile[i] <= right and (i > 0 or j + 1 < n):
+            c = (i + j) // 2
+            valleys.append((profile[i], abs(c - center) * 1e-3, c))
+        i = j + 1
     picked: list[int] = []
-    for i in order:
-        c = lo + int(i)
+    for _depth, _off, c in sorted(valleys):
+        c = lo + int(c)
         if all(abs(c - q) >= min_sep for q in picked):
             picked.append(c)
             if len(picked) == k:

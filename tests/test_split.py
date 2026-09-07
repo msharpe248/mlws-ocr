@@ -56,3 +56,15 @@ def test_concave_cut_lands_in_the_kiss(font_path):
     cuts = _concave_cuts(mask, w // 4, w - w // 4, k=1, min_sep=w // 6)
     assert cuts, "no concave pair found"
     assert abs(cuts[0] - w / 2) < w * 0.12, f"cut at {cuts[0]} of {w}"
+
+
+def test_cut_candidates_one_per_valley():
+    """A wide shallow trough must not take every slot: the second candidate
+    is the next VALLEY, not the trough's neighbour column."""
+    import numpy as np
+    from mlws_ocr.glyph.components import _cut_candidates
+    prof = np.array([9, 9, 9, 5, 9, 9, 9, 9, 9, 4, 4, 4, 4, 9, 9, 9], float)   # kiss at 3, arch 9-12
+    mask = np.zeros((10, len(prof)), bool)
+    for c, v in enumerate(prof): mask[:int(v), c] = True
+    cuts = _cut_candidates(mask, 0, len(prof), 2, 2)
+    assert sorted(cuts) == [3, 10]
