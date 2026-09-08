@@ -103,3 +103,4 @@ def test_merge_paths_reassemble_a_shredded_word():
     paths = Beam._merge_paths(groups, k_best=4)
     assert paths[0] == {}
     assert {0: 2, 2: 2, 4: 2} in paths
+

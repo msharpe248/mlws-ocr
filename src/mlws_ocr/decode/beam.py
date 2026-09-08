@@ -1053,7 +1053,15 @@ class BeamDecode(Stage):
         """
         gaps = [g["box"][0] - prev["box"][2]
                 for prev, g in zip(groups, groups[1:])]
+        # Gaps wider than half an x-height are word spaces whatever the
+        # band says; they are dropped BEFORE clustering, so one column gap
+        # (40 px on a letterhead line) cannot drag the boundary above the
+        # real word gaps (11-12 px) -- page 8528 fused a whole line.
         band = gap_band(gaps)
+        # (Reclustering without the outlying gaps was tried and shredded a
+        # tight caps line, 8528: its 8-px inter-letter gaps became the new
+        # band's "spaces".  The ratios, with the lexicon on the uncertain
+        # gaps, are the safer fallback.)
         # The 2-means band is only trustworthy when it found REAL word
         # spaces: on a line with one word gap among many letter gaps
         # ("Project management" in a table cell) k-means splits the letter
@@ -1062,7 +1070,16 @@ class BeamDecode(Stage):
         # the minimum plausible one is not a word space; fall back to the
         # x-height ratios, which is what short lines need anyway.
         if band is not None and band[1] < p["space_lo"] * max(x_height, 1.0):
+            # (Trusting such a narrow band when several gaps sat above it
+            # was tried for a tightly set page, 8531, and shredded prose
+            # elsewhere: "questions" -> "quest ione", "call" -> "ca ll".)
             band = None
+        # (A line with ONE huge gap -- a price column 276 px off -- clusters
+        # every other gap as "joined", up to 22 px on a 34-px x-height, and
+        # "3 x 5 (lined)" read "3x5(lined)" twenty times on one order form.
+        # Every guard tried against it -- a cap on the band's edge, a
+        # minimum word-gap population, reclustering, a wider uncertain zone
+        # -- cost more elsewhere than it won there; RESEARCH 2026-09-08.)
         if band is not None:
             lo, hi = band
         else:
@@ -1101,12 +1118,8 @@ class BeamDecode(Stage):
             # lands just above the band ("06/1" + "5/2025" on a payslip)
             digit_run = (top1(prev).isdigit() and top1(nxt).isdigit()
                          and any(top1(g) in NUMERIC_PUNCT for g in current))
-            # "401(k)", "26(b)": a parenthesised label glued to a number --
-            # the gap before the '(' is a kerned figure's, not a space
-            # (payslips split '401(k)' on six of eight pages)
-            label = top1(prev).isdigit() and top1(nxt) == "("
-            if label:
-                return True
+            # (A digit-then-'(' join for labels like '401(k)' was measured
+            # -0.1..-0.3 word on the scan sets, 2026-09-08; not kept.)
             if not (sep_pattern or digit_run):
                 return False
             if digit_run and not sep_pattern:
@@ -1132,9 +1145,7 @@ class BeamDecode(Stage):
 
         segments, current, uncertain = [], [groups[0]], []
         for gap, g in zip(gaps, groups[1:]):
-            paren_label = (current and current[-1].get("candidates") and g.get("candidates")
-                           and current[-1]["candidates"][0][0].isdigit() and g["candidates"][0][0] == "(")
-            if gap > hi and (data_line or paren_label) and numeric_join(current[-1], g,
+            if gap > hi and data_line and numeric_join(current[-1], g,
                                                        current[-2] if len(current) > 1 else None):
                 # Not a forced join: the gap becomes UNCERTAIN, so the
                 # variant search below reads it both ways and the lexicon
