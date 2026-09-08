@@ -78,7 +78,7 @@ classification. Priority order follows the shares:
 Tesseract's **legacy engine has no neural net** and scores 95.3% char /
 90.5% word on our thirty-page sample; its LSTM engine scores 95.9 /
 92.2. The neural upgrade bought Tesseract 0.6 char points. We score
-91.1 / 80.6 (2026-09-07, bullets and edge slivers, spacing by the line's own size, evidence temperature 0.35 x top-1 distance, valley-ranked cuts, page x-height anchor, feature-extractor fix + regenerated harvests; census fixes: LM-transparent quotes, two ranked cuts, zone crumbs, position pins; class-aspect prior, digit-twin fix, merge charge, confidence chopper, inflected lexicon, sparse-layout decoding, widened stock, outline gate, outline channel, touching-pair splits, three-piece chopper, fragment associator: condensed model with the digit harvest,
+91.7 / 81.4 (2026-09-08, absolute glyph quality, aspect prior 2.0, slant prior, bullets and edge slivers, spacing by the line's own size, evidence temperature 0.35 x top-1 distance, valley-ranked cuts, page x-height anchor, feature-extractor fix + regenerated harvests; census fixes: LM-transparent quotes, two ranked cuts, zone crumbs, position pins; class-aspect prior, digit-twin fix, merge charge, confidence chopper, inflected lexicon, sparse-layout decoding, widened stock, outline gate, outline channel, touching-pair splits, three-piece chopper, fragment associator: condensed model with the digit harvest,
 deferred digit mode). **The remaining gap is therefore classical engineering,
 not model class** — thirty years of it — and that is where the work
 belongs. `scripts/compare_legacy.py` produces the paired per-page table
@@ -87,9 +87,9 @@ that localizes it.
 ## Now (2026-09-02, agreed plan): modern documents, then wider opinions
 
 1. ~~A modern test set, and our number on it.~~ BUILT and measured
-   (RESEARCH). Current (2026-09-07, cleaned truth): **84.3 / 71.7 /
-   89.1 recall / 90.1 precision** against legacy 72.0 / 67.5 / 92.0 /
-   95.7 — we lead by 12.3 char and 4.2 word. Per kind (char / word,
+   (RESEARCH). Current (2026-09-08, cleaned truth): **84.7 / 72.3 /
+   89.7 recall / 90.7 precision** against legacy 72.0 / 67.5 / 92.0 /
+   95.7 — we lead by 12.7 char and 4.8 word. Per kind (char / word,
    recall, precision): letters 98.5 / 93.0 (95.2, 94.9), invoices
    90.5 / 81.8 (91.4, 92.2), payslips 73.4 / 66.8 (92.5, 91.1), bills
    90.6 / 70.0 (85.9, 87.9), Federal Register 65.9 / 57.1 (87.2, 88.9).

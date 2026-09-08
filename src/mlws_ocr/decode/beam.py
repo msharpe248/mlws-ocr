@@ -1272,7 +1272,13 @@ class BeamDecode(Stage):
                         pieces = groups[i:i + k]
                         ticks = all((pg["box"][3] - pg["box"][1]) < 0.6 * max(x_height, 1.0)
                                     for pg in pieces)
-                        cand_seq.append({"candidates": g["merge_candidates"][str(k)],
+                        mc = g["merge_candidates"][str(k)]
+                        if not ticks:
+                            # a double quote IS two short ticks: a merge of
+                            # full-height pieces cannot be one ('payro"',
+                            # 'bi"', 'ca"' on the payslips, 15 words)
+                            mc = [cd for cd in mc if cd[0] not in ('"', "'")] or mc
+                        cand_seq.append({"candidates": mc,
                                          "box": box, "_baseline": g.get("_baseline"),
                                          "parts": k if ticks else 1})
                         prov.append({"box": box, "group": i, "kind": "merge"})
