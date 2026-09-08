@@ -125,7 +125,14 @@ that localizes it.
    measured inert or negative because cut PIECES are not glyphs the
    whole-glyph classifier knows. A piece-aware scorer trained on
    labelled touching pairs from real scans is the mechanism; a class
-   per pair is not (ligature classes measured negative twice). Print the
+   per pair is not (ligature classes measured negative twice).
+   A methodological note from 2026-09-08: three rules that fixed a
+   business-page class on every one of its eight templated pages
+   ('Qty' headers, '@' in addresses, the chop stage's 'rt') measured
+   NEGATIVE on the general sets. Eight pages of one template are one
+   data point; a rule specific enough to fix them is rarely specific
+   enough not to fire elsewhere. Business-page classes now need a
+   mechanism that is right in general, or a bigger business set. Print the
    modern set on the real printer, scan on the real scanner, align to
    the known text: a modern-font test set with real scanner physics, and
    a truth-labeled modern harvest for every channel behind it. Then
