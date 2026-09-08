@@ -117,7 +117,15 @@ that localizes it.
    segmentation, not by the candidate list. **Consequence: stop adding
    opinions on the same crop.** The next classifier work that can pay is
    on glyphs that are mis-segmented before any classifier sees them.
-3. **Real modern glyphs through the print-and-scan loop.** Print the
+3. **Real modern glyphs through the print-and-scan loop.** Now also the
+   path to the touching-pair problem: the legacy-gap decomposition
+   (2026-09-08) puts 53% of our excess errors in deleted characters
+   and spaces — pairs read as one letter — and every chopper variant
+   (per-blob, word-level by distance, by aspect, the cut lattice) has
+   measured inert or negative because cut PIECES are not glyphs the
+   whole-glyph classifier knows. A piece-aware scorer trained on
+   labelled touching pairs from real scans is the mechanism; a class
+   per pair is not (ligature classes measured negative twice). Print the
    modern set on the real printer, scan on the real scanner, align to
    the known text: a modern-font test set with real scanner physics, and
    a truth-labeled modern harvest for every channel behind it. Then

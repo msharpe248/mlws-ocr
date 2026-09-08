@@ -68,3 +68,25 @@ def test_cut_candidates_one_per_valley():
     for c, v in enumerate(prof): mask[:int(v), c] = True
     cuts = _cut_candidates(mask, 0, len(prof), 2, 2)
     assert sorted(cuts) == [3, 10]
+
+
+def test_chop_ranks_touching_pair_by_aspect():
+    """An 'rt' blob read 't' matches well; its box betrays it. The chop
+    stage ranks blobs by aspect deviation from the top-1 class's aspect."""
+    import numpy as np
+    import mlws_ocr.recognize.chop  # noqa: F401
+    from mlws_ocr.core import registry
+    from mlws_ocr.core.artifacts import Page
+    binary = np.zeros((60, 200), bool); binary[20:40, 10:190] = True
+    binary[22:38, 55:57] = False          # a thin bridge inside the 't' blob: the kiss
+    def g(x0, x1, top, dist):
+        return {"box": [x0, 20, x1, 40], "candidates": [[top, dist], ["x", 90.0]]}
+    groups = [g(10, 22, "D", 9.0), g(26, 38, "e", 8.0), g(42, 70, "t", 10.0), g(74, 86, "m", 7.0)]  # 't' 28 px wide
+    word = {"text": "Detm", "in_lexicon": False, "confidence": 0.5, "box": [10, 20, 86, 40],
+            "chars": [{"group": i, "kind": "whole", "box": gg["box"]} for i, gg in enumerate(groups)]}
+    layout = {"lines": [{"box": [0, 15, 200, 45], "x_height": 20.0, "groups": groups, "words": [word]}],
+              "class_aspect": {"D": 1.6, "e": 1.0, "t": 1.7, "m": 0.8}}
+    page = Page(gray=np.ones((60, 200), np.float32), binary=binary, dpi=300.0, meta={"layout": layout})
+    out, dbg = registry.get("chop", "unendorsed")(max_per_word=1).run(page)
+    chopped = [i for i, gg in enumerate(out.meta["layout"]["lines"][0]["groups"]) if "alts" in gg]
+    assert chopped == [2]

@@ -54,7 +54,8 @@ PIPELINE = [("deskew", "projection"), ("illumination", "median_background"),
             ("tables", "grid"),
             ("lines", "profile"), ("components", "overlap"),
             ("recognize", "prototypes"), ("decode", "beam"),
-            # ("chop", "unendorsed") -- opt-in: measured inert (RESEARCH)
+            # ("chop", "unendorsed") -- opt-in: measured negative even ranked by
+            # aspect deviation (RESEARCH 2026-09-08); wants a piece-aware scorer
             ("adapt", "cluster_refit"), ("decode", "beam"), ("output", "text")]
 
 

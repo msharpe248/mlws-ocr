@@ -43,11 +43,19 @@ class UnendorsedWordChop(Stage):
         "min_width_frac": 0.9,    # blob at least this x line median width
         "min_piece_frac": 0.3,    # each piece at least this x median width
         "require_better": True,   # both pieces must beat the whole's match
+                                  # (Smith's undo rule).  Off, with aspect
+                                  # ranking, read 'Department' on the payslip
+                                  # but measured -0.1..-0.5 word on all four
+                                  # sets: the pieces of a wrongly cut whole
+                                  # read as plausible letters too often
         "skip_numeric": True,     # digit-heavy tokens are data, not words
+        "rank_by": "aspect",      # "aspect" | "distance": which blobs of an
+                                  # unsatisfactory word to chop first
     }
 
     def run(self, page: Page) -> tuple[Page, DebugBundle]:
         layout = page.meta.get("layout", {})
+        aspects = layout.get("class_aspect") or {}
         if page.binary is None or "lines" not in layout:
             raise ValueError("chop requires decoded lines")
         p = self.params
@@ -79,7 +87,18 @@ class UnendorsedWordChop(Stage):
                     g = gs[ch["group"]] if ch["group"] < len(gs) else None
                     if g is None or "alts" in g or "candidates" not in g:
                         continue
-                    cands.append((g["candidates"][0][1], ch["group"]))
+                    key = g["candidates"][0][1]
+                    if p["rank_by"] == "aspect" and aspects:
+                        # A touching pair matches its single-letter reading
+                        # WELL ('rt' as 't' at distance 10), so the worst
+                        # distance never points at it; what betrays it is
+                        # the box: a 't' twice as wide as a 't' should be.
+                        # Rank by deviation from the top-1 class's trained
+                        # aspect (recognize publishes layout["class_aspect"]).
+                        bx = g["box"]; asp = (bx[3] - bx[1]) / max(bx[2] - bx[0], 1)
+                        exp = aspects.get(g["candidates"][0][0])
+                        key = abs(np.log(asp / exp)) if exp else 0.0
+                    cands.append((key, ch["group"]))
                 for _, gi in sorted(cands, reverse=True)[: p["max_per_word"]]:
                     g = gs[gi]
                     x0, y0, x1, y1 = g["box"]
