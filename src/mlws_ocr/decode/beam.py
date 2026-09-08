@@ -405,6 +405,9 @@ class BeamDecode(Stage):
         med = float(np.median(asc))
         if page_x > 0 and med >= 1.25 * page_x:
             return page_x            # caps-suspect line: lowercase anchor
+        # (Short unimodal lines within the page's type-size range taking the
+        # page anchor was measured -0.1..-0.2 word on every set, 2026-09-08:
+        # it fixed 'Qty' on the invoices and mis-scaled other short lines.)
         return fallback
 
     # First letters whose case twins pixels cannot separate: pure size
@@ -416,6 +419,44 @@ class BeamDecode(Stage):
     # letter twins for digits misread inside words (reverse of DIGIT_TWINS)
     _DIGIT_TO_LETTER = {"0": "o", "1": "l", "5": "s", "9": "g", "2": "z"}
     _NUM_SUFFIXES = {"st", "nd", "rd", "th", "am", "pm"}
+
+    @staticmethod
+    def _at_sign_index(w, ln):
+        """Index into w["chars"] of a glyph that is an '@' by geometry: a
+        WHOLE glyph inside the word (not first or last), roughly square,
+        1.3-1.6 x-heights tall, with a hole, whose best class distance is
+        poor (> 50).  None when there is no such glyph."""
+        xh = ln.get("x_height")
+        chars = w.get("chars") or []
+        if not xh or len(chars) < 3:
+            return None
+        by_box = {tuple(gg["box"]): gg for gg in ln.get("groups", [])}
+        groups = ln.get("groups", [])
+        i = 1
+        while i < len(chars) - 1:
+            c = chars[i]
+            if c is None:
+                i += 1
+                continue
+            if c.get("kind") == "whole":
+                gg = by_box.get(tuple(c["box"])); span = 1
+            else:
+                # a split glyph: its pieces share a (segment-relative) group
+                # index; the pieces' union box is the group's box, which
+                # finds the group and its whole-glyph candidates
+                gi = c.get("group"); span = 1
+                while i + span < len(chars) and chars[i + span] is not None \
+                        and chars[i + span].get("kind") == c.get("kind") and chars[i + span].get("group") == gi:
+                    span += 1
+                pcs = [chars[j]["box"] for j in range(i, i + span)]
+                union = (min(b[0] for b in pcs), min(b[1] for b in pcs), max(b[2] for b in pcs), max(b[3] for b in pcs))
+                gg = by_box.get(union)
+            if gg and gg.get("holes") and gg.get("candidates"):
+                b = gg["box"]; wd, h = b[2] - b[0], b[3] - b[1]
+                if 1.3 * xh <= h <= 1.6 * xh and 0.8 <= wd / max(h, 1) <= 1.25 and gg["candidates"][0][1] > 50:
+                    return (i, span)
+            i += span
+        return None
 
     @staticmethod
     def _is_bullet(box, ln, lo: float = 0.6, hi: float = 1.3) -> bool:
@@ -477,6 +518,24 @@ class BeamDecode(Stage):
                     w["text"] = t.replace(core, "|", 1)
                     flips += 1
                     continue
+                at = cls._at_sign_index(w, ln)
+                if at is not None:
+                    # '@' is not a trained class (it steals from a/e/0/O,
+                    # measured); geometry names it: inside a word, a
+                    # square glyph 1.3-1.6 x-heights tall with a hole that
+                    # no class matched ('billing@example.com' read
+                    # 'biling(bexample.com' on every invoice).  The glyph
+                    # may have been decoded whole (one char) or split (its
+                    # pieces, `span` chars): all of them become one '@'.
+                    idx, span = at
+                    chars = list(w.get("chars", ()))
+                    pos = sum(1 for c in chars[:idx] if c is not None)
+                    if len(t) >= pos + span:
+                        w["text"] = t = t[:pos] + "@" + t[pos + span:]
+                        pcs = [chars[j]["box"] for j in range(idx, idx + span)]
+                        union = [min(b[0] for b in pcs), min(b[1] for b in pcs), max(b[2] for b in pcs), max(b[3] for b in pcs)]
+                        w["chars"] = chars[:idx] + [dict(chars[idx], kind="whole", box=union)] + chars[idx + span:]
+                        flips += 1
                 if "''" in t or "``" in t or '""' in t:
                     # Two apostrophes are one double quote (the TeX and
                     # typewriter convention; curly `` '' arrive as two

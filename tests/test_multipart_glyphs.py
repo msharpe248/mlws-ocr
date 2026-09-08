@@ -167,3 +167,22 @@ def test_merged_letters_are_not_a_double_quote():
     l2 = L(10, 6, [["l", 12.5], ["I", 21.0]])
     text, _, _ = dec._decode_word([l1, l2], xh, lm, dec.params, np.inf)
     assert '"' not in text
+
+
+def test_at_sign_named_by_geometry_whole_and_split():
+    from mlws_ocr.decode.beam import BeamDecode
+    xh = 20.0
+    def grp(box, holes, d): return {"box": list(box), "holes": holes, "candidates": [["x", d]]}
+    at_box = (100, 40, 130, 70)                                   # 30x30 at x-height 20: 1.5 x-heights, square
+    ln = {"x_height": xh, "groups": [grp((80, 50, 95, 70), 0, 5.0), grp(at_box, 1, 80.0), grp((135, 50, 150, 70), 0, 6.0)]}
+    whole = {"text": "g(e", "chars": [{"kind": "whole", "box": [80, 50, 95, 70], "group": 0},
+                                      {"kind": "whole", "box": list(at_box), "group": 1},
+                                      {"kind": "whole", "box": [135, 50, 150, 70], "group": 2}]}
+    assert BeamDecode._at_sign_index(whole, ln) == (1, 1)
+    split = {"text": "g(be", "chars": [{"kind": "whole", "box": [80, 50, 95, 70], "group": 0},
+                                       {"kind": "split", "box": [100, 40, 107, 70], "group": 1},
+                                       {"kind": "split", "box": [107, 40, 130, 70], "group": 1},
+                                       {"kind": "whole", "box": [135, 50, 150, 70], "group": 2}]}
+    assert BeamDecode._at_sign_index(split, ln) == (1, 2)
+    ln["groups"][1]["candidates"] = [["a", 12.0]]                 # a well-matched glyph is not an '@'
+    assert BeamDecode._at_sign_index(whole, ln) is None
