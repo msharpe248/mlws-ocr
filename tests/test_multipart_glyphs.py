@@ -169,20 +169,14 @@ def test_merged_letters_are_not_a_double_quote():
     assert '"' not in text
 
 
-def test_at_sign_named_by_geometry_whole_and_split():
+def test_parenthesised_label_joins_its_number():
+    """'401(k)': the gap before '(' is a kerned figure's, not a space, even
+    on a prose line where the numeric-join context gate would say no."""
     from mlws_ocr.decode.beam import BeamDecode
-    xh = 20.0
-    def grp(box, holes, d): return {"box": list(box), "holes": holes, "candidates": [["x", d]]}
-    at_box = (100, 40, 130, 70)                                   # 30x30 at x-height 20: 1.5 x-heights, square
-    ln = {"x_height": xh, "groups": [grp((80, 50, 95, 70), 0, 5.0), grp(at_box, 1, 80.0), grp((135, 50, 150, 70), 0, 6.0)]}
-    whole = {"text": "g(e", "chars": [{"kind": "whole", "box": [80, 50, 95, 70], "group": 0},
-                                      {"kind": "whole", "box": list(at_box), "group": 1},
-                                      {"kind": "whole", "box": [135, 50, 150, 70], "group": 2}]}
-    assert BeamDecode._at_sign_index(whole, ln) == (1, 1)
-    split = {"text": "g(be", "chars": [{"kind": "whole", "box": [80, 50, 95, 70], "group": 0},
-                                       {"kind": "split", "box": [100, 40, 107, 70], "group": 1},
-                                       {"kind": "split", "box": [107, 40, 130, 70], "group": 1},
-                                       {"kind": "whole", "box": [135, 50, 150, 70], "group": 2}]}
-    assert BeamDecode._at_sign_index(split, ln) == (1, 2)
-    ln["groups"][1]["candidates"] = [["a", 12.0]]                 # a well-matched glyph is not an '@'
-    assert BeamDecode._at_sign_index(whole, ln) is None
+    dec = BeamDecode(); p = dec.params
+    xh = 29.0
+    def g(x, w, c): return {"box": [x, 0, x + w, 29], "candidates": [[c, 5.0]]}
+    groups = [g(0, 20, "4"), g(22, 20, "0"), g(48, 10, "1"), g(70, 9, "("), g(82, 18, "k"), g(101, 10, ")")]   # 11-px gap before '('
+    segments = dec._segment_line(groups, xh, p)
+    texts = ["".join(gg["candidates"][0][0] for gg in seg) for seg, _ in segments]
+    assert texts == ["401(k)"]

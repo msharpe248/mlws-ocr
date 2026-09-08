@@ -421,44 +421,6 @@ class BeamDecode(Stage):
     _NUM_SUFFIXES = {"st", "nd", "rd", "th", "am", "pm"}
 
     @staticmethod
-    def _at_sign_index(w, ln):
-        """Index into w["chars"] of a glyph that is an '@' by geometry: a
-        WHOLE glyph inside the word (not first or last), roughly square,
-        1.3-1.6 x-heights tall, with a hole, whose best class distance is
-        poor (> 50).  None when there is no such glyph."""
-        xh = ln.get("x_height")
-        chars = w.get("chars") or []
-        if not xh or len(chars) < 3:
-            return None
-        by_box = {tuple(gg["box"]): gg for gg in ln.get("groups", [])}
-        groups = ln.get("groups", [])
-        i = 1
-        while i < len(chars) - 1:
-            c = chars[i]
-            if c is None:
-                i += 1
-                continue
-            if c.get("kind") == "whole":
-                gg = by_box.get(tuple(c["box"])); span = 1
-            else:
-                # a split glyph: its pieces share a (segment-relative) group
-                # index; the pieces' union box is the group's box, which
-                # finds the group and its whole-glyph candidates
-                gi = c.get("group"); span = 1
-                while i + span < len(chars) and chars[i + span] is not None \
-                        and chars[i + span].get("kind") == c.get("kind") and chars[i + span].get("group") == gi:
-                    span += 1
-                pcs = [chars[j]["box"] for j in range(i, i + span)]
-                union = (min(b[0] for b in pcs), min(b[1] for b in pcs), max(b[2] for b in pcs), max(b[3] for b in pcs))
-                gg = by_box.get(union)
-            if gg and gg.get("holes") and gg.get("candidates"):
-                b = gg["box"]; wd, h = b[2] - b[0], b[3] - b[1]
-                if 1.3 * xh <= h <= 1.6 * xh and 0.8 <= wd / max(h, 1) <= 1.25 and gg["candidates"][0][1] > 50:
-                    return (i, span)
-            i += span
-        return None
-
-    @staticmethod
     def _is_bullet(box, ln, lo: float = 0.6, hi: float = 1.3) -> bool:
         """True for a roughly square glyph between lo and hi x-heights tall:
         a period is under 0.4, a bullet about the x-height."""
@@ -518,24 +480,6 @@ class BeamDecode(Stage):
                     w["text"] = t.replace(core, "|", 1)
                     flips += 1
                     continue
-                at = cls._at_sign_index(w, ln)
-                if at is not None:
-                    # '@' is not a trained class (it steals from a/e/0/O,
-                    # measured); geometry names it: inside a word, a
-                    # square glyph 1.3-1.6 x-heights tall with a hole that
-                    # no class matched ('billing@example.com' read
-                    # 'biling(bexample.com' on every invoice).  The glyph
-                    # may have been decoded whole (one char) or split (its
-                    # pieces, `span` chars): all of them become one '@'.
-                    idx, span = at
-                    chars = list(w.get("chars", ()))
-                    pos = sum(1 for c in chars[:idx] if c is not None)
-                    if len(t) >= pos + span:
-                        w["text"] = t = t[:pos] + "@" + t[pos + span:]
-                        pcs = [chars[j]["box"] for j in range(idx, idx + span)]
-                        union = [min(b[0] for b in pcs), min(b[1] for b in pcs), max(b[2] for b in pcs), max(b[3] for b in pcs)]
-                        w["chars"] = chars[:idx] + [dict(chars[idx], kind="whole", box=union)] + chars[idx + span:]
-                        flips += 1
                 if "''" in t or "``" in t or '""' in t:
                     # Two apostrophes are one double quote (the TeX and
                     # typewriter convention; curly `` '' arrive as two
@@ -1157,6 +1101,12 @@ class BeamDecode(Stage):
             # lands just above the band ("06/1" + "5/2025" on a payslip)
             digit_run = (top1(prev).isdigit() and top1(nxt).isdigit()
                          and any(top1(g) in NUMERIC_PUNCT for g in current))
+            # "401(k)", "26(b)": a parenthesised label glued to a number --
+            # the gap before the '(' is a kerned figure's, not a space
+            # (payslips split '401(k)' on six of eight pages)
+            label = top1(prev).isdigit() and top1(nxt) == "("
+            if label:
+                return True
             if not (sep_pattern or digit_run):
                 return False
             if digit_run and not sep_pattern:
@@ -1182,7 +1132,9 @@ class BeamDecode(Stage):
 
         segments, current, uncertain = [], [groups[0]], []
         for gap, g in zip(gaps, groups[1:]):
-            if gap > hi and data_line and numeric_join(current[-1], g,
+            paren_label = (current and current[-1].get("candidates") and g.get("candidates")
+                           and current[-1]["candidates"][0][0].isdigit() and g["candidates"][0][0] == "(")
+            if gap > hi and (data_line or paren_label) and numeric_join(current[-1], g,
                                                        current[-2] if len(current) > 1 else None):
                 # Not a forced join: the gap becomes UNCERTAIN, so the
                 # variant search below reads it both ways and the lexicon
