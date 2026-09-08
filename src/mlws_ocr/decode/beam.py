@@ -157,9 +157,12 @@ class BeamDecode(Stage):
                                    # penalized (a sans 'l' is featurewise a
                                    # '/' after deslant); 0 = off
         "slant_min": 0.15,
-        "abs_quality_weight": 0.0, # per-glyph cost of its top-1 distance
+        "abs_quality_weight": 1.0, # per-glyph cost of its top-1 distance
                                    # (absolute quality, for path choices);
-                                   # 0 = off; see _beam_word_mode
+                                   # 0 = off; see _beam_word_mode.  Measured
+                                   # at 1.0: dev-8 +1.4 word, broad-30 +1.0,
+                                   # modern +1.0, legal-8 +0.4, precision
+                                   # +1.2..+2.0 everywhere
         "abs_quality_scale": 20.0, # ...distance units per nat
         "evidence_temp_frac": 0.35, # softmax temperature as a fraction of the
                                   # top-1 distance (0 = the list's std, the
