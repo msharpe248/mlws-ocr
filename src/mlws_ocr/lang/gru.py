@@ -4,7 +4,7 @@ included.
 This is the project's own next-character predictor (user direction: build
 and train our own model), replacing the corpus trigram behind the same
 ``score(context, next)`` interface.  Everything is numpy on purpose: at
-~400k parameters the model trains on a laptop in minutes per epoch, the
+258k parameters the model trains on a laptop in under a minute per epoch, the
 whole forward pass is thirty readable lines, and the pipeline gains no
 framework dependency.  Lineage: recurrent character LMs per Mikolov et
 al. (2010) and Graves (2013); GRU cell per Cho et al. (2014).

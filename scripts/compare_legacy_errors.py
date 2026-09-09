@@ -22,7 +22,8 @@ from mlws_ocr.core.imgio import load_gray
 
 sys.path.insert(0, str(Path(__file__).parent))
 from confusion_report import align_ops  # noqa: E402
-from eval_pages import PIPELINE, edit_distance  # noqa: E402
+from eval_pages import (add_pipeline_args, load_pipeline, run_stages,  # noqa: E402
+                        parse_overrides, edit_distance)
 from eval_unlv import find_pairs, normalize  # noqa: E402
 
 PUNCT = set(".,;:!?()-'\"&$%/#")
@@ -49,7 +50,10 @@ def main():
     ap.add_argument("--pages", type=int, default=30)
     ap.add_argument("--seed", type=int, default=2)
     ap.add_argument("--skip", default="", help="comma list of page stems to exclude")
+    add_pipeline_args(ap)
     args = ap.parse_args()
+    overrides = parse_overrides(args.set)
+    pipeline = load_pipeline(args.config)
     skip = set(s for s in args.skip.split(",") if s)
 
     pairs = list(find_pairs(args.root))
@@ -62,8 +66,7 @@ def main():
         truth = normalize(gt.read_text(errors="ignore"))
         gray, dpi = load_gray(tif)
         page = Page(gray=gray, dpi=dpi or 300.0, meta={"doc_type": "letter"})
-        for slot, impl in PIPELINE:
-            page, _ = registry.get(slot, impl)().run(page)
+        page = run_stages(page, pipeline, overrides)
         ours = normalize(page.meta.get("text", ""))
         leg = normalize(subprocess.run(["tesseract", str(tif), "stdout", "--psm", "3",
                                         "--oem", "0"], capture_output=True,

@@ -1,8 +1,8 @@
-# The default engine: identical to configs/classic.toml (the feature-based
-# engine with its two light networks), and it stays so until the neural
-# profile beats it on every evaluation set.  Swap any stage's impl to compare
-# algorithms; the inspector's diff view renders two runs side by side.
-# tests/test_profiles.py asserts this file and classic.toml agree.
+# The PURE engine: configs/classic.toml with no network at all.  The MLP
+# second opinion is off (mlp_path = "") and the character GRU is off
+# (char_lm = ""), so the decoder falls back to the corpus character n-gram.
+# Kept so "how things were" can always be run and measured; every other
+# stage is the classic engine's.  Scoreboard row in docs/DESIGN.md.
 
 [pipeline]
 stages = ["deskew", "illumination", "binarize", "despeckle",
@@ -45,15 +45,14 @@ impl = "overlap"
 
 [stage.recognize]
 impl = "prototypes"
+mlp_path = ""          # no MLP second opinion
 
 [stage.decode]
 impl = "beam"
+char_lm = ""           # no GRU: the corpus n-gram scores characters
 
 [stage.output]
 impl = "text"
-
-# [stage.chop]  impl = "unendorsed" -- word-level chopping between the decode
-# passes; opt-in, measured inert until cut pieces get piece-aware scoring.
 
 [stage.adapt]
 impl = "cluster_refit"

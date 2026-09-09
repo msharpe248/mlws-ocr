@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "mlws-ocr"
 version = "0.1.0"
-description = "A readable, neural-network-free OCR reference implementation for scanned documents"
+description = "A readable OCR reference implementation for scanned documents: a classic feature-based engine and a neural engine of self-trained networks"
 requires-python = ">=3.11"
 dependencies = [
     "numpy>=1.26",
@@ -17,6 +17,7 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = ["pytest>=8"]
+train = ["torch>=2.4"]   # optional: faster training (and inference on an accelerator); numpy is the reference
 
 [project.scripts]
 mlws-ocr = "mlws_ocr.cli:main"

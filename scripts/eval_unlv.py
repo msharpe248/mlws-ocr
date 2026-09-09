@@ -23,7 +23,8 @@ from mlws_ocr.core.artifacts import Page
 from mlws_ocr.core.imgio import load_gray
 
 sys.path.insert(0, str(Path(__file__).parent))
-from eval_pages import PIPELINE, parse_overrides, edit_distance, edit_distance_words  # noqa: E402
+from eval_pages import (add_pipeline_args, load_pipeline, run_stages,  # noqa: E402
+                        parse_overrides, edit_distance, edit_distance_words)
 
 
 def find_pairs(root: Path):
@@ -113,11 +114,11 @@ def main():
                          "zones before scoring (ISRI practice: measures "
                          "recognition separately from reading-order "
                          "convention)")
-    ap.add_argument("--set", action="append", default=[], metavar="SLOT.KEY=VAL",
-                    help="override a stage parameter (e.g. recognize."
-                         "model_path=data/variant.npz) for this run only")
+    add_pipeline_args(ap)
     args = ap.parse_args()
     overrides = parse_overrides(args.set)
+    pipeline = [(slot, args.blocks if slot == "blocks" else impl, params)
+                for slot, impl, params in load_pipeline(args.config)]
 
     pairs = list(find_pairs(args.root))
     if not pairs:
@@ -135,11 +136,7 @@ def main():
         meta = {"doc_type": args.doc_type} if args.doc_type else {}
         page = Page(gray=gray, dpi=dpi or 300.0, meta=meta)
         try:
-            for slot, impl in PIPELINE:
-                if slot == "blocks":
-                    impl = args.blocks
-                page, _ = registry.get(slot, impl)(
-                    **overrides.get(slot, {})).run(page)
+            page = run_stages(page, pipeline, overrides)
         except Exception as e:
             print(f"  {img_path.name}: PIPELINE ERROR {e}")
             continue

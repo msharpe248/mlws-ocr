@@ -36,7 +36,7 @@ from mlws_ocr.decode.formats import numeric_endorsed
 from mlws_ocr.glyph.features import extract_features
 
 sys.path.insert(0, str(Path(__file__).parent))
-from eval_pages import PIPELINE  # noqa: E402
+from eval_pages import add_pipeline_args, load_pipeline, run_stages, parse_overrides  # noqa: E402
 from eval_unlv import find_pairs  # noqa: E402
 
 
@@ -66,7 +66,10 @@ def main():
                          "--min-conf 0: the word confidence is lexicon-"
                          "driven and sits near 0.05 for every numeric token; "
                          "the rigid format IS the endorsement here")
+    add_pipeline_args(ap)
     args = ap.parse_args()
+    overrides = parse_overrides(args.set)
+    pipeline = load_pipeline(args.config)
 
     excluded = eval_pages_set(args.root)
     pairs = [(t, g) for t, g in find_pairs(args.root)
@@ -81,11 +84,11 @@ def main():
                     meta={"doc_type": args.doc_type})
         family = "other"
         try:
-            for slot, impl in PIPELINE:
-                stage = registry.get(slot, impl)()
-                page, dbg = stage.run(page)
+            def note_family(slot, _page, dbg):
+                nonlocal family
                 if slot == "recognize":
                     family = dbg.scalars.get("font_family", "other")
+            page = run_stages(page, pipeline, overrides, on_stage=note_family)
         except Exception as e:
             print(f"  {tif.name}: ERROR {e}")
             continue

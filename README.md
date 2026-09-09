@@ -1,23 +1,30 @@
 # mlws-ocr
 
-A **readable, neural-network-free OCR** for real-world scanned documents —
-the reference implementation Tesseract's legacy engine should have been.
+A **readable OCR** for real-world scanned documents, in two engines: a
+**classic** feature-based engine — the reference implementation Tesseract's
+legacy engine should have been — and a **neural** engine that adds
+self-trained networks on top of it, one measured term at a time.
 
 The algorithms of pre-neural OCR (structural character features, adaptive
 per-document classification, lattice decoding with language models)
 demonstrably reach 99% character accuracy on ordinary 300 dpi print, but
 every open implementation of them is unreadable. Here, **code legibility is
 a deliverable**: small stages, explicit features, and a debug rendering for
-every step.
+every step — and every network is small enough to read, and to train at home.
 
 Ground rules:
 
-- No pre-trained neural networks. No vision models. Ever.
+- No pre-trained models. No vision or language foundation models. Every
+  model here is trained by this repository, on public data, on home
+  hardware, and runs locally; the numpy implementation is the reference
+  and `torch` is an optional extra for faster training (and inference when
+  an accelerator is present).
 - Dictionaries, character n-grams, and statistical language models are
   allowed and load-bearing.
 - No labeled documents are assumed to exist: training data is manufactured
-  (synthetic font rendering + a physically-modeled degradation pipeline,
-  plus a printed calibration sheet scanned on the actual target device).
+  (synthetic font rendering + a physically-modeled degradation pipeline),
+  and real exemplars are harvested from the engine's own confident reads
+  and from public ground-truth pages.
 - Every stage must be inspectable: no stage is done until a human can look
   at what it did.
 
@@ -33,8 +40,23 @@ python3 -m venv .venv && .venv/bin/pip install -e ".[dev]"
 .venv/bin/mlws-ocr-lab data/unlv/bus.3B             # segmentation lab at http://127.0.0.1:8801
 ```
 
+## Engines
+
+One codebase, three profiles under `configs/`; pass one to `mlws-ocr run`
+or to any evaluation script's `--config`. `default.toml` is the classic
+profile and stays so until the neural profile beats it on every set.
+
+| Profile | Config | Networks | Role |
+|---|---|---|---|
+| **classic** | `configs/classic.toml` | MLP second opinion (53k params), character GRU (258k) | The feature-based reference engine; its scoreboard row is the regression guard. |
+| **pure** | `configs/pure.toml` | none (n-gram character model) | How things were; classic with both networks switched off. |
+| **neural** | `configs/neural.toml` | classic's, plus each heavier self-trained network as it is adopted | Where the network work lands (docs/ROADMAP.md). |
+
+`tests/test_profiles.py` keeps the three honest: pure differs from classic
+only in the two network switches, neural only in recognize/decode terms.
+
 **Models** live under `data/` (gitignored) and are all built here, from
-our own renders and our own self-labeled harvest — nothing pre-trained:
+our own renders and our own harvests — nothing pre-trained:
 
 ```sh
 .venv/bin/python scripts/build_langmodel.py data/corpus_en_plus data/lang_en.npz   # lexicon + char n-grams
@@ -45,6 +67,11 @@ our own renders and our own self-labeled harvest — nothing pre-trained:
 .venv/bin/python scripts/build_outline_protos.py data/outline_protos.npz --condense=12 --min-cover=0.85   # outline-segment prototypes, 12 configurations/class
 .venv/bin/python scripts/build_skeletons.py            # skeleton bank for GED reranking
 ```
+
+Training the heavier networks of the neural profile is faster with the
+optional extra (`pip install -e ".[train]"`, torch on the machine's own
+GPU); every trained model is exported to `.npz` and the pipeline never
+imports torch unless asked to.
 
 Harvest files (`data/harvest_*.npz`, from `scripts/harvest_glyphs.py`)
 are merged automatically when present; without them the prototypes are

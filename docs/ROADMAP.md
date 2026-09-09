@@ -4,7 +4,7 @@ Ranked by measured evidence, not enthusiasm. Every item names the
 observation that motivates it, so a future session can re-check whether
 the motivation still holds before spending the effort.
 
-## Now: close the gap to the legacy (non-neural) reference
+## Now: close the gap to the legacy reference
 
 **Decomposition (2026-09-01, `scripts/compare_legacy_errors.py`).**
 Morning: two gaps, not one — three catastrophic pages (about a quarter)
@@ -79,10 +79,12 @@ Tesseract's **legacy engine has no neural net** and scores 95.3% char /
 90.5% word on our thirty-page sample; its LSTM engine scores 95.9 /
 92.2. The neural upgrade bought Tesseract 0.6 char points. We score
 91.7 / 81.4 (2026-09-08, absolute glyph quality, aspect prior 2.0, slant prior, bullets and edge slivers, spacing by the line's own size, evidence temperature 0.35 x top-1 distance, valley-ranked cuts, page x-height anchor, feature-extractor fix + regenerated harvests; census fixes: LM-transparent quotes, two ranked cuts, zone crumbs, position pins; class-aspect prior, digit-twin fix, merge charge, confidence chopper, inflected lexicon, sparse-layout decoding, widened stock, outline gate, outline channel, touching-pair splits, three-piece chopper, fragment associator: condensed model with the digit harvest,
-deferred digit mode). **The remaining gap is therefore classical engineering,
-not model class** — thirty years of it — and that is where the work
-belongs. `scripts/compare_legacy.py` produces the paired per-page table
-that localizes it.
+deferred digit mode). Most of the gap closed as classical engineering
+and the census still finds foundational defects that way; the part that
+did not close is touching pairs, where four chopper series say the fix
+is a scorer that never needs a cut, which is the neural profile's first
+term (below). `scripts/compare_legacy.py` produces the paired per-page
+table that localizes the gap.
 
 ## Now (2026-09-02, agreed plan): modern documents, then wider opinions
 
@@ -117,15 +119,26 @@ that localizes it.
    segmentation, not by the candidate list. **Consequence: stop adding
    opinions on the same crop.** The next classifier work that can pay is
    on glyphs that are mis-segmented before any classifier sees them.
-3. **Real modern glyphs through the print-and-scan loop.** Now also the
-   path to the touching-pair problem: the legacy-gap decomposition
-   (2026-09-08) puts 53% of our excess errors in deleted characters
-   and spaces — pairs read as one letter — and every chopper variant
-   (per-blob, word-level by distance, by aspect, the cut lattice) has
-   measured inert or negative because cut PIECES are not glyphs the
-   whole-glyph classifier knows. A piece-aware scorer trained on
-   labelled touching pairs from real scans is the mechanism; a class
-   per pair is not (ligature classes measured negative twice).
+3. **The touching-pair scorer (neural profile, first term).** The
+   legacy-gap decomposition (2026-09-08) puts 53% of our excess errors
+   in deleted characters and spaces — pairs read as one letter — and
+   every chopper variant (per-blob, word-level by distance, by aspect,
+   the cut lattice) has measured inert or negative because cut PIECES
+   are not glyphs the whole-glyph classifier knows. The mechanism is a
+   word-strip sequence model (a small CRNN with CTC) that scores the
+   decoder's own hypotheses against the word image — `-log P("rt" |
+   strip)` against `-log P("t" | strip)` from one model, no cut
+   decision — entering as an additive rerank term in `_decode_word`,
+   never as an injected class (the glyph CNN's failure mode) and never
+   as a class per pair (ligature classes measured negative twice).
+   Training data is synthetic: words rendered from the font stock with
+   negative tracking so letters touch, degraded at native size and then
+   normalized, plus real line strips from the UNLV truth-aligned pages
+   labelled by truth word boundaries. The print-and-scan loop is no
+   longer assumed. Second and third terms, sequenced by what the first
+   shows: a partial-shape classifier for cut pieces trained on the same
+   synthetic pairs, and a learned confidence calibrator replacing the
+   distance/20 absolute-quality term.
    A methodological note from 2026-09-08: three rules that fixed a
    business-page class on every one of its eight templated pages
    ('Qty' headers, '@' in addresses, the chop stage's 'rt') measured
@@ -173,7 +186,9 @@ that localizes it.
    (a) and the decoder's GRU steps remain if more is wanted.
 
 Constraint reminder: self-trained networks are in scope when they train
-on home hardware and run locally; no language models, no vision models.
+on public data on home hardware and run locally; no pre-trained models,
+no vision or language foundation models. The classic profile stays as
+the network-light reference; the neural profile is where they land.
 
 ## Where the work stands (2026-09-08)
 
@@ -188,9 +203,9 @@ classes are touching pairs (blocked on a piece-aware scorer, above) and
 scattered single-page quirks. Eight rules that fixed a template class or
 a single page measured negative on the general sets and are recorded.
 
-Next mechanisms, in order of expected value: (1) the print-and-scan loop
-(needs the printer and scanner) — real modern glyphs, and labelled
-touching pairs for a piece-aware scorer; (2) a per-block type-size model
+Next mechanisms, in order of expected value: (1) the word-strip
+sequence scorer of item 3 above, trained on synthetic touching pairs and
+UNLV truth strips (the print-and-scan loop is no longer assumed); (2) a per-block type-size model
 so headers and labels ('Qty', 'Hours') are judged at their block's size
 rather than a line's or the page's; (3) column-aware word spacing, so a
 lone column gap on an order form cannot masquerade as a line's word-gap
@@ -198,9 +213,12 @@ population. The optimization target is met (a letter in 9.9 s).
 
 ## Later: overnight training jobs
 
-Self-trained models only (the project's constraint is no *pre-trained*
-nets and no vision models; anything we train from our own data is in
-scope). Ranked by expected value per unit of risk:
+Self-trained models only (no pre-trained nets, no foundation models;
+anything we train from public data on home hardware is in scope). With
+the optional `torch` extra the word-strip model trains in under an hour
+on the machine's own GPU; in numpy it is the overnight job this section
+was named for (`scripts/train_seq.py --backend numpy`). Ranked by
+expected value per unit of risk:
 
 1. **More corpus, no network at all.** The largest single leg of
    2026-09-01 came from vocabulary and frequency coverage, which scales

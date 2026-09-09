@@ -23,7 +23,8 @@ from mlws_ocr.core.imgio import load_gray
 
 import sys
 sys.path.insert(0, str(Path(__file__).parent))
-from eval_pages import PIPELINE, parse_overrides, edit_distance, edit_distance_words  # noqa: E402
+from eval_pages import (add_pipeline_args, load_pipeline, run_stages,  # noqa: E402
+                        parse_overrides, edit_distance, edit_distance_words)
 from eval_unlv import normalize  # noqa: E402
 
 
@@ -31,18 +32,18 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("image", type=Path)
     ap.add_argument("--doc-type", default=None)
-    ap.add_argument("--set", action="append", default=[], metavar="SLOT.KEY=VAL")
+    add_pipeline_args(ap)
     ap.add_argument("--show", action="store_true", help="print the decoded text too")
     args = ap.parse_args()
     ov = parse_overrides(args.set)
+    pipeline = load_pipeline(args.config)
     truth_path = next((args.image.with_suffix(e) for e in (".txt", ".TXT", ".gt.txt")
                        if args.image.with_suffix(e).exists()), None)
     truth = normalize(truth_path.read_text(errors="ignore")) if truth_path else ""
     gray, dpi = load_gray(args.image)
     page = Page(gray=gray, dpi=dpi or 300.0,
                 meta={"doc_type": args.doc_type} if args.doc_type else {})
-    for slot, impl in PIPELINE:
-        page, _ = registry.get(slot, impl)(**ov.get(slot, {})).run(page)
+    page = run_stages(page, pipeline, ov)
     got = normalize(page.meta.get("text", ""))
     if truth:
         tw, gw = Counter(truth.lower().split()), Counter(got.lower().split())

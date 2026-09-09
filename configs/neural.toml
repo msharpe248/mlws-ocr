@@ -1,0 +1,64 @@
+# The NEURAL engine: configs/classic.toml plus the heavier self-trained
+# networks, each added here only when it has been adopted on all four
+# evaluation sets (docs/RESEARCH.md records the measurement).  Every network
+# is trained by this repository on public data, on home hardware, and enters
+# the pipeline as a gated additive term, so this file differs from
+# classic.toml only in [stage.recognize] and [stage.decode] parameters.
+#
+# Planned terms (docs/ROADMAP.md):
+#   decode.seq_path        word-strip CRNN + CTC rescoring of the decoder's own
+#                          hypotheses (touching pairs, shape substitutions)
+#   recognize.piece_cnn_path   partial-shape classifier for cut pieces
+#   decode.abs_quality_mode    "calibrated": learned confidence calibrator
+# Until the first adoption this profile is the classic engine.
+
+[pipeline]
+stages = ["deskew", "illumination", "binarize", "despeckle",
+          "imagezones", "rulings", "blocks", "tables", "lines",
+          "components", "recognize", "decode", "adapt", "decode", "output"]
+
+[stage.deskew]
+impl = "projection"
+max_angle = 5.0
+
+[stage.illumination]
+impl = "median_background"
+
+[stage.binarize]
+impl = "sauvola"
+window = 41
+k = 0.2
+
+[stage.despeckle]
+impl = "components"
+min_area_300dpi = 5
+
+[stage.imagezones]
+impl = "density"
+
+[stage.rulings]
+impl = "morphological"
+
+[stage.tables]
+impl = "grid"
+
+[stage.blocks]
+impl = "xycut"
+
+[stage.lines]
+impl = "profile"
+
+[stage.components]
+impl = "overlap"
+
+[stage.recognize]
+impl = "prototypes"
+
+[stage.decode]
+impl = "beam"
+
+[stage.output]
+impl = "text"
+
+[stage.adapt]
+impl = "cluster_refit"

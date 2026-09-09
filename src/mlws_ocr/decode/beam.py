@@ -164,6 +164,20 @@ class BeamDecode(Stage):
                                    # modern +1.0, legal-8 +0.4, precision
                                    # +1.2..+2.0 everywhere
         "abs_quality_scale": 20.0, # ...distance units per nat
+        # Word-strip sequence scorer (recognize/seq.py): the neural
+        # profile's first term.  Each word's segmentation variants are
+        # rescored by -log P(text | word strip) under CTC, relative to the
+        # variant's best -- the split-vs-whole decision no chopper could
+        # make, because no cut is placed.  "" = off (the classic profile).
+        "seq_path": "",            # data/seq_en.npz when adopted
+        "seq_backend": "auto",     # numpy | torch | auto (torch on an accelerator)
+        "seq_weight": 0.5,         # decoder units per nat of CTC disagreement
+        "seq_margin": 0.3,         # x-heights of neighbour slack on each side
+                                   # of the word's box (training windows were
+                                   # cut at random points inside the gaps)
+        "seq_gate": "all",         # "all" | "unendorsed": skip words the
+                                   # lexicon endorses at confidence >= gate_conf
+        "seq_gate_conf": 0.15,
         "evidence_temp_frac": 0.35, # softmax temperature as a fraction of the
                                   # top-1 distance (0 = the list's std, the
                                   # original); see _glyph_logprobs.  0.5
@@ -749,9 +763,16 @@ class BeamDecode(Stage):
         # Upgrade the character model to the trained GRU when weights
         # exist for the locked language (lexicon stays with the corpus
         # model -- the GRU replaces only the n-gram).
-        gru_path = Path(p["char_lm"].format(lang=language))
-        if isinstance(lm, CorpusModel) and gru_path.exists():
+        # An empty char_lm keeps the n-gram: the "pure" profile's switch
+        # (Path("") is the working directory, which exists).
+        gru_path = Path(p["char_lm"].format(lang=language)) if p["char_lm"] else None
+        if isinstance(lm, CorpusModel) and gru_path is not None and gru_path.is_file():
             lm = GruLM(self._load_gru(str(gru_path)), lm)
+        self._seq_scorer = (self._load_seq(p["seq_path"], p["seq_backend"])
+                            if p["seq_path"] else None)
+        self._cur_seq = None
+        self._cur_binary = page.binary if self._nbest_sink is not None else None
+        self._seq_stats = [0, 0]      # words rescored, winners changed
         top1 = np.array([g["candidates"][0][1] for ln in layout["lines"]
                          for g in ln.get("groups", []) if "candidates" in g])
         if len(top1) and p["reject_mads"] is not None:
@@ -800,6 +821,12 @@ class BeamDecode(Stage):
                                            page_x, heights)
             baseline = ln.get("baseline")
             ln["x_height"] = float(x_height)   # for the geometric post-passes
+            self._cur_line = ln
+            self._cur_seq = None
+            if (self._seq_scorer is not None and page.binary is not None
+                    and baseline is not None):
+                self._cur_seq = self._line_posterior(self._seq_scorer, page.binary,
+                                                     ln, x_height)
             if baseline is not None:
                 for g in groups:
                     g["_baseline"] = baseline
@@ -901,12 +928,75 @@ class BeamDecode(Stage):
                      "case_flips": n_caseflips,
                      "language": language,
                      "lm_overrides": n_lm_override, "rejects": n_reject,
-                     "fragment_joins": n_joins},
+                     "fragment_joins": n_joins,
+                     "seq_words": self._seq_stats[0], "seq_flips": self._seq_stats[1]},
         )
+        self._cur_seq = self._cur_line = self._cur_binary = None
         return out, debug
 
     _model_cache: dict = {}
     _gru_cache: dict = {}
+    _seq_cache: dict = {}
+    _cur_seq = None      # (line log-posterior (T, C), line x0, scale) while a
+                         # line's words are decoded; None when the scorer is off
+    _nbest_sink = None   # offline harness hook (scripts/seq_rerank_eval.py):
+                         # called with (stage, line, groups, variants, best) per
+                         # _decode_word; stage._cur_binary holds page.binary
+    _cur_line = None
+    _cur_binary = None
+
+    @classmethod
+    def _load_seq(cls, path: str, backend: str):
+        from mlws_ocr.recognize.seq import load_scorer
+        key = (path, Path(path).stat().st_mtime, backend)
+        if key not in cls._seq_cache:
+            cls._seq_cache.clear()
+            cls._seq_cache[key] = load_scorer(path, backend)
+        return cls._seq_cache[key]
+
+    @staticmethod
+    def _line_posterior(scorer, binary, ln, x_height):
+        """The sequence scorer's per-column log-posterior for one line,
+        cut and normalized by glyph/strip.py exactly as the harvest cuts
+        training strips."""
+        from mlws_ocr.glyph.strip import line_strip
+        strip, scale, x0, _ = line_strip(binary, ln, x_height)
+        if strip.shape[1] < 4:
+            return None
+        logp = scorer.log_probs([(strip < 0.5).astype(np.float32)])[0]
+        return logp, x0, scale
+
+    def _seq_rescore(self, found, groups, x_height, p):
+        """Add -seq_weight x (nll(text) - min nll) to every variant of a
+        word, where nll is the CTC negative log-likelihood of the variant's
+        text under the line posterior sliced to the word's columns.  Texts
+        the scorer cannot spell (a character outside its alphabet) or fit
+        (fewer frames than letters) are neutral, never penalized."""
+        from mlws_ocr.recognize.ctc import ctc_nll_batch
+        logp, line_x0, scale = self._cur_seq
+        scorer = self._seq_scorer
+        margin = p["seq_margin"] * max(x_height, 1.0)
+        x0 = min(g["box"][0] for g in groups) - margin
+        x1 = max(g["box"][2] for g in groups) + margin
+        t0 = max(int((x0 - line_x0) * scale) // 2, 0)
+        t1 = min(int(np.ceil((x1 - line_x0) * scale) / 2), logp.shape[0])
+        if t1 - t0 < 2:
+            return found, 0
+        texts = sorted({text for text, _, _ in found})
+        ids, ok = [], []
+        for t in texts:
+            ok.append(all(ch in scorer.index for ch in t))
+            ids.append(scorer.encode(t) if ok[-1] else [1])
+        nll = ctc_nll_batch(logp[t0:t1], ids)
+        nll[~np.array(ok) | ~np.isfinite(nll)] = np.nan
+        if np.isnan(nll).all():
+            return found, 0
+        base = float(np.nanmin(nll))
+        cost = {t: (0.0 if np.isnan(v) else float(v) - base) for t, v in zip(texts, nll)}
+        before = max(range(len(found)), key=lambda i: found[i][2])
+        out = [(text, meta, score - p["seq_weight"] * cost[text]) for text, meta, score in found]
+        after = max(range(len(out)), key=lambda i: out[i][2])
+        return out, int(after != before)
 
     @classmethod
     def _load_gru(cls, path: str) -> CharGRU:
@@ -1270,7 +1360,7 @@ class BeamDecode(Stage):
         # subsets of single pair-merges under a small cap never could.
         merge_sets = self._merge_paths(groups, p["max_merge_variants"])
 
-        best = None
+        found: list = []
         for split_set in variants:
             for merge_set in merge_sets:
                 # cand_seq: one entry per output character; prov: where
@@ -1333,8 +1423,20 @@ class BeamDecode(Stage):
                 # into the printed "$39.99" (measured: -3.4 word on the
                 # modern invoices).
                 score += 2.0 if (meta["in_lexicon"] or meta["numeric_format"]) else 0.0
-                if best is None or score > best[2]:
-                    best = (text, dict(meta, chars=prov), score)
+                found.append((text, dict(meta, chars=prov), score))
+        if not found:
+            return None
+        if self._cur_seq is not None and len(found) > 1:
+            lead = max(found, key=lambda v: v[2])
+            gated = (p["seq_gate"] == "unendorsed" and lead[1]["in_lexicon"]
+                     and lead[1]["confidence"] >= p["seq_gate_conf"])
+            if not gated:
+                found, flipped = self._seq_rescore(found, groups, x_height, p)
+                self._seq_stats[0] += 1
+                self._seq_stats[1] += flipped
+        best = max(found, key=lambda v: v[2])
+        if self._nbest_sink is not None:
+            self._nbest_sink(self, self._cur_line, groups, found, best)
         return best
 
     @staticmethod

@@ -92,24 +92,67 @@ def parse_overrides(items: list[str] | None) -> dict[str, dict]:
     return out
 
 
-def run_pipeline_on(img, overrides: dict | None = None):
+def load_pipeline(config: str | None = None) -> list[tuple[str, str, dict]]:
+    """The stages an evaluation runs, as (slot, impl, params) triples.
+
+    Without a config this is the built-in ``PIPELINE`` with no parameters
+    (every stage at its declared defaults -- the classic engine).  With one,
+    it is the engine PROFILE the file describes (``configs/classic.toml``,
+    ``configs/pure.toml``, ``configs/neural.toml``), read by the same loader
+    the CLI uses, so an evaluation and ``mlws-ocr run`` cannot disagree
+    about what a profile is.  ``--set`` overrides are applied on top by
+    ``run_stages`` and win over the profile's parameters."""
+    if not config:
+        return [(slot, impl, {}) for slot, impl in PIPELINE]
+    from mlws_ocr.core.config import load_config
+    return [(sp.slot, sp.impl, dict(sp.params))
+            for sp in load_config(config).stages]
+
+
+def add_pipeline_args(ap) -> None:
+    """The two flags every evaluation script shares: ``--config`` picks the
+    engine profile, ``--set`` overrides one parameter (repeat the flag for
+    each override; one SLOT.KEY=VAL per flag)."""
+    ap.add_argument("--config", default=None, metavar="TOML",
+                    help="engine profile (configs/classic.toml, pure.toml, "
+                         "neural.toml); default: the built-in classic pipeline")
+    ap.add_argument("--set", action="append", default=[], metavar="SLOT.KEY=VAL",
+                    help="override a stage parameter for this run")
+
+
+def run_stages(page: Page, pipeline, overrides: dict | None = None,
+               on_stage=None) -> Page:
+    """Run ``pipeline`` (from ``load_pipeline``) over ``page``; overrides
+    from ``parse_overrides`` win over the profile's parameters.  ``on_stage``
+    (slot, page, bundle) is called after each stage for callers that read a
+    stage's debug bundle (the glyph harvest reads the font family)."""
+    overrides = overrides or {}
+    for slot, impl, params in pipeline:
+        stage = registry.get(slot, impl)(**{**params, **overrides.get(slot, {})})
+        page, dbg = stage.run(page)
+        if on_stage is not None:
+            on_stage(slot, page, dbg)
+    return page
+
+
+def run_pipeline_on(img, overrides: dict | None = None, pipeline=None):
     page = Page(gray=img.astype(np.float32), dpi=300.0)
-    for slot, impl in PIPELINE:
-        page, _ = registry.get(slot, impl)(**(overrides or {}).get(slot, {})).run(page)
+    page = run_stages(page, pipeline or load_pipeline(), overrides)
     return page.meta.get("text", "")
 
 
 def main():
     import argparse
     ap = argparse.ArgumentParser()
-    ap.add_argument("--set", action="append", default=[], metavar="SLOT.KEY=VAL",
-                    help="override a stage parameter for this run")
-    overrides = parse_overrides(ap.parse_args().set)
+    add_pipeline_args(ap)
+    args = ap.parse_args()
+    overrides = parse_overrides(args.set)
+    pipeline = load_pipeline(args.config)
     font = next(f for f in find_fonts() if f.name == "Verdana.ttf")
     truth = "\n".join(LINES)
     clean = render_text_page(LINES, font, px_height=32)
     for sev, theta in SEVERITIES.items():
-        got = run_pipeline_on(degrade(clean, theta), overrides)
+        got = run_pipeline_on(degrade(clean, theta), overrides, pipeline)
         flat_t = " ".join(truth.split())
         flat_g = " ".join(got.split())
         cer = edit_distance(flat_g, flat_t) / len(flat_t)

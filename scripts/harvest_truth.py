@@ -33,7 +33,7 @@ from mlws_ocr.eval.align import align, match_lines
 from mlws_ocr.glyph.features import extract_features
 
 sys.path.insert(0, str(Path(__file__).parent))
-from eval_pages import PIPELINE  # noqa: E402
+from eval_pages import add_pipeline_args, load_pipeline, run_stages, parse_overrides  # noqa: E402
 from eval_unlv import find_pairs, normalize  # noqa: E402
 from harvest_glyphs import eval_pages_set  # noqa: E402
 
@@ -60,7 +60,10 @@ def main():
     ap.add_argument("--pages", type=int, default=120)
     ap.add_argument("--out", default="data/truth_en.npz")
     ap.add_argument("--doc-type", default="letter")
+    add_pipeline_args(ap)
     args = ap.parse_args()
+    overrides = parse_overrides(args.set)
+    pipeline = load_pipeline(args.config)
 
     excluded = eval_pages_set(args.root)
     pairs = [(t, g) for t, g in find_pairs(args.root) if t.name not in excluded]
@@ -74,8 +77,7 @@ def main():
         gray, dpi = load_gray(tif)
         page = Page(gray=gray, dpi=dpi or 300.0, meta={"doc_type": args.doc_type})
         try:
-            for slot, impl in PIPELINE:
-                page, _ = registry.get(slot, impl)().run(page)
+            page = run_stages(page, pipeline, overrides)
         except Exception as e:
             print(f"  {tif.name}: ERROR {e}")
             continue

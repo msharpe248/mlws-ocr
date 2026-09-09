@@ -1,7 +1,9 @@
 # mlws-ocr — design
 
-A readable, neural-network-free reference implementation of OCR for
-scanned documents: the engine Tesseract's legacy mode should have been.
+A readable reference implementation of OCR for scanned documents, in
+two engines: the classic feature-based engine Tesseract's legacy mode
+should have been, and a neural engine that adds self-trained networks to
+it as gated, measured terms (§9).
 This document says what the system is and why each part is shaped the way
 it is. `docs/RESEARCH.md` holds the provenance and the measurements
 behind every decision (including the negative ones); `docs/ROADMAP.md`
@@ -9,10 +11,15 @@ holds what comes next. Numbers quoted here are from 2026-09-02.
 
 ## 1. Principles
 
-**No pre-trained networks, no vision models, ever.** Anything we train
-ourselves on our own data, on home hardware, is in scope; anything that
-reads pixels with a model we did not build is not. Dictionaries, character
-n-grams and statistical language models are load-bearing and welcome.
+**No pre-trained models, no vision or language foundation models.**
+Any network we train ourselves, on public data, on home hardware, and run
+locally is in scope — from the 53k-parameter MLP to a word-strip sequence
+model — provided it is small enough to read and to retrain in an evening.
+Anything that reads pixels or text with a model we did not build is not.
+The numpy implementation of every model is the reference; `torch` is an
+optional extra for training speed (and inference on an accelerator) and
+must produce the same numbers. Dictionaries, character n-grams and
+statistical language models are load-bearing and welcome.
 
 **Stage contract.** The pipeline is a sequence of named *slots*; each slot
 is filled by one of possibly many registered *implementations* (`@register`
@@ -289,7 +296,7 @@ lists the commands. Nothing is downloaded pre-trained.
 regular inflections) and character trigrams from a corpus of public-domain
 text: Gutenberg novels plus modern US federal text (Congressional bills,
 Federal Register — 17 U.S.C. §105), 2.4M words. `train_charlm.py` trains
-the character GRU (pure numpy, ~400k parameters, minutes per epoch) on
+the character GRU (pure numpy, 258k parameters, under a minute per epoch) on
 the same corpus. Language detection scores the first pass under each
 language's model and locks the document.
 
@@ -348,7 +355,37 @@ synthetic 98.8 / 99.1 / 98.4 char. A week earlier broad-30 was 88.3 / 72.6 and a
 project's first real measurement 77.3 / 52.4; legacy Tesseract on the same thirty pages,
 under the current scorer, is 95.5 / 91.7 (recall 96.3, precision 94.2).
 
-## 8. Tooling
+## 8. Engine profiles
+
+One codebase, three profiles (`configs/classic.toml`, `pure.toml`,
+`neural.toml`), because every network enters as a gated additive term
+(`mlp_path`, `char_lm`, and the neural profile's terms as they are adopted)
+and the cleanup, layout, glyph, prototype, adaptation and output stages are
+shared. Two code trees would fork those and drift. **classic** is the
+engine of §1–§7 and the reference; **pure** is classic with both networks
+off (the corpus n-gram scores characters); **neural** is classic plus the
+heavier self-trained networks, each added only after it wins on all four
+sets. `default.toml` is classic until the neural profile beats it. Rules:
+`classic.toml` never gains a network term; after every neural adoption a
+classic four-set run must reproduce the classic row; shared-stage changes
+are measured on both. `tests/test_profiles.py` enforces the structure.
+The evaluation scripts take `--config` and build the same stage list the
+CLI does (`scripts/eval_pages.py` `load_pipeline`).
+
+Profile rows (2026-09-09, char / word; broad-30 and modern also recall /
+precision) -- classic is the current row above; pure, the same pipeline
+with the MLP and the GRU off:
+
+| profile | dev-8 | broad-30 | legal-8 | modern |
+|---|---|---|---|---|
+| classic | 95.1 / 88.8 | 91.7 / 81.4 (86.2 / 89.1) | 91.3 / 79.6 | 84.7 / 72.3 (89.7 / 90.7) |
+| pure | 94.8 / 87.6 | 90.9 / 78.3 (82.9 / 86.1) | 90.3 / 75.8 | 83.8 / 69.6 (85.8 / 87.0) |
+
+The two light networks are worth about three word points on the headline
+set and four on the typewriter set; the pure row is what the feature
+engine reads on its own.
+
+## 9. Tooling
 
 - `mlws-ocr run <config> <image|pdf>` — run and persist; `mlws-ocr-ui`
   inspects `runs/`; `mlws-ocr-lab <dir>` is the live segmentation lab.

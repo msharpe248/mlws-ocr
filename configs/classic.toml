@@ -1,8 +1,14 @@
-# The default engine: identical to configs/classic.toml (the feature-based
-# engine with its two light networks), and it stays so until the neural
-# profile beats it on every evaluation set.  Swap any stage's impl to compare
-# algorithms; the inspector's diff view renders two runs side by side.
-# tests/test_profiles.py asserts this file and classic.toml agree.
+# The CLASSIC engine: the feature-based OCR as it stood on 2026-09-08 --
+# structural glyph features, condensed nearest-prototype classification with
+# the outline and graph-edit-distance opinions, per-document adaptation, and
+# lattice decoding with a lexicon and character language model.  Its two
+# networks are light and self-trained (the 53k-parameter MLP second opinion
+# and the 258k-parameter character GRU); everything else is explicit.
+#
+# This profile is the reference the neural engine (configs/neural.toml) is
+# measured against.  It never gains a network term: its scoreboard row in
+# docs/DESIGN.md is the regression guard for every shared-stage change.
+# Networks off entirely: configs/pure.toml.
 
 [pipeline]
 stages = ["deskew", "illumination", "binarize", "despeckle",
