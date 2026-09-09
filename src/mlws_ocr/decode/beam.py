@@ -170,7 +170,8 @@ class BeamDecode(Stage):
         # variant's best -- the split-vs-whole decision no chopper could
         # make, because no cut is placed.  "" = off (the classic profile).
         "seq_path": "",            # data/seq_en.npz when adopted
-        "seq_backend": "auto",     # numpy | torch | auto (torch on an accelerator)
+        "seq_backend": "auto",     # numpy | torch | auto (= numpy: one window at a
+                                   # time is launch-bound on MPS, measured +5 s a page)
         "seq_weight": 0.5,         # decoder units per nat of CTC disagreement
         "seq_margin": 0.3,         # x-heights of neighbour slack on each side
                                    # of the word's box (training windows were

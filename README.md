@@ -17,8 +17,8 @@ Ground rules:
 - No pre-trained models. No vision or language foundation models. Every
   model here is trained by this repository, on public data, on home
   hardware, and runs locally; the numpy implementation is the reference
-  and `torch` is an optional extra for faster training (and inference when
-  an accelerator is present).
+  and `torch` is an optional extra for faster training (selectable for
+  inference too, though one word window at a time numpy is faster).
 - Dictionaries, character n-grams, and statistical language models are
   allowed and load-bearing.
 - No labeled documents are assumed to exist: training data is manufactured

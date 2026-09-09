@@ -62,7 +62,7 @@ impl = "prototypes"
 [stage.decode]
 impl = "beam"
 seq_path = "data/seq_en.npz"   # scripts/train_seq.py; "" = classic decoding
-seq_backend = "auto"           # numpy reference, torch when an accelerator is present
+seq_backend = "auto"           # numpy (torch/MPS is launch-bound one window at a time: +5 s a page); "torch" to force it
 seq_weight = 0.5
 seq_inject = true
 seq_inject_endorsed = true

@@ -329,19 +329,15 @@ def default_classes() -> list[str]:
 def load_scorer(path: str | Path, backend: str = "auto"):
     """The inference object the decoder uses: ``.classes``, ``.encode``,
     ``.log_probs(strips)``.  ``backend`` 'numpy' is the reference; 'torch'
-    runs the same weights through seq_torch (an accelerator if present);
-    'auto' picks torch only when it is installed AND an accelerator (MPS
-    or CUDA) is available -- on a plain CPU numpy is as fast and has no
-    import cost."""
+    runs the same weights through seq_torch on an accelerator if present;
+    'auto' is numpy.  The decoder scores one word window at a time, and
+    for a single 32 x 180 window an MPS launch costs more than the
+    arithmetic: measured on a letter page, 542 windows took 5.9 s through
+    torch/MPS (10.9 ms each) against under a second in numpy, 22.0 s
+    against 17.2 s for the page.  torch pays for training and for batched
+    offline scoring (the harness), and can be asked for explicitly."""
     net = SeqNet.load(path)
-    if backend == "numpy":
+    if backend != "torch":
         return net
-    try:
-        from .seq_torch import TorchScorer, accelerator_available
-    except ImportError:
-        if backend == "torch":
-            raise
-        return net
-    if backend == "torch" or accelerator_available():
-        return TorchScorer.from_numpy(net)
-    return net
+    from .seq_torch import TorchScorer
+    return TorchScorer.from_numpy(net)
