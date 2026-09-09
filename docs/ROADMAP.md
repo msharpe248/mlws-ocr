@@ -175,6 +175,27 @@ that localizes it.
 Constraint reminder: self-trained networks are in scope when they train
 on home hardware and run locally; no language models, no vision models.
 
+## Where the work stands (2026-09-08)
+
+The week's gains came from three foundational defects, each found by
+chasing one census class to its mechanism: the feature extractor's
+deslant and stroke target, the per-glyph softmax temperature, and the
+relative softmax hiding absolute glyph quality. Broad-30 word accuracy
+went 72.6 → 81.4 (legacy Tesseract: 91.7 on the same pages), legal-8
+68.5 → 79.6, modern 66.8 → 72.3. The weights around those fixes were
+re-swept and sit near their optima; the census's remaining general
+classes are touching pairs (blocked on a piece-aware scorer, above) and
+scattered single-page quirks. Eight rules that fixed a template class or
+a single page measured negative on the general sets and are recorded.
+
+Next mechanisms, in order of expected value: (1) the print-and-scan loop
+(needs the printer and scanner) — real modern glyphs, and labelled
+touching pairs for a piece-aware scorer; (2) a per-block type-size model
+so headers and labels ('Qty', 'Hours') are judged at their block's size
+rather than a line's or the page's; (3) column-aware word spacing, so a
+lone column gap on an order form cannot masquerade as a line's word-gap
+population. The optimization target is met (a letter in 9.9 s).
+
 ## Later: overnight training jobs
 
 Self-trained models only (the project's constraint is no *pre-trained*
