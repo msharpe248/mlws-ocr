@@ -34,9 +34,12 @@ MAX_WIDTH = 512   # strip columns; wider windows are dropped
 _G: dict = {}
 
 
-def _init(corpus_dirs, fonts):
+def _init(corpus_dirs, fonts, x_heights=None, x_weights=None):
     _G["words"], _G["probs"] = corpus_words(corpus_dirs)
     _G["fonts"] = fonts
+    _G["xh"] = list(x_heights or X_HEIGHTS)
+    w = np.array(x_weights or X_HEIGHT_WEIGHTS, dtype=float)
+    _G["xw"] = w / w.sum()
     _G["italic"] = [("italic" in f.stem.lower()) for f in fonts]
     # italics get 1.5x the mass: the bills' touching-letter case was italic
     w = np.array([1.5 if it else 1.0 for it in _G["italic"]])
@@ -50,7 +53,7 @@ def _chunk(args):
     while len(out) < count:
         fi = int(rng.choice(len(_G["fonts"]), p=_G["font_p"]))
         font = _G["fonts"][fi]
-        xh = float(rng.choice(X_HEIGHTS, p=X_HEIGHT_WEIGHTS))
+        xh = float(rng.choice(_G["xh"], p=_G["xw"]))
         n_words = int(rng.integers(2, 6))
         words = sample_words(rng, _G["words"], _G["probs"], n_words)
         tracking = sample_tracking(rng, _G["italic"][fi])
@@ -71,7 +74,11 @@ def main():
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--corpus", nargs="+", default=["data/corpus_en", "data/corpus_en_modern"])
     ap.add_argument("--chunk", type=int, default=1000)
+    ap.add_argument("--x-heights", type=float, nargs="+", default=list(X_HEIGHTS),
+                    help="x-heights (px) to sample from; e.g. small type: 9 10 11 12 13")
+    ap.add_argument("--x-weights", type=float, nargs="+", default=list(X_HEIGHT_WEIGHTS))
     args = ap.parse_args()
+    assert len(args.x_heights) == len(args.x_weights)
 
     fonts = stock_fonts()
     print(f"{len(fonts)} fonts: {sum(font_family(f) == 'display' for f in fonts)} display, "
@@ -82,7 +89,8 @@ def main():
     t0 = time.time()
     packed, widths, labels, touching, names, xhs, tracks = [], [], [], [], [], [], []
     done = 0
-    with mp.Pool(args.workers, initializer=_init, initargs=(args.corpus, fonts)) as pool:
+    with mp.Pool(args.workers, initializer=_init,
+                 initargs=(args.corpus, fonts, args.x_heights, args.x_weights)) as pool:
         for chunk in pool.imap_unordered(_chunk, jobs):
             for pk, w, lab, tch, name, xh, tr in chunk:
                 packed.append(pk); widths.append(w); labels.append(lab)

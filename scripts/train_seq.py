@@ -112,7 +112,8 @@ def evaluate(scorer, items, net: SeqNet, batch: int = 128):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--backend", choices=("numpy", "torch"), default="torch")
-    ap.add_argument("--synth", default="data/seq_synth_v1.npz")
+    ap.add_argument("--synth", nargs="+", default=["data/seq_synth_v1.npz"],
+                    help="synthetic window files (e.g. the general set plus a small-type set)")
     ap.add_argument("--lines", nargs="*", default=["data/lines_en.npz", "data/lines_legal.npz"])
     ap.add_argument("--out", default="data/seq_en_v1.npz")
     ap.add_argument("--epochs", type=int, default=30)
@@ -132,10 +133,11 @@ def main():
     print(f"SeqNet: {net.n_params} parameters, {len(classes)} classes")
 
     train, held_real, held_synth = [], [], []
-    synth = Windows(args.synth, "synthetic")
-    tr, ho = split_pages(synth, min(args.hold_pages, 0.02), args.seed)
-    train += [(synth, int(i)) for i in tr]; held_synth += [(synth, int(i)) for i in ho]
-    print(f"synthetic: {len(tr)} train / {len(ho)} held  ({synth.hard.mean():.1%} touching)")
+    for path in args.synth:
+        synth = Windows(path, "synthetic")
+        tr, ho = split_pages(synth, min(args.hold_pages, 0.02), args.seed)
+        train += [(synth, int(i)) for i in tr]; held_synth += [(synth, int(i)) for i in ho]
+        print(f"{path}: {len(tr)} train / {len(ho)} held  ({synth.hard.mean():.1%} touching)")
     for path in args.lines:
         if not Path(path).exists():
             print(f"  (no {path}; skipped)"); continue
