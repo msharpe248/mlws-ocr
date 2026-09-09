@@ -343,9 +343,10 @@ recorded before it is reverted or made opt-in.
 
 Current numbers (2026-09-08): broad-30 91.7 / 81.4 (recall 86.2, precision 89.1),
 dev-8 95.1 / 88.8, legal-8 91.3 / 79.6, modern 84.7 / 72.3 (recall 89.7, precision 90.7; legacy 72.0 / 67.5 / 92.0 / 95.7;
-our modern business pages alone — letters, invoices, payslips — 87.5 / 79.2 / 92.6 / 91.3),
-synthetic 98.8 / 99.1 / 98.4 char. Two days earlier broad-30 was
-77.3 / 52.4; the legacy reference is 95.3 / 90.5.
+our modern business pages alone — letters, invoices, payslips — 87.9 / 81.6 / 94.2 / 93.9),
+synthetic 98.8 / 99.1 / 98.4 char. A week earlier broad-30 was 88.3 / 72.6 and at the
+project's first real measurement 77.3 / 52.4; legacy Tesseract on the same thirty pages,
+under the current scorer, is 95.5 / 91.7 (recall 96.3, precision 94.2).
 
 ## 8. Tooling
 

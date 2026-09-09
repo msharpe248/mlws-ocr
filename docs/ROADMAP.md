@@ -90,10 +90,10 @@ that localizes it.
    (RESEARCH). Current (2026-09-08, cleaned truth): **84.7 / 72.3 /
    89.7 recall / 90.7 precision** against legacy 72.0 / 67.5 / 92.0 /
    95.7 — we lead by 12.7 char and 4.8 word. Per kind (char / word,
-   recall, precision): letters 98.5 / 93.0 (95.2, 94.9), invoices
-   90.5 / 81.8 (91.4, 92.2), payslips 73.4 / 66.8 (92.5, 91.1), bills
-   90.6 / 70.0 (85.9, 87.9), Federal Register 65.9 / 57.1 (87.2, 88.9).
-   Business pages alone: 87.5 / 80.5 / 93.0 / 92.7. What the set
+   recall, precision): letters 98.8 / 93.8 (96.4, 96.0), invoices 91.1
+   / 83.4 (93.0, 93.8), payslips 73.7 / 67.6 (93.3, 91.9), bills 91.1 /
+   70.4 (86.1, 88.0), Federal Register 66.2 / 57.4 (87.7, 89.3).
+   Business pages alone: 87.9 / 81.6 / 94.2 / 93.9. What the set
    taught, each in RESEARCH: the payslips' char score is reading-order
    convention (two-column key/value header, truth column-major, ours
    row-major; recall 92.5); the Federal Register's 12-px x-height is a
