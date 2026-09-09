@@ -209,12 +209,19 @@ adopted in `configs/neural.toml`: broad-30 81.4 → 85.0 word, modern
 72.3 → 76.3, legal-8 79.6 → 81.0, dev-8 88.8 → 90.6, up on every figure
 of every set (RESEARCH). Its own greedy read of a real word window is
 right 97.5% of the time on dev-8 against the classic decoder's 94.6%,
-so the next question is how much more of the decoder can defer to it:
-rescoring the word-gap variants (fused words, 16% of the excess), the
-beam's own n-best inside a segmentation (shape substitutions), and an
-unendorsed injection with a margin tuned on the four sets (two or three
-tenths on UNLV word, negative on modern as gated today). The classic
-profile is untouched and re-measured after the adoption.
+and two more terms landed the same day: the beam's n-best rescored by
+the window (broad-30 85.0 → 86.2 word, legal-8 81.0 → 83.7) and the
+segment re-read (86.2 → 86.5, recall 90.1 → 90.7). Neural now stands at
+broad-30 93.4 / 86.5, modern 86.3 / 77.5, legal-8 91.9 / 83.8, dev-8
+96.2 / 91.3. The decomposition under the profile says three quarters of
+the remaining gap to legacy is characters and spaces that vanish, and the
+probe says they vanish in lines the re-read cannot endorse: foreign text,
+proper nouns and addresses, letterhead faces outside the stock. Gap-
+variant rescoring measured inert (the admissibility rule already decides
+those cases). Open: an unendorsed injection with a tuned margin, a wider
+model trained longer with small type (`seq_en_v2`, under measurement),
+and letterhead faces. The classic profile is untouched and re-measured
+after every adoption.
 
 Next mechanisms after that, in order of expected value: (1) the
 gap-variant and beam n-best rescoring above; (2) a per-block type-size model

@@ -50,7 +50,7 @@ profile and stays so until the neural profile beats it on every set.
 |---|---|---|---|
 | **classic** | `configs/classic.toml` | MLP second opinion (53k params), character GRU (258k) | The feature-based reference engine; its scoreboard row is the regression guard. |
 | **pure** | `configs/pure.toml` | none (n-gram character model) | How things were; classic with both networks switched off. |
-| **neural** | `configs/neural.toml` | classic's, plus the word-strip CRNN + CTC scorer (285k params; more as adopted) | Best accuracy: broad-30 92.8 char / 85.0 word vs classic 91.7 / 81.4 (docs/RESEARCH.md). |
+| **neural** | `configs/neural.toml` | classic's, plus the word-strip CRNN + CTC scorer (285k params; more as adopted) | Best accuracy: broad-30 93.4 char / 86.5 word vs classic 91.7 / 81.4 (docs/RESEARCH.md). |
 
 `tests/test_profiles.py` keeps the three honest: pure differs from classic
 only in the two network switches, neural only in recognize/decode terms.

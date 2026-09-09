@@ -392,16 +392,19 @@ with the MLP and the GRU off:
 |---|---|---|---|---|
 | classic | 95.1 / 88.7 | 91.7 / 81.4 (86.2 / 89.1) | 91.3 / 79.4 | 84.6 / 72.1 (89.4 / 90.4) |
 | pure | 94.8 / 87.6 | 90.9 / 78.3 (82.9 / 86.1) | 90.3 / 75.8 | 83.8 / 69.6 (85.8 / 87.0) |
-| neural | 95.8 / 90.6 | 92.8 / 85.0 (89.6 / 92.6) | 91.3 / 81.0 | 86.0 / 76.3 (93.6 / 94.7) |
+| neural | 96.2 / 91.3 | 93.4 / 86.5 (90.7 / 93.4) | 91.9 / 83.8 | 86.3 / 77.5 (94.5 / 95.6) |
 
 The two light networks are worth about three word points on the headline
 set and four on the typewriter set; the pure row is what the feature
 engine reads on its own. The neural row is classic plus the word-strip
-sequence scorer (§6.4): each word's segmentation variants rescored by the
-CTC likelihood of their text under a 285k-parameter CRNN trained on
-synthetic touching-pair windows and truth-labeled real strips, with the
-scorer's own reading admitted as a variant when the lexicon endorses it.
-It adds about three seconds to a dense page. Legacy Tesseract on broad-30
+sequence scorer (§6.4) in three places: each word's segmentation variants
+rescored by the CTC likelihood of their text under a 285k-parameter CRNN
+trained on synthetic touching-pair windows and truth-labeled real strips,
+with the scorer's own reading admitted as a variant when the lexicon
+endorses it; the beam's n-best inside a segmentation rescored the same
+way before the lexicon pass; and a segment whose words are mostly
+unendorsed re-read whole and split at the scorer's space emissions. It
+adds about three seconds to a dense page. Legacy Tesseract on broad-30
 is 95.5 / 91.7. The classic row was re-measured after the adoption
 (the regression guard): broad-30 reproduces to the decimal; dev-8 reads
 88.7 word, legal-8 79.4 and modern 84.6 / 72.1, not the 88.8, 79.6 and
