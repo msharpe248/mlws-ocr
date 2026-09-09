@@ -69,6 +69,10 @@ seq_inject_endorsed = true
 seq_beam_weight = 1.0          # the beam's n-best rescored by the word window before
                                # the lexicon pass (2026-09-09: +1.2 word on broad-30,
                                # +2.7 on legal-8, +1.0 on modern, +0.7 on dev-8)
+seq_reread = true              # a segment whose words are mostly unendorsed junk is
+                               # re-read by the scorer and split at its space emissions
+                               # (2026-09-09: broad-30 +0.3 word, recall +0.6; modern
+                               # +0.2; legal-8 +0.1 word, -0.1 char; dev-8 flat)
 
 [stage.output]
 impl = "text"
