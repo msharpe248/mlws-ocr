@@ -92,12 +92,16 @@ def main():
     ap.add_argument("--pages", type=int, default=170)
     ap.add_argument("--out", default="data/lines_en.npz")
     ap.add_argument("--doc-type", default="letter")
+    ap.add_argument("--no-guard", action="store_true",
+                    help="skip the evaluation-draw exclusion: ONLY for a root that is "
+                         "not an evaluation set (e.g. data/modern_train, rendered from "
+                         "pages the modern set never uses)")
     add_pipeline_args(ap)
     args = ap.parse_args()
     overrides = parse_overrides(args.set)
     pipeline = load_pipeline(args.config)
 
-    excluded = eval_pages_set(args.root)
+    excluded = set() if args.no_guard else eval_pages_set(args.root)
     pairs = [(t, g) for t, g in find_pairs(args.root) if t.name not in excluded]
     random.Random(11).shuffle(pairs)
     strips, widths, labels, decoded, pages, xhs = [], [], [], [], [], []

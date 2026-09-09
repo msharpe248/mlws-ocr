@@ -160,3 +160,17 @@ def greedy_decode(logp: np.ndarray, classes: list[str]) -> str:
             out.append(classes[c])
         prev = c
     return "".join(out)
+
+
+def greedy_decode_frames(logp: np.ndarray, classes: list[str]) -> list[tuple[str, int]]:
+    """Best path decoding that keeps WHERE each character was emitted:
+    (char, frame) per output character, the frame being the first of the
+    run that produced it -- so a caller can place the words of a reading
+    back on the image (decode/beam.py's segment re-read)."""
+    best = np.asarray(logp).argmax(1)
+    out, prev = [], 0
+    for t, c in enumerate(best):
+        if c != 0 and c != prev:
+            out.append((classes[c], t))
+        prev = c
+    return out

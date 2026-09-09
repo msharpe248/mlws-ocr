@@ -186,6 +186,28 @@ class BeamDecode(Stage):
                                    # the same term is a different animal, and
                                    # is measured on its own)
         "seq_inject_margin": 3.0,
+        "seq_reread": False,       # segment re-read: when a segment's words
+                                   # are mostly unendorsed junk (a line fused
+                                   # into one string, a letterhead face outside
+                                   # the stock), the scorer's greedy reading of
+                                   # the whole segment window, split at its
+                                   # space emissions, replaces them if it
+                                   # endorses better; words are placed back on
+                                   # the groups by column
+        "seq_reread_max_endorsed": 0.5,   # ...the decoder's endorsed fraction below which
+        "seq_reread_min_chars": 8,        # ...and at least this many characters
+        "seq_beam_weight": 0.0,    # Phase B: the beam's own n-best strings
+                                   # inside one segmentation are rescored by
+                                   # the word window before the lexicon pass
+                                   # (shape substitutions); 0 = off
+        "seq_beam_top": 8,
+        "seq_gap_weight": 0.0,     # Phase C: word-gap variants (which
+                                   # uncertain gaps are spaces) rescored by
+                                   # the whole segment's window with the
+                                   # space class, in LEXICON-QUALITY units per
+                                   # nat -- unlike raw beam scores, one
+                                   # likelihood over one image has no bias
+                                   # toward shredding; 0 = off
         "seq_inject_endorsed": False,  # inject only strings the lexicon or a
                                    # numeric format endorses (the typewriter
                                    # set showed unendorsed injections losing:
@@ -785,7 +807,7 @@ class BeamDecode(Stage):
         self._lm_endorsed = lm.endorsed
         self._cur_seq = None
         self._cur_binary = page.binary if self._nbest_sink is not None else None
-        self._seq_stats = [0, 0]      # words rescored, winners changed
+        self._seq_stats = [0, 0, 0]   # words rescored, winners changed, segments re-read
         top1 = np.array([g["candidates"][0][1] for ln in layout["lines"]
                          for g in ln.get("groups", []) if "candidates" in g])
         if len(top1) and p["reject_mads"] is not None:
@@ -869,8 +891,13 @@ class BeamDecode(Stage):
 
             decoded = []
             for seg_groups, uncertain in segments:
-                decoded.extend(self._best_gap_variant(seg_groups, uncertain,
-                                                      x_height, lm, p, reject_at))
+                seg_words = self._best_gap_variant(seg_groups, uncertain,
+                                                   x_height, lm, p, reject_at)
+                if p["seq_reread"]:
+                    seg_words, replaced = self._seq_reread(seg_groups, seg_words,
+                                                           x_height, lm, p)
+                    self._seq_stats[2] += replaced
+                decoded.extend(seg_words)
             if p["word_join"]:
                 decoded, joins = self._join_decoded(decoded, x_height, lm, p,
                                                     reject_at)
@@ -942,7 +969,8 @@ class BeamDecode(Stage):
                      "language": language,
                      "lm_overrides": n_lm_override, "rejects": n_reject,
                      "fragment_joins": n_joins,
-                     "seq_words": self._seq_stats[0], "seq_flips": self._seq_stats[1]},
+                     "seq_words": self._seq_stats[0], "seq_flips": self._seq_stats[1],
+                     "seq_rereads": self._seq_stats[2]},
         )
         self._cur_seq = self._cur_line = self._cur_binary = None
         return out, debug
@@ -983,60 +1011,144 @@ class BeamDecode(Stage):
             return None
         return (strip < 0.5).astype(np.float32), x0, scale, {}
 
+    def _seq_span(self, boxes, x_height, p):
+        """Strip columns (c0, c1) of the window spanning ``boxes`` plus
+        seq_margin x-heights of slack each side; None if degenerate."""
+        strip, line_x0, scale, _ = self._cur_seq
+        margin = p["seq_margin"] * max(x_height, 1.0)
+        x0 = min(b[0] for b in boxes) - margin
+        x1 = max(b[2] for b in boxes) + margin
+        c0 = max(int((x0 - line_x0) * scale), 0)
+        c1 = min(int(np.ceil((x1 - line_x0) * scale)), strip.shape[1])
+        return None if c1 - c0 < 4 else (c0, c1)
+
+    def _seq_window(self, boxes, x_height, p):
+        """The scorer's log-posterior for the window spanning ``boxes``,
+        cut from the current line's strip; cached per span, since gap
+        variants and the join pass score the same span repeatedly.  None
+        when the scorer is off or the span is degenerate."""
+        if self._cur_seq is None:
+            return None
+        span = self._seq_span(boxes, x_height, p)
+        if span is None:
+            return None
+        strip, _, _, cache = self._cur_seq
+        if span not in cache:
+            cache[span] = self._seq_scorer.log_probs([strip[:, span[0]:span[1]]])[0]
+        return cache[span]
+
+    def _seq_reread(self, seg_groups, words, x_height, lm, p):
+        """Replace a segment's words by the scorer's own reading when the
+        decoder's are mostly junk.  The reading is placed back on the
+        image: each emitted character has a frame, frames are strip
+        columns, columns are page x, and each group joins the word whose
+        span holds its centre.  Returns (words, replaced flag)."""
+        from mlws_ocr.recognize.ctc import greedy_decode_frames
+        if self._cur_seq is None or not words:
+            return words, 0
+
+        def endorsed(t):
+            core = t.lower().strip("'\".,;:!?()-")
+            return bool(core) and (lm.endorsed(core) or numeric_endorsed(t))
+
+        texts = [t for _, (t, _) in words]
+        n_chars = sum(len(t) for t in texts)
+        dec_frac = sum(map(endorsed, texts)) / len(texts)
+        if n_chars < p["seq_reread_min_chars"] or dec_frac >= p["seq_reread_max_endorsed"]:
+            return words, 0
+        boxes = [g["box"] for g in seg_groups]
+        span = self._seq_span(boxes, x_height, p)
+        logp = self._seq_window(boxes, x_height, p)
+        if logp is None:
+            return words, 0
+        emitted = greedy_decode_frames(logp, self._seq_scorer.classes)
+        # split the reading into words at its space emissions
+        read, cur = [], []
+        for ch, t in emitted + [(" ", None)]:
+            if ch == " ":
+                if cur:
+                    read.append(cur)
+                cur = []
+            else:
+                cur.append((ch, t))
+        if not read:
+            return words, 0
+        new_texts = ["".join(ch for ch, _ in w) for w in read]
+        new_frac = sum(map(endorsed, new_texts)) / len(new_texts)
+        if new_frac <= dec_frac or sum(map(endorsed, new_texts)) <= sum(map(endorsed, texts)):
+            return words, 0
+        strip, line_x0, scale, _ = self._cur_seq
+        # page x of each word's first and last emitted frame (2 px per frame)
+        spans = [((span[0] + 2 * w[0][1]) / scale + line_x0,
+                  (span[0] + 2 * w[-1][1] + 2) / scale + line_x0) for w in read]
+        assigned = [[] for _ in read]
+        for g in seg_groups:
+            cx = 0.5 * (g["box"][0] + g["box"][2])
+            k = min(range(len(read)), key=lambda i: 0.0 if spans[i][0] <= cx <= spans[i][1]
+                    else min(abs(cx - spans[i][0]), abs(cx - spans[i][1])))
+            assigned[k].append(g)
+        out = []
+        for text, groups in zip(new_texts, assigned):
+            if not groups:
+                continue        # a reading with no ink under it is not kept
+            meta = {"confidence": 0.5, "in_lexicon": endorsed(text) and not numeric_endorsed(text),
+                    "rejected": False, "lm_override": 0,
+                    "numeric_format": numeric_endorsed(text), "chars": [], "seq_reread": True}
+            out.append((groups, (text, meta)))
+        return (out, 1) if out else (words, 0)
+
+    def _seq_costs(self, logp, texts):
+        """CTC negative log-likelihood of each text under ``logp``, relative
+        to the best of them; texts the scorer cannot spell or fit are
+        neutral (cost 0, nll nan).  Returns (cost dict, nll dict)."""
+        from mlws_ocr.recognize.ctc import ctc_nll_batch
+        scorer = self._seq_scorer
+        texts = sorted(set(texts))
+        ok = [bool(t) and all(ch in scorer.index for ch in t) for t in texts]
+        nll = ctc_nll_batch(logp, [scorer.encode(t) if o else [1] for t, o in zip(texts, ok)])
+        nll[~np.array(ok) | ~np.isfinite(nll)] = np.nan
+        if np.isnan(nll).all():
+            return {t: 0.0 for t in texts}, {t: float("nan") for t in texts}
+        base = float(np.nanmin(nll))
+        return ({t: (0.0 if np.isnan(v) else float(v) - base) for t, v in zip(texts, nll)},
+                {t: float(v) for t, v in zip(texts, nll)})
+
     def _seq_rescore(self, found, groups, x_height, p):
         """Add -seq_weight x (nll(text) - min nll) to every variant of a
         word, where nll is the CTC negative log-likelihood of the variant's
         text under the line posterior sliced to the word's columns.  Texts
         the scorer cannot spell (a character outside its alphabet) or fit
         (fewer frames than letters) are neutral, never penalized."""
-        from mlws_ocr.recognize.ctc import ctc_nll_batch
-        strip, line_x0, scale, cache = self._cur_seq
+        logp = self._seq_window([g["box"] for g in groups], x_height, p)
+        if logp is None:
+            return found, 0
         scorer = self._seq_scorer
-        margin = p["seq_margin"] * max(x_height, 1.0)
-        x0 = min(g["box"][0] for g in groups) - margin
-        x1 = max(g["box"][2] for g in groups) + margin
-        c0 = max(int((x0 - line_x0) * scale), 0)
-        c1 = min(int(np.ceil((x1 - line_x0) * scale)), strip.shape[1])
-        if c1 - c0 < 4:
-            return found, 0
-        if (c0, c1) not in cache:          # the same span is scored again by
-            cache[(c0, c1)] = scorer.log_probs([strip[:, c0:c1]])[0]   # gap variants
-        logp = cache[(c0, c1)]
-        t0, t1 = 0, logp.shape[0]
-        texts = sorted({text for text, _, _ in found})
-        ids, ok = [], []
-        for t in texts:
-            ok.append(all(ch in scorer.index for ch in t))
-            ids.append(scorer.encode(t) if ok[-1] else [1])
-        sl = logp[t0:t1]
-        nll = ctc_nll_batch(sl, ids)
-        nll[~np.array(ok) | ~np.isfinite(nll)] = np.nan
-        if np.isnan(nll).all():
-            return found, 0
         before = max(range(len(found)), key=lambda i: found[i][2])
         found = list(found)
+        texts = [text for text, _, _ in found]
         if p["seq_inject"]:
             # the scorer's own reading joins the variants with the decoder's
             # best score, so it wins only through the CTC term, and only
             # when its likelihood beats the decoder's best text by the
             # margin; it carries no per-character provenance
             from mlws_ocr.recognize.ctc import greedy_decode
-            greedy = greedy_decode(sl, scorer.classes).strip()
+            greedy = greedy_decode(logp, scorer.classes).strip()
             if greedy and greedy not in texts and greedy.count(" ") == 0:
-                g_nll = float(ctc_nll_batch(sl, [scorer.encode(greedy)])[0])
-                lead_nll = nll[texts.index(found[before][0])]
+                _, nll = self._seq_costs(logp, texts + [greedy])
+                g_nll, lead_nll = nll[greedy], nll[found[before][0]]
                 core = greedy.lower().strip("'\".,;:!?()-")
                 endorsed = bool(self._lm_endorsed(core)) or numeric_endorsed(greedy)
                 if (np.isfinite(g_nll) and (endorsed or not p["seq_inject_endorsed"])
                         and (np.isnan(lead_nll)
                              or g_nll < lead_nll - p["seq_inject_margin"])):
-                    texts.append(greedy); nll = np.append(nll, g_nll)
                     meta = dict(found[before][1], chars=[], rejected=False,
                                 in_lexicon=bool(self._lm_endorsed(core)),
                                 numeric_format=numeric_endorsed(greedy), seq_injected=True)
                     found.append((greedy, meta, found[before][2]))
-        base = float(np.nanmin(nll))
-        cost = {t: (0.0 if np.isnan(v) else float(v) - base) for t, v in zip(texts, nll)}
+                    texts.append(greedy)
+        cost, _ = self._seq_costs(logp, texts)
+        if not any(cost.values()):
+            return found, 0
         out = [(text, meta, score - p["seq_weight"] * cost[text]) for text, meta, score in found]
         after = max(range(len(out)), key=lambda i: out[i][2])
         return out, int(after != before)
@@ -1322,7 +1434,7 @@ class BeamDecode(Stage):
             variants = variants + [v | {gpos} for v in variants]
 
         mid = (p["space_lo"] + p["space_hi"]) / 2.0
-        best = None
+        scored_variants = []
         for chosen in variants:
             cut_after = {pos for pos, _ in chosen}
             parts, cur = [], []
@@ -1368,10 +1480,19 @@ class BeamDecode(Stage):
             for pos, gap in uncertain:
                 sign = 1.0 if pos in cut_after else -1.0
                 total += sign * p["space_geom_weight"] * (gap - mid)
-            key = (lexq, total)
-            if best is None or key > best[0]:
-                best = (key, decoded)
-        return best[1]
+            scored_variants.append([lexq, total, decoded])
+        if p["seq_gap_weight"] > 0 and len(scored_variants) > 1 and self._cur_seq is not None:
+            # Phase C: one likelihood over the whole segment's window, the
+            # variants' texts joined by the space class, enters the PRIMARY
+            # key -- a fused word and its split are judged by the image
+            logp = self._seq_window([g["box"] for g in groups], x_height, p)
+            if logp is not None:
+                texts = [" ".join(t for _, (t, _) in v[2]) for v in scored_variants]
+                cost, _ = self._seq_costs(logp, texts)
+                for v, t in zip(scored_variants, texts):
+                    v[0] -= p["seq_gap_weight"] * cost[t]
+        best = max(scored_variants, key=lambda v: (v[0], v[1]))
+        return best[2]
 
     def _decode_word(self, groups, x_height, lm: CharBigram, p,
                      reject_at: float) -> tuple[str, dict, float]:
@@ -1881,6 +2002,18 @@ class BeamDecode(Stage):
             else:
                 beams = [(t[0], t[1]) for t in survivors]
         beams = [(t[0], t[1]) for t in beams]
+        if p["seq_beam_weight"] > 0 and self._cur_seq is not None and len(beams) > 1:
+            # Phase B: the word window judges the beam's own alternatives
+            # (one segmentation, different letters) before the lexicon
+            # pass sees them, so a lexicon-endorsed near-tie the image
+            # rejects cannot displace the pixel-best reading
+            logp = self._seq_window([g["box"] for g in groups], x_height, p)
+            if logp is not None:
+                top = beams[: p["seq_beam_top"]]
+                cost, _ = self._seq_costs(logp, [t for t, _ in top])
+                top = sorted(((t, sc - p["seq_beam_weight"] * cost[t]) for t, sc in top),
+                             key=lambda b: -b[1])
+                beams = top + beams[p["seq_beam_top"]:]
 
         best, best_score = beams[0]
         # Lexicon pass: prefer a real word within the margin, weighing how

@@ -66,6 +66,9 @@ seq_backend = "auto"           # numpy reference, torch when an accelerator is p
 seq_weight = 0.5
 seq_inject = true
 seq_inject_endorsed = true
+seq_beam_weight = 1.0          # the beam's n-best rescored by the word window before
+                               # the lexicon pass (2026-09-09: +1.2 word on broad-30,
+                               # +2.7 on legal-8, +1.0 on modern, +0.7 on dev-8)
 
 [stage.output]
 impl = "text"
