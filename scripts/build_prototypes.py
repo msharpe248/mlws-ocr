@@ -44,6 +44,8 @@ _ap.add_argument("--truth-kinds", default="whole,split,merge",
                       "'split,merge' to add only cut/joined pieces)")
 _ap.add_argument("--sizes", default="32,48", metavar="PX,PX",
                  help="render heights in px; 24 adds the hairline loss of small type")
+_ap.add_argument("--condense-by-tag", action="store_true",
+                 help="split each class's condensation budget across exemplar sources (sqrt quotas)")
 _ap.add_argument("--condense", type=int, default=0, metavar="N",  # live build uses 90
                  help="k-means condense the merged pool to N prototypes per "
                       "class (see recognize/condense.py); implies --cap "
@@ -171,7 +173,7 @@ if harvest_files or truth_files:
 model = NearestPrototype().fit(np.array(X), labels, tags=tags)
 if _args.condense:
     from mlws_ocr.recognize.condense import condense
-    model = condense(model, _args.condense)
+    model = condense(model, _args.condense, by_tag=_args.condense_by_tag)
     print(f"condensed {len(labels)} exemplars -> {len(model.y)} prototypes "
           f"({_args.condense}/class)")
 Path(out_path).parent.mkdir(parents=True, exist_ok=True)

@@ -36,3 +36,11 @@ def test_condense_equalizes_per_class_and_keeps_tags():
     q = X[::37]
     assert [c[0][0] for c in small.predict_topk(q, k=1)] == \
         [c[0][0] for c in full.predict_topk(q, k=1)]
+
+
+def test_tag_quotas_split_by_square_root():
+    from mlws_ocr.recognize.condense import tag_quotas
+    q = tag_quotas({"serif": 900, "sans": 100, "truth": 100}, 90)
+    assert sum(q.values()) == 90
+    assert q["serif"] > q["sans"] and q["serif"] < 3.5 * q["sans"]   # 3x the centres for 9x the exemplars, not 9x
+    assert tag_quotas({"a": 2, "b": 500}, 90)["a"] == 2                 # never more centres than exemplars
