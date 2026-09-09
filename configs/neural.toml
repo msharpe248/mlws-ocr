@@ -5,12 +5,17 @@
 # the pipeline as a gated additive term, so this file differs from
 # classic.toml only in [stage.recognize] and [stage.decode] parameters.
 #
-# Planned terms (docs/ROADMAP.md):
-#   decode.seq_path        word-strip CRNN + CTC rescoring of the decoder's own
-#                          hypotheses (touching pairs, shape substitutions)
-#   recognize.piece_cnn_path   partial-shape classifier for cut pieces
-#   decode.abs_quality_mode    "calibrated": learned confidence calibrator
-# Until the first adoption this profile is the classic engine.
+# Adopted terms:
+#   decode.seq_*   the word-strip CRNN + CTC scorer (2026-09-09): each word's
+#                  segmentation variants are rescored by -log P(text | word
+#                  window), and the scorer's own reading joins the variants
+#                  when the lexicon or a numeric format endorses it and its
+#                  likelihood beats the decoder's best by 3 nats.  Measured
+#                  against classic: dev-8 95.1/88.8 -> 95.8/90.6, broad-30
+#                  91.7/81.4 -> 92.8/85.0, legal-8 91.3/79.6 -> 91.3/81.0,
+#                  modern 84.7/72.3 -> 86.0/76.3 (docs/RESEARCH.md).
+# Planned terms (docs/ROADMAP.md): recognize.piece_cnn_path (partial-shape
+# classifier for cut pieces), decode.abs_quality_mode = "calibrated".
 
 [pipeline]
 stages = ["deskew", "illumination", "binarize", "despeckle",
@@ -56,6 +61,11 @@ impl = "prototypes"
 
 [stage.decode]
 impl = "beam"
+seq_path = "data/seq_en.npz"   # scripts/train_seq.py; "" = classic decoding
+seq_backend = "auto"           # numpy reference, torch when an accelerator is present
+seq_weight = 0.5
+seq_inject = true
+seq_inject_endorsed = true
 
 [stage.output]
 impl = "text"

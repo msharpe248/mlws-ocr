@@ -203,9 +203,21 @@ classes are touching pairs (blocked on a piece-aware scorer, above) and
 scattered single-page quirks. Eight rules that fixed a template class or
 a single page measured negative on the general sets and are recorded.
 
-Next mechanisms, in order of expected value: (1) the word-strip
-sequence scorer of item 3 above, trained on synthetic touching pairs and
-UNLV truth strips (the print-and-scan loop is no longer assumed); (2) a per-block type-size model
+**2026-09-09, the neural profile's first term.** The word-strip sequence
+scorer of item 3 is built, trained (97 min on the laptop's GPU) and
+adopted in `configs/neural.toml`: broad-30 81.4 → 85.0 word, modern
+72.3 → 76.3, legal-8 79.6 → 81.0, dev-8 88.8 → 90.6, up on every figure
+of every set (RESEARCH). Its own greedy read of a real word window is
+right 97.5% of the time on dev-8 against the classic decoder's 94.6%,
+so the next question is how much more of the decoder can defer to it:
+rescoring the word-gap variants (fused words, 16% of the excess), the
+beam's own n-best inside a segmentation (shape substitutions), and an
+unendorsed injection with a margin tuned on the four sets (two or three
+tenths on UNLV word, negative on modern as gated today). The classic
+profile is untouched and re-measured after the adoption.
+
+Next mechanisms after that, in order of expected value: (1) the
+gap-variant and beam n-best rescoring above; (2) a per-block type-size model
 so headers and labels ('Qty', 'Hours') are judged at their block's size
 rather than a line's or the page's; (3) column-aware word spacing, so a
 lone column gap on an order form cannot masquerade as a line's word-gap

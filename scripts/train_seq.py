@@ -182,7 +182,7 @@ def main():
             opt.zero_grad(); loss.backward()
             torch.nn.utils.clip_grad_norm_(module.parameters(), 1.0)
             opt.step()
-            return float(loss)
+            return float(loss.detach())
 
         def export():
             return module.to_numpy(classes)

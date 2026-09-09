@@ -50,7 +50,7 @@ profile and stays so until the neural profile beats it on every set.
 |---|---|---|---|
 | **classic** | `configs/classic.toml` | MLP second opinion (53k params), character GRU (258k) | The feature-based reference engine; its scoreboard row is the regression guard. |
 | **pure** | `configs/pure.toml` | none (n-gram character model) | How things were; classic with both networks switched off. |
-| **neural** | `configs/neural.toml` | classic's, plus each heavier self-trained network as it is adopted | Where the network work lands (docs/ROADMAP.md). |
+| **neural** | `configs/neural.toml` | classic's, plus the word-strip CRNN + CTC scorer (285k params; more as adopted) | Best accuracy: broad-30 92.8 char / 85.0 word vs classic 91.7 / 81.4 (docs/RESEARCH.md). |
 
 `tests/test_profiles.py` keeps the three honest: pure differs from classic
 only in the two network switches, neural only in recognize/decode terms.
@@ -66,6 +66,10 @@ our own renders and our own harvests — nothing pre-trained:
 .venv/bin/python scripts/train_mlp.py data/pool_all.npz data/mlp.npz             # 12-second second-opinion MLP
 .venv/bin/python scripts/build_outline_protos.py data/outline_protos.npz --condense=12 --min-cover=0.85   # outline-segment prototypes, 12 configurations/class
 .venv/bin/python scripts/build_skeletons.py            # skeleton bank for GED reranking
+# neural profile: the word-strip sequence scorer
+.venv/bin/python scripts/make_seq_data.py --out data/seq_synth_v1.npz --n 250000   # synthetic word windows (touching pairs included)
+.venv/bin/python scripts/harvest_lines.py data/unlv/bus.3B --pages 170 --out data/lines_en.npz   # truth-labeled real word strips
+.venv/bin/python scripts/train_seq.py --backend torch --out data/seq_en_v1.npz     # CRNN + CTC; --backend numpy for the reference trainer
 ```
 
 Training the heavier networks of the neural profile is faster with the

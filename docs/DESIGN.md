@@ -300,6 +300,18 @@ the character GRU (pure numpy, 258k parameters, under a minute per epoch) on
 the same corpus. Language detection scores the first pass under each
 language's model and locks the document.
 
+**6.4 Sequence scorer (neural profile).** `make_seq_data.py` renders
+250k word windows from the font stock with letter spacing tightened until
+letters touch (43% of windows), degraded at native size and normalized to
+a 32-row strip with the x-height at 13 px and the baseline on row 22
+(`glyph/strip.py`); `harvest_lines.py` cuts the same windows from real
+UNLV lines labeled by the truth text between aligned word boundaries.
+`train_seq.py` trains the CRNN with CTC — numpy is the reference
+implementation, the optional torch extra trains the same network on the
+machine's own accelerator and exports to the same `.npz`. The decoder
+runs the scorer per word window, never per line: the recurrent state is
+trained on one to three words and does not survive a whole line.
+
 **6.2 Glyph exemplars.** Three harvests feed every classifier channel:
 
 - *self-labeled* (`harvest_glyphs.py`): glyphs inside lexicon-endorsed,
@@ -378,12 +390,24 @@ with the MLP and the GRU off:
 
 | profile | dev-8 | broad-30 | legal-8 | modern |
 |---|---|---|---|---|
-| classic | 95.1 / 88.8 | 91.7 / 81.4 (86.2 / 89.1) | 91.3 / 79.6 | 84.7 / 72.3 (89.7 / 90.7) |
+| classic | 95.1 / 88.7 | 91.7 / 81.4 (86.2 / 89.1) | 91.3 / 79.4 | 84.6 / 72.1 (89.4 / 90.4) |
 | pure | 94.8 / 87.6 | 90.9 / 78.3 (82.9 / 86.1) | 90.3 / 75.8 | 83.8 / 69.6 (85.8 / 87.0) |
+| neural | 95.8 / 90.6 | 92.8 / 85.0 (89.6 / 92.6) | 91.3 / 81.0 | 86.0 / 76.3 (93.6 / 94.7) |
 
 The two light networks are worth about three word points on the headline
 set and four on the typewriter set; the pure row is what the feature
-engine reads on its own.
+engine reads on its own. The neural row is classic plus the word-strip
+sequence scorer (§6.4): each word's segmentation variants rescored by the
+CTC likelihood of their text under a 285k-parameter CRNN trained on
+synthetic touching-pair windows and truth-labeled real strips, with the
+scorer's own reading admitted as a variant when the lexicon endorses it.
+It adds about three seconds to a dense page. Legacy Tesseract on broad-30
+is 95.5 / 91.7. The classic row was re-measured after the adoption
+(the regression guard): broad-30 reproduces to the decimal; dev-8 reads
+88.7 word, legal-8 79.4 and modern 84.6 / 72.1, not the 88.8, 79.6 and
+84.7 / 72.3 the scoreboard carried, and the commit before today's work
+reads exactly the same values in a clean worktree (deterministic across
+Python hash seeds), so the tenths were stale entries, not a change.
 
 ## 9. Tooling
 
