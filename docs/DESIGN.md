@@ -312,6 +312,13 @@ machine's own accelerator and exports to the same `.npz`. The decoder
 runs the scorer per word window, never per line: the recurrent state is
 trained on one to three words and does not survive a whole line.
 
+**6.5 Word confidence.** `harvest_word_conf.py` aligns the neural
+profile's output words to truth on non-evaluation pages, labelling
+uncovered output words wrong; `train_wordconf.py` fits a logistic
+regression over the per-word evidence (page-disjoint holdout) and
+reports the Brier score, reliability and the coverage curve; the decoder
+applies it when `conf_path` is set.
+
 **6.2 Glyph exemplars.** Three harvests feed every classifier channel:
 
 - *self-labeled* (`harvest_glyphs.py`): glyphs inside lexicon-endorsed,
@@ -416,7 +423,10 @@ with the scorer's own reading admitted as a variant when the lexicon
 endorses it; the beam's n-best inside a segmentation rescored the same
 way before the lexicon pass; and a segment whose words are mostly
 unendorsed re-read whole and split at the scorer's space emissions. It
-adds about three seconds to a dense page. Legacy Tesseract on broad-30
+adds about a second and a half to a dense page. Every word also carries
+`p_correct`, a calibrated probability from the decoder's own evidence
+(§6.5): keep words at 0.9 or above and about nine in ten words stay, at
+98% right on dev-8, with the rest routed to review. Legacy Tesseract on broad-30
 is 95.5 / 91.7. The classic row was re-measured after the adoption
 (the regression guard): broad-30 reproduces to the decimal; dev-8 reads
 88.7 word, legal-8 79.4 and modern 84.6 / 72.1, not the 88.8, 79.6 and
