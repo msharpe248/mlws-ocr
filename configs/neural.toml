@@ -73,6 +73,10 @@ seq_reread = true              # a segment whose words are mostly unendorsed jun
                                # re-read by the scorer and split at its space emissions
                                # (2026-09-09: broad-30 +0.3 word, recall +0.6; modern
                                # +0.2; legal-8 +0.1 word, -0.1 char; dev-8 flat)
+doc_words = true               # the page's own word list: a scorer reading that recurs
+                               # on the page, or agrees with the decoder, vouches for a
+                               # word the lexicon does not know (2026-09-09: legal-8
+                               # +0.5 word, broad-30 +0.3, modern +0.2, dev-8 +0.1)
 
 [stage.output]
 impl = "text"

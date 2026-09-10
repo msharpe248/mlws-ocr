@@ -94,7 +94,25 @@ def clean_truth(text: str) -> str:
     return "\n".join(out)
 
 
-def pdf_pages(pdf: Path, pages: list[int], tag: str) -> int:
+def pdf_page_text(pdf: Path, p: int) -> str:
+    """The page's text in VISUAL reading order (poppler's pdftotext, default
+    mode).  pypdf's extract_text returns the content stream's order, which
+    on the Federal Register's three-column pages is not the order a reader
+    (or an OCR engine) follows: scored against it, page 11 read 46.8% word
+    accuracy with 95% bag-of-words recall, and legacy Tesseract scored the
+    same -- against poppler's order the same output reads 91.5% (RESEARCH
+    2026-09-09).  Falls back to pypdf when pdftotext is absent."""
+    try:
+        out = subprocess.run(["pdftotext", "-f", str(p + 1), "-l", str(p + 1), str(pdf), "-"],
+                             capture_output=True, text=True, check=True).stdout
+        if out.strip():
+            return out
+    except (OSError, subprocess.CalledProcessError):
+        pass
+    return pypdf.PdfReader(str(pdf)).pages[p].extract_text() or ""
+
+
+def pdf_pages(pdf: Path, pages: list[int], tag: str, truth_only: bool = False) -> int:
     import pypdf
     try:
         reader = pypdf.PdfReader(str(pdf))
@@ -105,8 +123,15 @@ def pdf_pages(pdf: Path, pages: list[int], tag: str) -> int:
     for p in pages:
         if p >= len(reader.pages):
             continue
-        truth = clean_truth(reader.pages[p].extract_text() or "")
+        truth = clean_truth(pdf_page_text(pdf, p))
         if len(truth.split()) < 40:
+            continue
+        if truth_only:
+            for sev in SEVERITIES:
+                f = OUT / f"sev{sev}" / f"{tag}-p{p + 1:03d}.txt"
+                if f.exists():
+                    f.write_text(truth)
+            n += 1
             continue
         # PRINT MODEL.  A born-digital page rasterized straight to 300 dpi is
         # not a printed page: this face's hairlines are thinner than one
@@ -278,15 +303,19 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--fr-pages", type=int, default=12)
     ap.add_argument("--templates-per-face", type=int, default=2)
+    ap.add_argument("--truth-only", action="store_true",
+                    help="rewrite the PDF pages' truth files only (images untouched)")
     args = ap.parse_args()
     rng = random.Random(5)
     n = 0
     for pdf in sorted(SRC.glob("bill-*.pdf")):
-        n += pdf_pages(pdf, list(range(0, 10)), pdf.stem)
+        n += pdf_pages(pdf, list(range(0, 10)), pdf.stem, args.truth_only)
     fr = SRC / "fr-2024-03-15.pdf"
     if fr.exists():
-        n += pdf_pages(fr, list(range(8, 8 + args.fr_pages)), "fr-2024-03-15")
+        n += pdf_pages(fr, list(range(8, 8 + args.fr_pages)), "fr-2024-03-15", args.truth_only)
     print(f"{n} PDF pages")
+    if args.truth_only:
+        return
     faces = {
         "helvetica-neue": (font("HelveticaNeue", 40, 0), font("HelveticaNeue", 40, 1), font("HelveticaNeue", 64, 1)),
         "avenir": (font("Avenir", 40, 0), font("Avenir", 40, 2), font("Avenir", 64, 2)),
