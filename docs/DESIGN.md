@@ -358,7 +358,11 @@ broad-30; needs a legacy-capable `eng.traineddata` via `TESSDATA_PREFIX`).
 `confusion_report.py` and `classifier_truth_eval.py` name the next target.
 Rules: three oscillations on dev-8 stop a sweep; a change is kept only if
 the headline and the other sets agree; anything that loses on one set is
-recorded before it is reverted or made opt-in.
+recorded before it is reverted or made opt-in. A newly TRAINED network
+is judged against the seed variance of its recipe (RESEARCH 2026-09-10:
+word-accuracy range across three seeds 0.2 on broad-30, 0.4 on dev-8,
+0.7 on modern, 1.0 on legal-8): it is adopted only when it clears that
+range, or wins with two seeds.
 
 Current numbers (2026-09-08): broad-30 91.7 / 81.4 (recall 86.2, precision 89.1),
 dev-8 95.1 / 88.8, legal-8 91.3 / 79.6, modern 84.7 / 72.3 (recall 89.7, precision 90.7; legacy 72.0 / 67.5 / 92.0 / 95.7;
