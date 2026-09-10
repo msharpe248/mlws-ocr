@@ -390,13 +390,19 @@ with the MLP and the GRU off:
 
 | profile | dev-8 | broad-30 | legal-8 | modern |
 |---|---|---|---|---|
-| classic | 95.1 / 88.7 | 91.7 / 81.4 (86.2 / 89.1) | 91.3 / 79.4 | 84.6 / 72.1 (89.4 / 90.4) |
-| pure | 94.8 / 87.6 | 90.9 / 78.3 (82.9 / 86.1) | 90.3 / 75.8 | 83.8 / 69.6 (85.8 / 87.0) |
+| classic | 95.1 / 88.7 | 91.7 / 81.4 (86.2 / 89.1) | 91.3 / 79.4 | 88.2 / 78.9 (86.2 / 90.1) |
+| pure | 94.8 / 87.6 | 90.9 / 78.3 (82.9 / 86.1) | 90.3 / 75.8 | (old truth) 83.8 / 69.6 (85.8 / 87.0) |
 | neural | 96.2 / 91.3 | 93.4 / 86.5 (90.7 / 93.4) | 91.9 / 83.8 | 86.3 / 77.5 (94.5 / 95.6) |
 
 The two light networks are worth about three word points on the headline
 set and four on the typewriter set; the pure row is what the feature
-engine reads on its own. The neural row is classic plus the word-strip
+engine reads on its own. The modern column was re-baselined on
+2026-09-10: the PDF pages' truth is now in visual reading order
+(poppler's), not the text layer's stream order, which had scored both us
+and legacy Tesseract at about 50 word on most Federal Register pages for
+reasons that had nothing to do with recognition (RESEARCH). Legacy on the
+rebuilt modern set: 75.3 / 70.9 overall, 97.7 / 94.7 on the Federal
+Register pages. The neural row is classic plus the word-strip
 sequence scorer (§6.4) in three places: each word's segmentation variants
 rescored by the CTC likelihood of their text under a 285k-parameter CRNN
 trained on synthetic touching-pair windows and truth-labeled real strips,
