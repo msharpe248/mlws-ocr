@@ -187,6 +187,17 @@ class BeamDecode(Stage):
                                    # the same term is a different animal, and
                                    # is measured on its own)
         "seq_inject_margin": 3.0,
+        "doc_words": False,        # per-document word list: a word the classic
+                                   # decoder and the scorer's greedy read agreed
+                                   # on in the previous pass, though the lexicon
+                                   # does not know it, vouches for itself
+                                   # elsewhere on the page in this pass -- the
+                                   # adaptation idea moved from glyphs to words
+                                   # (proper nouns, addresses, foreign text)
+        "doc_words_min_len": 3,
+        "doc_words_min_count": 2,  # a scorer reading seen this often on the page
+                                   # (distinct words) vouches for itself; one
+                                   # agreement with the decoder is enough
         "seq_reread": False,       # segment re-read: when a segment's words
                                    # are mostly unendorsed junk (a line fused
                                    # into one string, a letterhead face outside
@@ -806,6 +817,9 @@ class BeamDecode(Stage):
         self._seq_scorer = (self._load_seq(p["seq_path"], p["seq_backend"])
                             if p["seq_path"] else None)
         self._lm_endorsed = lm.endorsed
+        self._doc_words = (self._collect_doc_words(layout, lm, p)
+                           if p["doc_words"] and self._seq_scorer is not None else set())
+        layout["doc_words"] = sorted(self._doc_words)
         self._cur_seq = None
         self._cur_binary = page.binary if self._nbest_sink is not None else None
         self._seq_stats = [0, 0, 0]   # words rescored, winners changed, segments re-read
@@ -943,6 +957,8 @@ class BeamDecode(Stage):
                                 max(g["box"][3] for g in word_groups)],
                         "confidence": meta["confidence"],
                         "in_lexicon": meta["in_lexicon"],
+                        "seq_agree": bool(meta.get("seq_agree", False)),
+                        "seq_greedy": meta.get("seq_greedy", ""),
                     }
                     # Per-character provenance (box, source group, how it
                     # was read: whole / split / merge) -- for the inspector's
@@ -971,7 +987,8 @@ class BeamDecode(Stage):
                      "lm_overrides": n_lm_override, "rejects": n_reject,
                      "fragment_joins": n_joins,
                      "seq_words": self._seq_stats[0], "seq_flips": self._seq_stats[1],
-                     "seq_rereads": self._seq_stats[2]},
+                     "seq_rereads": self._seq_stats[2],
+                     "doc_words": len(self._doc_words)},
         )
         self._cur_seq = self._cur_line = self._cur_binary = None
         return out, debug
@@ -986,6 +1003,7 @@ class BeamDecode(Stage):
                          # _decode_word; stage._cur_binary holds page.binary
     _cur_line = None
     _cur_binary = None
+    _doc_words: set = set()
 
     @classmethod
     def _load_seq(cls, path: str, backend: str):
@@ -1011,6 +1029,38 @@ class BeamDecode(Stage):
         if strip.shape[1] < 4:
             return None
         return (strip < 0.5).astype(np.float32), x0, scale, {}
+
+    @staticmethod
+    def _core(text: str) -> str:
+        return text.lower().strip("'\".,;:!?()-")
+
+    def _endorsed(self, text: str, lm) -> bool:
+        """Lexicon, numeric format, or the page's own word list."""
+        core = self._core(text)
+        return bool(core) and (lm.endorsed(core) or numeric_endorsed(text)
+                               or core in self._doc_words)
+
+    def _collect_doc_words(self, layout, lm, p) -> set:
+        """What this page calls its people, places and products, from the
+        previous pass: a word the decoder and the scorer read identically
+        without the lexicon's help, or a scorer reading that recurs on the
+        page (distinct words) -- the cipher-solving argument of glyph
+        adaptation at word level: repetition on one page is evidence the
+        lexicon cannot give.  Empty on the first pass."""
+        from collections import Counter
+        out, seen = set(), Counter()
+        for ln in layout.get("lines", []):
+            for w in ln.get("words", []):
+                core = self._core(w.get("text", ""))
+                if (w.get("seq_agree") and len(core) >= p["doc_words_min_len"]
+                        and core.isalpha() and not lm.endorsed(core)):
+                    out.add(core)
+                for part in str(w.get("seq_greedy", "")).split():
+                    g = self._core(part)
+                    if len(g) >= p["doc_words_min_len"] and g.isalpha() and not lm.endorsed(g):
+                        seen[g] += 1
+        out.update(g for g, n in seen.items() if n >= p["doc_words_min_count"])
+        return out
 
     def _seq_span(self, boxes, x_height, p):
         """Strip columns (c0, c1) of the window spanning ``boxes`` plus
@@ -1049,14 +1099,42 @@ class BeamDecode(Stage):
             return words, 0
 
         def endorsed(t):
-            core = t.lower().strip("'\".,;:!?()-")
-            return bool(core) and (lm.endorsed(core) or numeric_endorsed(t))
+            return self._endorsed(t, lm)
 
         texts = [t for _, (t, _) in words]
         n_chars = sum(len(t) for t in texts)
         dec_frac = sum(map(endorsed, texts)) / len(texts)
-        if n_chars < p["seq_reread_min_chars"] or dec_frac >= p["seq_reread_max_endorsed"]:
-            return words, 0
+        if n_chars >= p["seq_reread_min_chars"] and dec_frac < p["seq_reread_max_endorsed"]:
+            return self._seq_reread_span(seg_groups, words, x_height, lm, p)
+        # otherwise each maximal run of unendorsed words is re-read on its
+        # own: a junk 'SAHCAAVE' between an endorsed street number and an
+        # endorsed state is a minority of its segment but still junk
+        out, replaced, i = [], 0, 0
+        while i < len(words):
+            if endorsed(texts[i]):
+                out.append(words[i]); i += 1; continue
+            j = i
+            while j < len(words) and not endorsed(texts[j]):
+                j += 1
+            run = words[i:j]
+            run_groups = [g for grp, _ in run for g in grp]
+            if sum(len(t) for t in texts[i:j]) >= p["seq_reread_min_chars"]:
+                new, rep = self._seq_reread_span(run_groups, run, x_height, lm, p)
+                out.extend(new); replaced += rep
+            else:
+                out.extend(run)
+            i = j
+        return out, replaced
+
+    def _seq_reread_span(self, seg_groups, words, x_height, lm, p):
+        """The re-read proper, over the groups of ``words``."""
+        from mlws_ocr.recognize.ctc import greedy_decode_frames
+
+        def endorsed(t):
+            return self._endorsed(t, lm)
+
+        texts = [t for _, (t, _) in words]
+        dec_frac = sum(map(endorsed, texts)) / len(texts)
         boxes = [g["box"] for g in seg_groups]
         span = self._seq_span(boxes, x_height, p)
         logp = self._seq_window(boxes, x_height, p)
@@ -1127,24 +1205,31 @@ class BeamDecode(Stage):
         before = max(range(len(found)), key=lambda i: found[i][2])
         found = list(found)
         texts = [text for text, _, _ in found]
+        from mlws_ocr.recognize.ctc import greedy_decode
+        greedy = greedy_decode(logp, scorer.classes).strip()
+        # agreement between two independent readers is what the next pass's
+        # document word list is built from
+        for i, (text, meta, _) in enumerate(found):
+            meta["seq_agree"] = (text == greedy)
+            meta["seq_greedy"] = greedy
         if p["seq_inject"]:
             # the scorer's own reading joins the variants with the decoder's
             # best score, so it wins only through the CTC term, and only
             # when its likelihood beats the decoder's best text by the
             # margin; it carries no per-character provenance
-            from mlws_ocr.recognize.ctc import greedy_decode
-            greedy = greedy_decode(logp, scorer.classes).strip()
             if greedy and greedy not in texts and greedy.count(" ") == 0:
                 _, nll = self._seq_costs(logp, texts + [greedy])
                 g_nll, lead_nll = nll[greedy], nll[found[before][0]]
                 core = greedy.lower().strip("'\".,;:!?()-")
-                endorsed = bool(self._lm_endorsed(core)) or numeric_endorsed(greedy)
+                endorsed = (bool(self._lm_endorsed(core)) or numeric_endorsed(greedy)
+                            or core in self._doc_words)
                 if (np.isfinite(g_nll) and (endorsed or not p["seq_inject_endorsed"])
                         and (np.isnan(lead_nll)
                              or g_nll < lead_nll - p["seq_inject_margin"])):
                     meta = dict(found[before][1], chars=[], rejected=False,
                                 in_lexicon=bool(self._lm_endorsed(core)),
-                                numeric_format=numeric_endorsed(greedy), seq_injected=True)
+                                numeric_format=numeric_endorsed(greedy), seq_injected=True,
+                                seq_agree=True)
                     found.append((greedy, meta, found[before][2]))
                     texts.append(greedy)
         cost, _ = self._seq_costs(logp, texts)
@@ -1459,7 +1544,7 @@ class BeamDecode(Stage):
                 total += score
                 core = text.lower().strip("'\".,;:!?()-")
                 numeric = numeric_endorsed(text)
-                endorsed_parts.append(lm.endorsed(core) or numeric)
+                endorsed_parts.append(lm.endorsed(core) or numeric or core in self._doc_words)
                 if numeric:
                     # a whole-shape numeric format (money, date, ZIP, phone)
                     # is as good an endorsement as a dictionary hit
@@ -1591,7 +1676,10 @@ class BeamDecode(Stage):
                 found.append((text, dict(meta, chars=prov), score))
         if not found:
             return None
-        if self._cur_seq is not None and len(found) > 1:
+        if self._cur_seq is not None and (len(found) > 1 or p["doc_words"]):
+            # a single-variant word is still read by the scorer when the
+            # document word list is on: its reading is what the list is
+            # built from, and the rescoring itself is a no-op on one variant
             lead = max(found, key=lambda v: v[2])
             gated = (p["seq_gate"] == "unendorsed" and lead[1]["in_lexicon"]
                      and lead[1]["confidence"] >= p["seq_gate_conf"])
