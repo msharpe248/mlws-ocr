@@ -223,6 +223,9 @@ class TextOutput(Stage):
                      "n_tables": len(tables_text),
                      "suppressed_lines": len(suppressed),
                      "mean_word_confidence": round(sum(confs) / len(confs), 3) if confs else 0,
+                     # calibrated probabilities, when the decoder's conf_path is set
+                     "review_words": sum(1 for l in layout["lines"] for w in l.get("words", [])
+                                         if w.get("p_correct", 1.0) < 0.8),
                      "preview": full[:120].replace("\n", " / ")},
             notes=[full[:600]],
         )

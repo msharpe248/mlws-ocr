@@ -187,6 +187,12 @@ class BeamDecode(Stage):
                                    # the same term is a different animal, and
                                    # is measured on its own)
         "seq_inject_margin": 3.0,
+        "conf_path": "",           # decode/wordconf.py calibrator: sets each word's
+                                   # p_correct (a probability, unlike "confidence",
+                                   # the beam margin the garbage gate is tuned on);
+                                   # "" = off
+        "review_below": 0.8,       # words with p_correct under this are counted
+                                   # as review candidates in the debug bundle
         "doc_words": False,        # per-document word list: a word the classic
                                    # decoder and the scorer's greedy read agreed
                                    # on in the previous pass, though the lexicon
@@ -959,6 +965,13 @@ class BeamDecode(Stage):
                         "in_lexicon": meta["in_lexicon"],
                         "seq_agree": bool(meta.get("seq_agree", False)),
                         "seq_greedy": meta.get("seq_greedy", ""),
+                        "seq_nll_char": meta.get("seq_nll_char"),
+                        "seq_margin": meta.get("seq_margin"),
+                        "numeric_format": bool(meta.get("numeric_format", False)),
+                        "doc_endorsed": self._core(text) in self._doc_words,
+                        "seq_injected": bool(meta.get("seq_injected", False)),
+                        "seq_reread": bool(meta.get("seq_reread", False)),
+                        "lm_override": int(meta.get("lm_override", 0)),
                     }
                     # Per-character provenance (box, source group, how it
                     # was read: whole / split / merge) -- for the inspector's
@@ -973,6 +986,14 @@ class BeamDecode(Stage):
         n_caseflips += self._word_case_coherence(layout)
         n_caseflips += self._mixed_alnum_repair(layout, lm)
         n_dehyph = self._dehyphenate_pass(layout, lm)
+        n_review = 0
+        if p["conf_path"]:
+            from .wordconf import WordConfidence
+            calib = self._load_conf(p["conf_path"])
+            for ln in layout["lines"]:
+                for w in ln.get("words", []):
+                    w["p_correct"] = round(calib.p_correct(w), 3)
+                    n_review += w["p_correct"] < p["review_below"]
         for ln in layout["lines"]:
             for w in ln.get("words", []):
                 if "chars" in w and len(w["chars"]) != len(w["text"]):
@@ -988,7 +1009,7 @@ class BeamDecode(Stage):
                      "fragment_joins": n_joins,
                      "seq_words": self._seq_stats[0], "seq_flips": self._seq_stats[1],
                      "seq_rereads": self._seq_stats[2],
-                     "doc_words": len(self._doc_words)},
+                     "doc_words": len(self._doc_words), "review_words": n_review},
         )
         self._cur_seq = self._cur_line = self._cur_binary = None
         return out, debug
@@ -996,6 +1017,16 @@ class BeamDecode(Stage):
     _model_cache: dict = {}
     _gru_cache: dict = {}
     _seq_cache: dict = {}
+    _conf_cache: dict = {}
+
+    @classmethod
+    def _load_conf(cls, path: str):
+        from .wordconf import WordConfidence
+        key = (path, Path(path).stat().st_mtime)
+        if key not in cls._conf_cache:
+            cls._conf_cache.clear()
+            cls._conf_cache[key] = WordConfidence.load(path)
+        return cls._conf_cache[key]
     _cur_seq = None      # (line strip, line x0, scale, window cache) while a
                          # line's words are decoded; None when the scorer is off
     _nbest_sink = None   # offline harness hook (scripts/seq_rerank_eval.py):
@@ -1232,7 +1263,17 @@ class BeamDecode(Stage):
                                 seq_agree=True)
                     found.append((greedy, meta, found[before][2]))
                     texts.append(greedy)
-        cost, _ = self._seq_costs(logp, texts)
+        cost, nll = self._seq_costs(logp, texts)
+        # evidence for the word-confidence calibrator: the scorer's own
+        # likelihood of each text (per character) and its margin over the
+        # next variant, in nats
+        finite = sorted(v for v in nll.values() if np.isfinite(v))
+        for text, meta, _ in found:
+            v = nll.get(text, float("nan"))
+            meta["seq_nll_char"] = (v / max(len(text), 1)) if np.isfinite(v) else None
+            others = [u for t, u in nll.items() if t != text and np.isfinite(u)]
+            meta["seq_margin"] = ((min(others) - v) if (others and np.isfinite(v))
+                                  else (20.0 if np.isfinite(v) else None))
         if not any(cost.values()):
             return found, 0
         out = [(text, meta, score - p["seq_weight"] * cost[text]) for text, meta, score in found]
