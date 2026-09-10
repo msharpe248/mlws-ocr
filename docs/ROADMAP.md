@@ -211,9 +211,15 @@ of every set (RESEARCH). Its own greedy read of a real word window is
 right 97.5% of the time on dev-8 against the classic decoder's 94.6%,
 and two more terms landed the same day: the beam's n-best rescored by
 the window (broad-30 85.0 → 86.2 word, legal-8 81.0 → 83.7) and the
-segment re-read (86.2 → 86.5, recall 90.1 → 90.7). Neural now stands at
-broad-30 93.4 / 86.5, modern 86.3 / 77.5, legal-8 91.9 / 83.8, dev-8
-96.2 / 91.3. The decomposition under the profile says three quarters of
+segment re-read (86.2 → 86.5, recall 90.1 → 90.7). With the per-document word list
+(2026-09-10) and the modern truth rebuilt in reading order, neural stands
+at broad-30 93.4 / 86.8, modern 90.1 / 84.6 (legacy 75.3 / 70.9), legal-8
+92.0 / 84.3, dev-8 96.2 / 91.4. The Federal Register pages were never a
+recognition loss: the PDF text layer's order was scoring both engines at
+50 word; on the rebuilt truth neural reads them at 96.5 / 90.6 against
+legacy's 97.7 / 94.7, and what remains there is the '§' glyph (not in the
+class set), the running header's slashes, and hyphenated 8-pt words.
+Payslips (74 / 72) are the weakest modern kind: tables. The decomposition under the profile says three quarters of
 the remaining gap to legacy is characters and spaces that vanish, and the
 probe says they vanish in lines the re-read cannot endorse: foreign text,
 proper nouns and addresses, letterhead faces outside the stock. Gap-
