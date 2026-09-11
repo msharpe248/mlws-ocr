@@ -204,6 +204,12 @@ class BeamDecode(Stage):
         "doc_words_min_count": 2,  # a scorer reading seen this often on the page
                                    # (distinct words) vouches for itself; one
                                    # agreement with the decoder is enough
+        "seq_case": False,         # when the scorer's own reading equals the
+                                   # chosen word up to case, take the scorer's
+                                   # case: it sees the whole word's relative
+                                   # heights, where the per-glyph height prior
+                                   # sees one size twin at a time ('president',
+                                   # 'wayne', 'Of', 'With' on broad-30)
         "seq_reread": False,       # segment re-read: when a segment's words
                                    # are mostly unendorsed junk (a line fused
                                    # into one string, a letterhead face outside
@@ -1309,6 +1315,10 @@ class BeamDecode(Stage):
             return found, 0
         out = [(text, meta, score - p["seq_weight"] * cost[text]) for text, meta, score in found]
         after = max(range(len(out)), key=lambda i: out[i][2])
+        if (p["seq_case"] and greedy and greedy != out[after][0]
+                and greedy.lower() == out[after][0].lower()):
+            text, meta, score = out[after]
+            out[after] = (greedy, dict(meta, seq_case=True), score)
         return out, int(after != before)
 
     @classmethod
