@@ -1210,7 +1210,10 @@ class BeamDecode(Stage):
                 return words, 0          # a character the scorer cannot spell: no verdict
             if nll[new_text] >= nll[dec_text] - p["seq_line_margin"] * max(len(dec_text), 1):
                 return words, 0
-            if sum(map(endorsed, new_texts)) < sum(map(endorsed, texts)):
+            # strictly MORE endorsed words: with "not fewer" the reading
+            # could swap a right proper noun for a wrong one at equal count
+            # (broad-30 char -0.4..-0.6 at every margin, word +0.1..+0.2)
+            if sum(map(endorsed, new_texts)) <= sum(map(endorsed, texts)):
                 return words, 0
         elif new_frac <= dec_frac or sum(map(endorsed, new_texts)) <= sum(map(endorsed, texts)):
             return words, 0
