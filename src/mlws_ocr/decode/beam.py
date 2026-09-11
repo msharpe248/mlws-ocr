@@ -212,6 +212,15 @@ class BeamDecode(Stage):
                                    # space emissions, replaces them if it
                                    # endorses better; words are placed back on
                                    # the groups by column
+        "seq_line_read": False,    # line-level read: the scorer reads the WHOLE
+                                   # line window and its reading replaces the
+                                   # line's words when its likelihood beats the
+                                   # decoder's line text by seq_line_margin nats
+                                   # per character without endorsing fewer words
+                                   # -- for the lines classic segmentation
+                                   # mangles (fused letterheads, display faces);
+                                   # needs a model trained on long windows
+        "seq_line_margin": 0.5,
         "seq_reread_max_endorsed": 0.5,   # ...the decoder's endorsed fraction below which
         "seq_reread_min_chars": 8,        # ...and at least this many characters
         "seq_beam_weight": 0.0,    # Phase B: the beam's own n-best strings
@@ -828,7 +837,7 @@ class BeamDecode(Stage):
         layout["doc_words"] = sorted(self._doc_words)
         self._cur_seq = None
         self._cur_binary = page.binary if self._nbest_sink is not None else None
-        self._seq_stats = [0, 0, 0]   # words rescored, winners changed, segments re-read
+        self._seq_stats = [0, 0, 0, 0]   # words rescored, winners changed, segments re-read, lines re-read
         top1 = np.array([g["candidates"][0][1] for ln in layout["lines"]
                          for g in ln.get("groups", []) if "candidates" in g])
         if len(top1) and p["reject_mads"] is not None:
@@ -923,6 +932,9 @@ class BeamDecode(Stage):
                 decoded, joins = self._join_decoded(decoded, x_height, lm, p,
                                                     reject_at)
                 n_joins += joins
+            if p["seq_line_read"] and self._cur_seq is not None and decoded:
+                decoded, rep = self._seq_reread_span(groups, decoded, x_height, lm, p, mode="line")
+                self._seq_stats[3] += rep
 
             ln["words"] = []
             for word_groups, (text, meta) in decoded:
@@ -1008,7 +1020,7 @@ class BeamDecode(Stage):
                      "lm_overrides": n_lm_override, "rejects": n_reject,
                      "fragment_joins": n_joins,
                      "seq_words": self._seq_stats[0], "seq_flips": self._seq_stats[1],
-                     "seq_rereads": self._seq_stats[2],
+                     "seq_rereads": self._seq_stats[2], "seq_line_reads": self._seq_stats[3],
                      "doc_words": len(self._doc_words), "review_words": n_review},
         )
         self._cur_seq = self._cur_line = self._cur_binary = None
@@ -1157,8 +1169,12 @@ class BeamDecode(Stage):
             i = j
         return out, replaced
 
-    def _seq_reread_span(self, seg_groups, words, x_height, lm, p):
-        """The re-read proper, over the groups of ``words``."""
+    def _seq_reread_span(self, seg_groups, words, x_height, lm, p, mode="endorse"):
+        """The re-read proper, over the groups of ``words``.  ``mode``
+        'endorse' accepts a reading that endorses more words (the segment
+        re-read); 'line' accepts one whose CTC likelihood beats the
+        decoder's text by seq_line_margin nats per character without
+        endorsing fewer words (the line-level read)."""
         from mlws_ocr.recognize.ctc import greedy_decode_frames
 
         def endorsed(t):
@@ -1185,7 +1201,18 @@ class BeamDecode(Stage):
             return words, 0
         new_texts = ["".join(ch for ch, _ in w) for w in read]
         new_frac = sum(map(endorsed, new_texts)) / len(new_texts)
-        if new_frac <= dec_frac or sum(map(endorsed, new_texts)) <= sum(map(endorsed, texts)):
+        if mode == "line":
+            dec_text, new_text = " ".join(texts), " ".join(new_texts)
+            if new_text == dec_text:
+                return words, 0
+            _, nll = self._seq_costs(logp, [dec_text, new_text])
+            if not (np.isfinite(nll[dec_text]) and np.isfinite(nll[new_text])):
+                return words, 0          # a character the scorer cannot spell: no verdict
+            if nll[new_text] >= nll[dec_text] - p["seq_line_margin"] * max(len(dec_text), 1):
+                return words, 0
+            if sum(map(endorsed, new_texts)) < sum(map(endorsed, texts)):
+                return words, 0
+        elif new_frac <= dec_frac or sum(map(endorsed, new_texts)) <= sum(map(endorsed, texts)):
             return words, 0
         strip, line_x0, scale, _ = self._cur_seq
         # page x of each word's first and last emitted frame (2 px per frame)
@@ -1203,7 +1230,8 @@ class BeamDecode(Stage):
                 continue        # a reading with no ink under it is not kept
             meta = {"confidence": 0.5, "in_lexicon": endorsed(text) and not numeric_endorsed(text),
                     "rejected": False, "lm_override": 0,
-                    "numeric_format": numeric_endorsed(text), "chars": [], "seq_reread": True}
+                    "numeric_format": numeric_endorsed(text), "chars": [], "seq_reread": True,
+                    "seq_line_read": mode == "line"}
             out.append((groups, (text, meta)))
         return (out, 1) if out else (words, 0)
 

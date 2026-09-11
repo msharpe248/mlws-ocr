@@ -30,13 +30,15 @@ from mlws_ocr.factory.words import (X_HEIGHT_WEIGHTS, X_HEIGHTS, corpus_words,  
                                     render_word_window, sample_theta,
                                     sample_tracking, sample_words, stock_fonts)
 
-MAX_WIDTH = 512   # strip columns; wider windows are dropped
+MAX_WIDTH = 512   # strip columns; wider windows are dropped (--max-width)
 _G: dict = {}
 
 
-def _init(corpus_dirs, fonts, x_heights=None, x_weights=None):
+def _init(corpus_dirs, fonts, x_heights=None, x_weights=None, words=(2, 5), take=(1, 3),
+          max_width=MAX_WIDTH):
     _G["words"], _G["probs"] = corpus_words(corpus_dirs)
     _G["fonts"] = fonts
+    _G["nwords"], _G["take"], _G["max_width"] = tuple(words), tuple(take), max_width
     _G["xh"] = list(x_heights or X_HEIGHTS)
     w = np.array(x_weights or X_HEIGHT_WEIGHTS, dtype=float)
     _G["xw"] = w / w.sum()
@@ -54,12 +56,12 @@ def _chunk(args):
         fi = int(rng.choice(len(_G["fonts"]), p=_G["font_p"]))
         font = _G["fonts"][fi]
         xh = float(rng.choice(_G["xh"], p=_G["xw"]))
-        n_words = int(rng.integers(2, 6))
+        n_words = int(rng.integers(_G["nwords"][0], _G["nwords"][1] + 1))
         words = sample_words(rng, _G["words"], _G["probs"], n_words)
         tracking = sample_tracking(rng, _G["italic"][fi])
         theta = sample_theta(rng, xh)
-        ww = render_word_window(rng, words, font, xh, theta, tracking_em=tracking)
-        if ww is None or ww.strip.shape[1] > MAX_WIDTH or ww.strip.shape[1] < 4:
+        ww = render_word_window(rng, words, font, xh, theta, tracking_em=tracking, take=_G["take"])
+        if ww is None or ww.strip.shape[1] > _G["max_width"] or ww.strip.shape[1] < 4:
             continue
         out.append((np.packbits(ww.strip < 0.5, axis=1), ww.strip.shape[1],
                     ww.label, ww.touching, ww.font, xh, tracking))
@@ -74,6 +76,12 @@ def main():
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--corpus", nargs="+", default=["data/corpus_en", "data/corpus_en_modern"])
     ap.add_argument("--chunk", type=int, default=1000)
+    ap.add_argument("--words", type=int, nargs=2, default=[2, 5], metavar=("MIN", "MAX"),
+                    help="words per rendered line (inclusive range)")
+    ap.add_argument("--take", type=int, nargs=2, default=[1, 3], metavar=("MIN", "MAX"),
+                    help="consecutive words per window; long windows teach the model to "
+                         "read a whole line (the decoder's line-level read)")
+    ap.add_argument("--max-width", type=int, default=MAX_WIDTH)
     ap.add_argument("--x-heights", type=float, nargs="+", default=list(X_HEIGHTS),
                     help="x-heights (px) to sample from; e.g. small type: 9 10 11 12 13")
     ap.add_argument("--x-weights", type=float, nargs="+", default=list(X_HEIGHT_WEIGHTS))
@@ -90,7 +98,8 @@ def main():
     packed, widths, labels, touching, names, xhs, tracks = [], [], [], [], [], [], []
     done = 0
     with mp.Pool(args.workers, initializer=_init,
-                 initargs=(args.corpus, fonts, args.x_heights, args.x_weights)) as pool:
+                 initargs=(args.corpus, fonts, args.x_heights, args.x_weights,
+                           args.words, args.take, args.max_width)) as pool:
         for chunk in pool.imap_unordered(_chunk, jobs):
             for pk, w, lab, tch, name, xh, tr in chunk:
                 packed.append(pk); widths.append(w); labels.append(lab)

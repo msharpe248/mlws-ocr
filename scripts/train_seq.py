@@ -125,11 +125,15 @@ def main():
     ap.add_argument("--smoke", type=int, default=0, help="train on N windows for one epoch")
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--device", default="auto")
+    ap.add_argument("--init", default="", help="start from these weights (fine-tune)")
     args = ap.parse_args()
     rng = np.random.default_rng(args.seed)
 
     classes = default_classes()
     net = SeqNet(classes, hidden=args.hidden, seed=args.seed)
+    if args.init:
+        net = SeqNet.load(args.init)
+        print(f"initialised from {args.init}")
     print(f"SeqNet: {net.n_params} parameters, {len(classes)} classes")
 
     train, held_real, held_synth = [], [], []
