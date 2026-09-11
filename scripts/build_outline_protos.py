@@ -25,6 +25,8 @@ pool = print_fonts(limit=80, exclude=HOLDOUT, include=tuple(BODY_NAMES) + tuple(
 by_stem = {f.stem: f for f in pool}
 fonts = [by_stem[n] for n in BODY_NAMES + extra if n in by_stem]
 fonts += [f for f in pool if font_family(f) == "display"][:6]
+if "--letterhead" in sys.argv:
+    fonts += [f for f in pool if font_family(f) == "letterhead"]
 from mlws_ocr.recognize.outline import outline_features
 m = OutlineMatcher()
 feats_by_class: dict[str, list] = {}

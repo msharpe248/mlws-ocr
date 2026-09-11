@@ -128,6 +128,13 @@ FAMILY_HINTS = {
     # exemplars (stocking them unrouted measurably diluted accuracy).
     "display": ("impact", "herculanum", "academy", "luminari", "cooper",
                 "copperplate"),
+    # Letterhead faces: the grotesques and slabs of 1990s company letterheads
+    # (the broad-30 deletion probe put the remaining gap in such lines). Like
+    # display, a ROUTED family: blocks that vote for it match here, body
+    # blocks never do -- adding these faces to the body pool measured
+    # negative (2026-09-11, prototype-budget dilution).
+    "letterhead": ("futura", "optima", "gillsans", "rockwell", "ptsans",
+                   "lucidagrande", "bodoni"),
 }
 
 

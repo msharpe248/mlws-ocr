@@ -44,6 +44,8 @@ _ap.add_argument("--truth-kinds", default="whole,split,merge",
                       "'split,merge' to add only cut/joined pieces)")
 _ap.add_argument("--sizes", default="32,48", metavar="PX,PX",
                  help="render heights in px; 24 adds the hairline loss of small type")
+_ap.add_argument("--letterhead", action="store_true",
+                 help="stock the routed letterhead family (factory/fonts.py FAMILY_HINTS)")
 _ap.add_argument("--condense-by-tag", action="store_true",
                  help="split each class's condensation budget across exemplar sources (sqrt quotas)")
 _ap.add_argument("--condense", type=int, default=0, metavar="N",  # live build uses 90
@@ -74,7 +76,8 @@ pool = print_fonts(limit=80, exclude=HOLDOUT, include=tuple(BODY_NAMES) + tuple(
 by_stem = {f.stem: f for f in pool}
 body = [by_stem[n] for n in BODY_NAMES + extra if n in by_stem]
 display = [f for f in pool if font_family(f) == "display"][:6]
-fonts = body + display
+letterhead = [f for f in pool if font_family(f) == "letterhead"] if _args.letterhead else []
+fonts = body + display + letterhead
 missing = [n for n in BODY_NAMES if n not in by_stem]
 if missing:
     print(f"WARNING: pinned body fonts missing: {missing}")
