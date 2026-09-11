@@ -22,6 +22,7 @@ train = ["torch>=2.4"]   # optional: faster training (and inference on an accele
 [project.scripts]
 mlws-ocr = "mlws_ocr.cli:main"
 mlws-ocr-ui = "mlws_ocr.cli:ui_main"
+mlws-ocr-service = "mlws_ocr.service:main"
 mlws-ocr-lab = "mlws_ocr.inspector.lab:main"
 
 [tool.setuptools.packages.find]

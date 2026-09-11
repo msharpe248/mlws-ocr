@@ -437,6 +437,17 @@ Python hash seeds), so the tenths were stale entries, not a change.
 
 ## 9. Tooling
 
+**Service.** `mlws-ocr-service` (`service.py`) is the same standard-
+library HTTP server the inspector uses, in front of a process pool: each
+worker loads the profile's models once and reads one page at a time, so
+throughput scales with cores while a page stays the single-threaded,
+readable pipeline. It returns the text, the words with boxes and
+`p_correct`, the hOCR document and the run summary; it binds to
+localhost and bounds request size, a building block behind a front door.
+`core/runner.py` writes `text.txt` and `page.hocr` per run (hOCR per
+Breuel 2007, `x_wconf` from the calibrator when it ran).
+
+
 - `mlws-ocr run <config> <image|pdf>` — run and persist; `mlws-ocr-ui`
   inspects `runs/`; `mlws-ocr-lab <dir>` is the live segmentation lab.
 - `scripts/eval_*.py` — the measurement suite (all accept `--set`).

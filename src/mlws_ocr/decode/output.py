@@ -214,6 +214,7 @@ class TextOutput(Stage):
 
         out = page.evolve()
         out.meta["text"] = full
+        out.meta["hocr"] = hocr_document(layout, page)
         out.meta["tables_text"] = tables_text
         out.meta["suppressed_lines"] = suppressed
         confs = [w["confidence"] for l in layout["lines"]
@@ -230,3 +231,47 @@ class TextOutput(Stage):
             notes=[full[:600]],
         )
         return out, debug
+
+
+# ---------------------------------------------------------------- hOCR
+def _esc(t: str) -> str:
+    return (t.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+             .replace('"', "&quot;"))
+
+
+def hocr_document(layout: dict, page) -> str:
+    """The page as hOCR (Breuel 2007, the hOCR microformat): one ocr_line
+    per decoded line, one ocrx_word per word with its box and confidence.
+    ``x_wconf`` carries the calibrated p_correct as a percentage when the
+    decoder's calibrator ran, else the beam margin scaled the same way,
+    and each word also carries the raw ``x_conf`` for tools that read
+    it.  Lines are emitted in the layout's order; the row-aligned text
+    of unruled tables is a property of the plain text, not of hOCR, whose
+    consumers place words by box."""
+    h, w = (page.gray.shape if page.gray is not None else (0, 0))
+    out = ['<?xml version="1.0" encoding="UTF-8"?>',
+           '<html xmlns="http://www.w3.org/1999/xhtml"><head><meta charset="utf-8"/>',
+           '<meta name="ocr-system" content="mlws-ocr"/>',
+           '<meta name="ocr-capabilities" content="ocr_page ocr_line ocrx_word"/></head><body>',
+           f'<div class="ocr_page" id="page_1" title="bbox 0 0 {w} {h}; ppageno 0">']
+    li = 0
+    for ln in layout.get("lines", []):
+        words = ln.get("words", [])
+        if not words or ln.get("graphic_suspect"):
+            continue
+        li += 1
+        x0, y0, x1, y1 = (int(v) for v in ln["box"])
+        base = ln.get("baseline")
+        title = f"bbox {x0} {y0} {x1} {y1}"
+        if base is not None:
+            title += f"; baseline 0 {int(base) - y1}"
+        out.append(f'<span class="ocr_line" id="line_{li}" title="{title}">')
+        for wi, wd in enumerate(words, 1):
+            bx = [int(v) for v in wd["box"]]
+            conf = wd.get("p_correct", wd.get("confidence", 0.0))
+            out.append(f'<span class="ocrx_word" id="word_{li}_{wi}" '
+                       f'title="bbox {bx[0]} {bx[1]} {bx[2]} {bx[3]}; x_wconf {int(round(100 * conf))}">'
+                       f'{_esc(wd["text"])}</span>')
+        out.append("</span>")
+    out.append("</div></body></html>")
+    return "\n".join(out)

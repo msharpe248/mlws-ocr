@@ -37,6 +37,7 @@ python3 -m venv .venv && .venv/bin/pip install -e ".[dev]"
 .venv/bin/mlws-ocr run configs/default.toml demo_page.png
 .venv/bin/mlws-ocr run configs/default.toml scan.pdf --pdf-page 0   # customer PDFs
 .venv/bin/mlws-ocr-ui                               # browse the run at http://127.0.0.1:8330
+.venv/bin/mlws-ocr-service --config configs/neural.toml   # POST an image to http://127.0.0.1:8340/ocr
 .venv/bin/mlws-ocr-lab data/unlv/bus.3B             # segmentation lab at http://127.0.0.1:8801
 ```
 
@@ -54,6 +55,13 @@ profile and stays so until the neural profile beats it on every set.
 
 `tests/test_profiles.py` keeps the three honest: pure differs from classic
 only in the two network switches, neural only in recognize/decode terms.
+`tests/test_regression.py` reads the synthetic page under each profile
+against the accuracies recorded at adoption.
+
+Every run writes `text.txt` and `page.hocr` (hOCR with a calibrated
+confidence per word) beside the persisted page; the service returns the
+same as JSON, one page per worker process, so a machine with N cores
+reads about N pages at once.
 
 **Models** live under `data/` (gitignored) and are all built here, from
 our own renders and our own harvests — nothing pre-trained:

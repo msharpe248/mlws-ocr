@@ -39,6 +39,11 @@ def _persist_page(page: Page, into: Path) -> None:
         save_image(into / "binary.png", page.binary)
         state["arrays"].append("binary")
     (into / "page.json").write_text(json.dumps(state, indent=2, default=str))
+    # the output stage's deliverables as files a consumer can pick up
+    if isinstance(page.meta.get("text"), str):
+        (into / "text.txt").write_text(page.meta["text"])
+    if isinstance(page.meta.get("hocr"), str):
+        (into / "page.hocr").write_text(page.meta["hocr"])
 
 
 def _persist_debug(debug: DebugBundle, params: dict, duration_ms: float,
