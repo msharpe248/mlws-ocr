@@ -219,7 +219,20 @@ recognition loss: the PDF text layer's order was scoring both engines at
 50 word; on the rebuilt truth neural reads them at 96.5 / 90.6 against
 legacy's 97.7 / 94.7, and what remains there is the '§' glyph (not in the
 class set), the running header's slashes, and hyphenated 8-pt words.
-Payslips (74 / 72) are the weakest modern kind: tables. The decomposition under the profile says three quarters of
+Payslips (74 / 72) are the weakest modern kind: tables.
+
+**2026-09-11, production leg.** Calibrated word confidence is adopted:
+every word carries `p_correct`, and keeping words at 0.9 or above keeps
+91% of dev-8's words at 98.0% right (94.4% base) with the rest routed to
+review. The line-level read was built and measured: with a model
+fine-tuned on long windows it is flat on three sets and −0.9 char on
+legal-8, because the lines it targets are letterhead faces outside the
+stock and foreign text, which a better reader of the same pixels cannot
+recover — that gap wants faces in the stock or real scans, not decoding.
+Seed variance of the scorer is measured (RESEARCH) and gates model
+adoption. Next: tables and payslips; the '§' and bullet classes; the
+engineering list (multi-core service, hOCR with `p_correct`, regression
+corpus in the tests). The decomposition under the profile says three quarters of
 the remaining gap to legacy is characters and spaces that vanish, and the
 probe says they vanish in lines the re-read cannot endorse: foreign text,
 proper nouns and addresses, letterhead faces outside the stock. Gap-
