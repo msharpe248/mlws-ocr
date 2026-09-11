@@ -231,9 +231,18 @@ stock and foreign text, which a better reader of the same pixels cannot
 recover — that gap wants faces in the stock or real scans, not decoding.
 Seed variance of the scorer is measured (RESEARCH) and gates model
 adoption. Tables of one-line cells are now read row by row (payslips
-71.6 → 82.5 word; modern neural 91.6 / 86.0, classic 89.7 / 80.2). Next:
-the '§' and bullet classes; the engineering list (multi-core service,
-hOCR with `p_correct`, regression corpus in the tests). The decomposition under the profile says three quarters of
+71.6 → 82.5 word; modern neural 91.6 / 86.0, classic 89.7 / 80.2). The
+engineering list is done: `mlws-ocr-service` (a page per worker process),
+hOCR with `p_correct`, `text.txt` and `page.hocr` per run, a regression
+test over the synthetic page. Measured and kept out, with the reasons in
+RESEARCH: the '§' and bullet classes (rare classes are confusion
+magnets; a control rebuild separates the class from the build), ten
+letterhead faces in the body pool (budget dilution) and as a routed
+family (two faces pass the gate; misrouted blocks pay). The gap to
+legacy on broad-30 is down to 926 excess errors from 1,951: shape
+substitutions are within 126 of legacy; deleted characters (63%) and
+spaces (27%) sit in letterhead lines that no mechanism on this machine's
+fonts has reached; case (15%, 149 vs 14) is the untouched share. The decomposition under the profile says three quarters of
 the remaining gap to legacy is characters and spaces that vanish, and the
 probe says they vanish in lines the re-read cannot endorse: foreign text,
 proper nouns and addresses, letterhead faces outside the stock. Gap-
