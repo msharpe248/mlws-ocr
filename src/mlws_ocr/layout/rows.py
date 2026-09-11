@@ -68,6 +68,16 @@ def row_groups(lines: list[dict], n_blocks: int, min_lines: int = 3,
         return hits >= match_frac * len(by_block[a])
 
     cands = [b for b in by_block if eligible(b)]
+    # A table whose every cell is its own one-line block (the payslips: 41
+    # blocks of one line, read column by column at 41 word) has no block
+    # with three lines to align.  Cells that share a baseline form a row;
+    # rows whose cells fall into columns that recur in at least min_rows
+    # rows form a table, read row by row.  Recurrence is the guard: two
+    # unrelated short lines on one baseline (a date and a page number)
+    # make one row, not a table.
+    singles = [b for b, lns in by_block.items()
+               if len(lns) == 1 and len(lns[0]["words"]) <= max_words]
+    tables = _single_cell_tables(singles, by_block, lines, tol, med_h, min_rows=3)
     parent = {b: b for b in cands}
 
     def find(x):
@@ -83,7 +93,70 @@ def row_groups(lines: list[dict], n_blocks: int, min_lines: int = 3,
     groups: dict[int, list[int]] = {}
     for b in cands:
         groups.setdefault(find(b), []).append(b)
-    return [sorted(g) for g in groups.values() if len(g) >= 2]
+    out = [sorted(g) for g in groups.values() if len(g) >= 2]
+    out.extend(sorted(t) for t in tables if len(t) >= 2)
+    return out
+
+
+def _single_cell_tables(singles, by_block, lines, tol, med_h, min_rows=3):
+    """Tables of one-line cells: rows by baseline, columns by left edge,
+    only rows whose cells sit in columns recurring in ``min_rows`` rows,
+    and a table is a CONTIGUOUS run of such rows -- a line from any other
+    block between two rows ends the table.  Without the contiguity rule a
+    bill's margin line numbers paired with its short headings into one
+    "table" that swallowed the page (classic modern 88.2 → 76.9 char).
+    Returns a list of block-id lists."""
+    cells = []
+    for b in singles:
+        ln = by_block[b][0]
+        cells.append((b, ln.get("baseline", ln["box"][3]), ln["box"][0], ln["box"][2]))
+    if len(cells) < 4:
+        return []
+    cells.sort(key=lambda c: c[1])
+    rows, cur = [], [cells[0]]
+    for c in cells[1:]:
+        if abs(c[1] - cur[-1][1]) <= tol:
+            cur.append(c)
+        else:
+            rows.append(cur); cur = [c]
+    rows.append(cur)
+    # a row needs two or more horizontally disjoint cells
+    def disjoint(row):
+        row = sorted(row, key=lambda c: c[2])
+        return all(row[i][3] <= row[i + 1][2] for i in range(len(row) - 1))
+    rows = [r for r in rows if len(r) >= 2 and disjoint(r)]
+    if len(rows) < min_rows:
+        return []
+    # columns: cluster left edges across rows
+    xs = sorted((c[2], ri) for ri, r in enumerate(rows) for c in r)
+    col_tol = 2.0 * med_h
+    columns, cur = [], [xs[0]]
+    for x in xs[1:]:
+        if x[0] - cur[-1][0] <= col_tol:
+            cur.append(x)
+        else:
+            columns.append(cur); cur = [x]
+    columns.append(cur)
+    recurring = [set(ri for _, ri in col) for col in columns if len(set(ri for _, ri in col)) >= min_rows]
+    if len(recurring) < 2:
+        return []
+    table_rows = [ri for ri, r in enumerate(rows)
+                  if sum(1 for col in recurring if ri in col) >= 2]
+    if len(table_rows) < min_rows:
+        return []
+    # split into contiguous runs: no foreign line between consecutive rows
+    member = set(c[0] for ri in table_rows for c in rows[ri])
+    foreign = sorted(ln.get("baseline", ln["box"][3]) for ln in lines
+                     if ln.get("words") and ln.get("block", 0) not in member)
+    runs, cur = [], [table_rows[0]]
+    for prev, ri in zip(table_rows, table_rows[1:]):
+        y0, y1 = rows[prev][0][1], rows[ri][0][1]
+        if any(y0 + tol < f < y1 - tol for f in foreign) or y1 - y0 > 4.0 * med_h:
+            runs.append(cur); cur = [ri]
+        else:
+            cur.append(ri)
+    runs.append(cur)
+    return [sorted(c[0] for ri in run for c in rows[ri]) for run in runs if len(run) >= min_rows]
 
 
 def rows_text(lines: list[dict], baseline_tol: float = 0.5,

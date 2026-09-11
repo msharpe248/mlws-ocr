@@ -230,9 +230,10 @@ legal-8, because the lines it targets are letterhead faces outside the
 stock and foreign text, which a better reader of the same pixels cannot
 recover — that gap wants faces in the stock or real scans, not decoding.
 Seed variance of the scorer is measured (RESEARCH) and gates model
-adoption. Next: tables and payslips; the '§' and bullet classes; the
-engineering list (multi-core service, hOCR with `p_correct`, regression
-corpus in the tests). The decomposition under the profile says three quarters of
+adoption. Tables of one-line cells are now read row by row (payslips
+71.6 → 82.5 word; modern neural 91.6 / 86.0, classic 89.7 / 80.2). Next:
+the '§' and bullet classes; the engineering list (multi-core service,
+hOCR with `p_correct`, regression corpus in the tests). The decomposition under the profile says three quarters of
 the remaining gap to legacy is characters and spaces that vanish, and the
 probe says they vanish in lines the re-read cannot endorse: foreign text,
 proper nouns and addresses, letterhead faces outside the stock. Gap-

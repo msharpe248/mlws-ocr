@@ -401,9 +401,9 @@ with the MLP and the GRU off:
 
 | profile | dev-8 | broad-30 | legal-8 | modern |
 |---|---|---|---|---|
-| classic | 95.1 / 88.7 | 91.7 / 81.4 (86.2 / 89.1) | 91.3 / 79.4 | 88.2 / 78.9 (86.2 / 90.1) |
+| classic | 95.1 / 88.7 | 91.7 / 81.4 (86.2 / 89.1) | 91.3 / 79.4 | 89.7 / 80.2 (86.2 / 90.1) |
 | pure | 94.8 / 87.6 | 90.9 / 78.3 (82.9 / 86.1) | 90.3 / 75.8 | (old truth) 83.8 / 69.6 (85.8 / 87.0) |
-| neural | 96.2 / 91.4 | 93.4 / 86.8 (91.0 / 93.6) | 92.0 / 84.3 | 90.1 / 84.6 (91.1 / 95.3) |
+| neural | 96.2 / 91.4 | 93.4 / 86.8 (91.0 / 93.6) | 92.0 / 84.3 | 91.6 / 86.0 (91.1 / 95.3) |
 
 The two light networks are worth about three word points on the headline
 set and four on the typewriter set; the pure row is what the feature
@@ -415,7 +415,8 @@ reasons that had nothing to do with recognition (RESEARCH). Legacy on the
 rebuilt modern set: 75.3 / 70.9 overall, 97.7 / 94.7 on the Federal
 Register pages, where neural reads 96.5 / 90.6; by kind neural reads
 letters 99.6 / 97.6, invoices 92.4 / 88.1, bills 88.2 / 80.3 and payslips
-74.4 / 71.6, the payslips now the weakest kind. The neural row is classic plus the word-strip
+86.2 / 82.5 (74.4 / 71.6 before one-line cell tables were read row by
+row, 2026-09-11). The neural row is classic plus the word-strip
 sequence scorer (§6.4) in three places: each word's segmentation variants
 rescored by the CTC likelihood of their text under a 285k-parameter CRNN
 trained on synthetic touching-pair windows and truth-labeled real strips,
