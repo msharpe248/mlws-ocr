@@ -475,6 +475,8 @@ throughput scales with cores while a page stays the single-threaded,
 readable pipeline. It returns the text, the words with boxes and
 `p_correct`, the hOCR document and the run summary; it binds to
 localhost and bounds request size, a building block behind a front door.
+`scripts/service_load.py` is its concurrency test (2026-09-12: eight
+letters at once on four workers, all served, at the dev-8 accuracy).
 `core/runner.py` writes `text.txt` and `page.hocr` per run (hOCR per
 Breuel 2007, `x_wconf` from the calibrator when it ran).
 
