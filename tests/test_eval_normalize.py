@@ -36,10 +36,17 @@ def test_a_typographic_dash_at_the_line_end_counts_as_the_hyphen():
 
 def test_a_line_number_between_the_halves_is_stepped_over():
     # a numbered bill: pdftotext puts the line number on its own line
-    assert normalize("such com-\n7\npany reasonably") == "such company reasonably 7"
+    assert normalize("such com-\n7\npany reasonably") == "7 such company reasonably"
     assert normalize("such com-\n7\nPany") == "such com- 7 Pany"      # no join: keep the order
 
 
 def test_an_inline_line_number_on_the_continuation_is_stepped_over():
     # the truth writes "2 tives of the"; our output "2" / "tives of the": same tokens after the fold
-    assert normalize("Representa-\n2 tives of the") == normalize("Representa-\n2\ntives of the") == "Representatives of the 2"
+    assert normalize("Representa-\n2 tives of the") == normalize("Representa-\n2\ntives of the") == "2 Representatives of the"
+
+
+def test_a_chain_of_wrapped_lines_keeps_folding():
+    truth = "an open-end invest-\n9\nment company, establishing periodic re-\n10\nporting requirements under which a trans-\n11\nfer agent"
+    ours = "an open-end invest-\n9\nment company, establishing periodic re-\n10\nporting requirements under which a trans-\n11\nfer agent"
+    assert normalize(truth) == normalize(ours)
+    assert "reporting" in normalize(truth) and "transfer" in normalize(truth) and "investment" in normalize(truth)

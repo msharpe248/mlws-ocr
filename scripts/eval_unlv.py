@@ -95,8 +95,12 @@ def join_line_hyphens(text: str) -> str:
                 # layouts fold to one token sequence.
                 nxt, held = m.group(2), held + [m.group(1)]
             if nxt[:1].islower():
-                out[-1] = prev[:-1] + nxt
-                out.extend(held); held = []
+                # The held numbers go BEFORE the joined line, so the line
+                # stays last and a chain of wraps ("invest-" / 9 / "ment
+                # ... re-" / 10 / "porting ... trans-" / 11 / "fer") keeps
+                # folding; emitted after it, the number ended the chain.
+                out.pop(); out.extend(held); held = []
+                out.append(prev[:-1] + nxt)
                 continue
         out.extend(held); held = []
         out.append(ln)
