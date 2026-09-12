@@ -401,9 +401,21 @@ with the MLP and the GRU off:
 
 | profile | dev-8 | broad-30 | legal-8 | modern |
 |---|---|---|---|---|
-| classic | 95.2 / 89.2 | 91.8 / 81.9 (86.2 / 89.1) | 91.7 / 81.2 | 89.9 / 81.3 (86.3 / 90.2) |
-| pure | 94.8 / 88.0 | 91.0 / 79.2 (82.9 / 86.1) | 90.9 / 78.0 | 88.5 / 77.8 (82.7 / 86.7) |
-| neural | 96.1 / 91.5 | 93.5 / 87.3 (91.4 / 94.0) | 92.2 / 84.3 | 91.7 / 86.3 (91.3 / 95.5) |
+| classic | 95.2 / 89.2 | 91.8 / 82.0 (86.2 / 89.1) | 91.7 / 81.2 | 89.6 / 80.8 (86.0 / 90.2) |
+| pure | 94.8 / 88.0 | 91.0 / 79.3 (83.0 / 86.2) | 90.9 / 78.0 | 88.2 / 77.1 (82.4 / 86.7) |
+| neural | 96.1 / 91.5 | 93.5 / 87.4 (91.5 / 94.1) | 92.2 / 84.3 | 91.5 / 85.7 (91.1 / 95.5) |
+| legacy Tesseract | 95.0 / 91.7 | 95.5 / 91.7 (96.3 / 94.2) | 90.4 / 88.7 | 75.4 / 70.8 (88.9 / 95.7) |
+
+All rows re-measured 2026-09-12 under the evaluator's line-end
+hyphenation fold (RESEARCH): the UNLV truth keeps a wrapped word as two
+halves, the decoder joins the ones its lexicon endorses, and scoring one
+convention against the other cost two word errors per wrapped word; the
+fold joins both sides. It moves dev-8 and legal-8 not at all, broad-30 by
+a tenth, and modern by half a word point down for every engine (the
+numbered bills wrap three lines running and a misread half now costs the
+whole word), while news-8 rises four word points. Each run's per-page
+output is kept (`--dump`), so the next convention change is a two-second
+re-score (`scripts/rescore_dump.py`), not a two-hour run.
 
 The two light networks are worth about three word points on the headline
 set and four on the typewriter set; the pure row is what the feature
@@ -444,11 +456,16 @@ magazine / newspaper) are measured but not tuned on and not harvested
 
 | profile | news-8 | mag-8 |
 |---|---|---|
-| classic | 92.1 / 79.0 | 65.3 / 40.6 |
-| neural | 92.8 / 83.1 (92.9 / 82.7) | 68.3 / 50.7 (74.9 / 53.4) |
-| legacy Tesseract | 96.4 / 93.6 | 87.4 / 85.0 |
+| classic | 92.6 / 81.8 | 65.3 / 41.2 |
+| neural | 93.5 / 87.3 (recall 91.3, precision 93.3) | 68.4 / 51.1 (72.1 / 80.7) |
+| legacy Tesseract | 96.3 / 93.1 (97.5 / 94.4) | 87.3 / 84.7 (95.9 / 90.5) |
 
-The first run of the day read 62.3 / 52.1 and 59.2 / 44.2: two pages lost
+(Under the hyphenation fold; zone-ordered scoring before the fold read
+news-8 92.9 / 82.7 against 92.8 / 83.1 plain, so the newspaper order is
+right, and mag-8 74.9 / 53.4 against 68.3 / 50.7, so a third of the
+magazine gap is still reading order.)
+
+The first run of the day read 62.3 / 52.1 and 59.2 / 44.2 (raw convention): two pages lost
 their text to a deskew of the full five degrees (a halftone photograph's
 pixels, rotated out of the frame, were piled on the edge row; now
 dropped, with no change on the 105 standard-set pages), and two-column

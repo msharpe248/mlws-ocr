@@ -281,6 +281,18 @@ text, three-column pages whose columns fuse, and reading order for a
 third of it. The sets are new evaluation domains, not tuning sets; their
 non-evaluation pages join the line harvest for the scorer next.
 
+**Scoring convention (2026-09-12).** The evaluator now folds line-end
+hyphenation to the joined word on both sides (the UNLV truth is as
+printed; the decoder joins what its lexicon endorses). Every row was
+re-measured: neural dev-8 96.1 / 91.5, broad-30 93.5 / 87.4, legal-8
+92.2 / 84.3, modern 91.5 / 85.7, news-8 93.5 / 87.3, mag-8 68.4 / 51.1;
+legacy 95.0 / 91.7, 95.5 / 91.7, 90.4 / 88.7, 75.4 / 70.8, 96.3 / 93.1,
+87.3 / 84.7. Per-page outputs are dumped so the next convention change
+is an offline re-score. In training: a scorer from scratch on all 3,179
+gated Google Fonts faces with long windows (`seq_en_v5`, two seeds), then
+a fine-tune on the three new real harvests (bus.3A 33k words, newspapers
+17k, magazines 21k: `seq_en_v6`).
+
 ## Later: overnight training jobs
 
 Self-trained models only (no pre-trained nets, no foundation models;
