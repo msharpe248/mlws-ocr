@@ -76,6 +76,7 @@ our own renders and our own harvests — nothing pre-trained:
 .venv/bin/python scripts/build_skeletons.py            # skeleton bank for GED reranking
 # neural profile: the word-strip sequence scorer
 .venv/bin/python scripts/make_seq_data.py --out data/seq_synth_v1.npz --n 250000   # synthetic word windows (touching pairs included)
+.venv/bin/python scripts/make_seq_data.py --out data/seq_synth_gfonts_v1.npz --n 250000 --no-stock --font-dirs /path/to/google-fonts   # hundreds more faces (OFL), same shape gate
 .venv/bin/python scripts/harvest_lines.py data/unlv/bus.3B --pages 170 --out data/lines_en.npz   # truth-labeled real word strips
 .venv/bin/python scripts/train_seq.py --backend torch --out data/seq_en_v1.npz     # CRNN + CTC; --backend numpy for the reference trainer
 ```

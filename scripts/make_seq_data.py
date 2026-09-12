@@ -82,13 +82,22 @@ def main():
                     help="consecutive words per window; long windows teach the model to "
                          "read a whole line (the decoder's line-level read)")
     ap.add_argument("--max-width", type=int, default=MAX_WIDTH)
+    ap.add_argument("--font-dirs", nargs="*", default=[],
+                    help="extra font directories (gated like the stock); with --no-stock, only these")
+    ap.add_argument("--no-stock", action="store_true")
     ap.add_argument("--x-heights", type=float, nargs="+", default=list(X_HEIGHTS),
                     help="x-heights (px) to sample from; e.g. small type: 9 10 11 12 13")
     ap.add_argument("--x-weights", type=float, nargs="+", default=list(X_HEIGHT_WEIGHTS))
     args = ap.parse_args()
     assert len(args.x_heights) == len(args.x_weights)
 
-    fonts = stock_fonts()
+    fonts = [] if args.no_stock else stock_fonts()
+    if args.font_dirs:
+        from mlws_ocr.factory.words import extra_fonts
+        from mlws_ocr.factory.stock import HOLDOUT
+        extra = extra_fonts(args.font_dirs, exclude_stems=set(HOLDOUT))
+        print(f"{len(extra)} gated faces from {args.font_dirs}")
+        fonts = fonts + extra
     print(f"{len(fonts)} fonts: {sum(font_family(f) == 'display' for f in fonts)} display, "
           f"{sum('italic' in f.stem.lower() for f in fonts)} italic")
     n_chunks = (args.n + args.chunk - 1) // args.chunk

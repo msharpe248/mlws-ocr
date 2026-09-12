@@ -17,13 +17,14 @@ FONT_DIRS = [
 ]
 
 
-def find_fonts(patterns: tuple[str, ...] = ("*.tt[fc]", "*.otf")) -> list[Path]:
+def find_fonts(patterns: tuple[str, ...] = ("*.tt[fc]", "*.otf"),
+               dirs=None) -> list[Path]:
     """All TrueType and OpenType files -- .ttc collections included (PIL
     loads face 0; Copperplate and friends ship only as .ttc on macOS), and
     .otf because the open TeX Gyre faces (Century Schoolbook, Times,
     Palatino and Bookman clones with real italics) ship as CFF OpenType."""
     found: list[Path] = []
-    for d in FONT_DIRS:
+    for d in (FONT_DIRS if dirs is None else [Path(d) for d in dirs]):
         if d.is_dir():
             for pattern in patterns:
                 found.extend(sorted(d.rglob(pattern)))
@@ -61,7 +62,7 @@ NON_PRINT_HINTS = (
 
 
 def print_fonts(limit: int | None = None, exclude: tuple[str, ...] = (),
-                include: tuple[str, ...] = ()) -> list[Path]:
+                include: tuple[str, ...] = (), dirs=None) -> list[Path]:
     """Fonts suitable for printed-document glyph rendering.
 
     Name-filtered against decorative families, then shape-checked: 'o'
@@ -78,7 +79,7 @@ def print_fonts(limit: int | None = None, exclude: tuple[str, ...] = (),
     # of 80 fills from the system directories before the user's is
     # reached.  They still pass the shape gate below -- it was right about
     # TeX Gyre Termes Italic, whose 'e' renders as junk at every size.
-    all_fonts = find_fonts()
+    all_fonts = find_fonts(dirs=dirs)
     ordered = [f for f in all_fonts if f.stem in include] + [f for f in all_fonts if f.stem not in include]
     for f in ordered:
         stocked = f.stem in include

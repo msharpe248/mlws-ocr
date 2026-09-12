@@ -87,6 +87,20 @@ def stock_fonts(include_holdout: bool = False, display: bool = True) -> list[Pat
     return out
 
 
+def extra_fonts(dirs, exclude_stems=()) -> list[Path]:
+    """Faces from extra directories (a Google Fonts checkout, say) through
+    the same shape gate as the stock: 'o' must have a hole and 'l' must
+    be a bar.  Tesseract's LSTM was trained on about 4,500 fonts; the
+    sequence scorer has no prototype budget to dilute, so it can take
+    hundreds of faces where the stock cannot (RESEARCH 2026-09-11)."""
+    out = []
+    for f in print_fonts(limit=None, dirs=list(dirs)):
+        if f.stem in exclude_stems:
+            continue
+        out.append(f)
+    return out
+
+
 def font_x_height_ratio(font: ImageFont.FreeTypeFont) -> float:
     """x-height as a fraction of the em (the font's pixel size)."""
     l, t, r, b = font.getbbox("x")
