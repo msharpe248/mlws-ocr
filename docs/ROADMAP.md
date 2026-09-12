@@ -250,8 +250,10 @@ profile, worth half a point to two word points under classic (legal-8
 first measurement claiming eight points on legal-8 was an evaluator
 artefact over pages a crash had dropped; the evaluator now counts a
 failed page as wrong (RESEARCH, 2026-09-12). The scorer fine-tuned on
-615 open faces (Tesseract's recipe) is flat to +0.3 word; a second seed
-decides. The decomposition under the profile says three quarters of
+615 open faces (Tesseract's recipe) won broad-30 on two seeds (86.8 →
+87.1 and 87.3 word, precision 93.6 → 94.0) and lost nothing elsewhere;
+adopted. Neural stands at broad-30 93.5 / 87.3 against legacy's
+95.5 / 91.7. The decomposition under the profile says three quarters of
 the remaining gap to legacy is characters and spaces that vanish, and the
 probe says they vanish in lines the re-read cannot endorse: foreign text,
 proper nouns and addresses, letterhead faces outside the stock. Gap-

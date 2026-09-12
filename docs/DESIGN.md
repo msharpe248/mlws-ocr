@@ -403,7 +403,7 @@ with the MLP and the GRU off:
 |---|---|---|---|---|
 | classic | 95.2 / 89.2 | 91.8 / 81.9 (86.2 / 89.1) | 91.7 / 81.2 | 89.9 / 81.3 (86.3 / 90.2) |
 | pure | 94.8 / 88.0 | 91.0 / 79.2 (82.9 / 86.1) | 90.9 / 78.0 | 88.5 / 77.8 (82.7 / 86.7) |
-| neural | 96.2 / 91.5 | 93.4 / 86.8 (91.0 / 93.6) | 92.1 / 84.4 | 91.7 / 86.2 (91.3 / 95.4) |
+| neural | 96.1 / 91.5 | 93.5 / 87.3 (91.4 / 94.0) | 92.2 / 84.3 | 91.7 / 86.3 (91.3 / 95.5) |
 
 The two light networks are worth about three word points on the headline
 set and four on the typewriter set; the pure row is what the feature
@@ -421,7 +421,8 @@ two word points under classic and a tenth or two under neural; a first
 measurement claiming eight points on legal-8 was an evaluator artefact
 over pages a crash had dropped, corrected 2026-09-12 (RESEARCH). Pure
 re-measured 2026-09-11 on the rebuilt modern truth. The neural row is classic plus the word-strip
-sequence scorer (§6.4) in three places: each word's segmentation variants
+sequence scorer (§6.4, since 2026-09-12 trained on 615 open faces as
+well as the stock) in three places: each word's segmentation variants
 rescored by the CTC likelihood of their text under a 285k-parameter CRNN
 trained on synthetic touching-pair windows and truth-labeled real strips,
 with the scorer's own reading admitted as a variant when the lexicon

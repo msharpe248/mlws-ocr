@@ -61,7 +61,7 @@ impl = "prototypes"
 
 [stage.decode]
 impl = "beam"
-seq_path = "data/seq_en.npz"   # scripts/train_seq.py; "" = classic decoding
+seq_path = "data/seq_en.npz"   # train_seq.py --init on stock + 615 open faces (2026-09-12); "" = classic decoding
 seq_backend = "auto"           # numpy (torch/MPS is launch-bound one window at a time: +5 s a page); "torch" to force it
 seq_weight = 0.5
 seq_inject = true
