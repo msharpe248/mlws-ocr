@@ -71,14 +71,25 @@ def join_line_hyphens(text: str) -> str:
     # legacy 1.5 word points on a page it reads at 99.6 char.
     lines = [ln for ln in text.splitlines() if ln.strip()]
     out: list[str] = []
+    held: list[str] = []      # line-number lines between the two halves
     for ln in lines:
         if out and out[-1].rstrip().endswith("-"):
             prev = out[-1].rstrip()
             nxt = ln.lstrip()
+            if nxt.isdigit():
+                # A bill or pleading numbers its lines, and the truth
+                # (pdftotext) puts each number on its own line between
+                # the halves: "com-" / "7" / "pany".  Hold it, join past
+                # it, and emit it after the joined word.
+                held.append(ln)
+                continue
             if len(prev) >= 3 and prev[-2].isalpha() and nxt[:1].islower():
                 out[-1] = prev[:-1] + nxt
+                out.extend(held); held = []
                 continue
+        out.extend(held); held = []
         out.append(ln)
+    out.extend(held)
     return "\n".join(out)
 
 

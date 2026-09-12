@@ -32,3 +32,9 @@ def test_blank_lines_between_the_halves_do_not_break_the_join():
 def test_a_typographic_dash_at_the_line_end_counts_as_the_hyphen():
     # Tesseract emits U+2014 for a wrapped word's hyphen
     assert normalize("person-to-person meet\u2014\ning with") == "person-to-person meeting with"
+
+
+def test_a_line_number_between_the_halves_is_stepped_over():
+    # a numbered bill: pdftotext puts the line number on its own line
+    assert normalize("such com-\n7\npany reasonably") == "such company reasonably 7"
+    assert normalize("such com-\n7\nPany") == "such com- 7 Pany"      # no join: keep the order
