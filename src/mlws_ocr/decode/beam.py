@@ -2218,6 +2218,13 @@ class BeamDecode(Stage):
                         # a flat neutral log-prob and is invisible to the
                         # trigram context.
                         trans = lm_w * p["wrapper_lm_logp"]
+                    elif lm_w == 0.0:
+                        # Digit mode runs the beam without the language
+                        # model; the stateless GRU replay below was still
+                        # being called and multiplied by zero -- a third
+                        # of a letter's decode time (2026-09-12 profile:
+                        # 23k replays of up to 40 steps on a 256-word page).
+                        trans = 0.0
                     elif use_gru:
                         trans = lm_w * float(logps[row, lm.char_id(c)])
                     else:
