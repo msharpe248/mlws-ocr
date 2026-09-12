@@ -45,7 +45,7 @@ def _trim(binary: np.ndarray, box: list[int]) -> list[int] | None:
 
 
 def _xycut(binary, box, min_gap_x, min_gap_y, noise_frac, out,
-           column_first_h: int = 0):
+           column_first_h: int = 0, min_col_h: int = 0):
     box = _trim(binary, box)
     if box is None:
         return
@@ -55,6 +55,12 @@ def _xycut(binary, box, min_gap_x, min_gap_y, noise_frac, out,
     row_profile = sub.sum(axis=1)
     gx = _gaps(col_profile, min_gap_x, noise_frac * sub.shape[0])
     gy = _gaps(row_profile, min_gap_y, noise_frac * sub.shape[1])
+    if (y1 - y0) < min_col_h:
+        # A column gutter is TALL: a whitespace band through a region
+        # shorter than a few lines is a word gap (a display headline's
+        # word gaps are wider than a newspaper's column gutter and cut
+        # 'Joyful patrons of all races' into four blocks, 2026-09-12).
+        gx = []
     widest_x = max((b - a for a, b in gx), default=0)
     widest_y = max((b - a for a, b in gy), default=0)
     if widest_x == 0 and widest_y == 0:
@@ -74,20 +80,21 @@ def _xycut(binary, box, min_gap_x, min_gap_y, noise_frac, out,
     prev = 0
     for a, b in cuts:
         _segment(binary, box, (prev, a), axis, min_gap_x, min_gap_y, noise_frac, out,
-                 column_first_h)
+                 column_first_h, min_col_h)
         prev = b
     _segment(binary, box, (prev, limit), axis, min_gap_x, min_gap_y, noise_frac, out,
-             column_first_h)
+             column_first_h, min_col_h)
 
 
 def _segment(binary, box, seg, axis, min_gap_x, min_gap_y, noise_frac, out,
-             column_first_h=0):
+             column_first_h=0, min_col_h=0):
     x0, y0, x1, y1 = box
     a, b = seg
     if b <= a:
         return
     child = [x0 + a, y0, x0 + b, y1] if axis == "x" else [x0, y0 + a, x1, y0 + b]
-    _xycut(binary, child, min_gap_x, min_gap_y, noise_frac, out, column_first_h)
+    _xycut(binary, child, min_gap_x, min_gap_y, noise_frac, out, column_first_h,
+           min_col_h)
 
 
 @register
@@ -103,6 +110,9 @@ class XYCutBlocks(Stage):
                                   # least this fraction of the PAGE height
                                   # is cut before any row gap (sidebar
                                   # beside body); set > 1 to disable
+        "min_column_h_300dpi": 0, # a vertical cut needs a region at least
+                                  # this tall (a gutter is tall, a headline's
+                                  # word gap is not); 0 = any height
         "river_retry_blocks": 80, # a page shredding into this many blocks
                                   # means whitespace rivers (monospace text
                                   # stacks spaces into full-height channels;
@@ -122,8 +132,27 @@ class XYCutBlocks(Stage):
         # vertical whitespace rivers that shredded pages into ~187
         # single-line blocks.
         gap_x = p["min_gap_x_300dpi"]
+        gap_y = p["min_gap_y_300dpi"]
+        min_col_h = p["min_column_h_300dpi"]
         column_first_h = 0
-        if page.meta.get("doc_type") in ("letter", "book", "legal"):
+        doc_type = page.meta.get("doc_type")
+        if doc_type in ("newspaper", "magazine"):
+            # Newspaper and magazine gutters are half a letter's (0.06"),
+            # so a gutter must be TALL to count (a display headline's word
+            # gaps are wider than the gutter).  Newspapers also set the
+            # byline hard under the headline: the row gap that frees the
+            # columns from a spanning headline is 20-26 px, under the 30
+            # a letter's block break needs.  Measured 2026-09-12 on eight
+            # pages each: news 73.1/61.7 -> 92.8/83.1 char/word (two
+            # two-column pages had read 28 char with their columns fused
+            # line by line); magazines 66.5/48.6 -> 68.2/50.8 with the
+            # gutter alone, and LOST with the row gap (65.8/50.2: their
+            # heavier leading shreds blocks), so they keep the letter's.
+            gap_x = gap_x * 0.5
+            min_col_h = max(min_col_h, 150)
+            if doc_type == "newspaper":
+                gap_y = gap_y * 0.6
+        if doc_type in ("letter", "book", "legal"):
             gap_x = gap_x * 2.5
             # Column-first cutting is a single-column-document prior too:
             # on magazines it measured -2.6 char (their gutters are real
@@ -135,8 +164,9 @@ class XYCutBlocks(Stage):
             _xycut(page.binary,
                    [0, 0, page.binary.shape[1], page.binary.shape[0]],
                    max(4, int(gx * s)),
-                   max(4, int(p["min_gap_y_300dpi"] * s)),
-                   p["noise_frac"], found, column_first_h)
+                   max(4, int(gap_y * s)),
+                   p["noise_frac"], found, column_first_h,
+                   int(min_col_h * s))
             return [b for b in found if b[2] - b[0] >= p["min_block_px"]
                     and b[3] - b[1] >= p["min_block_px"]]
 

@@ -75,3 +75,21 @@ def test_ink_projector_matches_rotation_variance():
     new = [_InkProjector(ink).variance(a) for a in angles]
     assert angles[int(np.argmax(ref))] == angles[int(np.argmax(new))]
     assert abs(angles[int(np.argmax(new))]) == 1.5          # the fixture's skew, either sign convention
+
+
+def test_ink_projector_ignores_a_photograph_at_the_frame_edge():
+    """A large solid block (a halftone photograph) near the bottom of the
+    page must not win the angle search: at the extreme angles its corner
+    leaves the frame, and piling those pixels into the edge row made a
+    fake spike that out-scored the text lines' own profile (two of sixteen
+    magazine and newspaper pages deskewed by the full 5 degrees, 2026-09-12)."""
+    from mlws_ocr.cleanup.deskew import _InkProjector
+    ink = np.zeros((600, 800), dtype=np.float32)
+    for y in range(40, 300, 24):          # text lines, horizontal
+        ink[y:y + 3, 60:740] = 1.0
+    ink[330:600, 20:780] = 1.0            # the photograph, down to the frame edge
+    # (under the old clipping formula this fixture deskews by 5.0 degrees)
+    proj = _InkProjector(ink)
+    angles = np.arange(-5.0, 5.0 + 1e-9, 0.5)
+    best = angles[int(np.argmax([proj.variance(a) for a in angles]))]
+    assert abs(best) < 0.3, best

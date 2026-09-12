@@ -21,8 +21,9 @@ from ..core.stage import DebugBundle, Stage
 def _cut_column(mask: "np.ndarray", lo: int, hi: int) -> int | None:
     """Best single cut inside [lo, hi): the column with least ink, breaking
     ties toward the center (touching glyphs usually kiss near the middle)."""
-    if hi <= lo:
-        return None
+    lo, hi = max(lo, 0), min(hi, mask.shape[1])   # a span past the mask's
+    if hi <= lo:                                   # edge crashed the stage
+        return None                                # (a whitespace-cut block)
     profile = mask[:, lo:hi].sum(axis=0).astype(float)
     center = (hi - lo) / 2.0
     tiebreak = np.abs(np.arange(hi - lo) - center) * 1e-3

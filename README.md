@@ -91,7 +91,9 @@ are merged automatically when present; without them the prototypes are
 synthetic-only and accuracy on real scans drops accordingly. Current measured
 accuracy on real scans and on the modern set, with the paired comparison against
 legacy Tesseract, is kept in docs/DESIGN.md (scoreboard) and docs/ROADMAP.md;
-every mechanism and every negative result is in docs/RESEARCH.md.
+every mechanism and every negative result is in docs/RESEARCH.md. The
+UNLV magazine and newspaper sets are measured there too (`--doc-type
+magazine` / `newspaper` switch on a layout prior for their gutters).
 
 The **segmentation lab** (`mlws-ocr-lab <image-or-directory> [port]`)
 re-runs block segmentation live as you change parameters and draws the

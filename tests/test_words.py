@@ -83,3 +83,17 @@ def test_word_window_label_matches_its_words(font):
         i = words.index(parts[0])
         assert words[i:i + len(parts)] == parts
         assert (ww.strip < 0.5).any()
+
+
+def test_negative_bearing_glyph_at_the_margin_does_not_crash():
+    """An italic 'f' whose left bearing pokes past the pen has a negative
+    owner-map origin when there is no pad; the slice must clip, not wrap
+    (one Google Fonts face in 3,179 crashed the big render, 2026-09-12)."""
+    from pathlib import Path
+    face = Path("/System/Library/Fonts/Supplemental/Georgia Italic.ttf")
+    if not face.exists():
+        pytest.skip("no Georgia Italic on this machine")
+    lr = render_line("fj fj", face, px_height=40, tracking_em=-0.1, pad_frac=0.0)
+    assert lr.owner.shape == lr.gray.shape
+    assert (lr.owner > 0).any()
+    assert set(np.unique(lr.owner)) <= {0, 1, 2, 4, 5}

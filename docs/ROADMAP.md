@@ -270,6 +270,17 @@ rather than a line's or the page's; (3) column-aware word spacing, so a
 lone column gap on an order form cannot masquerade as a line's word-gap
 population. The optimization target is met (a letter in 9.9 s).
 
+**New domains (2026-09-12).** The UNLV magazine and newspaper sets are
+now measured (eight pages each, seed 1): neural news-8 92.8 / 83.1 against
+legacy 96.4 / 93.6, mag-8 68.3 / 50.7 against 87.4 / 85.0, from 62.3 / 52.1
+and 59.2 / 44.2 on the first run. Two bugs fell out of the first sixteen
+pages, a deskew edge pile-up under halftone photographs and the XY-cut's
+spanning-headline weakness on two-column newspapers, now a `doc_type`
+prior (RESEARCH). The magazine gap is layout: image zones over tinted
+text, three-column pages whose columns fuse, and reading order for a
+third of it. The sets are new evaluation domains, not tuning sets; their
+non-evaluation pages join the line harvest for the scorer next.
+
 ## Later: overnight training jobs
 
 Self-trained models only (no pre-trained nets, no foundation models;
@@ -326,6 +337,15 @@ separately attributable because of this.
 - **Unseen heavy grotesque capitals** in letterheads (F→r, Y→o, N→c on
   broad-30): a stock-coverage question the outline channel should soften;
   otherwise a measured widening experiment with one bold grotesque.
+
+- **Magazine layout.** mag-8 reads 68.3 / 50.7 plain and 74.9 / 53.4
+  zone-ordered against legacy's 87.4 / 85.0. Three items, each measurable
+  on the eight pages with `--zone-order` separating them: (a) the density
+  image-zone stage swallows text set over tints and beside photographs
+  (a 1,003-word page at recall 52); (b) three-column pages whose gutters
+  the XY-cut still misses (a 1,543-word page at recall 48); (c) reading
+  order across boxed sidebars and captions. Tab-stop detection (Smith
+  2009) is the reference mechanism for (b).
 
 - **Reading order.** Measured share on letters: 1.4 char points (zone-
   ordered scoring). Column-first XY-cut for tall gutters recovered 0.2 of

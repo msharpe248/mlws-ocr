@@ -433,7 +433,33 @@ adds about a second and a half to a dense page. Every word also carries
 `p_correct`, a calibrated probability from the decoder's own evidence
 (§6.5): keep words at 0.9 or above and about nine in ten words stay, at
 98% right on dev-8, with the rest routed to review. Legacy Tesseract on broad-30
-is 95.5 / 91.7. The classic row was re-measured after the adoption
+is 95.5 / 91.7; on dev-8 95.0 / 91.7 (neural 96.1 / 91.5, parity) and on
+legal-8 90.4 / 88.7 (neural 92.2 / 84.3: two char points ahead, four word
+points behind, the difference being word recall, 98.3 against 91.2).
+
+**New domains (2026-09-12).** The UNLV magazine and newspaper sets
+(`data/unlv/mag.3B`, `news.3B`; eight pages each, seed 1, `--doc-type`
+magazine / newspaper) are measured but not tuned on and not harvested
+(char / word; zone-ordered scoring in brackets removes reading order):
+
+| profile | news-8 | mag-8 |
+|---|---|---|
+| classic | 92.1 / 79.0 | 65.3 / 40.6 |
+| neural | 92.8 / 83.1 (92.9 / 82.7) | 68.3 / 50.7 (74.9 / 53.4) |
+| legacy Tesseract | 96.4 / 93.6 | 87.4 / 85.0 |
+
+The first run of the day read 62.3 / 52.1 and 59.2 / 44.2: two pages lost
+their text to a deskew of the full five degrees (a halftone photograph's
+pixels, rotated out of the frame, were piled on the edge row; now
+dropped, with no change on the 105 standard-set pages), and two-column
+newspaper pages read 28 char with their columns fused line by line, the
+XY-cut's known weakness under a spanning headline. Newspapers and
+magazines now carry a `doc_type` prior in the blocks stage (half the
+letter's gutter, a vertical cut only through a region taller than a few
+lines, and for newspapers a narrower row gap), the same pattern as the
+single-column prior for letters and pleadings (RESEARCH). The magazine
+gap is layout: image zones over tinted text, three-column pages whose
+columns still fuse, and reading order for a third of it. The classic row was re-measured after the adoption
 (the regression guard): broad-30 reproduces to the decimal; dev-8 reads
 88.7 word, legal-8 79.4 and modern 84.6 / 72.1, not the 88.8, 79.6 and
 84.7 / 72.3 the scoreboard carried, and the commit before today's work

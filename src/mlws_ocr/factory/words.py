@@ -166,10 +166,17 @@ def render_line(text: str, font_path, px_height: int, tracking_em: float = 0.0,
         ImageDraw.Draw(g).text((-bl, -bt), ch, font=font, fill=255)
         gm = np.asarray(g) >= 128
         y0, x0 = int(t), int(l)
-        y1, x1 = min(y0 + gh, im.height), min(x0 + gw, im.width)
+        # A glyph whose bearing pokes past the pen (an italic 'f', a
+        # swash) or above the ascent has a NEGATIVE origin here; a negative
+        # slice start would wrap to the far side of the map (empty region,
+        # crash on 1 face in 3,179 of the Google Fonts checkout), so the
+        # mask is clipped on that side too.
+        gy, gx = max(0, -y0), max(0, -x0)
+        y0, x0 = max(y0, 0), max(x0, 0)
+        y1, x1 = min(y0 - gy + gh, im.height), min(x0 - gx + gw, im.width)
         if y1 > y0 and x1 > x0:
             region = owner_s[y0:y1, x0:x1]
-            region[gm[:y1 - y0, :x1 - x0]] = i + 1
+            region[gm[gy:gy + (y1 - y0), gx:gx + (x1 - x0)]] = i + 1
     owner_s = Image.fromarray(owner_s)
 
     w, h = max(im.width // supersample, 1), max(im.height // supersample, 1)

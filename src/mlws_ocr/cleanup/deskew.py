@@ -41,8 +41,15 @@ class _InkProjector:
     def variance(self, angle: float) -> float:
         a = np.deg2rad(-angle)
         rows = self.dy * np.cos(a) + self.dx * np.sin(a) + self.h / 2.0
-        idx = np.clip(np.rint(rows).astype(np.intp), 0, self.h - 1)
-        return float(np.bincount(idx, minlength=self.h).astype(np.float64).var())
+        idx = np.rint(rows).astype(np.intp)
+        # A pixel rotated out of the frame is DROPPED, as scipy's rotate
+        # drops it.  Clipping it to the edge row piled the corner of a
+        # large halftone photograph into one row at the extreme angles,
+        # and that fake spike won the search at the full +-5 degrees on
+        # two of sixteen magazine and newspaper pages (2026-09-12), each
+        # of which then lost its text to the image-zone stage.
+        ok = (idx >= 0) & (idx < self.h)
+        return float(np.bincount(idx[ok], minlength=self.h).astype(np.float64).var())
 
 
 @register
@@ -70,8 +77,9 @@ class ProjectionDeskew(Stage):
         coarse_scores = [proj.variance(a) for a in coarse]
         best = coarse[int(np.argmax(coarse_scores))]
 
-        fine = np.arange(best - p["coarse_step"], best + p["coarse_step"] + 1e-9,
-                         p["fine_step"])
+        fine = np.arange(max(best - p["coarse_step"], -p["max_angle"]),
+                         min(best + p["coarse_step"], p["max_angle"]) + 1e-9,
+                         p["fine_step"])   # the refinement stays inside max_angle
         fine_scores = [proj.variance(a) for a in fine]
         correction = float(fine[int(np.argmax(fine_scores))])
 
