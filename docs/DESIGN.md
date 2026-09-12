@@ -401,9 +401,9 @@ with the MLP and the GRU off:
 
 | profile | dev-8 | broad-30 | legal-8 | modern |
 |---|---|---|---|---|
-| classic | 95.3 / 89.6 | 91.7 / 81.5 (84.9 / 89.1) | 96.7 / 90.2 | 89.7 / 81.2 (86.3 / 90.2) |
+| classic | 95.2 / 89.2 | 91.8 / 81.9 (86.2 / 89.1) | 91.7 / 81.2 | 89.9 / 81.3 (86.3 / 90.2) |
 | pure | 94.8 / 88.0 | 91.0 / 79.2 (82.9 / 86.1) | 90.9 / 78.0 | 88.5 / 77.8 (82.7 / 86.7) |
-| neural | 96.2 / 91.5 | 93.6 / 86.8 (90.3 / 93.6) | 97.1 / 92.3 | 91.7 / 86.3 (91.3 / 95.4) |
+| neural | 96.2 / 91.5 | 93.4 / 86.8 (91.0 / 93.6) | 92.1 / 84.4 | 91.7 / 86.2 (91.3 / 95.4) |
 
 The two light networks are worth about three word points on the headline
 set and four on the typewriter set; the pure row is what the feature
@@ -416,13 +416,11 @@ rebuilt modern set: 75.3 / 70.9 overall, 97.7 / 94.7 on the Federal
 Register pages, where neural reads 96.5 / 90.6; by kind neural reads
 letters 99.6 / 97.6, invoices 92.4 / 88.1, bills 88.2 / 80.3 and payslips
 86.2 / 82.5 (74.4 / 71.6 before one-line cell tables were read row by
-row, 2026-09-11). The legal-8 column jumped on 2026-09-11 when the case
-of size twins became a line-level decision: the pleadings are set in
-capitals, and every caps line had read lower (RESEARCH). The pure row
-gained only two word points there: without its two networks the
-engine reads the letters of those caps lines wrong more often, so
-correcting their case changes less. Pure re-measured 2026-09-11 on the
-rebuilt modern truth. The neural row is classic plus the word-strip
+row, 2026-09-11). The line-level case decision (2026-09-11) is worth half a point to
+two word points under classic and a tenth or two under neural; a first
+measurement claiming eight points on legal-8 was an evaluator artefact
+over pages a crash had dropped, corrected 2026-09-12 (RESEARCH). Pure
+re-measured 2026-09-11 on the rebuilt modern truth. The neural row is classic plus the word-strip
 sequence scorer (§6.4) in three places: each word's segmentation variants
 rescored by the CTC likelihood of their text under a 285k-parameter CRNN
 trained on synthetic touching-pair windows and truth-labeled real strips,
