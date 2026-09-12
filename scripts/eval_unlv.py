@@ -47,16 +47,49 @@ _FOLD = str.maketrans({"\u2018": "'", "\u2019": "'", "\u201a": "'", "\u201c": '"
                        "\u2022": "~"})   # UNLV writes bullets '~'; we emit U+2022
 
 
-def normalize(text: str) -> str:
+def join_line_hyphens(text: str) -> str:
+    """Join a word hyphenated across a line break: a line ending in
+    letter+'-' followed by a line starting lowercase becomes one token
+    without the hyphen ("de-\\nbates" -> "debates").
+
+    A convention fold, applied to BOTH texts.  The UNLV truth keeps line-
+    end hyphenation as printed (6.7% of news-8's words and 4.7% of mag-8's
+    are such half-words; 0.2% on broad-30, none on dev-8, legal-8 or the
+    modern set) while the decoder's dehyphenation pass joins a wrapped
+    word its lexicon endorses, as a reader does; legacy Tesseract emits
+    the halves as printed.  Scoring the two conventions against each
+    other cost two word errors per wrapped word (measured 2026-09-12 on
+    news-8: 83.1 word under the raw truth).  Folding both sides to the
+    joined form scores recognition, not the convention, and is neutral
+    to an engine that never joins.
+    """
+    lines = text.splitlines()
+    out: list[str] = []
+    for ln in lines:
+        if out and out[-1].rstrip().endswith("-"):
+            prev = out[-1].rstrip()
+            nxt = ln.lstrip()
+            if len(prev) >= 3 and prev[-2].isalpha() and nxt[:1].islower():
+                out[-1] = prev[:-1] + nxt
+                continue
+        out.append(ln)
+    return "\n".join(out)
+
+
+def normalize(text: str, hyphens: bool = True) -> str:
     """Whitespace-collapse, and fold typographic punctuation to ASCII.
 
     Born-digital truth (the modern set's PDF text layers) carries curly
     quotes, en/em dashes and non-breaking spaces; scanned truth (UNLV) is
     ASCII.  Neither engine has classes for the typographic forms, so
     scoring them as distinct characters punished both for a convention.
-    UNLV numbers are unaffected (no such characters in its truth).
+    UNLV numbers are unaffected (no such characters in its truth).  Line-
+    end hyphenation is folded to the joined word on both sides
+    (``join_line_hyphens``) unless ``hyphens`` is False.
     """
     text = text.replace("\u2018\u2018", '"').replace("\u2019\u2019", '"')   # ‘‘ ’’ first
+    if hyphens:
+        text = join_line_hyphens(text)
     return " ".join(text.translate(_FOLD).split())
 
 
@@ -109,6 +142,9 @@ def main():
                     help="layout hint passed to the pipeline")
     ap.add_argument("--blocks", default="xycut",
                     help="blocks implementation to use (xycut | whitespace)")
+    ap.add_argument("--dump", type=Path, default=None,
+                    help="write each page's output text to DIR/<page>.txt so a "
+                         "scoring-convention change can be re-scored offline")
     ap.add_argument("--zone-order", action="store_true",
                     help="reorder output words by the ground truth's .uzn "
                          "zones before scoring (ISRI practice: measures "
@@ -149,6 +185,9 @@ def main():
             failed += 1
             cers.append(1.0); wers.append(1.0); recalls.append(0.0); precisions.append(0.0)
             continue
+        if args.dump is not None:
+            args.dump.mkdir(parents=True, exist_ok=True)
+            (args.dump / (img_path.stem + ".txt")).write_text(page.meta.get("text", ""))
         got = normalize(page.meta.get("text", ""))
         if args.zone_order:
             uzn = img_path.with_suffix(".uzn")
