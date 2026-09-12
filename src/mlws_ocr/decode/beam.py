@@ -204,6 +204,18 @@ class BeamDecode(Stage):
         "doc_words_min_count": 2,  # a scorer reading seen this often on the page
                                    # (distinct words) vouches for itself; one
                                    # agreement with the decoder is enough
+        "line_case": True,         # size twins (c o s u v w x z) judged by the
+                                   # LINE's own letters: its unambiguous lower-
+                                   # case letters give the x-height, its
+                                   # unambiguous capitals the cap height, and
+                                   # each twin's ascent picks the nearer -- so a
+                                   # caps line on a page whose x-height anchor
+                                   # came out at cap height ('PAssAIc', 8562)
+                                   # no longer reads lower.  Measured 2026-09-11:
+                                   # legal-8 word 84.3 -> 92.3 (neural), 79.4 ->
+                                   # 90.2 (classic); modern +0.3 / +1.0; dev-8
+                                   # +0.1 / +0.9; broad-30 flat / +0.1
+        "line_case_ratio": 1.25,   # ...with lowercase only: upper above this x x-height
         "seq_case": False,         # when the scorer's own reading equals the
                                    # chosen word up to case, take the scorer's
                                    # case: it sees the whole word's relative
@@ -718,6 +730,60 @@ class BeamDecode(Stage):
                     joins += 1
         return joins
 
+    _LOWER_SURE = set("aemnrz")            # x-height letters with no twin, no ascender
+    _UPPER_SURE = set("ABDEFGHIJKLMNPQRTY")  # capitals whose lowercase has another shape
+
+    def _line_case_pass(self, layout, p) -> int:
+        """Pixel-based case for size twins, decided line by line (see the
+        `line_case` parameter).  Needs per-character boxes, so words that
+        lost their provenance (injected or re-read) are left alone."""
+        flips = 0
+        twins = set("cosuvwxz")
+        for ln in layout.get("lines", []):
+            if ln.get("graphic_suspect") or ln.get("baseline") is None:
+                continue
+            bl = float(ln["baseline"])
+            lows, caps, items = [], [], []
+            for w in ln.get("words", []):
+                chars = w.get("chars") or []
+                if len(chars) != len(w["text"]):
+                    continue
+                for k, (ch, c) in enumerate(zip(w["text"], chars)):
+                    # a piece cut from a touching pair carries the whole
+                    # component's height ('c' in 'child' measured as tall
+                    # as its 'h' and flipped to 'C'): only whole glyphs vote
+                    # or are judged
+                    if not c or c.get("kind") != "whole":
+                        continue
+                    asc = bl - c["box"][1]
+                    if asc <= 0:
+                        continue
+                    if ch in self._LOWER_SURE:
+                        lows.append(asc)
+                    elif ch in self._UPPER_SURE:
+                        caps.append(asc)
+                    elif ch.lower() in twins:
+                        items.append((w, k, asc))
+            if not items or (len(lows) < 2 and len(caps) < 2):
+                continue
+            x_h = float(np.median(lows)) if len(lows) >= 2 else None
+            cap = float(np.median(caps)) if len(caps) >= 2 else None
+            for w, k, asc in items:
+                if x_h is not None and cap is not None and cap > 1.1 * x_h:
+                    upper = abs(asc - cap) < abs(asc - x_h)
+                elif x_h is not None:
+                    upper = asc >= p["line_case_ratio"] * x_h
+                elif cap is not None:
+                    upper = asc >= 0.85 * cap
+                else:
+                    continue
+                ch = w["text"][k]
+                new = ch.upper() if upper else ch.lower()
+                if new != ch:
+                    w["text"] = w["text"][:k] + new + w["text"][k + 1:]
+                    flips += 1
+        return flips
+
     def _sentence_case_pass(self, layout, lm, p) -> int:
         """Word-level case repair where pixels are silent.
 
@@ -1000,7 +1066,8 @@ class BeamDecode(Stage):
                         word["chars"] = chars
                     ln["words"].append(word)
 
-        n_caseflips = self._sentence_case_pass(layout, lm, p)
+        n_lineflips = self._line_case_pass(layout, p) if p["line_case"] else 0
+        n_caseflips = self._sentence_case_pass(layout, lm, p) + n_lineflips
         n_caseflips += self._word_case_coherence(layout)
         n_caseflips += self._mixed_alnum_repair(layout, lm)
         n_dehyph = self._dehyphenate_pass(layout, lm)

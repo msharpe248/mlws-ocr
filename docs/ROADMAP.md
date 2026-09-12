@@ -242,7 +242,12 @@ family (two faces pass the gate; misrouted blocks pay). The gap to
 legacy on broad-30 is down to 926 excess errors from 1,951: shape
 substitutions are within 126 of legacy; deleted characters (63%) and
 spaces (27%) sit in letterhead lines that no mechanism on this machine's
-fonts has reached; case (15%, 149 vs 14) is the untouched share. The decomposition under the profile says three quarters of
+fonts has reached; case (15%, 149 vs 14) was the untouched share — and then the
+largest gain of the day: deciding the case of size twins line by line,
+from the line's own unambiguous letters instead of the page anchor,
+took legal-8 from 92.0 / 84.3 to 97.1 / 92.3 under neural and from
+91.3 / 79.4 to 96.7 / 90.2 under classic, with every other set flat or
+up. It is the decoder's default in every profile. The decomposition under the profile says three quarters of
 the remaining gap to legacy is characters and spaces that vanish, and the
 probe says they vanish in lines the re-read cannot endorse: foreign text,
 proper nouns and addresses, letterhead faces outside the stock. Gap-
