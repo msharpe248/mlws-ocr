@@ -43,6 +43,8 @@ def find_pairs(root: Path):
 
 _FOLD = str.maketrans({"\u2018": "'", "\u2019": "'", "\u201a": "'", "\u201c": '"',
                        "\u201d": '"', "\u201e": '"', "\u2013": "-", "\u2014": "-",
+                       "\u2010": "-", "\u2011": "-",   # Tesseract writes a wrapped word's
+                                                       # hyphen as U+2014 or U+2010
                        "\u2212": "-", "\u00a0": " ",
                        "\u2022": "~"})   # UNLV writes bullets '~'; we emit U+2022
 
@@ -63,7 +65,11 @@ def join_line_hyphens(text: str) -> str:
     joined form scores recognition, not the convention, and is neutral
     to an engine that never joins.
     """
-    lines = text.splitlines()
+    # Blank lines carry no tokens and must not break a join: Tesseract
+    # emits an empty line between blocks (and a wrapped word at a column
+    # foot continues in the next column), and that mismatch alone cost
+    # legacy 1.5 word points on a page it reads at 99.6 char.
+    lines = [ln for ln in text.splitlines() if ln.strip()]
     out: list[str] = []
     for ln in lines:
         if out and out[-1].rstrip().endswith("-"):
@@ -88,9 +94,10 @@ def normalize(text: str, hyphens: bool = True) -> str:
     (``join_line_hyphens``) unless ``hyphens`` is False.
     """
     text = text.replace("\u2018\u2018", '"').replace("\u2019\u2019", '"')   # ‘‘ ’’ first
+    text = text.translate(_FOLD)          # dashes to '-' BEFORE the join looks for one
     if hyphens:
         text = join_line_hyphens(text)
-    return " ".join(text.translate(_FOLD).split())
+    return " ".join(text.split())
 
 
 def read_zones(uzn_path: Path) -> list[list[int]]:
