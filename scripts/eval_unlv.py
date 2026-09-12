@@ -128,6 +128,8 @@ def main():
     print(f"{len(pairs)} pages sampled from {args.root}")
 
     cers, wers, recalls, precisions = [], [], [], []
+
+    failed = 0
     for img_path, gt_path in pairs:
         truth = normalize(gt_path.read_text(errors="ignore"))
         if not truth:
@@ -138,7 +140,14 @@ def main():
         try:
             page = run_stages(page, pipeline, overrides)
         except Exception as e:
+            # A crashed page is a page read WRONG, not a page that was not
+            # there: it scores zero and the mean says how many failed.  The
+            # first version skipped it, and a decoder bug that crashed 3 of
+            # legal-8's 8 pages turned into an "8-point gain" over the five
+            # survivors (2026-09-11, corrected 2026-09-12).
             print(f"  {img_path.name}: PIPELINE ERROR {e}")
+            failed += 1
+            cers.append(1.0); wers.append(1.0); recalls.append(0.0); precisions.append(0.0)
             continue
         got = normalize(page.meta.get("text", ""))
         if args.zone_order:
@@ -163,7 +172,9 @@ def main():
               f"recall {recall:.1%}  precision {precision:.1%}  "
               f"({len(truth.split())} words)")
     if cers:
-        print(f"\nMEAN over {len(cers)} pages: "
+        if failed:
+            print(f"\nWARNING: {failed} of {len(cers)} pages FAILED and count as fully wrong")
+        print(f"\nMEAN over {len(cers)} pages{f' ({failed} failed)' if failed else ''}: "
               f"char acc {1-np.mean(cers):.1%}  word acc {1-np.mean(wers):.1%}  "
               f"word recall {np.mean(recalls):.1%}  precision {np.mean(precisions):.1%}")
 
