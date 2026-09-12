@@ -10,6 +10,7 @@ model as much as the OCR.
 """
 import argparse
 import random
+import re
 import sys
 from pathlib import Path
 
@@ -49,6 +50,9 @@ _FOLD = str.maketrans({"\u2018": "'", "\u2019": "'", "\u201a": "'", "\u201c": '"
                        "\u2022": "~"})   # UNLV writes bullets '~'; we emit U+2022
 
 
+_LINE_NUMBER = re.compile(r"(\d{1,3})\s+(\S.*)$")
+
+
 def join_line_hyphens(text: str) -> str:
     """Join a word hyphenated across a line break: a line ending in
     letter+'-' followed by a line starting lowercase becomes one token
@@ -73,17 +77,24 @@ def join_line_hyphens(text: str) -> str:
     out: list[str] = []
     held: list[str] = []      # line-number lines between the two halves
     for ln in lines:
-        if out and out[-1].rstrip().endswith("-"):
-            prev = out[-1].rstrip()
+        prev = out[-1].rstrip() if out else ""
+        if len(prev) >= 3 and prev.endswith("-") and prev[-2].isalpha():
             nxt = ln.lstrip()
             if nxt.isdigit():
                 # A bill or pleading numbers its lines, and the truth
                 # (pdftotext) puts each number on its own line between
                 # the halves: "com-" / "7" / "pany".  Hold it, join past
-                # it, and emit it after the joined word.
+                # it, and emit it after the joined line.
                 held.append(ln)
                 continue
-            if len(prev) >= 3 and prev[-2].isalpha() and nxt[:1].islower():
+            m = _LINE_NUMBER.match(nxt)
+            if m and m.group(2)[:1].islower():
+                # ...or writes the number at the head of the continuation
+                # line ("Representa-" / "2 tives of the"): the same join,
+                # the number emitted after the joined line, so both
+                # layouts fold to one token sequence.
+                nxt, held = m.group(2), held + [m.group(1)]
+            if nxt[:1].islower():
                 out[-1] = prev[:-1] + nxt
                 out.extend(held); held = []
                 continue

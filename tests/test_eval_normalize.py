@@ -38,3 +38,8 @@ def test_a_line_number_between_the_halves_is_stepped_over():
     # a numbered bill: pdftotext puts the line number on its own line
     assert normalize("such com-\n7\npany reasonably") == "such company reasonably 7"
     assert normalize("such com-\n7\nPany") == "such com- 7 Pany"      # no join: keep the order
+
+
+def test_an_inline_line_number_on_the_continuation_is_stepped_over():
+    # the truth writes "2 tives of the"; our output "2" / "tives of the": same tokens after the fold
+    assert normalize("Representa-\n2 tives of the") == normalize("Representa-\n2\ntives of the") == "Representatives of the 2"
