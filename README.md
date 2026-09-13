@@ -52,6 +52,7 @@ profile and stays so until the neural profile beats it on every set.
 | **classic** | `configs/classic.toml` | MLP second opinion (53k params), character GRU (258k) | The feature-based reference engine; its scoreboard row is the regression guard. |
 | **pure** | `configs/pure.toml` | none (n-gram character model) | How things were; classic with both networks switched off. |
 | **neural** | `configs/neural.toml` | classic's, plus the word-strip CRNN + CTC scorer (285k params; more as adopted) | Best accuracy: broad-30 93.7 char / 87.5 word vs classic 91.8 / 82.0; legal-8 92.0 / 84.4 vs 91.7 / 81.2; modern 91.6 / 86.1 vs 89.6 / 80.8; news-8 93.1 / 88.2 vs 92.6 / 81.8 (docs/DESIGN.md §8, docs/RESEARCH.md). |
+| **neural-line** | `configs/neural_line.toml` | neural's, with every line also read end to end by the sequence model and each line decided between the two readings (the line reader, docs/DESIGN.md §6.6) | Under measurement (2026-09-13): the candidate to beat legacy Tesseract on the tightly set pages the classic segmenter fuses. |
 
 `tests/test_profiles.py` keeps the three honest: pure differs from classic
 only in the two network switches, neural only in recognize/decode terms.

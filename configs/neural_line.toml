@@ -52,6 +52,8 @@ impl = "hybrid"
 line_model_path = "data/seq_en_v5s1.npz"   # long-window model until the line model is trained
 line_mode = "choose"
 line_max_cols = 1400
+line_choose_rule = "likelihood"
+line_choose_margin = 0.3
 seq_path = "data/seq_en.npz"   # = seq_en_v6c_s2 (2026-09-13): the 615-face scorer fine-tuned on five real
                                # harvests (bus.3B, legal, bus.3A, news, mag) at real weight 3; "" = classic decoding
 seq_backend = "auto"           # numpy (torch/MPS is launch-bound one window at a time: +5 s a page); "torch" to force it

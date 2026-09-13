@@ -319,6 +319,29 @@ regression over the per-word evidence (page-disjoint holdout) and
 reports the Brier score, reliability and the coverage curve; the decoder
 applies it when `conf_path` is set.
 
+**6.6 Line reader (neural-line profile).** `decode/lineread.py`,
+`impl = "hybrid"`, is the classic beam decoder plus a whole-line reading
+of every text line by the sequence model, end to end: the line's strip
+(`glyph/strip.py`, cut as the harvest cuts training strips), the CRNN's
+per-column posterior, and a CTC prefix beam search with the lexicon as a
+word-level prior (`recognize/ctc.py prefix_beam_search`; Graves 2012,
+Hannun 2014) whose emission frames place the words back on the page. A
+strip longer than `line_max_cols` is read in chunks cut at its emptiest
+columns and the posteriors are joined end to end. Each line is then
+decided between the classic words and the reading under the reader's
+own posterior: the classic text is a hypothesis the reader can score, so
+the two are compared on one scale, and the reading replaces the words
+when it is likelier by `line_choose_margin` nats a character and
+endorses at least as many words (`line_mode = "choose"`; `"pure"`
+measures the reader alone, `"off"` is the neural profile). The reason
+for a second decoder rather than another term in the first is in
+RESEARCH (2026-09-13): the scorer's own reading was above the oracle of
+the variants the classic decoder lets it rank, and a line reader never
+has to find a word gap. The model behind it is trained on real WHOLE
+lines (`harvest_lines.py --line-out`) as well as word windows and long
+synthetic windows. The profile is `configs/neural_line.toml`;
+`configs/neural.toml` is untouched until it wins.
+
 **6.2 Glyph exemplars.** Three harvests feed every classifier channel:
 
 - *self-labeled* (`harvest_glyphs.py`): glyphs inside lexicon-endorsed,

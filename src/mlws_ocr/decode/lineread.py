@@ -71,10 +71,14 @@ class HybridDecode(BeamDecode):
         "line_lex_bonus": 1.5,     # nats added when a closed word is endorsed
                                    # (lexicon, numeric format, page word list)
         "line_unk_penalty": 0.5,   # nats taken when it is not
-        "line_choose_margin": 0.0, # "choose": the reading replaces the classic
-                                   # words when it endorses MORE of its words, or as
-                                   # many with a mean emission log-prob higher by
-                                   # this margin
+        "line_choose_rule": "likelihood",  # "likelihood": the reading replaces the
+                                   # classic words when, under the reader's own
+                                   # posterior, its text is likelier than the classic
+                                   # text by line_choose_margin nats per character
+                                   # and it endorses at least as many words;
+                                   # "endorsed": more endorsed words, or as many at a
+                                   # higher mean emission probability
+        "line_choose_margin": 0.3,
         "line_min_conf": 0.35,     # a reading whose mean emission probability is
                                    # under this is not offered
     }
@@ -103,9 +107,10 @@ class HybridDecode(BeamDecode):
         for ln in layout["lines"]:
             if ln.get("graphic_suspect") or ln.get("baseline") is None or not ln.get("x_height"):
                 continue
-            words = self._read_line(page.binary, ln, model, word_bonus, p)
-            if words is None:
+            read = self._read_line(page.binary, ln, model, word_bonus, p)
+            if read is None:
                 continue
+            words, logp = read
             n_read += 1
             if p["line_mode"] == "pure":
                 ln["words"] = words; n_taken += 1
@@ -114,12 +119,30 @@ class HybridDecode(BeamDecode):
             if not old:
                 ln["words"] = words; n_taken += 1
                 continue
+            new_text, old_text = " ".join(w["text"] for w in words), " ".join(w["text"] for w in old)
+            if new_text == old_text:
+                continue
             new_end = sum(1 for w in words if w["in_lexicon"] or w.get("numeric_format"))
             old_end = sum(1 for w in old if w.get("in_lexicon") or w.get("numeric_format"))
-            new_conf = float(np.mean([w["confidence"] for w in words]))
-            old_conf = float(np.mean([w.get("confidence", 0.0) for w in old]))
-            if new_end > old_end or (new_end == old_end and new_conf > old_conf + p["line_choose_margin"]
-                                     and " ".join(w["text"] for w in words) != " ".join(w["text"] for w in old)):
+            take = False
+            if p["line_choose_rule"] == "likelihood":
+                # both texts under the reader's own posterior of the whole
+                # line: the classic decoder's text is a hypothesis the
+                # reader can score, so the two readings are compared on one
+                # scale (the business set's table rows had been lost to a
+                # count of endorsed words: -4.7 word, 2026-09-13)
+                from ..recognize.ctc import ctc_nll_batch
+                ok = [all(ch in model.index for ch in t) for t in (old_text, new_text)]
+                if all(ok):
+                    nll = ctc_nll_batch(logp, [model.encode(old_text), model.encode(new_text)])
+                    if np.isfinite(nll).all():
+                        take = (nll[1] + p["line_choose_margin"] * len(new_text) < nll[0]
+                                and new_end >= old_end)
+            else:
+                new_conf = float(np.mean([w["confidence"] for w in words]))
+                old_conf = float(np.mean([w.get("confidence", 0.0) for w in old]))
+                take = new_end > old_end or (new_end == old_end and new_conf > old_conf + p["line_choose_margin"])
+            if take:
                 ln["words"] = words; n_taken += 1
         # the calibrator, if any, has run on the classic words only; a line
         # read carries the reader's own confidence as p_correct
@@ -138,10 +161,12 @@ class HybridDecode(BeamDecode):
         ink = (strip < 0.5).astype(np.float32)
         spans = _chunk_columns(ink.sum(axis=0), p["line_max_cols"])
         emitted: list[tuple[str, int, float]] = []
+        posts = []
         for c0, c1 in spans:
             if c1 - c0 < 4:
                 continue
             logp = model.log_probs([ink[:, c0:c1]])[0]
+            posts.append(logp)
             read = prefix_beam_search(logp, model.classes, beam_width=p["line_beam"],
                                       word_bonus=word_bonus)
             if emitted and read and emitted[-1][0] != " " and read[0][0] != " ":
@@ -173,4 +198,6 @@ class HybridDecode(BeamDecode):
             return None
         if float(np.mean([w["confidence"] for w in words])) < p["line_min_conf"]:
             return None
-        return words
+        # the whole line's posterior, chunks end to end (each cut fell on an
+        # empty column, so a CTC alignment across the seam is a blank run)
+        return words, np.concatenate(posts, axis=0)
