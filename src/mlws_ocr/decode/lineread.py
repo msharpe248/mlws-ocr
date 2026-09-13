@@ -84,6 +84,10 @@ class HybridDecode(BeamDecode):
                                    # higher mean emission probability
         "line_choose_margin": 0.3,
         "line_keep_frac": 0.8,
+        "line_choice_path": "",    # "calibrated" rule: decode/linechoice.py model (P(reading better))
+        "line_choice_thresh": 0.5,
+        "line_keep_alt": False,    # keep both readings and their evidence on the line
+                                   # (ln["line_alt"]) for scripts/harvest_line_choice.py
         "line_min_conf": 0.35,     # a reading whose mean emission probability is
                                    # under this is not offered
     }
@@ -129,8 +133,23 @@ class HybridDecode(BeamDecode):
                 continue
             new_end = sum(1 for w in words if w["in_lexicon"] or w.get("numeric_format"))
             old_end = sum(1 for w in old if w.get("in_lexicon") or w.get("numeric_format"))
+            nll_old = nll_new = None
+            if p["line_choose_rule"] in ("likelihood", "calibrated") or p["line_keep_alt"]:
+                from ..recognize.ctc import ctc_nll_batch
+                if all(all(ch in model.index for ch in t) for t in (old_text, new_text)):
+                    nll = ctc_nll_batch(logp, [model.encode(old_text), model.encode(new_text)])
+                    nll_old, nll_new = float(nll[0]), float(nll[1])
+            if p["line_keep_alt"]:
+                from .linechoice import features
+                ln["line_alt"] = {"classic": [dict(w) for w in old], "reader": words,
+                                  "x": features(old, words, nll_old, nll_new).tolist()}
             take = False
-            if p["line_choose_rule"] == "repair":
+            if p["line_choose_rule"] == "calibrated" and p["line_choice_path"]:
+                from .linechoice import features
+                judge = self._load_choice(p["line_choice_path"])
+                x = features(old, words, nll_old, nll_new)
+                take = judge.p_reader(x) >= p["line_choice_thresh"]
+            elif p["line_choose_rule"] == "repair":
                 # The reader is a repair for lines the classic decoder could
                 # not read: a line whose every word is endorsed is left
                 # alone, and a data line (mostly numbers) too -- the reader
@@ -145,17 +164,11 @@ class HybridDecode(BeamDecode):
                         and len(new_text) >= p["line_keep_frac"] * len(old_text))
             elif p["line_choose_rule"] == "likelihood":
                 # both texts under the reader's own posterior of the whole
-                # line: the classic decoder's text is a hypothesis the
-                # reader can score, so the two readings are compared on one
-                # scale (the business set's table rows had been lost to a
-                # count of endorsed words: -4.7 word, 2026-09-13)
-                from ..recognize.ctc import ctc_nll_batch
-                ok = [all(ch in model.index for ch in t) for t in (old_text, new_text)]
-                if all(ok):
-                    nll = ctc_nll_batch(logp, [model.encode(old_text), model.encode(new_text)])
-                    if np.isfinite(nll).all():
-                        take = (nll[1] + p["line_choose_margin"] * len(new_text) < nll[0]
-                                and new_end >= old_end)
+                # line (measured worse than the endorsed count: the reader
+                # prefers its own reading by construction)
+                if nll_old is not None and np.isfinite(nll_old) and np.isfinite(nll_new):
+                    take = (nll_new + p["line_choose_margin"] * len(new_text) < nll_old
+                            and new_end >= old_end)
             else:
                 new_conf = float(np.mean([w["confidence"] for w in words]))
                 old_conf = float(np.mean([w.get("confidence", 0.0) for w in old]))
@@ -171,6 +184,18 @@ class HybridDecode(BeamDecode):
         debug.scalars["lines_read"] = n_read
         debug.scalars["lines_taken"] = n_taken
         return out, debug
+
+    _choice_cache: dict = {}
+
+    @classmethod
+    def _load_choice(cls, path: str):
+        from pathlib import Path
+        from .linechoice import LineChoice
+        key = (path, Path(path).stat().st_mtime)
+        if key not in cls._choice_cache:
+            cls._choice_cache.clear()
+            cls._choice_cache[key] = LineChoice.load(path)
+        return cls._choice_cache[key]
 
     def _read_line(self, binary, ln, model, word_bonus, p):
         strip, scale, x0, _ = line_strip(binary, ln, ln["x_height"])
