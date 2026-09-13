@@ -61,7 +61,8 @@ impl = "prototypes"
 
 [stage.decode]
 impl = "beam"
-seq_path = "data/seq_en.npz"   # train_seq.py --init on stock + 615 open faces (2026-09-12); "" = classic decoding
+seq_path = "data/seq_en.npz"   # = seq_en_v6c_s2 (2026-09-13): the 615-face scorer fine-tuned on five real
+                               # harvests (bus.3B, legal, bus.3A, news, mag) at real weight 3; "" = classic decoding
 seq_backend = "auto"           # numpy (torch/MPS is launch-bound one window at a time: +5 s a page); "torch" to force it
 seq_weight = 0.5
 seq_inject = true

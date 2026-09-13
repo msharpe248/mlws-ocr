@@ -403,7 +403,7 @@ with the MLP and the GRU off:
 |---|---|---|---|---|
 | classic | 95.2 / 89.2 | 91.8 / 82.0 (86.2 / 89.1) | 91.7 / 81.2 | 89.6 / 80.8 (86.0 / 90.2) |
 | pure | 94.8 / 88.0 | 91.0 / 79.3 (83.0 / 86.2) | 90.9 / 78.0 | 88.2 / 77.1 (82.4 / 86.7) |
-| neural | 96.1 / 91.5 | 93.5 / 87.4 (91.5 / 94.1) | 92.2 / 84.3 | 91.5 / 85.7 (91.1 / 95.5) |
+| neural | 96.3 / 91.9 | 93.7 / 87.5 (91.5 / 94.2) | 92.0 / 84.4 | 91.6 / 86.1 (91.5 / 95.6) |
 | legacy Tesseract | 95.0 / 91.7 | 95.5 / 91.7 (96.3 / 94.2) | 90.4 / 88.7 | 75.4 / 70.8 (88.9 / 95.7) |
 
 All rows re-measured 2026-09-12 under the evaluator's line-end
@@ -417,17 +417,20 @@ whole word), while news-8 rises four word points. Each run's per-page
 output is kept (`--dump`), so the next convention change is a two-second
 re-score (`scripts/rescore_dump.py`), not a two-hour run.
 
-The scorer's data route is measured to its end (RESEARCH 2026-09-12/13):
-a model trained from scratch on all 3,179 gated Google Fonts faces with
-two-to-six-word windows, and two fine-tunes on 70k new real strips from
-bus.3A, the newspapers and the magazines, each on two seeds where it
-mattered. None is adopted: the from-scratch model loses the typewriter
-set (its real strips are diluted), and the harvest fine-tunes cost the
-three UNLV standard sets 0.1–0.5 word on both seeds while lifting
-news-8 by a point and mag-8 by three. On letters and typewriter pages
-the scorer is at its ceiling — its greedy reading (97.5% / 98.2% on the
-offline harnesses) is above the n-best oracle it reranks (95.4% /
-96.1%) — so the next point there is the segmentation's to give.
+The scorer's data route was measured to its end on 2026-09-12/13
+(RESEARCH): a model trained from scratch on all 3,179 gated Google Fonts
+faces with two-to-six-word windows loses the typewriter set (its real
+strips are diluted); a fine-tune on 70k new real strips from bus.3A, the
+newspapers and the magazines with the big synthetic mix costs the UNLV
+standard sets 0.1–0.5 word on both seeds while lifting news-8 by a point
+and mag-8 by three (kept as the press variants); the same fine-tune on
+the live recipe with the real strips at weight 3 clears dev-8's seed
+range and lifts news-8 on both seeds with the standard sets otherwise
+flat, and is the live scorer since 2026-09-13 (seed 2). The neural row
+above is that model. On letters and typewriter pages the scorer is at
+its ceiling — its greedy reading (98.2% / 98.3% on the offline harnesses)
+is above the n-best oracle it reranks (95.4% / 96.1%) — so the next point
+there is the segmentation's to give.
 
 The two light networks are worth about three word points on the headline
 set and four on the typewriter set; the pure row is what the feature
@@ -446,7 +449,7 @@ measurement claiming eight points on legal-8 was an evaluator artefact
 over pages a crash had dropped, corrected 2026-09-12 (RESEARCH). Pure
 re-measured 2026-09-11 on the rebuilt modern truth. The neural row is classic plus the word-strip
 sequence scorer (§6.4, since 2026-09-12 trained on 615 open faces as
-well as the stock) in three places: each word's segmentation variants
+well as the stock, and since 2026-09-13 fine-tuned on five real harvests) in three places: each word's segmentation variants
 rescored by the CTC likelihood of their text under a 285k-parameter CRNN
 trained on synthetic touching-pair windows and truth-labeled real strips,
 with the scorer's own reading admitted as a variant when the lexicon
@@ -469,7 +472,7 @@ magazine / newspaper) are measured but not tuned on and not harvested
 | profile | news-8 | mag-8 |
 |---|---|---|
 | classic | 92.6 / 81.8 | 65.3 / 41.2 |
-| neural | 93.5 / 87.3 (recall 91.3, precision 93.3) | 68.4 / 51.1 (72.1 / 80.7) |
+| neural | 93.1 / 88.2 (recall 92.4, precision 94.3) | 65.9 / 51.8 (74.4 / 82.3) |
 | legacy Tesseract | 96.3 / 93.1 (97.5 / 94.4) | 87.3 / 84.7 (95.9 / 90.5) |
 
 (Under the hyphenation fold; zone-ordered scoring before the fold read
