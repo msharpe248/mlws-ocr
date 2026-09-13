@@ -144,12 +144,13 @@ class HybridDecode(BeamDecode):
                 ln["line_alt"] = {"classic": [dict(w) for w in old], "reader": words,
                                   "x": features(old, words, nll_old, nll_new).tolist()}
             take = False
-            if p["line_choose_rule"] == "calibrated" and p["line_choice_path"]:
+            rule = p["line_choose_rule"]
+            if rule in ("calibrated", "union") and p["line_choice_path"]:
                 from .linechoice import features
                 judge = self._load_choice(p["line_choice_path"])
                 x = features(old, words, nll_old, nll_new)
                 take = judge.p_reader(x) >= p["line_choice_thresh"]
-            elif p["line_choose_rule"] == "repair":
+            if rule in ("repair", "union") and not take:
                 # The reader is a repair for lines the classic decoder could
                 # not read: a line whose every word is endorsed is left
                 # alone, and a data line (mostly numbers) too -- the reader
