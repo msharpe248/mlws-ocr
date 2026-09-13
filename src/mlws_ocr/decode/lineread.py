@@ -71,7 +71,11 @@ class HybridDecode(BeamDecode):
         "line_lex_bonus": 1.5,     # nats added when a closed word is endorsed
                                    # (lexicon, numeric format, page word list)
         "line_unk_penalty": 0.5,   # nats taken when it is not
-        "line_choose_rule": "likelihood",  # "likelihood": the reading replaces the
+        "line_choose_rule": "repair",  # "repair": only a line with an unendorsed classic
+                                   # word is a candidate; the reading replaces its words
+                                   # when it endorses more of them and keeps at least
+                                   # line_keep_frac of the characters (no collapses);
+                                   # "likelihood": the reading replaces the
                                    # classic words when, under the reader's own
                                    # posterior, its text is likelier than the classic
                                    # text by line_choose_margin nats per character
@@ -79,6 +83,7 @@ class HybridDecode(BeamDecode):
                                    # "endorsed": more endorsed words, or as many at a
                                    # higher mean emission probability
         "line_choose_margin": 0.3,
+        "line_keep_frac": 0.8,
         "line_min_conf": 0.35,     # a reading whose mean emission probability is
                                    # under this is not offered
     }
@@ -125,7 +130,20 @@ class HybridDecode(BeamDecode):
             new_end = sum(1 for w in words if w["in_lexicon"] or w.get("numeric_format"))
             old_end = sum(1 for w in old if w.get("in_lexicon") or w.get("numeric_format"))
             take = False
-            if p["line_choose_rule"] == "likelihood":
+            if p["line_choose_rule"] == "repair":
+                # The reader is a repair for lines the classic decoder could
+                # not read: a line whose every word is endorsed is left
+                # alone, and a data line (mostly numbers) too -- the reader
+                # has seen few of those and lost the business set's table
+                # rows under both looser rules (2026-09-13).  The reader's
+                # own likelihood is not the judge because it prefers its
+                # own reading by construction (measured worse than the
+                # endorsed-count rule on every set).
+                old_unend = [w for w in old if not (w.get("in_lexicon") or w.get("numeric_format"))]
+                numeric_line = sum(1 for w in old if w.get("numeric_format")) >= max(1, len(old) // 2)
+                take = (bool(old_unend) and not numeric_line and new_end > old_end
+                        and len(new_text) >= p["line_keep_frac"] * len(old_text))
+            elif p["line_choose_rule"] == "likelihood":
                 # both texts under the reader's own posterior of the whole
                 # line: the classic decoder's text is a hypothesis the
                 # reader can score, so the two readings are compared on one
