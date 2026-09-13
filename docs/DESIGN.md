@@ -417,6 +417,18 @@ whole word), while news-8 rises four word points. Each run's per-page
 output is kept (`--dump`), so the next convention change is a two-second
 re-score (`scripts/rescore_dump.py`), not a two-hour run.
 
+The scorer's data route is measured to its end (RESEARCH 2026-09-12/13):
+a model trained from scratch on all 3,179 gated Google Fonts faces with
+two-to-six-word windows, and two fine-tunes on 70k new real strips from
+bus.3A, the newspapers and the magazines, each on two seeds where it
+mattered. None is adopted: the from-scratch model loses the typewriter
+set (its real strips are diluted), and the harvest fine-tunes cost the
+three UNLV standard sets 0.1–0.5 word on both seeds while lifting
+news-8 by a point and mag-8 by three. On letters and typewriter pages
+the scorer is at its ceiling — its greedy reading (97.5% / 98.2% on the
+offline harnesses) is above the n-best oracle it reranks (95.4% /
+96.1%) — so the next point there is the segmentation's to give.
+
 The two light networks are worth about three word points on the headline
 set and four on the typewriter set; the pure row is what the feature
 engine reads on its own. The modern column was re-baselined on

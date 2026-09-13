@@ -291,7 +291,12 @@ legacy 95.0 / 91.7, 95.5 / 91.7, 90.4 / 88.7, 75.4 / 70.8, 96.3 / 93.1,
 is an offline re-score. In training: a scorer from scratch on all 3,179
 gated Google Fonts faces with long windows (`seq_en_v5`, two seeds), then
 a fine-tune on the three new real harvests (bus.3A 33k words, newspapers
-17k, magazines 21k: `seq_en_v6`).
+17k, magazines 21k: `seq_en_v6`). Measured 2026-09-13: neither adopted.
+The from-scratch model loses legal-8 by 1.3 word; the harvest fine-tune
+costs the three UNLV standard sets 0.1–0.5 word on two seeds and lifts
+news-8 by a point and mag-8 by three (kept as `data/seq_en_v6a*.npz`, the
+press variants). The scorer is oracle-bound on letters and typewriter
+pages; the remaining gap there is the segmentation's (RESEARCH).
 
 ## Later: overnight training jobs
 
