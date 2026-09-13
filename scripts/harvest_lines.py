@@ -92,6 +92,11 @@ def main():
     ap.add_argument("--pages", type=int, default=170)
     ap.add_argument("--out", default="data/lines_en.npz")
     ap.add_argument("--doc-type", default="letter")
+    ap.add_argument("--line-out", default="",
+                    help="also save every matched line WHOLE (its strip and its truth "
+                         "line, when every truth word of the line aligned) to this npz: "
+                         "real full-line windows for a line reader, up to --max-line-cols")
+    ap.add_argument("--max-line-cols", type=int, default=1800)
     ap.add_argument("--no-guard", action="store_true",
                     help="skip the evaluation-draw exclusion: ONLY for a root that is "
                          "not an evaluation set (e.g. data/modern_train, rendered from "
@@ -105,7 +110,8 @@ def main():
     pairs = [(t, g) for t, g in find_pairs(args.root) if t.name not in excluded]
     random.Random(11).shuffle(pairs)
     strips, widths, labels, decoded, pages, xhs = [], [], [], [], [], []
-    stats = {"lines": 0, "words": 0, "wrong": 0}
+    L = {"strips": [], "widths": [], "labels": [], "decoded": [], "pages": [], "xhs": []}
+    stats = {"lines": 0, "words": 0, "wrong": 0, "whole_lines": 0}
     for n, (tif, gt) in enumerate(pairs[: args.pages], 1):
         truth_lines = [normalize(l) for l in gt.read_text(errors="ignore").splitlines()]
         truth_lines = [l for l in truth_lines if l]
@@ -140,6 +146,17 @@ def main():
             # it (glyph/strip.py line_strip), once for all of its words
             strip, scale, _, _ = line_strip(b, ln, xh)
             edges = [(s[0], s[1]) for s in spans]
+            if args.line_out and " ".join(t for _, _, t, _ in spans) == truth_lines[ti]:
+                # the whole line: every truth word aligned to a span, so the
+                # line's label is the truth line itself; the strip is the
+                # line's, as the decoder cuts it
+                if 4 <= strip.shape[1] <= args.max_line_cols:
+                    win = strip < 0.5
+                    if win.any():
+                        L["strips"].append(np.packbits(win, axis=1)); L["widths"].append(strip.shape[1])
+                        L["labels"].append(truth_lines[ti]); L["decoded"].append(" ".join(g for _, _, _, g in spans))
+                        L["pages"].append(tif.name); L["xhs"].append(float(xh))
+                        stats["whole_lines"] += 1
             for k, (wx0, wx1, t_word, g_word) in enumerate(spans):
                 left = x0 if k == 0 else (edges[k - 1][1] + wx0) // 2
                 right = x1 if k == len(spans) - 1 else (wx1 + edges[k + 1][0]) // 2
@@ -168,6 +185,14 @@ def main():
                         pages=np.array(pages), x_heights=np.array(xhs, np.float32))
     print(f"saved {len(labels)} word strips ({stats['wrong']} decoded wrong) from "
           f"{stats['lines']} matched lines on {len(set(pages))} pages -> {args.out}")
+    if args.line_out:
+        unp = [np.unpackbits(pk, axis=1)[:, :w] for pk, w in zip(L["strips"], L["widths"])]
+        pix = (np.packbits(np.concatenate(unp, axis=1), axis=1) if unp else np.zeros((32, 0), np.uint8))
+        offs = np.concatenate([[0], np.cumsum(L["widths"])]).astype(np.int64)
+        np.savez_compressed(args.line_out, pixels=pix, offsets=offs, labels=np.array(L["labels"]),
+                            decoded=np.array(L["decoded"]), pages=np.array(L["pages"]),
+                            x_heights=np.array(L["xhs"], np.float32))
+        print(f"saved {len(L['labels'])} whole lines -> {args.line_out}")
 
 
 if __name__ == "__main__":

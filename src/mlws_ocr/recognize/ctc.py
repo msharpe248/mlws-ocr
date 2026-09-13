@@ -174,3 +174,84 @@ def greedy_decode_frames(logp: np.ndarray, classes: list[str]) -> list[tuple[str
             out.append((classes[c], t))
         prev = c
     return out
+
+
+def prefix_beam_search(logp: np.ndarray, classes: list[str], beam_width: int = 8,
+                       word_bonus=None, space: str = " ") -> list[tuple[str, int, float]]:
+    """CTC prefix beam search (Graves 2012 §7.3; Hannun et al. 2014 for the
+    word-level prior at word boundaries) over one strip's log-posterior
+    ``logp`` (T, C), class 0 the blank.  Returns the best reading as a
+    list of (char, first frame, log-prob of the frame's emission), so a
+    caller can place words back on the image.
+
+    Each prefix keeps two log-probabilities, ending in blank and ending in
+    its last character, merged when different paths collapse to one
+    string.  ``word_bonus(word) -> float`` is added to a prefix's score
+    when a word is closed (a space emitted, and once more at the end): the
+    lexicon's vote as a log-prior, the place the classic decoder's word
+    variants get theirs.  Pure numpy, a Python loop over frames and a beam
+    of a few prefixes: about a millisecond a frame at beam 8.
+    """
+    T, C = logp.shape
+    NEG = -np.inf
+    # beam entry: prefix (tuple of class ids) -> (p_blank, p_nonblank, frames, emit_lp)
+    beams = {(): (0.0, NEG, (), ())}
+    lp_space = classes.index(space) if space in classes else -1
+
+    def lse(a, b):
+        if a == NEG:
+            return b
+        if b == NEG:
+            return a
+        m = max(a, b)
+        return m + np.log(np.exp(a - m) + np.exp(b - m))
+
+    def bonus(prefix_ids, frames):
+        """word_bonus for the word just closed (the run since the last space)."""
+        if word_bonus is None:
+            return 0.0
+        k = len(prefix_ids)
+        while k > 0 and prefix_ids[k - 1] != lp_space:
+            k -= 1
+        word = "".join(classes[c] for c in prefix_ids[k:])
+        return float(word_bonus(word)) if word else 0.0
+
+    for t in range(T):
+        row = logp[t]
+        # candidate classes this frame: the blank plus the few likely ones
+        top = np.argpartition(row, -min(beam_width, C - 1))[-min(beam_width, C - 1):]
+        top = [int(c) for c in top if c != 0 and row[c] > -12.0]
+        nxt: dict = {}
+
+        def add(prefix, pb, pnb, frames, emit):
+            ob, onb, of, oe = nxt.get(prefix, (NEG, NEG, frames, emit))
+            nxt[prefix] = (lse(ob, pb), lse(onb, pnb), of if of else frames, oe if oe else emit)
+
+        for prefix, (pb, pnb, frames, emit) in beams.items():
+            total = lse(pb, pnb)
+            # blank: prefix unchanged
+            add(prefix, total + row[0], NEG, frames, emit)
+            last = prefix[-1] if prefix else None
+            for c in top:
+                if c == last:
+                    # repeat of the last char: extends only after a blank;
+                    # otherwise it is the same emission continuing
+                    add(prefix, NEG, pnb + row[c], frames, emit)
+                    add(prefix + (c,), NEG, pb + row[c], frames + (t,), emit + (float(row[c]),))
+                else:
+                    new_pnb = total + row[c]
+                    if c == lp_space and prefix and last != lp_space:
+                        new_pnb += bonus(prefix, frames)
+                    add(prefix + (c,), NEG, new_pnb, frames + (t,), emit + (float(row[c]),))
+        # prune
+        beams = dict(sorted(nxt.items(), key=lambda kv: -lse(kv[1][0], kv[1][1]))[:beam_width])
+
+    def final_score(item):
+        prefix, (pb, pnb, frames, emit) = item
+        s = lse(pb, pnb)
+        if prefix and prefix[-1] != lp_space:
+            s += bonus(prefix, frames)
+        return s
+
+    best_prefix, (pb, pnb, frames, emit) = max(beams.items(), key=final_score)
+    return [(classes[c], f, e) for c, f, e in zip(best_prefix, frames, emit)]

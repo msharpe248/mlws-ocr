@@ -1,0 +1,83 @@
+# The NEURAL-LINE profile: configs/neural.toml with the line reader as the
+# decoder (decode/lineread.py, impl "hybrid").  Every line is also read end
+# to end by the sequence model, with no segmentation decision, and each line
+# is decided between the classic reading and the line reading (line_mode
+# "choose"; "pure" measures the reader alone, "off" is configs/neural.toml).
+# Adopted into configs/neural.toml only when it wins on the four sets and the
+# block metric (docs/RESEARCH.md records the measurement).
+[pipeline]
+stages = ["deskew", "illumination", "binarize", "despeckle",
+          "imagezones", "rulings", "blocks", "tables", "lines",
+          "components", "recognize", "decode", "adapt", "decode", "output"]
+
+[stage.deskew]
+impl = "projection"
+max_angle = 5.0
+
+[stage.illumination]
+impl = "median_background"
+
+[stage.binarize]
+impl = "sauvola"
+window = 41
+k = 0.2
+
+[stage.despeckle]
+impl = "components"
+min_area_300dpi = 5
+
+[stage.imagezones]
+impl = "density"
+
+[stage.rulings]
+impl = "morphological"
+
+[stage.tables]
+impl = "grid"
+
+[stage.blocks]
+impl = "xycut"
+
+[stage.lines]
+impl = "profile"
+
+[stage.components]
+impl = "overlap"
+
+[stage.recognize]
+impl = "prototypes"
+
+[stage.decode]
+impl = "hybrid"
+line_model_path = "data/seq_en_v5s1.npz"   # long-window model until the line model is trained
+line_mode = "choose"
+line_max_cols = 1400
+seq_path = "data/seq_en.npz"   # = seq_en_v6c_s2 (2026-09-13): the 615-face scorer fine-tuned on five real
+                               # harvests (bus.3B, legal, bus.3A, news, mag) at real weight 3; "" = classic decoding
+seq_backend = "auto"           # numpy (torch/MPS is launch-bound one window at a time: +5 s a page); "torch" to force it
+seq_weight = 0.5
+seq_inject = true
+seq_inject_endorsed = true
+seq_beam_weight = 1.0          # the beam's n-best rescored by the word window before
+                               # the lexicon pass (2026-09-09: +1.2 word on broad-30,
+                               # +2.7 on legal-8, +1.0 on modern, +0.7 on dev-8)
+seq_reread = true              # a segment whose words are mostly unendorsed junk is
+                               # re-read by the scorer and split at its space emissions
+                               # (2026-09-09: broad-30 +0.3 word, recall +0.6; modern
+                               # +0.2; legal-8 +0.1 word, -0.1 char; dev-8 flat)
+doc_words = true               # the page's own word list: a scorer reading that recurs
+                               # on the page, or agrees with the decoder, vouches for a
+                               # word the lexicon does not know (2026-09-09: legal-8
+                               # +0.5 word, broad-30 +0.3, modern +0.2, dev-8 +0.1)
+conf_path = "data/wordconf.npz"   # calibrated word confidence (decode/wordconf.py):
+                                  # each word gets p_correct; the output summary counts
+                                  # review candidates below review_below (2026-09-10:
+                                  # dev-8 keep p>=0.9 -> 91% of words kept at 98.0%
+                                  # right, from 94.4% with no reject path)
+review_below = 0.8
+
+[stage.output]
+impl = "text"
+
+[stage.adapt]
+impl = "cluster_refit"

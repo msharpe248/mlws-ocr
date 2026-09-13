@@ -1,0 +1,176 @@
+"""The line reader: the neural profile's second decoder.
+
+``decode = "hybrid"`` is the classic beam decoder (decode/beam.py) plus a
+whole-line reading of every text line by the sequence model, end to end,
+with no segmentation decision anywhere: the line's strip is cut as the
+harvest cuts it (glyph/strip.py), the CRNN gives a per-column posterior,
+and a CTC prefix beam search with the lexicon as a word-level prior
+(recognize/ctc.py) turns it into words placed back on the image by their
+emission frames.  Tesseract 4's line recognizer (Smith 2016) is the
+reference for the shape of it; the difference here is that the classic
+reading is kept beside it and each line is decided between the two.
+
+Why a second decoder and not another term in the first: the classic
+decoder can only choose among the word variants its segmenter proposes,
+and by 2026-09-13 the scorer's own reading (98.2% / 98.3% on the offline
+harnesses) was above the oracle of those variants (95.4% / 96.1%).  The
+words it could not reach are the tightly set lines whose word gaps equal
+their letter gaps -- the block metric's whole gap to legacy Tesseract --
+and a line reader never has to find a gap.
+
+Modes (``line_mode``): "off" is the classic decoder unchanged; "pure"
+replaces every line by its reading (the reader's own accuracy, for the
+block metric); "choose" keeps the classic words unless the reading is
+better by the choice rule below.  Long lines are read in chunks cut at
+their widest gaps (``line_max_cols``), because the model's recurrent
+state was trained on windows of that width.
+
+The classic profile never loads this stage; the neural profile's
+``impl = "hybrid"`` is the whole switch back to ``"beam"``.
+"""
+from __future__ import annotations
+
+import numpy as np
+
+from ..core.artifacts import Page
+from ..core.registry import register
+from ..core.stage import DebugBundle
+from ..glyph.strip import line_strip
+from ..recognize.ctc import prefix_beam_search
+from .beam import BeamDecode, numeric_endorsed
+
+
+def _chunk_columns(ink_cols: np.ndarray, max_cols: int, min_cols: int = 64) -> list[tuple[int, int]]:
+    """Split [0, W) into spans of at most ``max_cols`` columns, cutting at
+    the emptiest column near each boundary (a word gap if there is one)."""
+    W = len(ink_cols)
+    spans, start = [], 0
+    while W - start > max_cols:
+        lo, hi = start + max_cols // 2, start + max_cols
+        window = ink_cols[lo:hi]
+        # emptiest column, ties to the right (as late a cut as possible)
+        cut = lo + int(len(window) - 1 - np.argmin(window[::-1]))
+        if cut - start < min_cols:
+            cut = start + max_cols
+        spans.append((start, cut))
+        start = cut
+    spans.append((start, W))
+    return spans
+
+
+@register
+class HybridDecode(BeamDecode):
+    slot = "decode"
+    impl = "hybrid"
+    defaults = {
+        **BeamDecode.defaults,
+        "line_model_path": "",     # the line reader's weights; "" = the seq_path scorer
+        "line_mode": "choose",     # off | pure | choose
+        "line_max_cols": 512,      # chunk a longer strip at its widest gaps
+        "line_beam": 8,
+        "line_lex_bonus": 1.5,     # nats added when a closed word is endorsed
+                                   # (lexicon, numeric format, page word list)
+        "line_unk_penalty": 0.5,   # nats taken when it is not
+        "line_choose_margin": 0.0, # "choose": the reading replaces the classic
+                                   # words when it endorses MORE of its words, or as
+                                   # many with a mean emission log-prob higher by
+                                   # this margin
+        "line_min_conf": 0.35,     # a reading whose mean emission probability is
+                                   # under this is not offered
+    }
+
+    def run(self, page: Page) -> tuple[Page, DebugBundle]:
+        out, debug = super().run(page)
+        p = self.params
+        if p["line_mode"] == "off" or page.binary is None:
+            return out, debug
+        model = self._load_seq(p["line_model_path"] or p["seq_path"], p["seq_backend"]) \
+            if (p["line_model_path"] or p["seq_path"]) else None
+        if model is None:
+            return out, debug
+        layout = out.meta["layout"]
+        lm_endorsed = self._lm_endorsed
+        doc_words = self._doc_words
+
+        def endorsed(word: str) -> bool:
+            core = self._core(word)
+            return bool(core) and (lm_endorsed(core) or numeric_endorsed(word) or core in doc_words)
+
+        def word_bonus(word: str) -> float:
+            return p["line_lex_bonus"] if endorsed(word) else -p["line_unk_penalty"]
+
+        n_read = n_taken = 0
+        for ln in layout["lines"]:
+            if ln.get("graphic_suspect") or ln.get("baseline") is None or not ln.get("x_height"):
+                continue
+            words = self._read_line(page.binary, ln, model, word_bonus, p)
+            if words is None:
+                continue
+            n_read += 1
+            if p["line_mode"] == "pure":
+                ln["words"] = words; n_taken += 1
+                continue
+            old = ln.get("words", [])
+            if not old:
+                ln["words"] = words; n_taken += 1
+                continue
+            new_end = sum(1 for w in words if w["in_lexicon"] or w.get("numeric_format"))
+            old_end = sum(1 for w in old if w.get("in_lexicon") or w.get("numeric_format"))
+            new_conf = float(np.mean([w["confidence"] for w in words]))
+            old_conf = float(np.mean([w.get("confidence", 0.0) for w in old]))
+            if new_end > old_end or (new_end == old_end and new_conf > old_conf + p["line_choose_margin"]
+                                     and " ".join(w["text"] for w in words) != " ".join(w["text"] for w in old)):
+                ln["words"] = words; n_taken += 1
+        # the calibrator, if any, has run on the classic words only; a line
+        # read carries the reader's own confidence as p_correct
+        for ln in layout["lines"]:
+            for w in ln.get("words", []):
+                if w.get("line_read") and "p_correct" not in w:
+                    w["p_correct"] = round(float(w["confidence"]), 3)
+        debug.scalars["lines_read"] = n_read
+        debug.scalars["lines_taken"] = n_taken
+        return out, debug
+
+    def _read_line(self, binary, ln, model, word_bonus, p):
+        strip, scale, x0, _ = line_strip(binary, ln, ln["x_height"])
+        if strip.shape[1] < 8:
+            return None
+        ink = (strip < 0.5).astype(np.float32)
+        spans = _chunk_columns(ink.sum(axis=0), p["line_max_cols"])
+        emitted: list[tuple[str, int, float]] = []
+        for c0, c1 in spans:
+            if c1 - c0 < 4:
+                continue
+            logp = model.log_probs([ink[:, c0:c1]])[0]
+            read = prefix_beam_search(logp, model.classes, beam_width=p["line_beam"],
+                                      word_bonus=word_bonus)
+            if emitted and read and emitted[-1][0] != " " and read[0][0] != " ":
+                # a chunk boundary inside ink is a cut through a word only
+                # when the cut column carried ink; the chunker prefers empty
+                # columns, so a boundary is a word gap
+                emitted.append((" ", c0 // 2, 0.0))
+            emitted.extend((ch, c0 // 2 + f, e) for ch, f, e in read)
+        # words at the space emissions, placed by their frames (2 px a frame)
+        words, cur = [], []
+        y0, y1 = ln["box"][1], ln["box"][3]
+        for ch, f, e in emitted + [(" ", None, 0.0)]:
+            if ch == " ":
+                if cur:
+                    text = "".join(c for c, _, _ in cur)
+                    fx0 = x0 + (2 * cur[0][1]) / scale
+                    fx1 = x0 + (2 * cur[-1][1] + 2 * max(1, int(round(0.6 * ln["x_height"] * scale / 2)))) / scale
+                    conf = float(np.exp(np.mean([lp for _, _, lp in cur])))
+                    words.append({"text": text, "box": [int(fx0), int(y0), int(max(fx1, fx0 + 2)), int(y1)],
+                                  "confidence": round(conf, 3),
+                                  "in_lexicon": bool(self._lm_endorsed(self._core(text))),
+                                  "numeric_format": numeric_endorsed(text),
+                                  "rejected": False, "lm_override": 0, "chars": [],
+                                  "line_read": True})
+                cur = []
+            else:
+                cur.append((ch, f, e))
+        if not words:
+            return None
+        if float(np.mean([w["confidence"] for w in words])) < p["line_min_conf"]:
+            return None
+        return words
