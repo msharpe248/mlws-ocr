@@ -360,6 +360,13 @@ separately attributable because of this.
   broad-30): a stock-coverage question the outline channel should soften;
   otherwise a measured widening experiment with one bold grotesque.
 
+- **The line reader** (2026-09-13, adopted): every line read end to end
+  beside the classic decoder, the repair rule choosing per line. Next: the
+  line-trained model (`seq_line_v7a`, real whole lines) as the reader, then
+  the fitted judge (`decode/linechoice.py`) re-harvested against it — with
+  the present reader the judge wins the headline, typewriter and block
+  sets by tenths but swings on the business set with its training mix.
+
 - **Business tabular pages** (the user's stated priority, 2026-09-13):
   neural recall 93.9 against legacy's 97.5 on the sixty-page business
   set. Named losses, each measurable per kind with `--by-kind`: fused and
