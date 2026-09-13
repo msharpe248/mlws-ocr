@@ -187,6 +187,9 @@ class BeamDecode(Stage):
                                    # the same term is a different animal, and
                                    # is measured on its own)
         "seq_inject_margin": 3.0,
+        "seq_len_bonus": 0.0,      # nats credited per character in the variant
+                                   # comparison (a CTC likelihood favours the shorter
+                                   # text where the image is ambiguous); 0 = off
         "conf_path": "",           # decode/wordconf.py calibrator: sets each word's
                                    # p_correct (a probability, unlike "confidence",
                                    # the beam margin the garbage gate is tuned on);
@@ -1311,10 +1314,17 @@ class BeamDecode(Stage):
             out.append((groups, (text, meta)))
         return (out, 1) if out else (words, 0)
 
-    def _seq_costs(self, logp, texts):
+    def _seq_costs(self, logp, texts, len_bonus: float = 0.0):
         """CTC negative log-likelihood of each text under ``logp``, relative
         to the best of them; texts the scorer cannot spell or fit are
-        neutral (cost 0, nll nan).  Returns (cost dict, nll dict)."""
+        neutral (cost 0, nll nan).  Returns (cost dict, nll dict).
+
+        ``len_bonus`` nats are credited per character before the
+        comparison: a likelihood summed over characters is smaller for a
+        shorter text wherever the image is ambiguous, so the term as it
+        stands leans toward the variant that drops a letter (the
+        insertion-penalty / length-normalization question of every CTC
+        or HMM decoder; Graves 2012 §7).  0 = the raw likelihood."""
         from mlws_ocr.recognize.ctc import ctc_nll_batch
         scorer = self._seq_scorer
         texts = sorted(set(texts))
@@ -1323,8 +1333,9 @@ class BeamDecode(Stage):
         nll[~np.array(ok) | ~np.isfinite(nll)] = np.nan
         if np.isnan(nll).all():
             return {t: 0.0 for t in texts}, {t: float("nan") for t in texts}
-        base = float(np.nanmin(nll))
-        return ({t: (0.0 if np.isnan(v) else float(v) - base) for t, v in zip(texts, nll)},
+        adj = nll - len_bonus * np.array([len(t) for t in texts], dtype=float)
+        base = float(np.nanmin(adj))
+        return ({t: (0.0 if np.isnan(v) else float(v) - base) for t, v in zip(texts, adj)},
                 {t: float(v) for t, v in zip(texts, nll)})
 
     def _seq_rescore(self, found, groups, x_height, p):
@@ -1367,7 +1378,7 @@ class BeamDecode(Stage):
                                 seq_agree=True)
                     found.append((greedy, meta, found[before][2]))
                     texts.append(greedy)
-        cost, nll = self._seq_costs(logp, texts)
+        cost, nll = self._seq_costs(logp, texts, p["seq_len_bonus"])
         # evidence for the word-confidence calibrator: the scorer's own
         # likelihood of each text (per character) and its margin over the
         # next variant, in nats
