@@ -1643,6 +1643,10 @@ class BeamDecode(Stage):
             # lands just above the band ("06/1" + "5/2025" on a payslip)
             digit_run = (top1(prev).isdigit() and top1(nxt).isdigit()
                          and any(top1(g) in NUMERIC_PUNCT for g in current))
+            # (Searching the glyphs AHEAD for the separator, for the kerning
+            # gap after a LEADING '1' -- "1" + "1/28/2025", "$1" + "14.73" on
+            # the business statements -- measured identical on every set,
+            # 2026-09-13: those gaps never reach this rule.)
             # (A digit-then-'(' join for labels like '401(k)' was measured
             # -0.1..-0.3 word on the scan sets, 2026-09-08; not kept.)
             if not (sep_pattern or digit_run):

@@ -51,6 +51,7 @@ _FOLD = str.maketrans({"\u2018": "'", "\u2019": "'", "\u201a": "'", "\u201c": '"
 
 
 _LINE_NUMBER = re.compile(r"(\d{1,3})\s+(\S.*)$")
+_RULE_RUN = re.compile(r"^[-=_*~]{3,}$")
 
 
 def join_line_hyphens(text: str) -> str:
@@ -123,7 +124,10 @@ def normalize(text: str, hyphens: bool = True) -> str:
     text = text.translate(_FOLD)          # dashes to '-' BEFORE the join looks for one
     if hyphens:
         text = join_line_hyphens(text)
-    return " ".join(text.split())
+    # A rule drawn in characters ('------', '=====', '*****' on a receipt
+    # or a form) is layout, not a word: dropped from both sides, so an
+    # engine that scrubs dash runs and one that prints them score alike.
+    return " ".join(tok for tok in text.split() if not _RULE_RUN.match(tok))
 
 
 def read_zones(uzn_path: Path) -> list[list[int]]:

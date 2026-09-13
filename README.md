@@ -81,6 +81,16 @@ our own renders and our own harvests — nothing pre-trained:
 .venv/bin/python scripts/train_seq.py --backend torch --out data/seq_en_v1.npz     # CRNN + CTC; --backend numpy for the reference trainer
 ```
 
+Measurement sets and their evaluators:
+
+```bash
+.venv/bin/python scripts/eval_unlv.py data/unlv/bus.3B --pages 30 --seed 2 --doc-type letter --config configs/neural.toml   # a UNLV set (broad-30)
+.venv/bin/python scripts/make_modern_set.py && .venv/bin/python scripts/make_business_set.py   # today's documents; tabular business pages
+.venv/bin/python scripts/eval_unlv.py data/business/sev0 --pages 60 --seed 1 --by-kind          # invoices, payslips, receipts, statements, purchase orders
+.venv/bin/python scripts/eval_blocks.py truth data/unlv/bus.3B --pages 8 --seed 1 && .venv/bin/python scripts/eval_blocks.py score data/unlv/bus.3B --pages 8 --seed 1   # a text block on its own, no layout
+TESSDATA_PREFIX=... .venv/bin/python scripts/eval_tesseract.py data/business/sev0 --pages 60 --seed 1 --oem 0 --by-kind   # the legacy reference on the same pages
+```
+
 Training the heavier networks of the neural profile is faster with the
 optional extra (`pip install -e ".[train]"`, torch on the machine's own
 GPU); every trained model is exported to `.npz` and the pipeline never

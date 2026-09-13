@@ -360,6 +360,23 @@ separately attributable because of this.
   broad-30): a stock-coverage question the outline channel should soften;
   otherwise a measured widening experiment with one bold grotesque.
 
+- **Business tabular pages** (the user's stated priority, 2026-09-13):
+  neural recall 93.9 against legacy's 97.5 on the sixty-page business
+  set. Named losses, each measurable per kind with `--by-kind`: fused and
+  split capital-letter cells ('ATMWITHDRAWAL', 'white board'), a leading
+  '1' cut from dates and amounts, '(7%)' read '(796)' in bold, and no '@'
+  class at all (35 misses on twelve receipts). The '@' needs a class in
+  CHARSET and therefore a rebuild of every classifier and the scorer's
+  class list, with a control rebuild beside it (RESEARCH's rare-class
+  lesson); the caps cells want a cell-level spacing rule in the row
+  reader, since a scaled x-height on caps lines measured −5 word.
+
+- **Block recognition.** With layout taken out (`eval_blocks.py`) we are
+  3.6 character points behind legacy on letters and typewriter pages,
+  1.5 on dev-8; the page-level gap on broad-30 is 1.8. Tesseract reads a
+  paragraph on its own far better than the page; we read it about the
+  same. This is the number to move for the 'raw block to words' use.
+
 - **Magazine layout.** mag-8 reads 68.3 / 50.7 plain and 74.9 / 53.4
   zone-ordered against legacy's 87.4 / 85.0. Three items, each measurable
   on the eight pages with `--zone-order` separating them: (a) the density

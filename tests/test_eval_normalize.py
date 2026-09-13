@@ -50,3 +50,8 @@ def test_a_chain_of_wrapped_lines_keeps_folding():
     ours = "an open-end invest-\n9\nment company, establishing periodic re-\n10\nporting requirements under which a trans-\n11\nfer agent"
     assert normalize(truth) == normalize(ours)
     assert "reporting" in normalize(truth) and "transfer" in normalize(truth) and "investment" in normalize(truth)
+
+
+def test_character_rules_are_not_words():
+    assert normalize("SUBTOTAL 12.00\n----------\nTOTAL 13.00") == "SUBTOTAL 12.00 TOTAL 13.00"
+    assert normalize("a - b -- c") == "a - b -- c"       # a dash or a double dash is text

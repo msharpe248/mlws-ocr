@@ -354,6 +354,9 @@ help on UNLV, whose TIFFs are already bitonal — recorded).
 | legal-8 | UNLV legal.3B, seed 1 | second domain (typewriter) |
 | synthetic | 220-word Verdana page at three severities | held-out face, no real-scan noise |
 | modern | govinfo PDFs + templated invoices/payslips/letters in modern faces, three severities | today's documents (`make_modern_set.py`) |
+| business | templated invoices, payslips, receipts (monospace thermal roll), bank statements and purchase orders in modern faces, 60 pages, three severities | tabular business documents, reported per kind (`make_business_set.py`, `--by-kind`) |
+| news-8 / mag-8 | UNLV news.3B / mag.3B, seed 1, 8 pages | measured against Tesseract only |
+| blocks | the Text zones of dev-8, legal-8 and broad-30, cut from the page and read alone | recognition with no layout question (`eval_blocks.py`; legacy reads the same crops with `--psm 6`) |
 
 Metrics: character and word accuracy by edit distance, plus order-
 independent word recall and precision (edit distance books a reordered
@@ -474,6 +477,22 @@ magazine / newspaper) are measured but not tuned on and not harvested
 | classic | 92.6 / 81.8 | 65.3 / 41.2 |
 | neural | 93.1 / 88.2 (recall 92.4, precision 94.3) | 65.9 / 51.8 (74.4 / 82.3) |
 | legacy Tesseract | 96.3 / 93.1 (97.5 / 94.4) | 87.3 / 84.7 (95.9 / 90.5) |
+
+**Business documents and blocks (2026-09-13).** Sixty templated tabular
+pages (invoices, payslips, receipts, statements, purchase orders; sev0)
+and the Text zones of the UNLV sets read on their own, char / word with
+recall / precision in brackets; on the business pages the bag-of-words
+columns are the recognition comparison, because Tesseract reads a table
+by column blocks and pays the edit distance for the order:
+
+| profile | business | blocks dev-8 (pooled) | blocks legal-8 | blocks broad-30 |
+|---|---|---|---|---|
+| classic | 90.3 / 79.7 (88.2 / 88.8) | 97.2 / 93.3 | 92.7 / 86.7 | 93.4 / 84.3 |
+| neural | 91.7 / 84.9 (93.9 / 94.0) | 97.4 / 94.7 | 93.1 / 88.4 | 94.6 / 89.9 |
+| legacy Tesseract | 70.7 / 68.0 (97.5 / 97.8) | 98.9 / 97.2 | 96.7 / 95.3 | 98.2 / 96.6 |
+
+The block columns are the recognition gap with layout taken out: about
+3.6 character points to legacy on letters and typewriter pages (RESEARCH).
 
 (Under the hyphenation fold; zone-ordered scoring before the fold read
 news-8 92.9 / 82.7 against 92.8 / 83.1 plain, so the newspaper order is
