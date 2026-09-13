@@ -47,10 +47,21 @@ def test_pure_is_classic_without_networks():
 
 
 def test_neural_shares_the_stage_list_with_classic():
-    assert _stage_list("neural.toml") == _stage_list("classic.toml")
+    """Same slots in the same order; the neural profile may swap ONLY the
+    decoder's implementation, and then only for a subclass of the classic
+    beam decoder (the line reader, decode/lineread.py), so every classic
+    term is still there beneath the network's."""
+    from mlws_ocr.core import registry
+    from mlws_ocr.decode.beam import BeamDecode
+    neural_list, classic_list = _stage_list("neural.toml"), _stage_list("classic.toml")
+    assert [s for s, _ in neural_list] == [s for s, _ in classic_list]
+    for (slot, impl_n), (_, impl_c) in zip(neural_list, classic_list):
+        if impl_n != impl_c:
+            assert slot == "decode", slot
+            assert issubclass(registry.get(slot, impl_n), BeamDecode), impl_n
     neural, classic = _specs("neural.toml"), _specs("classic.toml")
     for key, spec in neural.items():
-        if spec.params != classic[key].params:
+        if spec.params != classic.get(key, classic.get(("decode", "beam"))).params:
             assert key[1] in ("recognize", "decode"), key
 
 
