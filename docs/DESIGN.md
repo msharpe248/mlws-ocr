@@ -488,11 +488,13 @@ by column blocks and pays the edit distance for the order:
 | profile | business | blocks dev-8 (pooled) | blocks legal-8 | blocks broad-30 |
 |---|---|---|---|---|
 | classic | 90.3 / 79.7 (88.2 / 88.8) | 97.2 / 93.3 | 92.7 / 86.7 | 93.4 / 84.3 |
-| neural | 91.7 / 84.9 (93.9 / 94.0) | 97.4 / 94.7 | 93.1 / 88.4 | 94.6 / 89.9 |
+| neural | 91.7 / 84.9 (93.9 / 94.0) | 98.8 / 96.0 | 94.1 / 89.4 | 95.4 / 91.1 |
 | legacy Tesseract | 70.7 / 68.0 (97.5 / 97.8) | 98.9 / 97.2 | 96.7 / 95.3 | 98.2 / 96.6 |
 
-The block columns are the recognition gap with layout taken out: about
-3.6 character points to legacy on letters and typewriter pages (RESEARCH).
+The block columns are the recognition gap with layout taken out (neural
+read with `doc_type = "block"`, the caller's word that the input is one
+block; classic without it): 0.1 character points to legacy on dev-8, 2.6
+on the typewriter pages, 2.8 on the letters (RESEARCH).
 
 (Under the hyphenation fold; zone-ordered scoring before the fold read
 news-8 92.9 / 82.7 against 92.8 / 83.1 plain, so the newspaper order is

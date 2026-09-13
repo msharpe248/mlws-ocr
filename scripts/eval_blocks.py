@@ -182,7 +182,8 @@ def cmd_score(args):
                                            capture_output=True, text=True)
                     got = normalize(r.stdout)
                 else:
-                    page = Page(gray=np.ascontiguousarray(crop), dpi=dpi, meta={})
+                    page = Page(gray=np.ascontiguousarray(crop), dpi=dpi,
+                                meta={"doc_type": args.doc_type} if args.doc_type else {})
                     page = run_stages(page, pipeline, overrides)
                     got = normalize(page.meta.get("text", ""))
             except Exception as e:  # noqa: BLE001
@@ -221,6 +222,8 @@ def main():
     sub.choices["score"].add_argument("--oem", default="0")
     sub.choices["score"].add_argument("--margin-in", type=float, default=0.1, help="crop margin in inches")
     sub.choices["score"].add_argument("--quiet", action="store_true")
+    sub.choices["score"].add_argument("--doc-type", default="block",
+                                      help="layout hint for our reader ('block' = the input is one block; '' = none)")
     args = ap.parse_args()
     (cmd_truth if args.cmd == "truth" else cmd_score)(args)
 

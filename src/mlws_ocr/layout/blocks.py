@@ -170,6 +170,20 @@ class XYCutBlocks(Stage):
             return [b for b in found if b[2] - b[0] >= p["min_block_px"]
                     and b[3] - b[1] >= p["min_block_px"]]
 
+        if doc_type == "block":
+            # The caller says the input IS one block (a paragraph or a table
+            # handed in on its own).  A cropped paragraph read its lines out
+            # of order when a whitespace river let a column cut split a few
+            # of them (2026-09-13); forbidding every cut instead fused a
+            # table's columns into one line per row (an order form lost 57
+            # word points).
+            # Row cuts stay (they never change the order); a column cut
+            # needs a region at least this share of the block tall, so a
+            # whitespace river through two or three lines of a paragraph
+            # cannot split them left from right, while a table's rows,
+            # once a row cut has freed them from the prose, still get
+            # their columns.
+            min_col_h = max(min_col_h, int(0.4 * page.binary.shape[0]))
         boxes = cut(gap_x)
         river_retry = False
         if len(boxes) > p["river_retry_blocks"]:

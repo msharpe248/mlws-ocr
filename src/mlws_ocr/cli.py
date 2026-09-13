@@ -24,8 +24,9 @@ def main(argv=None) -> int:
     p_run.add_argument("--pdf-page", type=int, default=0,
                        help="page number for PDF inputs (0-based)")
     p_run.add_argument("--doc-type", default=None,
-                       choices=["letter", "book", "legal", "form", "newspaper", "magazine"],
-                       help="optional layout hint (never required)")
+                       choices=["letter", "book", "legal", "form", "newspaper", "magazine", "block"],
+                       help="optional layout hint (never required); 'block' says the image "
+                            "is one block of text -- a paragraph or a table handed in alone")
 
     sub.add_parser("stages", help="list registered stage implementations")
 
