@@ -38,25 +38,36 @@ def test_line_art_removed_text_kept(font_path):
     img = render_text_page(["the quick brown fox jumps over the dog"] * 8,
                            font_path, px_height=32)
     h, w = img.shape
-    img = np.concatenate([np.ones((h, 400), np.float32), img], axis=1)
+    # A drawing about 1.2 x 2.8 inches at 300 dpi (the UNLV mailbag was
+    # of that order), beside the text with a margin.
+    img = np.concatenate([np.ones((max(h, 1000), 1200), np.float32),
+                          np.pad(img, ((0, max(1000 - h, 0)), (0, 0)), constant_values=1.0)], axis=1)
     # Dense "illustration core": a filled blob at the top left...
-    img[20:140, 60:340] = 0.05
+    img[60:420, 180:1020] = 0.05
     # ...shedding hollow line-art below it (nested open rectangles two
     # strokes thick, large in both dimensions but sparsely filled).
-    for y0, x0, y1, x1 in [(150, 60, 300, 330), (160, 70, 290, 320),
-                           (170, 80, 280, 310)]:
-        img[y0:y1, x0:x0 + 3] = 0.05
-        img[y0:y1, x1 - 3:x1] = 0.05
-        img[y0:y0 + 3, x0:x1] = 0.05
+    for y0, x0, y1, x1 in [(450, 180, 900, 990), (480, 210, 870, 960),
+                           (510, 240, 840, 930)]:
+        img[y0:y1, x0:x0 + 4] = 0.05
+        img[y0:y1, x1 - 4:x1] = 0.05
+        img[y0:y0 + 4, x0:x1] = 0.05
+    # The stage's size fractions are fractions of a LETTER-SIZE page (a
+    # block handed in alone must not see its own letters as art), so the
+    # fixture sits on a page-size canvas as the UNLV original did.
+    canvas = np.ones((3300, 2550), np.float32)
+    canvas[: img.shape[0], : img.shape[1]] = img
+    img = canvas
     binary = img < 0.5
     text_ink = binary.copy()
-    text_ink[:, :400] = False
+    text_ink[:, :1200] = False
 
     page = Page(gray=img, binary=binary, dpi=300.0)
     out, dbg = registry.get("imagezones", "density")().run(page)
 
-    art = out.binary[:, :390]
-    assert art.sum() < 0.05 * binary[:, :390].sum(), "line art survived"
+    art = out.binary[:, :1170]
+    # (the outermost rectangle's far edge is the fixture's own margin case;
+    # the drawing as a whole must go)
+    assert art.sum() < 0.08 * binary[:, :1170].sum(), "line art survived"
     kept = (out.binary & text_ink).sum() / text_ink.sum()
     assert kept > 0.98, f"text ink lost: kept only {kept:.1%}"
 

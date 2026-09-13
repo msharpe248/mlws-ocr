@@ -76,7 +76,13 @@ class DensityImageZones(Stage):
             raise ValueError("imagezones requires a binarized page")
         p = self.params
         b = page.binary
-        page_area = b.shape[0] * b.shape[1]
+        # The size fractions below are fractions OF A PAGE.  On a block
+        # handed in on its own (a paragraph crop of 270 x 1000 px) the
+        # image's own area made a single capital letter 'art' and the
+        # stage ate 98% of the ink (block metric, 2026-09-13); the
+        # reference is therefore never smaller than a letter-size page
+        # at the input's dpi, and a full page is unchanged.
+        page_area = max(b.shape[0] * b.shape[1], (8.5 * page.dpi) * (11.0 * page.dpi))
         scale = page.dpi / 300.0
 
         zone = np.zeros_like(b)

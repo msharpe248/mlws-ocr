@@ -187,6 +187,9 @@ class BeamDecode(Stage):
                                    # the same term is a different animal, and
                                    # is measured on its own)
         "seq_inject_margin": 3.0,
+        "seq_cand_thresh": 0.0,    # a scorer character with this much probability on a
+                                   # glyph's frames joins its candidate list; 0 = off
+        "seq_cand_penalty": 0.5,   # ...just under the best candidate, in nats
         "seq_len_bonus": 0.0,      # nats credited per character in the variant
                                    # comparison (a CTC likelihood favours the shorter
                                    # text where the image is ambiguous); 0 = off
@@ -680,7 +683,7 @@ class BeamDecode(Stage):
     def _dehyphenate_pass(layout, lm) -> int:
         """Join words hyphenated across a line break.
 
-        Ground truth (and any reasonable reader) sees "indi-\\nvidual" as
+        Ground truth (and any reasonable reader) sees "indi-\nvidual" as
         "individual"; emitting the hyphen plus a space costs two char and
         two word errors per wrapped word.  Join when the line-final word
         ends in '-', the next line of the same block starts lowercase,
@@ -1191,6 +1194,37 @@ class BeamDecode(Stage):
         c0 = max(int((x0 - line_x0) * scale), 0)
         c1 = min(int(np.ceil((x1 - line_x0) * scale)), strip.shape[1])
         return None if c1 - c0 < 4 else (c0, c1)
+
+    def _seq_glyph_candidates(self, groups, x_height, p):
+        """Per glyph, the scorer's characters with at least seq_cand_thresh
+        probability on some frame of the glyph's own columns (blank and
+        space excluded); [] where the scorer is off or the span degenerate."""
+        empty = [[] for _ in groups]
+        if self._cur_seq is None:
+            return empty
+        boxes = [g["box"] for g in groups]
+        logp = self._seq_window(boxes, x_height, p)
+        span = self._seq_span(boxes, x_height, p)
+        if logp is None or span is None:
+            return empty
+        strip, line_x0, scale, _ = self._cur_seq
+        classes = self._seq_scorer.classes
+        probs = np.exp(logp)                      # (T, C), T = ceil(cols / 2)
+        T = probs.shape[0]
+        stride = max((span[1] - span[0]) / max(T, 1), 1.0)
+        out = []
+        for g in groups:
+            c0 = (g["box"][0] - line_x0) * scale - span[0]
+            c1 = (g["box"][2] - line_x0) * scale - span[0]
+            f0 = max(int(c0 / stride), 0)
+            f1 = min(int(np.ceil(c1 / stride)) + 1, T)
+            if f1 <= f0:
+                out.append([]); continue
+            peak = probs[f0:f1].max(axis=0)
+            found = [classes[k] for k in np.flatnonzero(peak >= p["seq_cand_thresh"])
+                     if k != 0 and classes[k] not in (" ", "")]
+            out.append(found)
+        return out
 
     def _seq_window(self, boxes, x_height, p):
         """The scorer's log-posterior for the window spanning ``boxes``,
@@ -1940,6 +1974,7 @@ class BeamDecode(Stage):
         per_glyph = []
         shears = [g["shear"] for g in groups if "shear" in g]
         line_shear = float(np.median(shears)) if len(shears) >= 2 else None
+        seq_cands = self._seq_glyph_candidates(groups, x_height, p) if p["seq_cand_thresh"] > 0 else None
         for gi, g in enumerate(groups):
             cands = g["candidates"]
             if cands[0][1] > reject_at and "pinned" not in g:
@@ -1947,6 +1982,20 @@ class BeamDecode(Stage):
                 rejected = True
                 continue
             lp = _glyph_logprobs(cands, p["evidence_temp_frac"])
+            if seq_cands is not None and seq_cands[gi]:
+                # The scorer's per-column posterior names characters the
+                # prototype list left out: the oracle-miss census (RESEARCH
+                # 2026-09-13) found the truth outside EVERY variant of a
+                # word mostly as same-length substitutions ('t0' for 'to',
+                # 'CCO' for 'CEO') where no candidate list held the right
+                # letter, so no rescoring could reach it.  A character the
+                # scorer gives at least seq_cand_thresh probability on the
+                # glyph's own frames joins the list just under the best
+                # candidate; the beam and the CTC rescoring judge it.
+                top = max(lp.values())
+                for c in seq_cands[gi]:
+                    if c not in lp:
+                        lp[c] = top - p["seq_cand_penalty"]
             if p["abs_quality_weight"] > 0:
                 # The softmax is relative to the glyph's own list: a junk
                 # piece at distance 98 scores like a perfect glyph at 5, so

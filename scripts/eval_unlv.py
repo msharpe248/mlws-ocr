@@ -175,6 +175,10 @@ def main():
                     help="layout hint passed to the pipeline")
     ap.add_argument("--blocks", default="xycut",
                     help="blocks implementation to use (xycut | whitespace)")
+    ap.add_argument("--by-kind", action="store_true",
+                    help="also report a mean per document kind, the kind being the "
+                         "page stem up to its first '-' (the modern and business sets "
+                         "are named kind-face-n / kind-source-pN)")
     ap.add_argument("--dump", type=Path, default=None,
                     help="write each page's output text to DIR/<page>.txt so a "
                          "scoring-convention change can be re-scored offline")
@@ -197,12 +201,14 @@ def main():
     print(f"{len(pairs)} pages sampled from {args.root}")
 
     cers, wers, recalls, precisions = [], [], [], []
+    kinds: list[str] = []
 
     failed = 0
     for img_path, gt_path in pairs:
         truth = normalize(gt_path.read_text(errors="ignore"))
         if not truth:
             continue
+        kinds.append(img_path.stem.split("-")[0])
         gray, dpi = load_gray(img_path)
         meta = {"doc_type": args.doc_type} if args.doc_type else {}
         page = Page(gray=gray, dpi=dpi or 300.0, meta=meta)
@@ -249,6 +255,13 @@ def main():
         print(f"\nMEAN over {len(cers)} pages{f' ({failed} failed)' if failed else ''}: "
               f"char acc {1-np.mean(cers):.1%}  word acc {1-np.mean(wers):.1%}  "
               f"word recall {np.mean(recalls):.1%}  precision {np.mean(precisions):.1%}")
+        if args.by_kind:
+            for kind in sorted(set(kinds)):
+                idx = [i for i, k in enumerate(kinds) if k == kind]
+                print(f"  {kind:12s} {len(idx):3d} pages: char acc {1-np.mean([cers[i] for i in idx]):.1%}  "
+                      f"word acc {1-np.mean([wers[i] for i in idx]):.1%}  "
+                      f"recall {np.mean([recalls[i] for i in idx]):.1%}  "
+                      f"precision {np.mean([precisions[i] for i in idx]):.1%}")
 
 
 if __name__ == "__main__":
