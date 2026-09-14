@@ -96,11 +96,11 @@ class HybridDecode(BeamDecode):
                                      # words when confident and endorsed; the flag is
                                      # then cleared so the output keeps the line
         "line_graphic_conf": 0.6,
-        "line_junk_conf": 0.0,     # a line neither reading can endorse a word of, whose
-                                   # reading is this unsure (mean emission probability),
-                                   # is logo art, not text: flagged so the output drops
-                                   # it (letterhead zones emitted 1.12 characters per
-                                   # truth character, 2026-09-14); 0 = off
+        "line_join_spaced": False, # letter-spaced display type ('F O U R') read as single
+                                   # letters is re-joined: a run of three or more one-
+                                   # character tokens is segmented into lexicon words
+                                   # (fewest words, all endorsed) or, failing that, into
+                                   # one token (letterheads, 2026-09-14)
     }
 
     def run(self, page: Page) -> tuple[Page, DebugBundle]:
@@ -124,7 +124,7 @@ class HybridDecode(BeamDecode):
             return p["line_lex_bonus"] if endorsed(word) else -p["line_unk_penalty"]
 
         n_read = n_taken = 0
-        n_graphic = n_junk = 0
+        n_graphic = 0
         for ln in layout["lines"]:
             graphic = bool(ln.get("graphic_suspect"))
             if (graphic and not p["line_read_graphic"]) or ln.get("baseline") is None or not ln.get("x_height"):
@@ -134,15 +134,6 @@ class HybridDecode(BeamDecode):
                 continue
             words, logp = read
             n_read += 1
-            if p["line_junk_conf"] > 0 and not graphic:
-                conf = float(np.mean([w["confidence"] for w in words]))
-                old_words = ln.get("words", [])
-                if (conf < p["line_junk_conf"]
-                        and not any(w["in_lexicon"] or w.get("numeric_format") for w in words)
-                        and not any(w.get("in_lexicon") or w.get("numeric_format") for w in old_words)):
-                    ln["graphic_suspect"] = True
-                    n_junk += 1
-                    continue
             if graphic:
                 # A letterhead line in a display face: the prototype
                 # distances that flagged it say nothing about the reader.
@@ -210,6 +201,10 @@ class HybridDecode(BeamDecode):
                 take = new_end > old_end or (new_end == old_end and new_conf > old_conf + p["line_choose_margin"])
             if take:
                 ln["words"] = words; n_taken += 1
+        if p["line_join_spaced"]:
+            for ln in layout["lines"]:
+                if ln.get("words"):
+                    ln["words"] = self._join_spaced(ln["words"], endorsed)
         # the calibrator, if any, has run on the classic words only; a line
         # read carries the reader's own confidence as p_correct
         for ln in layout["lines"]:
@@ -219,8 +214,43 @@ class HybridDecode(BeamDecode):
         debug.scalars["lines_read"] = n_read
         debug.scalars["lines_taken"] = n_taken
         debug.scalars["graphic_lines_read"] = n_graphic
-        debug.scalars["junk_lines_flagged"] = n_junk
         return out, debug
+
+    @staticmethod
+    def _join_spaced(words, endorsed):
+        """Runs of three or more single-character alphanumeric tokens are
+        letter-spaced type.  The run's letters are segmented into the
+        fewest lexicon-endorsed words by dynamic programming; when no such
+        segmentation exists the run becomes one token."""
+        out, i = [], 0
+        while i < len(words):
+            j = i
+            while j < len(words) and len(words[j]["text"]) == 1 and words[j]["text"].isalnum():
+                j += 1
+            if j - i < 3:
+                out.append(words[i]); i += 1
+                continue
+            run = words[i:j]
+            letters = "".join(w["text"] for w in run)
+            n = len(letters)
+            best = [None] * (n + 1); best[0] = []
+            for k in range(1, n + 1):
+                for m in range(max(0, k - 20), k):
+                    if best[m] is not None and k - m >= 2 and endorsed(letters[m:k]):
+                        cand = best[m] + [(m, k)]
+                        if best[k] is None or len(cand) < len(best[k]):
+                            best[k] = cand
+            spans = best[n] if best[n] is not None else [(0, n)]
+            for a, b in spans:
+                first, last = run[a], run[b - 1]
+                w = dict(first, text=letters[a:b],
+                         box=[first["box"][0], min(x["box"][1] for x in run[a:b]),
+                              last["box"][2], max(x["box"][3] for x in run[a:b])],
+                         confidence=round(float(np.mean([x.get("confidence", 0.0) for x in run[a:b]])), 3),
+                         in_lexicon=bool(endorsed(letters[a:b])), chars=[], spaced_join=True)
+                out.append(w)
+            i = j
+        return out
 
     _choice_cache: dict = {}
 

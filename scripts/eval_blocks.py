@@ -231,6 +231,8 @@ def cmd_zones(args):
         truths = derive_truths(page, zones, truth)
         got_by_zone = [[] for _ in zones]
         for ln in page.meta.get("layout", {}).get("lines", []):
+            if ln.get("graphic_suspect"):
+                continue          # the output stage drops these lines; so does the census
             baseline = ln.get("baseline", ln["box"][1])
             for w in ln.get("words", []):
                 x0, y0, x1, y1 = w["box"]
