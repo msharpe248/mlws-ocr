@@ -34,11 +34,12 @@ MAX_WIDTH = 512   # strip columns; wider windows are dropped (--max-width)
 _G: dict = {}
 
 
-def _init(corpus_dirs, fonts, x_heights=None, x_weights=None, words=(2, 5), take=(1, 3),
+def _init(corpus_dirs, fonts, x_heights=None, x_weights=None, words=(2, 5), take=(1, 3), caps_frac=0.10,
           max_width=MAX_WIDTH):
     _G["words"], _G["probs"] = corpus_words(corpus_dirs)
     _G["fonts"] = fonts
     _G["nwords"], _G["take"], _G["max_width"] = tuple(words), tuple(take), max_width
+    _G["caps_frac"] = caps_frac
     _G["xh"] = list(x_heights or X_HEIGHTS)
     w = np.array(x_weights or X_HEIGHT_WEIGHTS, dtype=float)
     _G["xw"] = w / w.sum()
@@ -57,7 +58,7 @@ def _chunk(args):
         font = _G["fonts"][fi]
         xh = float(rng.choice(_G["xh"], p=_G["xw"]))
         n_words = int(rng.integers(_G["nwords"][0], _G["nwords"][1] + 1))
-        words = sample_words(rng, _G["words"], _G["probs"], n_words)
+        words = sample_words(rng, _G["words"], _G["probs"], n_words, caps_frac=_G.get("caps_frac", 0.10))
         tracking = sample_tracking(rng, _G["italic"][fi])
         theta = sample_theta(rng, xh)
         ww = render_word_window(rng, words, font, xh, theta, tracking_em=tracking, take=_G["take"])
@@ -88,6 +89,8 @@ def main():
     ap.add_argument("--x-heights", type=float, nargs="+", default=list(X_HEIGHTS),
                     help="x-heights (px) to sample from; e.g. small type: 9 10 11 12 13")
     ap.add_argument("--x-weights", type=float, nargs="+", default=list(X_HEIGHT_WEIGHTS))
+    ap.add_argument("--caps-frac", type=float, default=0.10,
+                    help="share of words rendered in capitals (display and letterhead sets want more)")
     args = ap.parse_args()
     assert len(args.x_heights) == len(args.x_weights)
 
@@ -108,7 +111,7 @@ def main():
     done = 0
     with mp.Pool(args.workers, initializer=_init,
                  initargs=(args.corpus, fonts, args.x_heights, args.x_weights,
-                           args.words, args.take, args.max_width)) as pool:
+                           args.words, args.take, args.max_width, args.caps_frac)) as pool:
         for chunk in pool.imap_unordered(_chunk, jobs):
             for pk, w, lab, tch, name, xh, tr in chunk:
                 packed.append(pk); widths.append(w); labels.append(lab)

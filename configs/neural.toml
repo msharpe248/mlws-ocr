@@ -80,6 +80,8 @@ line_read_graphic = true       # the reader reads the lines the classic decoder 
                                # (letterheads in display faces) and keeps a confident, endorsed
                                # reading (2026-09-14: legal-8 88.5 -> 89.1 word, dev-8 +0.4 char,
                                # broad-30 +0.5 char; 49 of 118 flagged letterhead lines rescued)
+line_join_spaced = true        # letter-spaced display type read as single letters is re-joined into
+                               # lexicon words (2026-09-14: broad-30 89.7 -> 90.2 word; other sets flat)
 seq_path = "data/seq_en.npz"   # = seq_en_v6c_s2 (2026-09-13): the 615-face scorer fine-tuned on five real
                                # harvests (bus.3B, legal, bus.3A, news, mag) at real weight 3; "" = classic decoding
 seq_backend = "auto"           # numpy (torch/MPS is launch-bound one window at a time: +5 s a page); "torch" to force it
