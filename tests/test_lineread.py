@@ -50,3 +50,18 @@ def test_hybrid_decode_is_registered_with_the_beam_defaults():
     cls = registry.get("decode", "hybrid")
     assert cls.defaults["line_mode"] == "choose"
     assert "seq_path" in cls.defaults and "beam_width" in cls.defaults
+
+
+def test_letter_spaced_run_is_segmented_into_lexicon_words():
+    from mlws_ocr.decode.lineread import HybridDecode
+    lex = {"forty", "four", "hundred", "west"}
+    words = [{"text": c, "box": [10 * k, 0, 10 * k + 8, 20], "confidence": 0.9, "in_lexicon": False}
+             for k, c in enumerate("FORTYFOURHUNDRED")]
+    words.append({"text": "WEST", "box": [200, 0, 240, 20], "confidence": 0.9, "in_lexicon": True})
+    out = HybridDecode._join_spaced(words, lambda w: w.lower() in lex)
+    assert [w["text"] for w in out] == ["FORTY", "FOUR", "HUNDRED", "WEST"]
+    assert out[0]["box"] == [0, 0, 48, 20]
+    # a run no lexicon segmentation covers becomes one token
+    junk = [{"text": c, "box": [10 * k, 0, 10 * k + 8, 20], "confidence": 0.5, "in_lexicon": False} for k, c in enumerate("XQZV")]
+    assert [w["text"] for w in HybridDecode._join_spaced(junk, lambda w: False)] == ["XQZV"]
+
