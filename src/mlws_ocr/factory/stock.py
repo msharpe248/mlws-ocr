@@ -39,6 +39,13 @@ LIGATURES = "\ufb01\ufb02\ufb00\ufb03"          # fi fl ff ffi
 # not a ligature.  The penalty plumbing stays; append LIGATURES here to
 # test again when a set with real ligature losses exists.
 CHARSET = string.ascii_letters + string.digits + ".,;:!?()-'\"" + "&$%/#" + ACCENTED
+# Class experiments: MLWS_EXTRA_CLASSES="@" adds classes to every build made
+# in that environment (prototypes, MLP, outline bank).  A class experiment
+# needs a CONTROL rebuild beside it (RESEARCH: the outline set is not
+# reproducible bit for bit, so a new class is judged against a rebuild
+# without it, not against the live files).  The live models carry the
+# classes they were built with; nothing here changes them.
+CHARSET += "".join(c for c in __import__("os").environ.get("MLWS_EXTRA_CLASSES", "") if c not in CHARSET)
 HOLDOUT = ("Verdana", "Tahoma")
 BODY_NAMES = [
     "Andale Mono", "Arial Black", "Arial Bold Italic", "Arial Bold",
