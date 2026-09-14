@@ -205,16 +205,73 @@ def cmd_score(args):
           f"pooled char acc {1-err_chars/max(tot_chars,1):.1%}  word acc {1-err_words/max(tot_words,1):.1%}")
 
 
+def cmd_zones(args):
+    """Where on the PAGE do the errors sit?  Read the full page, split its
+    truth among the .uzn zones (derive_truths, every zone type), assign the
+    output words to zones, and pool character and word errors by zone
+    type.  The page-level residual against legacy, by kind of zone."""
+    overrides = parse_overrides(args.set)
+    pipeline = load_pipeline(args.config)
+    pairs = list(find_pairs(args.root))
+    random.Random(args.seed).shuffle(pairs)
+    pairs = pairs[: args.pages]
+    by_type: dict = {}
+    for img, gt in pairs:
+        uzn = img.with_suffix(".uzn")
+        if not uzn.exists():
+            continue
+        zones, types = read_zones(uzn), zone_types(uzn)
+        truth = normalize(gt.read_text(errors="ignore"))
+        gray, dpi = load_gray(img)
+        page = Page(gray=gray, dpi=dpi or 300.0, meta={"doc_type": args.doc_type} if args.doc_type else {})
+        try:
+            page = run_stages(page, pipeline, overrides)
+        except Exception as e:  # noqa: BLE001
+            print(f"  {img.name}: PIPELINE ERROR {e}"); continue
+        truths = derive_truths(page, zones, truth)
+        got_by_zone = [[] for _ in zones]
+        for ln in page.meta.get("layout", {}).get("lines", []):
+            baseline = ln.get("baseline", ln["box"][1])
+            for w in ln.get("words", []):
+                x0, y0, x1, y1 = w["box"]
+                zi = _assign_zone((x0 + x1) / 2, (y0 + y1) / 2, zones)
+                got_by_zone[zi].append((baseline, x0, w["text"]))
+        for zi, (t, tr) in enumerate(zip(types, truths)):
+            got = normalize(" ".join(w for *_, w in sorted(got_by_zone[zi])))
+            tr = normalize(tr)
+            if not tr and not got:
+                continue
+            acc = by_type.setdefault(t, {"zones": 0, "chars": 0, "words": 0, "cerr": 0, "werr": 0,
+                                         "got": 0, "graphic": 0, "lines": 0})
+            acc["zones"] += 1; acc["chars"] += len(tr); acc["words"] += len(tr.split())
+            acc["cerr"] += edit_distance(got, tr); acc["werr"] += edit_distance_words(got.split(), tr.split())
+            acc["got"] += len(got)
+            for ln in page.meta.get("layout", {}).get("lines", []):
+                bx = ln["box"]
+                if _assign_zone((bx[0] + bx[2]) / 2, (bx[1] + bx[3]) / 2, zones) == zi:
+                    acc["lines"] += 1; acc["graphic"] += bool(ln.get("graphic_suspect"))
+        print(f"  {img.name}: {len(zones)} zones", flush=True)
+    tot_c = sum(a["cerr"] for a in by_type.values()); tot_w = sum(a["werr"] for a in by_type.values())
+    print(f"\nZONE TYPES on {len(pairs)} pages ({args.config}): {tot_c} char errors, {tot_w} word errors")
+    print(f"  {'type':14s} {'zones':>5s} {'chars':>7s} {'char err':>8s} {'share':>6s} {'char acc':>8s} {'word acc':>8s} "
+          f"{'out/truth':>9s} {'lines':>5s} {'graphic':>7s}")
+    for t, a in sorted(by_type.items(), key=lambda kv: -kv[1]["cerr"]):
+        print(f"  {t:14s} {a['zones']:5d} {a['chars']:7d} {a['cerr']:8d} {a['cerr']/max(tot_c,1):6.1%} "
+              f"{1-a['cerr']/max(a['chars'],1):8.1%} {1-a['werr']/max(a['words'],1):8.1%} "
+              f"{a['got']/max(a['chars'],1):9.2f} {a['lines']:5d} {a['graphic']:7d}")
+
+
 def main():
     ap = argparse.ArgumentParser()
     sub = ap.add_subparsers(dest="cmd", required=True)
-    for name in ("truth", "score"):
+    for name in ("truth", "score", "zones"):
         s = sub.add_parser(name)
         s.add_argument("root", type=Path)
         s.add_argument("--pages", type=int, default=30)
         s.add_argument("--seed", type=int, default=2)
         add_pipeline_args(s)
     sub.choices["truth"].add_argument("--doc-type", default="letter")
+    sub.choices["zones"].add_argument("--doc-type", default="letter")
     sub.choices["truth"].add_argument("--types", nargs="+", default=["Text"],
                                       help="zone types that count as text blocks")
     sub.choices["truth"].add_argument("--min-words", type=int, default=8)
@@ -225,7 +282,7 @@ def main():
     sub.choices["score"].add_argument("--doc-type", default="block",
                                       help="layout hint for our reader ('block' = the input is one block; '' = none)")
     args = ap.parse_args()
-    (cmd_truth if args.cmd == "truth" else cmd_score)(args)
+    {"truth": cmd_truth, "score": cmd_score, "zones": cmd_zones}[args.cmd](args)
 
 
 if __name__ == "__main__":

@@ -90,6 +90,12 @@ class HybridDecode(BeamDecode):
                                    # (ln["line_alt"]) for scripts/harvest_line_choice.py
         "line_min_conf": 0.35,     # a reading whose mean emission probability is
                                    # under this is not offered
+        "line_read_graphic": False,  # read the lines the classic decoder flagged as
+                                     # graphics too (letterheads in display faces):
+                                     # taken when the judge says so, or with no classic
+                                     # words when confident and endorsed; the flag is
+                                     # then cleared so the output keeps the line
+        "line_graphic_conf": 0.6,
     }
 
     def run(self, page: Page) -> tuple[Page, DebugBundle]:
@@ -113,14 +119,28 @@ class HybridDecode(BeamDecode):
             return p["line_lex_bonus"] if endorsed(word) else -p["line_unk_penalty"]
 
         n_read = n_taken = 0
+        n_graphic = 0
         for ln in layout["lines"]:
-            if ln.get("graphic_suspect") or ln.get("baseline") is None or not ln.get("x_height"):
+            graphic = bool(ln.get("graphic_suspect"))
+            if (graphic and not p["line_read_graphic"]) or ln.get("baseline") is None or not ln.get("x_height"):
                 continue
             read = self._read_line(page.binary, ln, model, word_bonus, p)
             if read is None:
                 continue
             words, logp = read
             n_read += 1
+            if graphic:
+                # A letterhead line in a display face: the prototype
+                # distances that flagged it say nothing about the reader.
+                # Kept when the reading is confident and the lexicon
+                # vouches for at least one word (2026-09-14: letterhead
+                # zones held 47% of broad-30's residual errors and 118 of
+                # their 246 lines were flagged).
+                conf = float(np.mean([w["confidence"] for w in words]))
+                if conf >= p["line_graphic_conf"] and any(w["in_lexicon"] or w.get("numeric_format") for w in words):
+                    ln["words"] = words; ln["graphic_suspect"] = False
+                    n_taken += 1; n_graphic += 1
+                continue
             if p["line_mode"] == "pure":
                 ln["words"] = words; n_taken += 1
                 continue
@@ -184,6 +204,7 @@ class HybridDecode(BeamDecode):
                     w["p_correct"] = round(float(w["confidence"]), 3)
         debug.scalars["lines_read"] = n_read
         debug.scalars["lines_taken"] = n_taken
+        debug.scalars["graphic_lines_read"] = n_graphic
         return out, debug
 
     _choice_cache: dict = {}
