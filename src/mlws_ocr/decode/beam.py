@@ -910,6 +910,7 @@ class BeamDecode(Stage):
         self._seq_scorer = (self._load_seq(p["seq_path"], p["seq_backend"])
                             if p["seq_path"] else None)
         self._lm_endorsed = lm.endorsed
+        self._lm = lm
         self._doc_words = (self._collect_doc_words(layout, lm, p)
                            if p["doc_words"] and self._seq_scorer is not None else set())
         layout["doc_words"] = sorted(self._doc_words)
