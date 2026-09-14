@@ -51,7 +51,7 @@ profile and stays so until the neural profile beats it on every set.
 |---|---|---|---|
 | **classic** | `configs/classic.toml` | MLP second opinion (53k params), character GRU (258k) | The feature-based reference engine; its scoreboard row is the regression guard. |
 | **pure** | `configs/pure.toml` | none (n-gram character model) | How things were; classic with both networks switched off. |
-| **neural** | `configs/neural.toml` | classic's, plus the word-strip CRNN + CTC scorer as the judge of the classic variants and, since 2026-09-13, the line reader: every line read end to end and decided against the classic reading (docs/DESIGN.md §6.6) | Best accuracy: broad-30 94.3 char / 89.8 word vs classic 91.8 / 82.0; legal-8 93.6 / 88.5 vs 91.7 / 81.2; modern 91.9 / 86.7 vs 89.6 / 80.8; news-8 93.9 / 90.2 vs 92.6 / 81.8; a text block on its own 99.0 / 96.3 on dev-8 (docs/DESIGN.md §8, docs/RESEARCH.md). |
+| **neural** | `configs/neural.toml` | classic's, plus the word-strip CRNN + CTC scorer as the judge of the classic variants and, since 2026-09-13, the line reader: every line read end to end and decided against the classic reading (docs/DESIGN.md §6.6) | Best accuracy: broad-30 94.8 char / 90.2 word vs classic 91.8 / 82.0; legal-8 94.8 / 89.1 vs 91.7 / 81.2; modern 92.0 / 86.8 vs 89.6 / 80.8; news-8 94.1 / 90.4 vs 92.6 / 81.8; a text block on its own 99.0 / 96.3 on dev-8 and 98.2 / 94.9 on broad-30 (docs/DESIGN.md §8, docs/RESEARCH.md). |
 | **neural-line** | `configs/neural_line.toml` | the line reader's experiment profile (the place to try a new line model or choice rule; the neural profile carries the adopted ones) | see docs/RESEARCH.md |
 
 `tests/test_profiles.py` keeps the three honest: pure differs from classic
