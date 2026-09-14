@@ -62,14 +62,19 @@ impl = "prototypes"
 [stage.decode]
 impl = "hybrid"                # the line reader beside the classic decoder (decode/lineread.py,
                                # 2026-09-13): every line is also read end to end and a line the
-                               # classic decoder could not endorse takes the reading when it
-                               # endorses more words (dev-8 91.9 -> 92.9 word, broad-30 87.5 -> 88.2,
-                               # news-8 88.2 -> 88.8, blocks broad-30 91.1 -> 92.5; rest flat).
+                               # classic decoder read differently takes the reading when the fitted
+                               # judge says so (2026-09-13: dev-8 91.9 -> 93.2 word, broad-30 87.5 -> 89.8,
+                               # legal-8 84.4 -> 88.5, news-8 88.2 -> 90.2, blocks broad-30 91.1 -> 95.1).
                                # "beam" is the classic decoder alone.
-line_model_path = "data/seq_en_v5s1.npz"   # the long-window model reads lines; the word scorer
-                                           # (seq_path) stays the judge of the classic variants
+line_model_path = "data/seq_line_en.npz"   # the LINE model (seq_line_v7a, 2026-09-13): the long-window
+                                           # scorer trained on 15,549 real whole lines and long synthetic
+                                           # windows; alone it reads the dev-8 blocks at 99.0/97.3 (legacy
+                                           # 98.9/97.2).  The word scorer (seq_path) stays the judge of the
+                                           # classic variants.
 line_mode = "choose"
-line_choose_rule = "repair"
+line_choose_rule = "calibrated"           # decode/linechoice.py: P(the reading is the better text), fitted
+line_choice_path = "data/linechoice.npz"   # on 2,456 line pairs against this reader (train_line_choice.py)
+line_choice_thresh = 0.5
 line_max_cols = 1400
 seq_path = "data/seq_en.npz"   # = seq_en_v6c_s2 (2026-09-13): the 615-face scorer fine-tuned on five real
                                # harvests (bus.3B, legal, bus.3A, news, mag) at real weight 3; "" = classic decoding

@@ -360,12 +360,17 @@ separately attributable because of this.
   broad-30): a stock-coverage question the outline channel should soften;
   otherwise a measured widening experiment with one bold grotesque.
 
-- **The line reader** (2026-09-13, adopted): every line read end to end
-  beside the classic decoder, the repair rule choosing per line. Next: the
-  line-trained model (`seq_line_v7a`, real whole lines) as the reader, then
-  the fitted judge (`decode/linechoice.py`) re-harvested against it — with
-  the present reader the judge wins the headline, typewriter and block
-  sets by tenths but swings on the business set with its training mix.
+- **The line reader** (2026-09-13, adopted, then its line-trained model
+  and fitted judge the same evening): every line read end to end beside
+  the classic decoder, a logistic judge choosing per line. Neural now
+  reads dev-8 96.6 / 93.2, broad-30 94.3 / 89.8, legal-8 93.6 / 88.5,
+  modern 91.9 / 86.7, business 91.6 / 85.9, news-8 93.9 / 90.2, mag-8
+  76.1 / 66.6; the reader alone reads the dev-8 blocks at 99.0 / 97.3,
+  past legacy. Against legacy we lead on dev-8, legal-8, modern and
+  business and trail on broad-30 by 1.2 char / 1.9 word. Next for the
+  reader: a second seed and a longer schedule (the curve was still rising
+  at epoch 8), the judge's threshold swept on the headline set, and the
+  reader's own words carrying calibrated confidence.
 
 - **Business tabular pages** (the user's stated priority, 2026-09-13):
   neural recall 93.9 against legacy's 97.5 on the sixty-page business

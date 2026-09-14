@@ -429,7 +429,7 @@ with the MLP and the GRU off:
 |---|---|---|---|---|
 | classic | 95.2 / 89.2 | 91.8 / 82.0 (86.2 / 89.1) | 91.7 / 81.2 | 89.6 / 80.8 (86.0 / 90.2) |
 | pure | 94.8 / 88.0 | 91.0 / 79.3 (83.0 / 86.2) | 90.9 / 78.0 | 88.2 / 77.1 (82.4 / 86.7) |
-| neural | 96.6 / 92.9 | 93.9 / 88.2 (92.1 / 94.4) | 92.0 / 84.4 | 91.5 / 86.2 (91.5 / 95.7) |
+| neural | 96.6 / 93.2 | 94.3 / 89.8 (94.0 / 94.5) | 93.6 / 88.5 | 91.9 / 86.7 (92.2 / 96.0) |
 | legacy Tesseract | 95.0 / 91.7 | 95.5 / 91.7 (96.3 / 94.2) | 90.4 / 88.7 | 75.4 / 70.8 (88.9 / 95.7) |
 
 All rows re-measured 2026-09-12 under the evaluator's line-end
@@ -498,7 +498,7 @@ magazine / newspaper) are measured but not tuned on and not harvested
 | profile | news-8 | mag-8 |
 |---|---|---|
 | classic | 92.6 / 81.8 | 65.3 / 41.2 |
-| neural | 93.1 / 88.8 (recall 93.2, precision 94.2) | 67.7 / 55.8 (79.4 / 84.8) |
+| neural | 93.9 / 90.2 (recall 96.0, precision 93.3) | 76.1 / 66.6 (90.7 / 85.9) |
 | legacy Tesseract | 96.3 / 93.1 (97.5 / 94.4) | 87.3 / 84.7 (95.9 / 90.5) |
 
 **Business documents and blocks (2026-09-13).** Sixty templated tabular
@@ -511,14 +511,16 @@ by column blocks and pays the edit distance for the order:
 | profile | business | blocks dev-8 (pooled) | blocks legal-8 | blocks broad-30 |
 |---|---|---|---|---|
 | classic | 90.3 / 79.7 (88.2 / 88.8) | 97.2 / 93.3 | 92.7 / 86.7 | 93.4 / 84.3 |
-| neural | 91.5 / 84.9 (94.1 / 94.0) | 98.8 / 96.0 | 94.8 / 90.4 | 95.9 / 92.5 |
+| neural | 91.6 / 85.9 (95.5 / 95.3) | 99.0 / 96.3 | 95.8 / 93.9 | 97.9 / 95.1 |
 | legacy Tesseract | 70.7 / 68.0 (97.5 / 97.8) | 98.9 / 97.2 | 96.7 / 95.3 | 98.2 / 96.6 |
 
 The block columns are the recognition gap with layout taken out (neural
 read with `doc_type = "block"`, the caller's word that the input is one
-block; classic without it): 0.1 character points to legacy on dev-8, 1.9
-on the typewriter pages, 2.3 on the letters (RESEARCH). The neural row
-is the line reader (§6.6) since 2026-09-13.
+block; classic without it): the neural row is the line reader (§6.6)
+with the line-trained model; it is ahead of legacy on dev-8 and level on
+the typewriter blocks, and 0.3 character points behind on the letters.
+The reader alone reads the dev-8 blocks at 99.0 / 97.3 and the legal-8
+blocks at 96.2 / 95.9 (RESEARCH).
 
 (Under the hyphenation fold; zone-ordered scoring before the fold read
 news-8 92.9 / 82.7 against 92.8 / 83.1 plain, so the newspaper order is
