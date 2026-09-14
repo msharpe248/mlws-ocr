@@ -34,8 +34,8 @@ MAX_WIDTH = 512   # strip columns; wider windows are dropped (--max-width)
 _G: dict = {}
 
 
-def _init(corpus_dirs, fonts, x_heights=None, x_weights=None, words=(2, 5), take=(1, 3), caps_frac=0.10,
-          max_width=MAX_WIDTH):
+def _init(corpus_dirs, fonts, x_heights=None, x_weights=None, words=(2, 5), take=(1, 3),
+          max_width=MAX_WIDTH, caps_frac=0.10):
     _G["words"], _G["probs"] = corpus_words(corpus_dirs)
     _G["fonts"] = fonts
     _G["nwords"], _G["take"], _G["max_width"] = tuple(words), tuple(take), max_width
