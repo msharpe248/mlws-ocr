@@ -96,6 +96,11 @@ class HybridDecode(BeamDecode):
                                      # words when confident and endorsed; the flag is
                                      # then cleared so the output keeps the line
         "line_graphic_conf": 0.6,
+        "line_junk_conf": 0.0,     # a line neither reading can endorse a word of, whose
+                                   # reading is this unsure (mean emission probability),
+                                   # is logo art, not text: flagged so the output drops
+                                   # it (letterhead zones emitted 1.12 characters per
+                                   # truth character, 2026-09-14); 0 = off
     }
 
     def run(self, page: Page) -> tuple[Page, DebugBundle]:
@@ -119,7 +124,7 @@ class HybridDecode(BeamDecode):
             return p["line_lex_bonus"] if endorsed(word) else -p["line_unk_penalty"]
 
         n_read = n_taken = 0
-        n_graphic = 0
+        n_graphic = n_junk = 0
         for ln in layout["lines"]:
             graphic = bool(ln.get("graphic_suspect"))
             if (graphic and not p["line_read_graphic"]) or ln.get("baseline") is None or not ln.get("x_height"):
@@ -129,6 +134,15 @@ class HybridDecode(BeamDecode):
                 continue
             words, logp = read
             n_read += 1
+            if p["line_junk_conf"] > 0 and not graphic:
+                conf = float(np.mean([w["confidence"] for w in words]))
+                old_words = ln.get("words", [])
+                if (conf < p["line_junk_conf"]
+                        and not any(w["in_lexicon"] or w.get("numeric_format") for w in words)
+                        and not any(w.get("in_lexicon") or w.get("numeric_format") for w in old_words)):
+                    ln["graphic_suspect"] = True
+                    n_junk += 1
+                    continue
             if graphic:
                 # A letterhead line in a display face: the prototype
                 # distances that flagged it say nothing about the reader.
@@ -205,6 +219,7 @@ class HybridDecode(BeamDecode):
         debug.scalars["lines_read"] = n_read
         debug.scalars["lines_taken"] = n_taken
         debug.scalars["graphic_lines_read"] = n_graphic
+        debug.scalars["junk_lines_flagged"] = n_junk
         return out, debug
 
     _choice_cache: dict = {}
