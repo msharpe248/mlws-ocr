@@ -305,6 +305,8 @@ typewriter pages; the remaining gap there is the segmentation's
 
 ## Later: overnight training jobs
 
+(The networks that exist, with their data and trainers: `docs/NETWORKS.md`.)
+
 Self-trained models only (no pre-trained nets, no foundation models;
 anything we train from public data on home hardware is in scope). With
 the optional `torch` extra the word-strip model trains in under an hour

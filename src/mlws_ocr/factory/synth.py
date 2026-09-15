@@ -175,7 +175,7 @@ def render_multicolumn_page(font_path, page=(3200, 2400), margin=120,
             "Grumpy wizards make toxic brew for the evil queen and jack.",
             "Jackdaws love my big sphinx of quartz beside the old mill."]
 
-    title = render_text_page(["Feature Based OCR Without Neural Networks"],
+    title = render_text_page(["Readable OCR, Every Model Trained at Home"],
                              font_path, px_height=44, margin=8)
     paste(title, margin, margin, 1)
 

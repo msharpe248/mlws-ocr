@@ -5,12 +5,16 @@ A **readable OCR** for real-world scanned documents, in two engines: a
 legacy engine should have been — and a **neural** engine that adds
 self-trained networks on top of it, one measured term at a time.
 
-The algorithms of pre-neural OCR (structural character features, adaptive
+The classic algorithms of OCR (structural character features, adaptive
 per-document classification, lattice decoding with language models)
 demonstrably reach 99% character accuracy on ordinary 300 dpi print, but
 every open implementation of them is unreadable. Here, **code legibility is
 a deliverable**: small stages, explicit features, and a debug rendering for
-every step — and every network is small enough to read, and to train at home.
+every step. The networks are part of that: every one is small enough to
+read, and **every one is trained here**, on public data, on home hardware
+— nothing is downloaded pre-trained. `docs/NETWORKS.md` lists each
+network, what it is for, how its training data is acquired and how it is
+trained.
 
 Ground rules:
 
@@ -54,7 +58,8 @@ profile and stays so until the neural profile beats it on every set.
 | **neural** | `configs/neural.toml` | classic's, plus the word-strip CRNN + CTC scorer as the judge of the classic variants and, since 2026-09-13, the line reader: every line read end to end and decided against the classic reading (docs/DESIGN.md §6.6) | Best accuracy: broad-30 94.8 char / 90.2 word vs classic 91.8 / 82.0; legal-8 94.8 / 89.1 vs 91.7 / 81.2; modern 92.0 / 86.8 vs 89.6 / 80.8; news-8 94.1 / 90.4 vs 92.6 / 81.8; a text block on its own 99.0 / 96.3 on dev-8 and 98.2 / 94.9 on broad-30 (docs/DESIGN.md §8, docs/RESEARCH.md). |
 | **neural-line** | `configs/neural_line.toml` | the line reader's experiment profile (the place to try a new line model or choice rule; the neural profile carries the adopted ones) | see docs/RESEARCH.md |
 
-`tests/test_profiles.py` keeps the three honest: pure differs from classic
+The networks each profile loads, with their trainers and data, are in
+`docs/NETWORKS.md`. `tests/test_profiles.py` keeps the three honest: pure differs from classic
 only in the two network switches, neural only in recognize/decode terms.
 `tests/test_regression.py` reads the synthetic page under each profile
 against the accuracies recorded at adoption.

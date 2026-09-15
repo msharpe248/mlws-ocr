@@ -19,7 +19,8 @@ Anything that reads pixels or text with a model we did not build is not.
 The numpy implementation of every model is the reference; `torch` is an
 optional extra for training speed (and inference on an accelerator) and
 must produce the same numbers. Dictionaries, character n-grams and
-statistical language models are load-bearing and welcome.
+statistical language models are load-bearing and welcome. Every network,
+its purpose, its data and its trainer are catalogued in `docs/NETWORKS.md`.
 
 **Stage contract.** The pipeline is a sequence of named *slots*; each slot
 is filled by one of possibly many registered *implementations* (`@register`
@@ -290,7 +291,9 @@ provenance.
 ## 6. Models and data
 
 All models live under `data/` (gitignored) and are built here; README
-lists the commands. Nothing is downloaded pre-trained.
+lists the commands and `docs/NETWORKS.md` describes every network, its
+training data and its trainer. Nothing is downloaded pre-trained; every
+model is trainable on the machine that runs the pipeline.
 
 **6.1 Language.** `build_langmodel.py data/corpus_en_plus data/lang_en.npz` builds the lexicon (814k forms with
 regular inflections) and character trigrams from a corpus of public-domain
