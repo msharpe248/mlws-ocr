@@ -96,6 +96,10 @@ class HybridDecode(BeamDecode):
                                      # words when confident and endorsed; the flag is
                                      # then cleared so the output keeps the line
         "line_graphic_conf": 0.6,
+        "line_graphic_rule": "conf",  # "conf": the gate above; "calibrated": a judge fitted on
+                                      # flagged lines (harvest_line_choice.py --graphic, label =
+                                      # the reading is closer to the truth than dropping the line)
+        "line_graphic_choice_path": "",
         "line_join_spaced": False, # letter-spaced display type ('F O U R') read as single
                                    # letters is re-joined: a run of three or more one-
                                    # character tokens is segmented into lexicon words
@@ -129,7 +133,7 @@ class HybridDecode(BeamDecode):
             graphic = bool(ln.get("graphic_suspect"))
             if (graphic and not p["line_read_graphic"]) or ln.get("baseline") is None or not ln.get("x_height"):
                 continue
-            read = self._read_line(page.binary, ln, model, word_bonus, p)
+            read = self._read_line(page.binary, ln, model, word_bonus, p, min_conf=0.0 if graphic else None)
             if read is None:
                 continue
             words, logp = read
@@ -140,9 +144,25 @@ class HybridDecode(BeamDecode):
                 # Kept when the reading is confident and the lexicon
                 # vouches for at least one word (2026-09-14: letterhead
                 # zones held 47% of broad-30's residual errors and 118 of
-                # their 246 lines were flagged).
+                # their 246 lines were flagged) -- or when a judge fitted
+                # on flagged lines says the reading beats dropping them.
+                from .linechoice import features
+                from ..recognize.ctc import ctc_nll_batch
+                old = ln.get("words", [])
+                new_text = " ".join(w["text"] for w in words)
+                nll_new = None
+                if all(ch in model.index for ch in new_text):
+                    nll_new = float(ctc_nll_batch(logp, [model.encode(new_text)])[0])
+                x = features([], words, None, nll_new)
+                if p["line_keep_alt"]:
+                    ln["line_alt"] = {"classic": [dict(w) for w in old], "reader": words,
+                                      "x": x.tolist(), "graphic": True}
                 conf = float(np.mean([w["confidence"] for w in words]))
-                if conf >= p["line_graphic_conf"] and any(w["in_lexicon"] or w.get("numeric_format") for w in words):
+                if p["line_graphic_rule"] == "calibrated" and p["line_graphic_choice_path"]:
+                    take = self._load_choice(p["line_graphic_choice_path"]).p_reader(x) >= p["line_choice_thresh"]
+                else:
+                    take = conf >= p["line_graphic_conf"] and any(w["in_lexicon"] or w.get("numeric_format") for w in words)
+                if take:
                     ln["words"] = words; ln["graphic_suspect"] = False
                     n_taken += 1; n_graphic += 1
                 continue
@@ -264,7 +284,7 @@ class HybridDecode(BeamDecode):
             cls._choice_cache[key] = LineChoice.load(path)
         return cls._choice_cache[key]
 
-    def _read_line(self, binary, ln, model, word_bonus, p):
+    def _read_line(self, binary, ln, model, word_bonus, p, min_conf=None):
         strip, scale, x0, _ = line_strip(binary, ln, ln["x_height"])
         if strip.shape[1] < 8:
             return None
@@ -306,7 +326,7 @@ class HybridDecode(BeamDecode):
                 cur.append((ch, f, e))
         if not words:
             return None
-        if float(np.mean([w["confidence"] for w in words])) < p["line_min_conf"]:
+        if float(np.mean([w["confidence"] for w in words])) < (p["line_min_conf"] if min_conf is None else min_conf):
             return None
         # the whole line's posterior, chunks end to end (each cut fell on an
         # empty column, so a CTC alignment across the seam is a blank run)
