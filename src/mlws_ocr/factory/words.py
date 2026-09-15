@@ -322,7 +322,14 @@ def numeric_token(rng: np.random.Generator) -> str:
     ``decode/formats.py`` endorses, so the model has seen digits in the
     contexts real documents put them in."""
     d = lambda n: "".join(str(rng.integers(0, 10)) for _ in range(n))  # noqa: E731
-    kind = rng.integers(0, 8)
+    kind = rng.integers(0, 10 if "@" in CHARSET else 8)
+    if kind >= 8:
+        # only when '@' is a class (MLWS_EXTRA_CLASSES): the receipt's
+        # '2 @ 2.72' and an address 'name@example.com'
+        if kind == 8:
+            return f"{rng.integers(1, 12)} @ {d(rng.integers(1, 3))}.{d(2)}"
+        name = "".join(string.ascii_lowercase[rng.integers(0, 26)] for _ in range(rng.integers(3, 9)))
+        return f"{name}@{rng.choice(['example', 'mail', 'acme', 'corp'])}.{rng.choice(['com', 'org', 'net'])}"
     if kind == 0:
         return f"${d(rng.integers(1, 4))},{d(3)}.{d(2)}"
     if kind == 1:
