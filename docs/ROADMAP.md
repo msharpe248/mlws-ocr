@@ -303,6 +303,48 @@ both seeds with the rest flat, and is the live scorer (neural now dev-8
 typewriter pages; the remaining gap there is the segmentation's
 (RESEARCH).
 
+## Status and plan (2026-09-15, saved before a machine reboot)
+
+**Where things stand.** Neural profile (all pushed, tree clean): dev-8
+97.0 / 93.3, broad-30 94.8 / 90.2, legal-8 94.8 / 89.1, modern 92.0 / 86.8,
+business 91.9 / 86.2, news-8 94.1 / 90.4, mag-8 76.4 / 67.1; blocks
+broad-30 98.2 / 94.9. Legacy Tesseract: 95.0 / 91.7, 95.5 / 91.7,
+90.4 / 88.7, 75.4 / 70.8, 70.7 / 68.0, 96.3 / 93.1, 87.3 / 84.7, 98.2 / 96.6.
+The adopted line model (`data/seq_line_en.npz` = `seq_line_v7a`) is
+confirmed by a second seed; the live word scorer is `seq_en_v6c_s2`; the
+judge is `data/linechoice.npz` fitted against the live reader.
+
+**What was measured and turned down this week** (all in RESEARCH): a
+longer line-model schedule, a display-face fine-tune, a corpus
+capitalization prior, lexicon re-segmentation, token repairs, a reader
+junk test, a capitals x-height rescale, a lower graphic gate, a judge for
+graphic-flagged lines, a standout-gap cell rule, the '@' class in the
+classic channels alone.
+
+**Next, in order:**
+
+1. **The '@' class for receipts** — both sequence models retrained on the
+   113-class list (`MLWS_EXTRA_CLASSES="@"`), about 15 h of GPU: the word
+   scorer from scratch on the v6c recipe, the line model on the v7a
+   recipe, then the judge re-harvested and the business set and four
+   standard sets measured against the live rows. Adopt only if the
+   receipts gain and the four sets hold.
+2. **Letterhead display lines** — 48% of broad-30's residual, deletions:
+   69 flagged lines and low-confidence display type. Needs a reader that
+   reads them; real display-face lines (harvested letterhead zones with
+   truth) are the untried data, since synthetic capitals did not help.
+3. **Business tables** — cells the reader misreads ('W/THDRAWAL'): a
+   recognition item for the line model, not a spacing rule.
+4. **Newspapers and magazines** — measured against Tesseract only; the
+   magazine gap is layout (image zones over tints, three-column pages,
+   reading order).
+
+**After a reboot.** The scratchpad under `/private/tmp` is gone with it:
+re-fetch `eng.traineddata` (tessdata repository) for legacy runs and set
+`TESSDATA_PREFIX`; re-clone the Google Fonts `ofl` tree (sparse checkout)
+if a render needs `--font-dirs`. Everything that matters is in the repo
+(`data/` models and harvests, docs) or on GitHub.
+
 ## Later: overnight training jobs
 
 (The networks that exist, with their data and trainers: `docs/NETWORKS.md`.)
