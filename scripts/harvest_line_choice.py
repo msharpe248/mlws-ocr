@@ -41,6 +41,10 @@ def main():
     ap.add_argument("--doc-type", default="letter")
     ap.add_argument("--offset", type=int, default=0)
     ap.add_argument("--no-guard", action="store_true")
+    ap.add_argument("--graphic", action="store_true",
+                    help="harvest the GRAPHIC-FLAGGED lines instead: the reading against dropping "
+                         "the line (label = the reading is closer to its truth line than nothing; "
+                         "a flagged line matching no truth line is logo art, label 0)")
     add_pipeline_args(ap)
     args = ap.parse_args()
     overrides = parse_overrides(args.set)
@@ -60,21 +64,40 @@ def main():
             page = run_stages(page, pipeline, overrides)
         except Exception as e:  # noqa: BLE001
             print(f"  {tif.name}: ERROR {e}"); continue
-        lines = [ln for ln in page.meta["layout"].get("lines", []) if ln.get("line_alt")]
-        # match by the CLASSIC text (the reading may be far off on a bad line)
-        classic_texts = [normalize(" ".join(w["text"] for w in ln["line_alt"]["classic"])) for ln in lines]
+        lines = [ln for ln in page.meta["layout"].get("lines", [])
+                 if ln.get("line_alt") and bool(ln["line_alt"].get("graphic")) == args.graphic]
         kept = better = 0
-        for oi, ti in match_lines(classic_texts, truth_lines):
-            alt = lines[oi]["line_alt"]
-            c_text = classic_texts[oi]
-            r_text = normalize(" ".join(w["text"] for w in alt["reader"]))
-            if c_text == r_text:
-                continue
-            truth = truth_lines[ti]
-            ec, er = edit_distance(c_text, truth), edit_distance(r_text, truth)
-            X.append(alt["x"]); y.append(er < ec); pages.append(tif.name)
-            ctexts.append(c_text); rtexts.append(r_text); truths.append(truth)
-            kept += 1; better += (er < ec)
+        if args.graphic:
+            # flagged lines: match by the READER's text (the classic words are
+            # dropped); an unmatched line is logo art the reading invents
+            r_texts = [normalize(" ".join(w["text"] for w in ln["line_alt"]["reader"])) for ln in lines]
+            matched = dict(match_lines(r_texts, truth_lines))
+            for oi, ln in enumerate(lines):
+                alt = ln["line_alt"]; r_text = r_texts[oi]
+                if not r_text:
+                    continue
+                if oi in matched:
+                    truth = truth_lines[matched[oi]]
+                    good = edit_distance(r_text, truth) < len(truth)
+                else:
+                    truth, good = "", False
+                X.append(alt["x"]); y.append(good); pages.append(tif.name)
+                ctexts.append(""); rtexts.append(r_text); truths.append(truth)
+                kept += 1; better += good
+        else:
+            # match by the CLASSIC text (the reading may be far off on a bad line)
+            classic_texts = [normalize(" ".join(w["text"] for w in ln["line_alt"]["classic"])) for ln in lines]
+            for oi, ti in match_lines(classic_texts, truth_lines):
+                alt = lines[oi]["line_alt"]
+                c_text = classic_texts[oi]
+                r_text = normalize(" ".join(w["text"] for w in alt["reader"]))
+                if c_text == r_text:
+                    continue
+                truth = truth_lines[ti]
+                ec, er = edit_distance(c_text, truth), edit_distance(r_text, truth)
+                X.append(alt["x"]); y.append(er < ec); pages.append(tif.name)
+                ctexts.append(c_text); rtexts.append(r_text); truths.append(truth)
+                kept += 1; better += (er < ec)
         print(f"  [{n}/{args.pages}] {tif.name}: +{kept} lines ({better} where the reading is better)", flush=True)
     np.savez_compressed(args.out, X=np.array(X, np.float64), y=np.array(y, bool), pages=np.array(pages),
                         classic=np.array(ctexts), reader=np.array(rtexts), truth=np.array(truths),

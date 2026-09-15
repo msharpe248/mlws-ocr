@@ -96,10 +96,6 @@ class HybridDecode(BeamDecode):
                                      # words when confident and endorsed; the flag is
                                      # then cleared so the output keeps the line
         "line_graphic_conf": 0.6,
-        "line_graphic_rule": "conf",  # "conf": the gate above; "calibrated": a judge fitted on
-                                      # flagged lines (harvest_line_choice.py --graphic, label =
-                                      # the reading is closer to the truth than dropping the line)
-        "line_graphic_choice_path": "",
         "line_join_spaced": False, # letter-spaced display type ('F O U R') read as single
                                    # letters is re-joined: a run of three or more one-
                                    # character tokens is segmented into lexicon words
@@ -144,8 +140,7 @@ class HybridDecode(BeamDecode):
                 # Kept when the reading is confident and the lexicon
                 # vouches for at least one word (2026-09-14: letterhead
                 # zones held 47% of broad-30's residual errors and 118 of
-                # their 246 lines were flagged) -- or when a judge fitted
-                # on flagged lines says the reading beats dropping them.
+                # their 246 lines were flagged).
                 from .linechoice import features
                 from ..recognize.ctc import ctc_nll_batch
                 old = ln.get("words", [])
@@ -158,11 +153,11 @@ class HybridDecode(BeamDecode):
                     ln["line_alt"] = {"classic": [dict(w) for w in old], "reader": words,
                                       "x": x.tolist(), "graphic": True}
                 conf = float(np.mean([w["confidence"] for w in words]))
-                if p["line_graphic_rule"] == "calibrated" and p["line_graphic_choice_path"]:
-                    take = self._load_choice(p["line_graphic_choice_path"]).p_reader(x) >= p["line_choice_thresh"]
-                else:
-                    take = conf >= p["line_graphic_conf"] and any(w["in_lexicon"] or w.get("numeric_format") for w in words)
-                if take:
+                # (A judge fitted on flagged lines was measured here, 2026-09-14:
+                # it took the typewriter pages' flagged lines wrongly, legal-8
+                # -0.8 word; the fixed gate stays.  The harvest that fits it is
+                # kept: harvest_line_choice.py --graphic.)
+                if conf >= p["line_graphic_conf"] and any(w["in_lexicon"] or w.get("numeric_format") for w in words):
                     ln["words"] = words; ln["graphic_suspect"] = False
                     n_taken += 1; n_graphic += 1
                 continue
