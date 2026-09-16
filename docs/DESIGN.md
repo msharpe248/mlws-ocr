@@ -434,6 +434,7 @@ with the MLP and the GRU off:
 | pure | 94.8 / 88.0 | 91.0 / 79.3 (83.0 / 86.2) | 90.9 / 78.0 | 88.2 / 77.1 (82.4 / 86.7) |
 | neural | 97.0 / 93.3 | 94.8 / 90.2 (94.5 / 94.5) | 94.8 / 89.1 | 92.0 / 86.8 (92.3 / 96.0) |
 | legacy Tesseract | 95.0 / 91.7 | 95.5 / 91.7 (96.3 / 94.2) | 90.4 / 88.7 | 75.4 / 70.8 (88.9 / 95.7) |
+| Tesseract LSTM (5.5.3, tessdata_fast) | 95.5 / 93.1 (97.1 / 96.8) | 96.0 / 92.7 (96.7 / 95.4) | 90.3 / 86.9 (98.8 / 90.9) | 74.2 / 66.6 (89.5 / 91.6) |
 
 All rows re-measured 2026-09-12 under the evaluator's line-end
 hyphenation fold (RESEARCH): the UNLV truth keeps a wrapped word as two
@@ -503,6 +504,7 @@ magazine / newspaper) are measured but not tuned on and not harvested
 | classic | 92.6 / 81.8 | 65.3 / 41.2 |
 | neural | 94.1 / 90.4 (recall 96.1, precision 93.3) | 76.4 / 67.1 (91.9 / 84.9) |
 | legacy Tesseract | 96.3 / 93.1 (97.5 / 94.4) | 87.3 / 84.7 (95.9 / 90.5) |
+| Tesseract LSTM | 96.7 / 94.8 (98.6 / 95.7) | 87.8 / 84.4 (97.4 / 90.5) |
 
 **Business documents and blocks (2026-09-13).** Sixty templated tabular
 pages (invoices, payslips, receipts, statements, purchase orders; sev0)
@@ -516,6 +518,7 @@ by column blocks and pays the edit distance for the order:
 | classic | 90.3 / 79.7 (88.2 / 88.8) | 97.2 / 93.3 | 92.7 / 86.7 | 93.4 / 84.3 |
 | neural | 91.9 / 86.2 (95.7 / 95.2) | 99.0 / 96.3 | 96.5 / 94.0 | 98.2 / 94.9 |
 | legacy Tesseract | 70.7 / 68.0 (97.5 / 97.8) | 98.9 / 97.2 | 96.7 / 95.3 | 98.2 / 96.6 |
+| Tesseract LSTM | 70.7 / 68.6 (98.0 / 98.6) | 99.4 / 98.5 | 97.1 / 96.0 | 98.5 / 96.5 |
 
 The block columns are the recognition gap with layout taken out (neural
 read with `doc_type = "block"`, the caller's word that the input is one
@@ -525,6 +528,21 @@ the letter blocks in character accuracy and 0.2 behind on the typewriter
 blocks; legacy keeps a lead of one to two word points on both.
 The reader alone reads the dev-8 blocks at 99.0 / 97.3 and the legal-8
 blocks at 96.2 / 95.9 (RESEARCH).
+
+**Tesseract's LSTM engine (2026-09-16).** The rows above it are the legacy
+engine, the project's stated reference. The LSTM rows are Tesseract 5.5.3
+with the English model a default install carries (tessdata_fast, `--oem 3`),
+on the same pages with the same scripts. It is not a different engine on
+layout — it shares Tesseract's page analysis, so it lands within a point
+of legacy wherever the layout decides (business tables, magazines,
+modern) — and it is a better recognizer on clean type: about a word
+point above legacy on letters and newspapers and on every block set, and
+0.4 to 1.7 word points above us on the blocks. On the typewriter
+pleadings it is *below* legacy and 3.2 characters below us, with a
+precision of 90.9: it inserts text on the ruled margins and the hole
+punches, which its training never showed it. A word list and training
+text for its model are published (Apache 2.0, `langdata_lstm`) and are
+admissible corpus inputs here; its weights are not (§1).
 
 (Under the hyphenation fold; zone-ordered scoring before the fold read
 news-8 92.9 / 82.7 against 92.8 / 83.1 plain, so the newspaper order is
