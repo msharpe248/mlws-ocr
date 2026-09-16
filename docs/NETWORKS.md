@@ -104,7 +104,12 @@ sanity number only (the pipeline sets are the judge).
 
 A class experiment (a new character) is a rebuild of this pool and the
 prototype and outline tables with `MLWS_EXTRA_CLASSES` set, judged
-against a control rebuild without it (RESEARCH).
+against a control rebuild without it (RESEARCH). The sequence models
+take the new class without a fresh start: `SeqNet.with_classes` copies a
+trained model onto the wider list, moving output rows by class name and
+starting the new class rare, and `train_seq.py --init` does this
+automatically when the list has changed — a from-scratch retrain for one
+class cost the typewriter set 2.6 word points (RESEARCH 2026-09-16).
 
 ### Character GRU language model — `lang/gru.py`
 

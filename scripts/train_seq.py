@@ -134,6 +134,10 @@ def main():
     if args.init:
         net = SeqNet.load(args.init)
         print(f"initialised from {args.init}")
+        if net.classes != classes:  # a class added or dropped (MLWS_EXTRA_CLASSES): keep the weights
+            added = [c for c in classes if c not in net.index]
+            net = net.with_classes(classes, seed=args.seed)
+            print(f"  class list changed: {len(classes)} classes now, new {added!r}")
     print(f"SeqNet: {net.n_params} parameters, {len(classes)} classes")
 
     train, held_real, held_synth = [], [], []

@@ -306,6 +306,29 @@ class SeqNet:
                             height=np.array(self.height), norm=np.array(norm, np.float32),
                             **self.params)
 
+    def with_classes(self, classes: list[str], seed: int = 0) -> "SeqNet":
+        """The same network over a different class list: every weight is
+        copied, the output rows are moved by class NAME, and a class the
+        old list lacked gets a fresh Xavier column with a bias two below
+        the mean of the others (rare at first, so the CTC does not spray
+        it).  This is how a class is added to a trained model without
+        training from scratch — a from-scratch retrain moves the
+        typewriter set by more than the new class is worth
+        (RESEARCH 2026-09-16)."""
+        m = SeqNet(classes, channels=self.channels, hidden=self.hidden, height=self.height, seed=seed)
+        for k, v in self.params.items():
+            if k not in ("Wo", "bo"):
+                m.params[k] = v.copy()
+        fill = float(self.params["bo"].mean()) - 2.0
+        m.params["bo"][:] = fill
+        for i, c in enumerate(classes):
+            j = self.index.get(c)
+            if j is not None:
+                m.params["Wo"][:, i] = self.params["Wo"][:, j]
+                m.params["bo"][i] = self.params["bo"][j]
+        m.norm = getattr(self, "norm", (13.0, 22.0, 32))
+        return m
+
     @classmethod
     def load(cls, path) -> "SeqNet":
         d = np.load(path, allow_pickle=False)

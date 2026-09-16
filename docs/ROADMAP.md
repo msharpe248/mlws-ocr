@@ -319,16 +319,19 @@ longer line-model schedule, a display-face fine-tune, a corpus
 capitalization prior, lexicon re-segmentation, token repairs, a reader
 junk test, a capitals x-height rescale, a lower graphic gate, a judge for
 graphic-flagged lines, a standout-gap cell rule, the '@' class in the
-classic channels alone.
+classic channels alone and in both sequence models from scratch.
 
 **Next, in order:**
 
-1. **The '@' class for receipts** — both sequence models retrained on the
-   113-class list (`MLWS_EXTRA_CLASSES="@"`), about 15 h of GPU: the word
-   scorer from scratch on the v6c recipe, the line model on the v7a
-   recipe, then the judge re-harvested and the business set and four
-   standard sets measured against the live rows. Adopt only if the
-   receipts gain and the four sets hold.
+1. **The '@' class for receipts** — both sequence models retrained from
+   scratch on the 113-class list (2026-09-16): receipts 94.8 / 87.0 →
+   92.3 / 83.2 and legal-8 −2.6 word, not adopted (RESEARCH). The
+   from-scratch lineage is confounded with the class, so the live models
+   are being fine-tuned onto the wider list instead (`SeqNet.with_classes`,
+   weights kept). If that also fails to lift the receipts, the '@' item
+   closes: the misses are two tokens a line and the LSTM yardstick with
+   an '@' class reads the same receipts at 93.8 characters against our
+   94.8.
 2. **Letterhead display lines** — 48% of broad-30's residual, deletions:
    69 flagged lines and low-confidence display type. Needs a reader that
    reads them; real display-face lines (harvested letterhead zones with

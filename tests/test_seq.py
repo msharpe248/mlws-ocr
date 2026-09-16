@@ -139,3 +139,15 @@ def test_torch_mirror_matches_numpy():
     again = tm.to_numpy(net.classes)
     for k in net.params:
         assert np.allclose(again.params[k], net.params[k], atol=1e-6), k
+
+
+def test_with_classes_moves_output_rows_by_name():
+    from mlws_ocr.recognize.seq import SeqNet, BLANK
+    a = SeqNet([BLANK, "a", "b", " "], channels=(2, 2, 2, 2), hidden=4, seed=1)
+    b = a.with_classes([BLANK, "a", "@", "b", " "], seed=2)
+    assert b.classes.index("@") == 2
+    for c in ("a", "b", " "):
+        assert (b.params["Wo"][:, b.index[c]] == a.params["Wo"][:, a.index[c]]).all()
+        assert b.params["bo"][b.index[c]] == a.params["bo"][a.index[c]]
+    assert b.params["bo"][2] < a.params["bo"].mean()          # the new class starts rare
+    assert (b.params["W1"] == a.params["W1"]).all()
