@@ -220,6 +220,10 @@ class HybridDecode(BeamDecode):
             for ln in layout["lines"]:
                 if ln.get("words"):
                     ln["words"] = self._join_spaced(ln["words"], endorsed)
+        if p["qty_at_repair"]:  # again: the reader's lines replaced the classic ones
+            from .formats import repair_quantity_line
+            debug.scalars["qty_at_repairs"] = sum(repair_quantity_line(ln.get("words", []))
+                                                  for ln in layout["lines"])
         # the calibrator, if any, has run on the classic words only; a line
         # read carries the reader's own confidence as p_correct
         for ln in layout["lines"]:

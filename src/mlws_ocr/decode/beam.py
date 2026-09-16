@@ -396,6 +396,9 @@ class BeamDecode(Stage):
         "numeric_join_context": True,  # join only on data lines ('$'/'%' or
                                   # two digit-separator-digit triplets)
         "numeric_sep_frac": 0.4,  # the joining separator's width, x-heights
+        "qty_at_repair": False,   # "2 e 2.72" -> "2 @ 2.72": a receipt quantity line's
+                                  # middle glyph is '@' by the line's shape (formats.py);
+                                  # the '@' class itself measured negative three ways
         "numeric_join": True,     # a gap right after a thousands comma or a
                                   # decimal point does not end a word, however
                                   # wide it looks (invoice money amounts were
@@ -1086,6 +1089,10 @@ class BeamDecode(Stage):
                 for w in ln.get("words", []):
                     w["p_correct"] = round(calib.p_correct(w), 3)
                     n_review += w["p_correct"] < p["review_below"]
+        n_qty = 0
+        if p["qty_at_repair"]:
+            from .formats import repair_quantity_line
+            n_qty = sum(repair_quantity_line(ln.get("words", [])) for ln in layout["lines"])
         for ln in layout["lines"]:
             for w in ln.get("words", []):
                 if "chars" in w and len(w["chars"]) != len(w["text"]):
@@ -1101,7 +1108,8 @@ class BeamDecode(Stage):
                      "fragment_joins": n_joins,
                      "seq_words": self._seq_stats[0], "seq_flips": self._seq_stats[1],
                      "seq_rereads": self._seq_stats[2], "seq_line_reads": self._seq_stats[3],
-                     "doc_words": len(self._doc_words), "review_words": n_review},
+                     "doc_words": len(self._doc_words), "review_words": n_review,
+                     "qty_at_repairs": n_qty},
         )
         self._cur_seq = self._cur_line = self._cur_binary = None
         return out, debug

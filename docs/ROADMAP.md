@@ -323,15 +323,15 @@ classic channels alone and in both sequence models from scratch.
 
 **Next, in order:**
 
-1. **The '@' class for receipts** — both sequence models retrained from
-   scratch on the 113-class list (2026-09-16): receipts 94.8 / 87.0 →
-   92.3 / 83.2 and legal-8 −2.6 word, not adopted (RESEARCH). The
-   from-scratch lineage is confounded with the class, so the live models
-   are being fine-tuned onto the wider list instead (`SeqNet.with_classes`,
-   weights kept). If that also fails to lift the receipts, the '@' item
-   closes: the misses are two tokens a line and the LSTM yardstick with
-   an '@' class reads the same receipts at 93.8 characters against our
-   94.8.
+1. ~~The '@' class for receipts~~ — CLOSED 2026-09-16. Three ways
+   negative (classic tables alone; both sequence models from scratch; both
+   fine-tuned onto the wider list with `SeqNet.with_classes`): the class
+   never fired on the 35 quantity lines and the retrained readers lost the
+   monospace roll (receipts 94.8 / 87.0 → 90.5 / 79.6). What the lines
+   needed was a shape rule: `qty_at_repair` ('INT x AMOUNT' → '@') took
+   receipts to 95.6 / 90.1 with the four sets identical, adopted in the
+   neural profile. Lesson recorded: a class needs real exemplars; a
+   template's glyph is a format.
 2. **Letterhead display lines** — 48% of broad-30's residual, deletions:
    69 flagged lines and low-confidence display type. Needs a reader that
    reads them; real display-face lines (harvested letterhead zones with

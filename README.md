@@ -32,14 +32,14 @@ are in `docs/DESIGN.md` §8.
 | broad-30 | UNLV business letters, the headline set | 91.8 / 82.0 | 94.8 / 90.2 | 95.5 / 91.7 | **96.0 / 92.7** |
 | legal-8 | UNLV legal pleadings (typewriter) | 91.7 / 81.2 | **94.8 / 89.1** | 90.4 / 88.7 | 90.3 / 86.9 |
 | modern | born-digital PDFs and templated business letters | 89.6 / 80.8 | **92.0 / 86.8** | 75.4 / 70.8 | 74.2 / 66.6 |
-| business | invoices, payslips, receipts, statements, purchase orders | 90.3 / 79.7 | **91.9 / 86.2** | 70.7 / 68.0 | 70.7 / 68.6 |
+| business | invoices, payslips, receipts, statements, purchase orders | 90.3 / 79.7 | **92.1 / 86.9** | 70.7 / 68.0 | 70.7 / 68.6 |
 | news-8 | UNLV newspapers (measured, not tuned) | 92.6 / 81.8 | 94.1 / 90.4 | 96.3 / 93.1 | **96.7 / 94.8** |
 | mag-8 | UNLV magazines (measured, not tuned) | 65.3 / 41.2 | 76.4 / 67.1 | **87.3 / 84.7** | 87.8 / 84.4 |
 | blocks | a paragraph handed in alone, no layout (broad-30's text zones) | 93.4 / 84.3 | 98.2 / 94.9 | **98.2 / 96.6** | 98.5 / 96.5 |
 
 On the tabular business pages Tesseract reads by column and pays the
 edit distance for the order; there, the bag-of-words recall is the
-recognition comparison (neural 95.7, legacy 97.5). The whole run of
+recognition comparison (neural 96.4, legacy 97.5). The whole run of
 measurements, and every mechanism that was tried and turned down, is in
 `docs/RESEARCH.md`.
 
@@ -190,6 +190,6 @@ its own at character parity with it. It trails on the headline letter set
 by 0.7 character / 1.5 word points, most of it in letterheads set in
 display faces, and on newspapers and magazines, which are measured but
 not tuned. Next, in the roadmap's order: the letterhead lines the reader
-still declines, a spacing rule for capital-letter cells in the business
-tables, and the '@' class for receipts, which needs the sequence models
-retrained on a wider class list.
+still declines, and the capital-letter cells in the business tables. The
+'@' class for receipts was tried three ways and closed; a line-shape rule
+reads those lines instead.

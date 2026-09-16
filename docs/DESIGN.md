@@ -354,7 +354,11 @@ synthetic windows. The profile is `configs/neural_line.toml`;
   under the fixed pipeline added capitals;
 - *digits* (`--digits`): glyphs in tokens whose whole shape matches a
   rigid numeric format (`decode/formats.py`), the digit analogue of a
-  lexicon hit; before it the harvest held no digits at all;
+  lexicon hit; before it the harvest held no digits at all. The same
+  module endorses one LINE shape: a receipt's quantity line 'INT x AMOUNT',
+  whose middle glyph is '@' whatever the channels read there
+  (`qty_at_repair`, neural profile; RESEARCH 2026-09-16 on why the glyph
+  could not get a class);
 - *truth-labeled* (`harvest_truth.py`): every glyph on non-evaluation
   ground-truth pages, aligned line by line (`eval/align.py`) through the
   decoder's provenance, stored with truth label, decoded label, read kind,
@@ -516,7 +520,7 @@ by column blocks and pays the edit distance for the order:
 | profile | business | blocks dev-8 (pooled) | blocks legal-8 | blocks broad-30 |
 |---|---|---|---|---|
 | classic | 90.3 / 79.7 (88.2 / 88.8) | 97.2 / 93.3 | 92.7 / 86.7 | 93.4 / 84.3 |
-| neural | 91.9 / 86.2 (95.7 / 95.2) | 99.0 / 96.3 | 96.5 / 94.0 | 98.2 / 94.9 |
+| neural | 92.1 / 86.9 (96.4 / 95.8) | 99.0 / 96.3 | 96.5 / 94.0 | 98.2 / 94.9 |
 | legacy Tesseract | 70.7 / 68.0 (97.5 / 97.8) | 98.9 / 97.2 | 96.7 / 95.3 | 98.2 / 96.6 |
 | Tesseract LSTM | 70.7 / 68.6 (98.0 / 98.6) | 99.4 / 98.5 | 97.1 / 96.0 | 98.5 / 96.5 |
 
