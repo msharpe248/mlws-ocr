@@ -18,6 +18,8 @@ are many.
 """
 from __future__ import annotations
 
+import re
+
 import numpy as np
 
 
@@ -27,11 +29,16 @@ def _overlap(a0, a1, b0, b1) -> float:
 
 def row_groups(lines: list[dict], n_blocks: int, min_lines: int = 3,
                baseline_tol: float = 0.5, match_frac: float = 0.6,
-               max_words: float = 4.0) -> list[list[int]]:
+               max_words: float = 4.0, two_col_max_gap: float = 0.0,
+               page_width: int = 0, pairs: list | None = None) -> list[list[int]]:
     """Groups of block ids whose lines align by baseline.
 
     lines: dicts with "box", "baseline", "block", "words" (decoded).
-    Returns only groups of two or more blocks.
+    Returns only groups of two or more blocks.  With ``two_col_max_gap``
+    set, a two-column group of one-line cells that is a PAIR of text
+    blocks rather than a table (no numeric column, columns far apart) is
+    not returned as rows but appended to ``pairs`` as a list of block ids,
+    for the caller to emit column by column.
     """
     by_block: dict[int, list[dict]] = {}
     for ln in lines:
@@ -77,7 +84,9 @@ def row_groups(lines: list[dict], n_blocks: int, min_lines: int = 3,
     # make one row, not a table.
     singles = [b for b, lns in by_block.items()
                if len(lns) == 1 and len(lns[0]["words"]) <= max_words]
-    tables = _single_cell_tables(singles, by_block, lines, tol, med_h, min_rows=3)
+    tables = _single_cell_tables(singles, by_block, lines, tol, med_h, min_rows=3,
+                                 two_col_max_gap=two_col_max_gap, page_width=page_width,
+                                 pairs=pairs)
     parent = {b: b for b in cands}
 
     def find(x):
@@ -98,7 +107,17 @@ def row_groups(lines: list[dict], n_blocks: int, min_lines: int = 3,
     return out
 
 
-def _single_cell_tables(singles, by_block, lines, tol, med_h, min_rows=3):
+_NUMERIC_CELL = re.compile(r"^[\$\(\)\d.,%/:-]+$")
+
+
+def _numeric_cell(words) -> bool:
+    from ..decode.formats import numeric_endorsed   # local: decode imports layout
+    text = " ".join(w["text"] for w in words)
+    return bool(_NUMERIC_CELL.match(text.replace(" ", ""))) or numeric_endorsed(text)
+
+
+def _single_cell_tables(singles, by_block, lines, tol, med_h, min_rows=3,
+                        two_col_max_gap=0.0, page_width=0, pairs=None):
     """Tables of one-line cells: rows by baseline, columns by left edge,
     only rows whose cells sit in columns recurring in ``min_rows`` rows,
     and a table is a CONTIGUOUS run of such rows -- a line from any other
@@ -156,7 +175,40 @@ def _single_cell_tables(singles, by_block, lines, tol, med_h, min_rows=3):
         else:
             cur.append(ri)
     runs.append(cur)
-    return [sorted(c[0] for ri in run for c in rows[ri]) for run in runs if len(run) >= min_rows]
+    runs = [run for run in runs if len(run) >= min_rows]
+    if two_col_max_gap > 0 and page_width > 0:
+        # Two TEXT columns far apart are not a table but two blocks side
+        # by side -- an invoice's address block and its "INVOICE / No. /
+        # Date" block, a payslip's employee and pay-date blocks -- and are
+        # read column by column, as every ground truth has them.  A
+        # two-column table has a numeric column (a payslip's deductions
+        # and their amounts sit at opposite margins too), so the test is
+        # both: no column mostly numeric, and the median gap between the
+        # two columns over the run's page-width fraction.  Judged run by
+        # run, since one page holds both kinds.
+        def text_pair(run):
+            gaps, ncols, numeric = [], set(), [0, 0]
+            for ri in run:
+                cells = sorted(rows[ri], key=lambda c: c[2])
+                ncols.add(len(cells))
+                if len(cells) == 2:
+                    gaps.append(cells[1][2] - cells[0][3])
+                    for k in (0, 1):
+                        numeric[k] += _numeric_cell(by_block[cells[k][0]][0]["words"])
+            if ncols != {2} or not gaps:
+                return False
+            if max(numeric) >= 0.5 * len(run):
+                return False
+            return float(np.median(gaps)) > two_col_max_gap * page_width
+        keep = []
+        for run in runs:
+            if text_pair(run):
+                if pairs is not None:
+                    pairs.append(sorted(c[0] for ri in run for c in rows[ri]))
+            else:
+                keep.append(run)
+        runs = keep
+    return [sorted(c[0] for ri in run for c in rows[ri]) for run in runs]
 
 
 def rows_text(lines: list[dict], baseline_tol: float = 0.5,

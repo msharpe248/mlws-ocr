@@ -62,6 +62,9 @@ impl = "text"
 
 # [stage.chop]  impl = "unendorsed" -- word-level chopping between the decode
 # passes; opt-in, measured inert until cut pieces get piece-aware scoring.
+align_two_col_max_gap = 0.25   # two TEXT columns of one-line cells more than a quarter page apart are a pair
+                               # of blocks read column by column, not a table (2026-09-17: business invoices
+                               # 87.7 -> 95.5 word neural, modern +1.0 word; a numeric column keeps a table)
 
 [stage.adapt]
 impl = "cluster_refit"

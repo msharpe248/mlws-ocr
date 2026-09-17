@@ -32,6 +32,11 @@ class TextOutput(Stage):
         "align_match_frac": 0.6,
         "align_max_words": 4.0,          # median words/line above this is
                                          # running text, never a table cell
+        "align_two_col_max_gap": 0.0,    # a one-line-cell "table" of exactly two columns
+                                         # whose gap exceeds this fraction of the page width
+                                         # is two side-by-side blocks, read column by column
+                                         # (an invoice's address and its "INVOICE / No. /
+                                         # Date" block); 0 = off
         "min_line_xheight_px": 5,        # a line shorter than this is a
                                          # page-edge scrap, not text
         "garbage_max_conf": 0.15,
@@ -180,14 +185,31 @@ class TextOutput(Stage):
         if self.params["align_columns"] and \
                 page.meta.get("doc_type") not in ("newspaper", "magazine"):
             n_blocks = len(layout.get("blocks", []))
+            img = page.binary if page.binary is not None else page.gray
+            page_w = int(img.shape[1]) if img is not None else 0
+            pairs: list[list[int]] = []
             for group in row_groups(kept_lines, n_blocks,
                                     self.params["align_min_lines"],
                                     self.params["align_baseline_tol"],
                                     self.params["align_match_frac"],
-                                    self.params["align_max_words"]):
+                                    self.params["align_max_words"],
+                                    self.params["align_two_col_max_gap"],
+                                    page_w, pairs):
                 members = [l for l in kept_lines if l.get("block", 0) in group]
                 blocks[group[0]] = rows_text(members,
                                              self.params["align_baseline_tol"])
+                for b in group[1:]:
+                    blocks.pop(b, None)
+            # A pair of text blocks side by side (an address and the
+            # invoice's number block): the left column's lines, then the
+            # right's, at the position of the first block.
+            for group in pairs:
+                members = [l for l in kept_lines if l.get("block", 0) in group]
+                xs = sorted(set(l["box"][0] for l in members))
+                split = (xs[0] + xs[-1]) / 2.0
+                left = sorted((l for l in members if l["box"][0] < split), key=lambda l: l["box"][1])
+                right = sorted((l for l in members if l["box"][0] >= split), key=lambda l: l["box"][1])
+                blocks[group[0]] = [" ".join(w["text"] for w in l["words"]) for l in left + right]
                 for b in group[1:]:
                     blocks.pop(b, None)
         full = "\n\n".join("\n".join(lines) for _, lines in sorted(blocks.items()))

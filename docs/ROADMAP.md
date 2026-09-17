@@ -351,16 +351,16 @@ classic channels alone and in both sequence models from scratch.
    from the strip's ink profile (flat on the blocks, −0.5 word on
    legal-8). The residual is touching words, not spacing decisions with a
    signal; it moves with the line model's data, not with a rule.
-4. **Business documents** — a word-error census by kind (2026-09-17)
-   found the residual is 52–75% reading order of two-column header blocks
-   (read across, truth column by column: a layout question, and the same
-   penalty Tesseract pays here), then two shapes now repaired in both
-   profiles: a lone '1' split from its digits (`digit_kern_join`) and
-   mixed case on all-capitals receipts (`caps_page_repair`); business
-   92.1 / 86.9 → 92.3 / 87.3, receipts 96.3 / 91.3. Left: masked card
-   numbers ('****9944' read as digits), a dropped '%', and the header
-   reading order, which would need a column cut for key-value blocks that
-   does not split tables.
+4. **Business documents** — the word-error census by kind (2026-09-17)
+   found the residual was 52–75% reading order of two-column header
+   blocks, then two shapes. All three are now repaired in both profiles:
+   a text pair of one-line blocks far apart is read column by column
+   (`align_two_col_max_gap`; invoices 87.7 → 95.5 word), a lone '1' split
+   from its digits is rejoined (`digit_kern_join`), and mixed case on
+   all-capitals receipts is fixed (`caps_page_repair`). Business 92.1 /
+   86.9 → 93.5 / 88.9. Left: the payslip header pair (two rows only,
+   under the table rule's three-row floor), masked card numbers
+   ('****9944' read as digits: '*' has no class), and a dropped '%'.
 5. **Newspapers and magazines** — measured against Tesseract only; the
    magazine gap is layout (image zones over tints, three-column pages,
    reading order).
