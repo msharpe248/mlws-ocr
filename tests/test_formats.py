@@ -51,3 +51,8 @@ def test_caps_page_repair_only_on_capital_pages():
     assert n == 6 and caps[0]["words"][2]["text"] == "PHARMACY" and caps[1]["words"][3]["text"] == "SOLD"
     mixed = [{"words": [_w("Dear", 0, 1), _w("Mr.", 0, 1), _w("SMITH,", 0, 1), _w("thank", 0, 1), _w("you", 0, 1)]}] * 8
     assert uppercase_caps_page(mixed) == 0 and mixed[0]["words"][0]["text"] == "Dear"
+
+
+def test_masked_numbers_are_a_numeric_format():
+    assert numeric_endorsed("****9944") and numeric_endorsed("XXXX5816")
+    assert not numeric_endorsed("****") and not numeric_endorsed("**99")   # ("89944" is a ZIP code and endorsed as one)

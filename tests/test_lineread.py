@@ -65,3 +65,13 @@ def test_letter_spaced_run_is_segmented_into_lexicon_words():
     junk = [{"text": c, "box": [10 * k, 0, 10 * k + 8, 20], "confidence": 0.5, "in_lexicon": False} for k, c in enumerate("XQZV")]
     assert [w["text"] for w in HybridDecode._join_spaced(junk, lambda w: False)] == ["XQZV"]
 
+
+
+def test_subsequence_means_characters_deleted_only():
+    from mlws_ocr.decode.lineread import HybridDecode
+    sub = HybridDecode._is_subsequence
+    assert sub("TAX 8.25", "TAX 8.25%")
+    assert sub("MILK 2 1GAL", "MILK 2% 1GAL")
+    assert not sub("TAX 8.25%", "TAX 8.25")          # longer: not a deletion
+    assert not sub("TAX 8.26", "TAX 8.25%")          # a substitution, not a deletion
+    assert not sub("TAX 8.25%", "TAX 8.25%")         # equal texts never reach the rule

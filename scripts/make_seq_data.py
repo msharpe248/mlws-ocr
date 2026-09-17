@@ -35,8 +35,9 @@ _G: dict = {}
 
 
 def _init(corpus_dirs, fonts, x_heights=None, x_weights=None, words=(2, 5), take=(1, 3),
-          max_width=MAX_WIDTH, caps_frac=0.10):
+          max_width=MAX_WIDTH, caps_frac=0.10, word_gap=None):
     _G["words"], _G["probs"] = corpus_words(corpus_dirs)
+    _G["word_gap"] = tuple(word_gap) if word_gap else None   # em range for the gap between words; None = the face's space
     _G["fonts"] = fonts
     _G["nwords"], _G["take"], _G["max_width"] = tuple(words), tuple(take), max_width
     _G["caps_frac"] = caps_frac
@@ -61,7 +62,10 @@ def _chunk(args):
         words = sample_words(rng, _G["words"], _G["probs"], n_words, caps_frac=_G.get("caps_frac", 0.10))
         tracking = sample_tracking(rng, _G["italic"][fi])
         theta = sample_theta(rng, xh)
-        ww = render_word_window(rng, words, font, xh, theta, tracking_em=tracking, take=_G["take"])
+        wg = _G.get("word_gap")
+        gap_em = float(rng.uniform(wg[0], wg[1])) if wg else None
+        ww = render_word_window(rng, words, font, xh, theta, tracking_em=tracking, take=_G["take"],
+                                word_gap_em=gap_em)
         if ww is None or ww.strip.shape[1] > _G["max_width"] or ww.strip.shape[1] < 4:
             continue
         out.append((np.packbits(ww.strip < 0.5, axis=1), ww.strip.shape[1],
@@ -91,6 +95,9 @@ def main():
     ap.add_argument("--x-weights", type=float, nargs="+", default=list(X_HEIGHT_WEIGHTS))
     ap.add_argument("--caps-frac", type=float, default=0.10,
                     help="share of words rendered in capitals (display and letterhead sets want more)")
+    ap.add_argument("--word-gap", type=float, nargs=2, default=None, metavar=("LO", "HI"),
+                    help="gap between words in em, sampled per line (default: the face's own space); "
+                         "tight gaps (0.05 0.18) render TOUCHING WORDS, the block metric's split/merge residual")
     args = ap.parse_args()
     assert len(args.x_heights) == len(args.x_weights)
 
@@ -111,7 +118,7 @@ def main():
     done = 0
     with mp.Pool(args.workers, initializer=_init,
                  initargs=(args.corpus, fonts, args.x_heights, args.x_weights,
-                           args.words, args.take, args.max_width, args.caps_frac)) as pool:
+                           args.words, args.take, args.max_width, args.caps_frac, args.word_gap)) as pool:
         for chunk in pool.imap_unordered(_chunk, jobs):
             for pk, w, lab, tch, name, xh, tr in chunk:
                 packed.append(pk); widths.append(w); labels.append(lab)

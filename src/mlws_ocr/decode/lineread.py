@@ -96,6 +96,10 @@ class HybridDecode(BeamDecode):
                                      # words when confident and endorsed; the flag is
                                      # then cleared so the output keeps the line
         "line_graphic_conf": 0.6,
+        "line_keep_superset": False, # when the reader's text is the classic text with characters
+                                     # DELETED (a strict subsequence) and every classic word is
+                                     # endorsed, keep the classic line: the reader cannot have seen
+                                     # less ink than the classic decoder did ('TAX 8.25%' -> 'TAX 8.25')
         "line_join_spaced": False, # letter-spaced display type ('F O U R') read as single
                                    # letters is re-joined: a run of three or more one-
                                    # character tokens is segmented into lexicon words
@@ -124,7 +128,7 @@ class HybridDecode(BeamDecode):
             return p["line_lex_bonus"] if endorsed(word) else -p["line_unk_penalty"]
 
         n_read = n_taken = 0
-        n_graphic = 0
+        n_graphic = n_superset = 0
         for ln in layout["lines"]:
             graphic = bool(ln.get("graphic_suspect"))
             if (graphic and not p["line_read_graphic"]) or ln.get("baseline") is None or not ln.get("x_height"):
@@ -173,6 +177,9 @@ class HybridDecode(BeamDecode):
                 continue
             new_end = sum(1 for w in words if w["in_lexicon"] or w.get("numeric_format"))
             old_end = sum(1 for w in old if w.get("in_lexicon") or w.get("numeric_format"))
+            if p["line_keep_superset"] and old_end == len(old) and self._is_subsequence(new_text, old_text):
+                n_superset += 1
+                continue
             nll_old = nll_new = None
             if p["line_choose_rule"] in ("likelihood", "calibrated") or p["line_keep_alt"]:
                 from ..recognize.ctc import ctc_nll_batch
@@ -230,7 +237,18 @@ class HybridDecode(BeamDecode):
         debug.scalars["lines_read"] = n_read
         debug.scalars["lines_taken"] = n_taken
         debug.scalars["graphic_lines_read"] = n_graphic
+        debug.scalars["superset_kept"] = n_superset
         return out, debug
+
+    @staticmethod
+    def _is_subsequence(short: str, long: str) -> bool:
+        """True when ``short`` is ``long`` with some characters deleted
+        (strictly shorter, order kept, spaces ignored)."""
+        a, b = short.replace(" ", ""), long.replace(" ", "")
+        if len(a) >= len(b):
+            return False
+        it = iter(b)
+        return all(ch in it for ch in a)
 
     @staticmethod
     def _join_spaced(words, endorsed):

@@ -375,8 +375,12 @@ then the press sets only if a shared layout fix presents itself.
    receipts is fixed (`caps_page_repair`). Business 92.1 / 86.9 →
    **97.2 / 93.4**, against a bag-of-words recall of 96.9; by kind
    invoices 95.7, payslips 90.9, orders 92.8, receipts 91.3, statements
-   96.3 word. Left: the receipts' masked card numbers ('****9944' read as
-   digits: '*' has no class), a dropped '%'.
+   96.3 word; then the reader's dropped '%' kept from the classic line
+   (`line_keep_superset`, receipts 92.3 word, business 97.3 / 93.6). Left:
+   the receipts' masked card numbers ('****9944' read as digits: '*' has
+   no class; a classic-table rebuild with '*' is under measurement), and
+   the touching-word residual on blocks (a tight-gap synthetic set is
+   training).
 5. **Newspapers and magazines** — measured against Tesseract only; the
    magazine gap is layout (image zones over tints, three-column pages,
    reading order).

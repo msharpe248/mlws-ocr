@@ -28,18 +28,18 @@ are in `docs/DESIGN.md` §8.
 
 | set | what it is | classic | neural | legacy Tesseract | Tesseract LSTM |
 |---|---|---|---|---|---|
-| dev-8 | UNLV business letters, tuning set | 95.2 / 89.3 | **97.0 / 93.3** | 95.0 / 91.7 | 95.5 / 93.1 |
+| dev-8 | UNLV business letters, tuning set | 95.2 / 89.3 | **97.0 / 93.4** | 95.0 / 91.7 | 95.5 / 93.1 |
 | broad-30 | UNLV business letters, the headline set | 91.8 / 82.0 | 94.8 / 90.2 | 95.5 / 91.7 | **96.0 / 92.7** |
 | legal-8 | UNLV legal pleadings (typewriter) | 91.7 / 81.2 | **94.8 / 89.1** | 90.4 / 88.7 | 90.3 / 86.9 |
 | modern | born-digital PDFs and templated business letters | 91.4 / 82.6 | **93.8 / 88.8** | 75.4 / 70.8 | 74.2 / 66.6 |
-| business | invoices, payslips, receipts, statements, purchase orders | 95.2 / 85.7 | **97.2 / 93.4** | 70.7 / 68.0 | 70.7 / 68.6 |
+| business | invoices, payslips, receipts, statements, purchase orders | 95.2 / 85.7 | **97.3 / 93.6** | 70.7 / 68.0 | 70.7 / 68.6 |
 | news-8 | UNLV newspapers (measured, not tuned) | 92.6 / 81.8 | 94.1 / 90.4 | 96.3 / 93.1 | **96.7 / 94.8** |
 | mag-8 | UNLV magazines (measured, not tuned) | 65.3 / 41.2 | 76.4 / 67.1 | **87.3 / 84.7** | 87.8 / 84.4 |
 | blocks | a paragraph handed in alone, no layout (broad-30's text zones) | 93.4 / 84.3 | 98.2 / 94.9 | **98.2 / 96.6** | 98.5 / 96.5 |
 
 On the tabular business pages Tesseract reads by column and pays the
 edit distance for the order; there, the bag-of-words recall is the
-recognition comparison (neural 96.9, legacy 97.5). The whole run of
+recognition comparison (neural 97.1, legacy 97.5). The whole run of
 measurements, and every mechanism that was tried and turned down, is in
 `docs/RESEARCH.md`.
 

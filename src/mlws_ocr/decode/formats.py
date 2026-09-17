@@ -24,6 +24,7 @@ NUMERIC_TOKEN = re.compile(
     r"|\d{1,3}(?:,\d{3})+(?:\.\d{2})?"        # thousands with separators
     r"|\d+\.\d{2}"                            # decimal amounts
     r"|\d+(?:\.\d+)?%"                       # percentages
+    r"|[*xX]{2,12}\d{4}"                      # masked card / account numbers ("****9944")
     r")$")
 
 

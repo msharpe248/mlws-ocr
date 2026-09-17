@@ -80,6 +80,9 @@ line_read_graphic = true       # the reader reads the lines the classic decoder 
                                # (letterheads in display faces) and keeps a confident, endorsed
                                # reading (2026-09-14: legal-8 88.5 -> 89.1 word, dev-8 +0.4 char,
                                # broad-30 +0.5 char; 49 of 118 flagged letterhead lines rescued)
+line_keep_superset = true      # the reader's text = the classic text minus characters, every classic word
+                               # endorsed -> keep classic ('TAX 8.25%' vs 'TAX 8.25'; 2026-09-17: receipts
+                               # 91.3 -> 92.3 word, dev-8 +0.1, the rest identical)
 line_join_spaced = true        # letter-spaced display type read as single letters is re-joined into
                                # lexicon words (2026-09-14: broad-30 89.7 -> 90.2 word; other sets flat)
 qty_at_repair = true           # a receipt quantity line "2 e 2.72" -> "2 @ 2.72" by its shape (2026-09-16:
