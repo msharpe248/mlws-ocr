@@ -57,6 +57,11 @@ page that is measured:
   lexicon-endorsed words (the classic classifier's flywheel);
 - `harvest_truth.py` — glyph crops labelled by alignment to the truth
   line (the pipeline's real mistakes included);
+- `harvest_lines.py --hard-out` — the lines the standard match cannot use
+  (graphic-flagged, badly read) saved whole under a relaxed match, the
+  sandwich rule and a columns-per-character check; 86 letterhead lines on
+  the letter sets, kept as data (`data/lineshard_*.npz`), measured
+  negative as a fine-tune source (RESEARCH 2026-09-17);
 - `harvest_lines.py` — word strips labelled by the truth text between
   aligned word boundaries, and with `--line-out` whole lines with the
   truth line as label, for the sequence models;

@@ -332,10 +332,17 @@ classic channels alone and in both sequence models from scratch.
    receipts to 95.6 / 90.1 with the four sets identical, adopted in the
    neural profile. Lesson recorded: a class needs real exemplars; a
    template's glyph is a format.
-2. **Letterhead display lines** — 48% of broad-30's residual, deletions:
-   69 flagged lines and low-confidence display type. Needs a reader that
-   reads them; real display-face lines (harvested letterhead zones with
-   truth) are the untried data, since synthetic capitals did not help.
+2. ~~Letterhead display lines~~ — CLOSED on the data side 2026-09-17.
+   The diagnostic (`diag_top_lines.py`) puts 70% of the letterhead
+   residual in lines both channels misread outright (wordmarks, decorative
+   faces), 15% in the judge's choice and 8% in the gate. Synthetic display
+   faces (v7c) and 86 real letterhead lines harvested with truth (v8a) were
+   both negative — the second made the letterheads worse (74.5% → 71.2%
+   character) while costing every other set. Every letterhead is its own
+   face; without a font corpus the constraint rules out, this residual is
+   the ceiling on the headline set, about half a character point of the
+   gap to legacy Tesseract. What stays open here is small: a display-line
+   feature for the judge (at most 15% of 914 characters).
 3. **Business tables** — cells the reader misreads ('W/THDRAWAL'): a
    recognition item for the line model, not a spacing rule.
 4. **Newspapers and magazines** — measured against Tesseract only; the
