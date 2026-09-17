@@ -43,6 +43,28 @@ recognition comparison (neural 96.4, legacy 97.5). The whole run of
 measurements, and every mechanism that was tried and turned down, is in
 `docs/RESEARCH.md`.
 
+## Against Tesseract
+
+Both Tesseract engines are measured on every set with the same scripts
+and pages; [docs/TESSERACT.md](docs/TESSERACT.md) is the full side-by-side
+of the numbers, the shared ideas and the differences. The short form:
+
+- **Ahead of both engines** on typewriter pleadings (+4 characters),
+  modern documents (+17) and tabular business pages (+21 by edit
+  distance, level on bag-of-words recall), and on the letter tuning set.
+  Tesseract's page analysis is the reason on all three: margins and hole
+  punches read as text, templated letters broken, tables read by column.
+- **Behind on the headline letter set** by 0.7 characters / 1.5 words
+  against legacy and 1.2 / 2.5 against the LSTM. Handed the same text as
+  bare blocks the reader is at character parity, so the gap is letterhead
+  display lines and word spacing, not the recognizer.
+- **Behind on newspapers and magazines**, which are measured and not
+  tuned; the loss is column layout.
+- **A tenth of the training data**: 286k parameters trained on this
+  machine from open fonts and UNLV truth, against Tesseract's 4,500 fonts
+  and Google's training run. Real scanned strips in training are what buy
+  the lead on degraded pages.
+
 ## Quick start
 
 ```sh
@@ -176,6 +198,7 @@ way?" by looking.
 
 - [docs/DESIGN.md](docs/DESIGN.md) — what the system is and why each part is shaped the way it is; the scoreboard.
 - [docs/NETWORKS.md](docs/NETWORKS.md) — every network and learned model: purpose, data, training, rebuild order.
+- [docs/TESSERACT.md](docs/TESSERACT.md) — mlws-ocr against Tesseract's legacy and LSTM engines: the numbers, what is the same idea, what differs and why.
 - [docs/RESEARCH.md](docs/RESEARCH.md) — the provenance of every algorithm (papers, deviations, code) and the measurement behind every decision, negative results included. Nothing lands without an entry.
 - [docs/ROADMAP.md](docs/ROADMAP.md) — where the work stands and what comes next, ranked by measured evidence.
 - A paper on the directional k-NN + SCC block-segmentation algorithm

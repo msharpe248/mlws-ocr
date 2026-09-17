@@ -533,7 +533,7 @@ blocks; legacy keeps a lead of one to two word points on both.
 The reader alone reads the dev-8 blocks at 99.0 / 97.3 and the legal-8
 blocks at 96.2 / 95.9 (RESEARCH).
 
-**Tesseract's LSTM engine (2026-09-16).** The rows above it are the legacy
+**Tesseract's LSTM engine (2026-09-16; the full side-by-side is `docs/TESSERACT.md`).** The rows above it are the legacy
 engine, the project's stated reference. The LSTM rows are Tesseract 5.5.3
 with the English model a default install carries (tessdata_fast, `--oem 3`),
 on the same pages with the same scripts. It is not a different engine on
