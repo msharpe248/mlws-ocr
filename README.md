@@ -207,12 +207,17 @@ way?" by looking.
 
 ## Where the work stands
 
-The neural profile leads legacy Tesseract on letters (dev-8), typewriter
-pleadings, modern documents and business pages, and reads a paragraph on
-its own at character parity with it. It trails on the headline letter set
-by 0.7 character / 1.5 word points, most of it in letterheads set in
-display faces, and on newspapers and magazines, which are measured but
-not tuned. Next, in the roadmap's order: the letterhead lines the reader
-still declines, and the capital-letter cells in the business tables. The
-'@' class for receipts was tried three ways and closed; a line-shape rule
-reads those lines instead.
+The neural profile leads both Tesseract engines on typewriter pleadings,
+modern documents and business pages, ties them on a paragraph read alone,
+and trails on the headline letter set by 0.7 character / 1.5 word points
+against legacy. That residual is letterhead lines in display faces that
+both channels misread; it was measured three ways (synthetic display
+faces, 86 real letterhead lines, a decomposition by mechanism) and is
+recorded as this set's ceiling under the public-data constraint.
+Business documents went from 92.1 / 86.9 to 97.2 / 93.4 in one day of
+shape and reading-order rules found by a word-error census, and now sit
+within 3.5 word points of their own order-free recall. Newspapers and
+magazines are measured, not tuned. What is left on the roadmap is small
+and named: masked card numbers on receipts (no '*' class), a dropped '%',
+and the touching-word residual on bare blocks, which moves with the line
+model's data rather than with a rule.

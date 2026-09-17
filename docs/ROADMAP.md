@@ -303,7 +303,7 @@ both seeds with the rest flat, and is the live scorer (neural now dev-8
 typewriter pages; the remaining gap there is the segmentation's
 (RESEARCH).
 
-## Status and plan (2026-09-15, saved before a machine reboot)
+## Status and plan (2026-09-15, saved before a machine reboot; items updated through 2026-09-17)
 
 **Where things stand.** Neural profile (all pushed, tree clean): dev-8
 97.0 / 93.3, broad-30 94.8 / 90.2, legal-8 94.8 / 89.1, modern 92.0 / 86.8,
@@ -321,7 +321,20 @@ junk test, a capitals x-height rescale, a lower graphic gate, a judge for
 graphic-flagged lines, a standout-gap cell rule, the '@' class in the
 classic channels alone and in both sequence models from scratch.
 
-**Next, in order:**
+**Where this leaves the plan (2026-09-17).** Items 1 and 2 below are
+closed by measurement, item 3's residual is named, item 4 is done to
+within 3.5 word points of its order-free recall, item 5 is measured only.
+The productive mechanism class this week was the shape and reading-order
+rule found by a dump census (`--dump`, difflib by kind, then a rule with
+a geometric guard, measured alone and together under both profiles):
+six adoptions, every one with the four UNLV sets identical. Training-side
+work on the letterheads and the '@' class was negative every time, and
+the lesson is recorded: a small fine-tune set on a converged line model
+drifts it. Next, if the work continues: the receipts' masked card numbers
+('*' would be a class with no real exemplar — the '@' lesson applies),
+then the press sets only if a shared layout fix presents itself.
+
+**The items, in order:**
 
 1. ~~The '@' class for receipts~~ — CLOSED 2026-09-16. Three ways
    negative (classic tables alone; both sequence models from scratch; both
