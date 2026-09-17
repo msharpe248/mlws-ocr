@@ -343,9 +343,17 @@ classic channels alone and in both sequence models from scratch.
    the ceiling on the headline set, about half a character point of the
    gap to legacy Tesseract. What stays open here is small: a display-line
    feature for the judge (at most 15% of 914 characters).
-3. **Business tables** — cells the reader misreads ('W/THDRAWAL'): a
+3. **Block word spacing** — 1.6 word points behind Tesseract on bare
+   letter blocks at character parity, 46% of them split/merge. Two
+   mechanisms measured 2026-09-17 and removed: a spacing arbiter between
+   the two readings when they agree letter for letter (inert: 12 of 752
+   lines, all already right) and a gap prior on the reader's space class
+   from the strip's ink profile (flat on the blocks, −0.5 word on
+   legal-8). The residual is touching words, not spacing decisions with a
+   signal; it moves with the line model's data, not with a rule.
+4. **Business tables** — cells the reader misreads ('W/THDRAWAL'): a
    recognition item for the line model, not a spacing rule.
-4. **Newspapers and magazines** — measured against Tesseract only; the
+5. **Newspapers and magazines** — measured against Tesseract only; the
    magazine gap is layout (image zones over tints, three-column pages,
    reading order).
 
