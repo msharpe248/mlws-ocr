@@ -32,6 +32,8 @@ class TextOutput(Stage):
         "align_match_frac": 0.6,
         "align_max_words": 4.0,          # median words/line above this is
                                          # running text, never a table cell
+        "align_pair_min_rows": 3,        # rows a text PAIR needs (a table needs three); 2 lets
+                                         # a payslip's two-line header pair read column by column
         "align_two_col_max_gap": 0.0,    # a one-line-cell "table" of exactly two columns
                                          # whose gap exceeds this fraction of the page width
                                          # is two side-by-side blocks, read column by column
@@ -194,21 +196,29 @@ class TextOutput(Stage):
                                     self.params["align_match_frac"],
                                     self.params["align_max_words"],
                                     self.params["align_two_col_max_gap"],
-                                    page_w, pairs):
+                                    page_w, pairs, self.params["align_pair_min_rows"]):
                 members = [l for l in kept_lines if l.get("block", 0) in group]
                 blocks[group[0]] = rows_text(members,
                                              self.params["align_baseline_tol"])
                 for b in group[1:]:
                     blocks.pop(b, None)
             # A pair of text blocks side by side (an address and the
-            # invoice's number block): the left column's lines, then the
-            # right's, at the position of the first block.
+            # invoice's number block): one column's lines, then the
+            # other's, at the position of the first block.  The column
+            # that starts higher reads first, the left one on a tie --
+            # the XY-cut order, and every template's truth: an invoice's
+            # address and its "INVOICE" start level (left first); a
+            # purchase order's "PO Number" block hangs under the title
+            # above the vendor block (right first).
             for group in pairs:
                 members = [l for l in kept_lines if l.get("block", 0) in group]
                 xs = sorted(set(l["box"][0] for l in members))
                 split = (xs[0] + xs[-1]) / 2.0
                 left = sorted((l for l in members if l["box"][0] < split), key=lambda l: l["box"][1])
                 right = sorted((l for l in members if l["box"][0] >= split), key=lambda l: l["box"][1])
+                med_h = float(np.median([l["box"][3] - l["box"][1] for l in members])) if members else 0.0
+                if left and right and right[0]["box"][1] < left[0]["box"][1] - 0.5 * med_h:
+                    left, right = right, left
                 blocks[group[0]] = [" ".join(w["text"] for w in l["words"]) for l in left + right]
                 for b in group[1:]:
                     blocks.pop(b, None)

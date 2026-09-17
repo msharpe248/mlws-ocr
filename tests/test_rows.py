@@ -55,3 +55,18 @@ def test_two_far_columns_of_single_cells_are_blocks_not_a_table():
     groups = row_groups(lines, 18, two_col_max_gap=0.25, page_width=2550, pairs=pairs)
     assert sorted(groups) == [[6, 7, 8, 9, 10, 11], [12, 13, 14, 15, 16, 17]]
     assert pairs == [[0, 1, 2, 3, 4, 5]]
+
+
+def test_two_row_text_pair_takes_its_unpaired_line():
+    # a payslip header: three lines at the left, two at the right aligned with the first two
+    left = ["Employee: Daniel Patel", "Employee ID: 2694", "Pay period: 06/01/2025 to 01/15/2025"]
+    right = ["Pay date: 03/24/2025", "Department: Operations"]
+    lines = [_line(i, 100, 100 + 30 * i, t) for i, t in enumerate(left)]
+    lines += [_line(3 + i, 1700, 100 + 30 * i, t) for i, t in enumerate(right)]
+    lines += [_line(5 + i, 100, 400 + 30 * i, "Regular 80.00 36.25 2,900.00") for i in range(4)]
+    pairs = []
+    assert row_groups(lines, 9, two_col_max_gap=0.25, page_width=2550, pairs=pairs) == []
+    assert pairs == []                                             # under the three-row floor
+    pairs = []
+    row_groups(lines, 9, two_col_max_gap=0.25, page_width=2550, pairs=pairs, pair_min_rows=2)
+    assert pairs == [[0, 1, 2, 3, 4]]                              # the unpaired 'Pay period' line joins its column

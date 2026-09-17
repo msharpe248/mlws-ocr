@@ -30,7 +30,8 @@ def _overlap(a0, a1, b0, b1) -> float:
 def row_groups(lines: list[dict], n_blocks: int, min_lines: int = 3,
                baseline_tol: float = 0.5, match_frac: float = 0.6,
                max_words: float = 4.0, two_col_max_gap: float = 0.0,
-               page_width: int = 0, pairs: list | None = None) -> list[list[int]]:
+               page_width: int = 0, pairs: list | None = None,
+               pair_min_rows: int = 3) -> list[list[int]]:
     """Groups of block ids whose lines align by baseline.
 
     lines: dicts with "box", "baseline", "block", "words" (decoded).
@@ -86,7 +87,7 @@ def row_groups(lines: list[dict], n_blocks: int, min_lines: int = 3,
                if len(lns) == 1 and len(lns[0]["words"]) <= max_words]
     tables = _single_cell_tables(singles, by_block, lines, tol, med_h, min_rows=3,
                                  two_col_max_gap=two_col_max_gap, page_width=page_width,
-                                 pairs=pairs)
+                                 pairs=pairs, pair_min_rows=pair_min_rows)
     parent = {b: b for b in cands}
 
     def find(x):
@@ -117,7 +118,7 @@ def _numeric_cell(words) -> bool:
 
 
 def _single_cell_tables(singles, by_block, lines, tol, med_h, min_rows=3,
-                        two_col_max_gap=0.0, page_width=0, pairs=None):
+                        two_col_max_gap=0.0, page_width=0, pairs=None, pair_min_rows=3):
     """Tables of one-line cells: rows by baseline, columns by left edge,
     only rows whose cells sit in columns recurring in ``min_rows`` rows,
     and a table is a CONTIGUOUS run of such rows -- a line from any other
@@ -125,6 +126,9 @@ def _single_cell_tables(singles, by_block, lines, tol, med_h, min_rows=3,
     bill's margin line numbers paired with its short headings into one
     "table" that swallowed the page (classic modern 88.2 → 76.9 char).
     Returns a list of block-id lists."""
+    table_min_rows = min_rows
+    if pairs is not None and two_col_max_gap > 0:
+        min_rows = min(min_rows, pair_min_rows)     # the floor for candidates; tables keep theirs below
     cells = []
     for b in singles:
         ln = by_block[b][0]
@@ -203,12 +207,45 @@ def _single_cell_tables(singles, by_block, lines, tol, med_h, min_rows=3,
         keep = []
         for run in runs:
             if text_pair(run):
-                if pairs is not None:
-                    pairs.append(sorted(c[0] for ri in run for c in rows[ri]))
-            else:
+                if pairs is not None and len(run) >= pair_min_rows:
+                    one_liners = [b for b, lns in by_block.items() if len(lns) == 1]
+                    pairs.append(_with_unpaired(run, rows, one_liners, by_block, tol, med_h))
+            elif len(run) >= table_min_rows:
                 keep.append(run)
         runs = keep
-    return [sorted(c[0] for ri in run for c in rows[ri]) for run in runs]
+    return [sorted(c[0] for ri in run for c in rows[ri]) for run in runs if len(run) >= table_min_rows]
+
+
+def _with_unpaired(run, rows, singles, by_block, tol, med_h):
+    """A pair's block ids plus the one-line blocks (of any word count:
+    'Pay period: 06/01/2025 to 01/15/2025' is five words) whose left edge
+    sits on a column's left edge within the run's vertical span, one line
+    above or below included, and that do not reach into the other column:
+    a payslip's 'Pay period' line has no partner on the right, but it
+    belongs to the left column and reads with it."""
+    member = sorted(c[0] for ri in run for c in rows[ri])
+    cells = [c for ri in run for c in rows[ri]]
+    ys = [c[1] for c in cells]
+    y0, y1 = min(ys) - 1.5 * med_h - tol, max(ys) + 1.5 * med_h + tol
+    cols = sorted(cells, key=lambda c: c[2])
+    half = (cols[0][2] + cols[-1][2]) / 2.0
+    spans = [(min(c[2] for c in cells if c[2] < half), max(c[3] for c in cells if c[2] < half)),
+             (min(c[2] for c in cells if c[2] >= half), max(c[3] for c in cells if c[2] >= half))]
+    out = set(member)
+    for b in singles:
+        if b in out:
+            continue
+        ln = by_block[b][0]
+        bl, x0, x1 = ln.get("baseline", ln["box"][3]), ln["box"][0], ln["box"][2]
+        if not (y0 <= bl <= y1):
+            continue
+        # left edge on a column's left edge, and not reaching into the other column
+        (l0, _), (r0, _) = spans
+        if abs(x0 - l0) <= 2 * med_h and x1 < r0 - 2 * med_h:
+            out.add(b)
+        elif abs(x0 - r0) <= 2 * med_h:
+            out.add(b)
+    return sorted(out)
 
 
 def rows_text(lines: list[dict], baseline_tol: float = 0.5,

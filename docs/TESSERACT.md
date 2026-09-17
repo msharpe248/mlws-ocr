@@ -22,8 +22,8 @@ install carries (`tessdata_fast`).
 | dev-8 | UNLV business letters, our tuning set | **97.0 / 93.3** | 95.0 / 91.7 | 95.5 / 93.1 | ahead of both |
 | broad-30 | UNLV business letters, the headline set | 94.8 / 90.2 | 95.5 / 91.7 | **96.0 / 92.7** | behind by 0.7 / 1.5 and 1.2 / 2.5 |
 | legal-8 | UNLV legal pleadings, typewriter | **94.8 / 89.1** | 90.4 / 88.7 | 90.3 / 86.9 | ahead of both by 4 characters |
-| modern | born-digital PDFs, templated letters | **92.9 / 87.9** | 75.4 / 70.8 | 74.2 / 66.6 | ahead of both by 18 characters |
-| business | invoices, payslips, receipts, statements, orders | **93.5 / 88.9** | 70.7 / 68.0 | 70.7 / 68.6 | ahead by 23 characters; level on bag-of-words recall (96.5 vs 97.5 / 98.0) |
+| modern | born-digital PDFs, templated letters | **93.7 / 88.6** | 75.4 / 70.8 | 74.2 / 66.6 | ahead of both by 19 characters |
+| business | invoices, payslips, receipts, statements, orders | **95.8 / 90.9** | 70.7 / 68.0 | 70.7 / 68.6 | ahead by 25 characters; level on bag-of-words recall (96.5 vs 97.5 / 98.0) |
 | news-8 | UNLV newspapers, measured only | 94.1 / 90.4 | 96.3 / 93.1 | **96.7 / 94.8** | behind by about 2 characters |
 | mag-8 | UNLV magazines, measured only | 76.4 / 67.1 | 87.3 / 84.7 | **87.8 / 84.4** | behind by 11 characters, layout |
 | blocks | broad-30's text zones read alone, no layout | 98.2 / 94.9 | 98.2 / 96.6 | **98.5 / 96.5** | character parity, 1.6 word behind |
@@ -31,7 +31,7 @@ install carries (`tessdata_fast`).
 Reading the table honestly:
 
 - **Where we lead, we lead by a lot.** Typewriter pleadings, modern
-  documents and tabular business pages are four to twenty-three character
+  documents and tabular business pages are four to twenty-five character
   points ahead of both Tesseract engines. Tesseract's page analysis is the
   reason on all three: it reads text into ruled margins and hole punches
   on the pleadings, breaks on templated letters and forms, and reads a
