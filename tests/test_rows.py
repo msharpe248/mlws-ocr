@@ -70,3 +70,16 @@ def test_two_row_text_pair_takes_its_unpaired_line():
     pairs = []
     row_groups(lines, 9, two_col_max_gap=0.25, page_width=2550, pairs=pairs, pair_min_rows=2)
     assert pairs == [[0, 1, 2, 3, 4]]                              # the unpaired 'Pay period' line joins its column
+
+
+def test_a_wide_line_does_not_break_a_text_pair():
+    # a statement header: name / street / city at the left, account / period / page at the right;
+    # the period line has five words, more than a table cell may have
+    left = ["Thomas Murphy", "731 Station Road", "Seattle, WA 98101"]
+    right = ["Account number: 9237", "Statement period: 11/01/2025 - 11/28/2025", "Page 1 of 1"]
+    lines = [_line(i, 300, 550 + 70 * i, t) for i, t in enumerate(left)]
+    lines += [_line(3 + i, 1700, 550 + 70 * i, t) for i, t in enumerate(right)]
+    lines += [_line(6 + i, 300, 900 + 40 * i, "11/04 ACME UTILITIES $1,787.77") for i in range(4)]
+    pairs = []
+    row_groups(lines, 10, two_col_max_gap=0.25, page_width=2550, pairs=pairs, pair_min_rows=2)
+    assert pairs == [[0, 1, 2, 3, 4, 5]]

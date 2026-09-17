@@ -85,9 +85,14 @@ def row_groups(lines: list[dict], n_blocks: int, min_lines: int = 3,
     # make one row, not a table.
     singles = [b for b, lns in by_block.items()
                if len(lns) == 1 and len(lns[0]["words"]) <= max_words]
+    # a one-line block of more words is a WIDE cell: never a table cell, but
+    # a text pair's line ('Statement period: 11/01/2025 - 11/28/2025' beside
+    # an address line) -- without it the pair's run breaks on that row
+    wide = [b for b, lns in by_block.items()
+            if len(lns) == 1 and len(lns[0]["words"]) > max_words] if pairs is not None and two_col_max_gap > 0 else []
     tables = _single_cell_tables(singles, by_block, lines, tol, med_h, min_rows=3,
                                  two_col_max_gap=two_col_max_gap, page_width=page_width,
-                                 pairs=pairs, pair_min_rows=pair_min_rows)
+                                 pairs=pairs, pair_min_rows=pair_min_rows, wide=wide)
     parent = {b: b for b in cands}
 
     def find(x):
@@ -118,7 +123,8 @@ def _numeric_cell(words) -> bool:
 
 
 def _single_cell_tables(singles, by_block, lines, tol, med_h, min_rows=3,
-                        two_col_max_gap=0.0, page_width=0, pairs=None, pair_min_rows=3):
+                        two_col_max_gap=0.0, page_width=0, pairs=None, pair_min_rows=3,
+                        wide=()):
     """Tables of one-line cells: rows by baseline, columns by left edge,
     only rows whose cells sit in columns recurring in ``min_rows`` rows,
     and a table is a CONTIGUOUS run of such rows -- a line from any other
@@ -130,7 +136,8 @@ def _single_cell_tables(singles, by_block, lines, tol, med_h, min_rows=3,
     if pairs is not None and two_col_max_gap > 0:
         min_rows = min(min_rows, pair_min_rows)     # the floor for candidates; tables keep theirs below
     cells = []
-    for b in singles:
+    wide = set(wide)
+    for b in list(singles) + sorted(wide):
         ln = by_block[b][0]
         cells.append((b, ln.get("baseline", ln["box"][3]), ln["box"][0], ln["box"][2]))
     if len(cells) < 4:
@@ -210,10 +217,11 @@ def _single_cell_tables(singles, by_block, lines, tol, med_h, min_rows=3,
                 if pairs is not None and len(run) >= pair_min_rows:
                     one_liners = [b for b, lns in by_block.items() if len(lns) == 1]
                     pairs.append(_with_unpaired(run, rows, one_liners, by_block, tol, med_h))
-            elif len(run) >= table_min_rows:
+            elif len(run) >= table_min_rows and not any(c[0] in wide for ri in run for c in rows[ri]):
                 keep.append(run)
         runs = keep
-    return [sorted(c[0] for ri in run for c in rows[ri]) for run in runs if len(run) >= table_min_rows]
+    return [sorted(c[0] for ri in run for c in rows[ri]) for run in runs
+            if len(run) >= table_min_rows and not any(c[0] in wide for ri in run for c in rows[ri])]
 
 
 def _with_unpaired(run, rows, singles, by_block, tol, med_h):

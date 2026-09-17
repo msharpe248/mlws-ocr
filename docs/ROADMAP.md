@@ -353,17 +353,17 @@ classic channels alone and in both sequence models from scratch.
    signal; it moves with the line model's data, not with a rule.
 4. **Business documents** — the word-error census by kind (2026-09-17)
    found the residual was 52–75% reading order of two-column header
-   blocks, then two shapes. All repaired in both profiles: a text pair of
-   one-line blocks far apart is read column by column in XY-cut order,
-   from two aligned rows, with its unpartnered lines
-   (`align_two_col_max_gap`, `align_pair_min_rows`; invoices 87.7 → 95.5
-   word, payslips 84.6 → 89.3, orders 86.7 → 92.3), a lone '1' split from
-   its digits is rejoined (`digit_kern_join`), and mixed case on
-   all-capitals receipts is fixed (`caps_page_repair`). Business 92.1 /
-   86.9 → **95.8 / 90.9** in a day, against a bag-of-words recall of 96.5.
-   Left: the statements' header pair (rows that do not align), masked
-   card numbers ('****9944' read as digits: '*' has no class), a dropped
-   '%'.
+   blocks, then two shapes. All repaired in both profiles the same day: a
+   text pair of one-line blocks far apart is read column by column in
+   XY-cut order, from two aligned rows, with its unpartnered and its wide
+   lines (`align_two_col_max_gap`, `align_pair_min_rows`); a lone '1'
+   split from its digits is rejoined across a 0.75 x-height kerning gap
+   (`digit_kern_join`, `digit_kern_gap`); mixed case on all-capitals
+   receipts is fixed (`caps_page_repair`). Business 92.1 / 86.9 →
+   **97.2 / 93.4**, against a bag-of-words recall of 96.9; by kind
+   invoices 95.7, payslips 90.9, orders 92.8, receipts 91.3, statements
+   96.3 word. Left: the receipts' masked card numbers ('****9944' read as
+   digits: '*' has no class), a dropped '%'.
 5. **Newspapers and magazines** — measured against Tesseract only; the
    magazine gap is layout (image zones over tints, three-column pages,
    reading order).

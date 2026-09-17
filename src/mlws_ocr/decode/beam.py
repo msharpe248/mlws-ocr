@@ -400,7 +400,9 @@ class BeamDecode(Stage):
                                   # middle glyph is '@' by the line's shape (formats.py);
                                   # the '@' class itself measured negative three ways
         "digit_kern_join": False, # "1 0/15/2024" -> "10/15/2024": a lone digit joins the digit
-                                  # token after it across a kerning gap (< 0.5 x-height; formats.py)
+                                  # token after it across a kerning gap (formats.py)
+        "digit_kern_gap": 0.5,    # the kerning gap, in x-heights; a '1' beside '1/01/2025' at
+                                  # x-height 17 px sat 12 px away (0.7) and was missed at 0.5
         "caps_page_repair": False,# a page ≥90% capitals (receipt roll): mixed-case words
                                   # ('SOld', 'Milk') are upper-cased (formats.py)
         "numeric_join": True,     # a gap right after a thousands comma or a
@@ -1128,7 +1130,7 @@ class BeamDecode(Stage):
             out["qty_at_repairs"] = sum(repair_quantity_line(ln.get("words", [])) for ln in lines)
         if p["digit_kern_join"]:
             from .formats import join_kerned_digits
-            out["kern_joins"] = sum(join_kerned_digits(ln["words"], ln.get("x_height") or 0.0)
+            out["kern_joins"] = sum(join_kerned_digits(ln["words"], ln.get("x_height") or 0.0, p["digit_kern_gap"])
                                     for ln in lines if ln.get("words") and not ln.get("graphic_suspect"))
         if p["caps_page_repair"]:
             from .formats import uppercase_caps_page

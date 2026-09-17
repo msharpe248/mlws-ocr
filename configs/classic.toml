@@ -55,6 +55,8 @@ impl = "prototypes"
 [stage.decode]
 impl = "beam"
 digit_kern_join = true         # shape repairs shared with the neural profile (decode/formats.py), 2026-09-17:
+digit_kern_gap = 0.75          # the kerning gap in x-heights (2026-09-17: 0.5 missed a '1' 0.7 x-heights from its digits;
+                               # 0.75 took business 92.6 -> 93.4 word neural, recall and precision up; UNLV sets identical)
 caps_page_repair = true        # business 90.3/79.7 -> 90.3/80.2 word; dev-8, broad-30, legal-8, modern identical
 
 [stage.output]

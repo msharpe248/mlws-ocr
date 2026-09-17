@@ -77,7 +77,7 @@ def repair_quantity_line(words: list[dict]) -> int:
 _LONE_DIGIT = re.compile(r"^\$?\d$")
 
 
-def join_kerned_digits(words: list[dict], x_height: float) -> int:
+def join_kerned_digits(words: list[dict], x_height: float, max_gap: float = 0.5) -> int:
     """Merge ``A B`` in place where one side is a lone digit (A optionally
     '$'-led) and the other is digit-adjacent, and the ink gap between them
     is under half an x-height; repeats so '4 1 1 6' becomes '4116'.
@@ -89,7 +89,7 @@ def join_kerned_digits(words: list[dict], x_height: float) -> int:
         gap = b["box"][0] - a["box"][2]
         lone_left = bool(_LONE_DIGIT.match(a["text"])) and b["text"][:1].isdigit()
         lone_right = b["text"].isdigit() and len(b["text"]) == 1 and a["text"][-1:].isdigit()
-        if (lone_left or lone_right) and gap < 0.5 * max(x_height, 1.0):
+        if (lone_left or lone_right) and gap < max_gap * max(x_height, 1.0):
             merged = dict(a, text=a["text"] + b["text"],
                           box=[a["box"][0], min(a["box"][1], b["box"][1]), b["box"][2], max(a["box"][3], b["box"][3])],
                           confidence=round(min(a.get("confidence", 0.0), b.get("confidence", 0.0)), 3),
