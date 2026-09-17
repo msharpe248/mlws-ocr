@@ -86,6 +86,55 @@ def word_spans(got: str, truth: str, refs):
     return out
 
 
+def hard_lines(all_lines, lines, matched, truth_lines, max_dist):
+    """The lines the standard match cannot use -- flagged as graphics, or
+    read too badly to come within 0.35 of any truth line -- matched to the
+    truth lines nobody claimed, by the best of the classic and the
+    reader's text under a relaxed distance, and only where the SANDWICH
+    rule allows: the truth index must fall strictly between the truth
+    indices of the nearest confident matches above and below the line on
+    the page (a letterhead sits above the first matched line, so its
+    truth line must precede that line's).  Returns (line, truth_index,
+    decoded_text)."""
+    from mlws_ocr.eval.align import edit_distance
+    claimed = {ti for _, ti in matched}
+    matched_ids = {id(lines[oi]) for oi, _ in matched}
+    anchors = sorted((ln["box"][1], ti) for oi, ti in matched for ln in [lines[oi]])
+    out = []
+    for ln in all_lines:
+        if id(ln) in matched_ids or not ln.get("x_height") or ln.get("baseline") is None:
+            continue
+        y = ln["box"][1]
+        lo = max([ti for ay, ti in anchors if ay < y], default=-1)
+        hi = min([ti for ay, ti in anchors if ay > y], default=len(truth_lines))
+        window = [ti for ti in range(lo + 1, hi) if ti not in claimed]
+        if not window:
+            continue
+        cands = [normalize(" ".join(w["text"] for w in ln.get("words", [])))]
+        alt = ln.get("line_alt")
+        if alt and alt.get("reader"):
+            cands.append(normalize(" ".join(w["text"] for w in alt["reader"])))
+        cands = [c for c in cands if len(c) >= 3]
+        if not cands:
+            continue
+        best = None
+        for ti in window:
+            t = truth_lines[ti]
+            for c in cands:
+                if not 0.7 < len(t) / len(c) < 1.4:
+                    continue
+                cols = (ln["box"][2] - ln["box"][0]) * (13.0 / max(ln["x_height"], 1.0))
+                if not 6.0 <= cols / max(len(t), 1) <= 22.0:   # strip columns per truth character
+                    continue
+                d = edit_distance(c, t) / max(len(t), 1)
+                if d <= max_dist and (best is None or d < best[0]):
+                    best = (d, ti, c)
+        if best is not None:
+            claimed.add(best[1])
+            out.append((ln, best[1], best[2]))
+    return out
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("root", type=Path)
@@ -97,6 +146,19 @@ def main():
                          "line, when every truth word of the line aligned) to this npz: "
                          "real full-line windows for a line reader, up to --max-line-cols")
     ap.add_argument("--max-line-cols", type=int, default=1800)
+    ap.add_argument("--hard-out", default="",
+                    help="also save the HARD lines whole: lines the decoder flagged as graphics or "
+                         "read too badly for the standard match (letterheads in display faces), "
+                         "matched to a still-unclaimed truth line under a relaxed distance AND the "
+                         "sandwich rule (the truth index must lie between those of the confident "
+                         "matches above and below on the page). Run with --config configs/neural.toml "
+                         "--set decode.line_keep_alt=true so the reader's text is a second candidate.")
+    ap.add_argument("--hard-dist", type=float, default=0.5,
+                    help="relative edit distance a hard line may have to its truth line (a 40-page "
+                         "probe at 0.6 passed 27 lines of which 20 were right; the misses were a "
+                         "truth line longer than the strip, a strip holding two zones' lines, and "
+                         "a two-line block read as one line -- hence this bound, the length ratio "
+                         "and the columns-per-character plausibility in hard_lines())")
     ap.add_argument("--no-guard", action="store_true",
                     help="skip the evaluation-draw exclusion: ONLY for a root that is "
                          "not an evaluation set (e.g. data/modern_train, rendered from "
@@ -111,7 +173,8 @@ def main():
     random.Random(11).shuffle(pairs)
     strips, widths, labels, decoded, pages, xhs = [], [], [], [], [], []
     L = {"strips": [], "widths": [], "labels": [], "decoded": [], "pages": [], "xhs": []}
-    stats = {"lines": 0, "words": 0, "wrong": 0, "whole_lines": 0}
+    H = {"strips": [], "widths": [], "labels": [], "decoded": [], "pages": [], "xhs": [], "graphic": []}
+    stats = {"lines": 0, "words": 0, "wrong": 0, "whole_lines": 0, "hard_lines": 0, "hard_graphic": 0}
     for n, (tif, gt) in enumerate(pairs[: args.pages], 1):
         truth_lines = [normalize(l) for l in gt.read_text(errors="ignore").splitlines()]
         truth_lines = [l for l in truth_lines if l]
@@ -123,12 +186,26 @@ def main():
             print(f"  {tif.name}: ERROR {e}")
             continue
         b = page.binary
-        lines = [ln for ln in page.meta["layout"].get("lines", [])
-                 if ln.get("words") and not ln.get("graphic_suspect")]
+        all_lines = page.meta["layout"].get("lines", [])
+        lines = [ln for ln in all_lines if ln.get("words") and not ln.get("graphic_suspect")]
         recs = [line_records(ln) for ln in lines]
         out_lines = [normalize(t) for t, _ in recs]
         kept = 0
-        for oi, ti in match_lines(out_lines, truth_lines):
+        matched = match_lines(out_lines, truth_lines)
+        if args.hard_out:
+            hard = hard_lines(all_lines, lines, matched, truth_lines, args.hard_dist)
+            for ln, ti, got in hard:
+                xh = ln.get("x_height")
+                strip, _, _, _ = line_strip(b, ln, xh)
+                if 4 <= strip.shape[1] <= args.max_line_cols:
+                    win = strip < 0.5
+                    if win.any():
+                        H["strips"].append(np.packbits(win, axis=1)); H["widths"].append(strip.shape[1])
+                        H["labels"].append(truth_lines[ti]); H["decoded"].append(got)
+                        H["pages"].append(tif.name); H["xhs"].append(float(xh))
+                        H["graphic"].append(bool(ln.get("graphic_suspect")))
+                        stats["hard_lines"] += 1; stats["hard_graphic"] += int(bool(ln.get("graphic_suspect")))
+        for oi, ti in matched:
             text, refs = recs[oi]
             got = normalize(text)
             if len(got) != len(text):
@@ -173,7 +250,9 @@ def main():
                 stats["words"] += 1; kept += 1
                 stats["wrong"] += int(t_word != g_word)
         print(f"  [{n}/{args.pages}] {tif.name}: +{kept} words (lines {stats['lines']}, "
-              f"words {stats['words']}, decoded wrong {stats['wrong']})", flush=True)
+              f"words {stats['words']}, decoded wrong {stats['wrong']}"
+              + (f", hard lines {stats['hard_lines']} ({stats['hard_graphic']} flagged)" if args.hard_out else "")
+              + ")", flush=True)
 
     unpacked = [np.unpackbits(pk, axis=1)[:, :w] for pk, w in zip(strips, widths)]
     pixels = (np.packbits(np.concatenate(unpacked, axis=1), axis=1)
@@ -193,6 +272,14 @@ def main():
                             decoded=np.array(L["decoded"]), pages=np.array(L["pages"]),
                             x_heights=np.array(L["xhs"], np.float32))
         print(f"saved {len(L['labels'])} whole lines -> {args.line_out}")
+    if args.hard_out:
+        unp = [np.unpackbits(pk, axis=1)[:, :w] for pk, w in zip(H["strips"], H["widths"])]
+        pix = (np.packbits(np.concatenate(unp, axis=1), axis=1) if unp else np.zeros((32, 0), np.uint8))
+        offs = np.concatenate([[0], np.cumsum(H["widths"])]).astype(np.int64)
+        np.savez_compressed(args.hard_out, pixels=pix, offsets=offs, labels=np.array(H["labels"]),
+                            decoded=np.array(H["decoded"]), pages=np.array(H["pages"]),
+                            x_heights=np.array(H["xhs"], np.float32), graphic=np.array(H["graphic"]))
+        print(f"saved {len(H['labels'])} hard lines ({stats['hard_graphic']} flagged as graphics) -> {args.hard_out}")
 
 
 if __name__ == "__main__":
