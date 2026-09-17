@@ -84,6 +84,10 @@ line_join_spaced = true        # letter-spaced display type read as single lette
                                # lexicon words (2026-09-14: broad-30 89.7 -> 90.2 word; other sets flat)
 qty_at_repair = true           # a receipt quantity line "2 e 2.72" -> "2 @ 2.72" by its shape (2026-09-16:
                                # receipts 94.8/87.0 -> 95.6/90.1; four sets identical; the '@' class itself lost)
+digit_kern_join = true         # a lone digit joins the digit token across a kerning gap, "1 0/15/2024" -> "10/15/2024"
+                               # (2026-09-17: payslips 84.0 -> 84.6 word, invoices 87.2 -> 87.7; four sets identical)
+caps_page_repair = true        # a page >= 90% capitals (receipt roll): mixed-case words upper-cased
+                               # (2026-09-17: receipts 95.6/90.1 -> 96.3/91.3; never fires on the four sets)
 seq_path = "data/seq_en.npz"   # = seq_en_v6c_s2 (2026-09-13): the 615-face scorer fine-tuned on five real
                                # harvests (bus.3B, legal, bus.3A, news, mag) at real weight 3; "" = classic decoding
 seq_backend = "auto"           # numpy (torch/MPS is launch-bound one window at a time: +5 s a page); "torch" to force it

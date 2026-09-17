@@ -358,7 +358,10 @@ synthetic windows. The profile is `configs/neural_line.toml`;
   module endorses one LINE shape: a receipt's quantity line 'INT x AMOUNT',
   whose middle glyph is '@' whatever the channels read there
   (`qty_at_repair`, neural profile; RESEARCH 2026-09-16 on why the glyph
-  could not get a class);
+  could not get a class), rejoins a lone digit split from its number
+  across a kerning gap (`digit_kern_join`) and upper-cases mixed-case
+  words on an all-capitals page (`caps_page_repair`) — the last two in
+  both profiles (RESEARCH 2026-09-17);
 - *truth-labeled* (`harvest_truth.py`): every glyph on non-evaluation
   ground-truth pages, aligned line by line (`eval/align.py`) through the
   decoder's provenance, stored with truth label, decoded label, read kind,
@@ -434,7 +437,7 @@ with the MLP and the GRU off:
 
 | profile | dev-8 | broad-30 | legal-8 | modern |
 |---|---|---|---|---|
-| classic | 95.2 / 89.2 | 91.8 / 82.0 (86.2 / 89.1) | 91.7 / 81.2 | 89.6 / 80.8 (86.0 / 90.2) |
+| classic | 95.2 / 89.2 | 91.8 / 82.0 (86.3 / 89.2) | 91.7 / 81.2 | 89.6 / 80.8 (86.1 / 90.3) |
 | pure | 94.8 / 88.0 | 91.0 / 79.3 (83.0 / 86.2) | 90.9 / 78.0 | 88.2 / 77.1 (82.4 / 86.7) |
 | neural | 97.0 / 93.3 | 94.8 / 90.2 (94.5 / 94.5) | 94.8 / 89.1 | 92.0 / 86.8 (92.3 / 96.0) |
 | legacy Tesseract | 95.0 / 91.7 | 95.5 / 91.7 (96.3 / 94.2) | 90.4 / 88.7 | 75.4 / 70.8 (88.9 / 95.7) |
@@ -519,8 +522,8 @@ by column blocks and pays the edit distance for the order:
 
 | profile | business | blocks dev-8 (pooled) | blocks legal-8 | blocks broad-30 |
 |---|---|---|---|---|
-| classic | 90.3 / 79.7 (88.2 / 88.8) | 97.2 / 93.3 | 92.7 / 86.7 | 93.4 / 84.3 |
-| neural | 92.1 / 86.9 (96.4 / 95.8) | 99.0 / 96.3 | 96.5 / 94.0 | 98.2 / 94.9 |
+| classic | 90.3 / 80.2 (88.4 / 89.0) | 97.2 / 93.3 | 92.7 / 86.7 | 93.4 / 84.3 |
+| neural | 92.3 / 87.3 (96.5 / 96.0) | 99.0 / 96.3 | 96.5 / 94.0 | 98.2 / 94.9 |
 | legacy Tesseract | 70.7 / 68.0 (97.5 / 97.8) | 98.9 / 97.2 | 96.7 / 95.3 | 98.2 / 96.6 |
 | Tesseract LSTM | 70.7 / 68.6 (98.0 / 98.6) | 99.4 / 98.5 | 97.1 / 96.0 | 98.5 / 96.5 |
 

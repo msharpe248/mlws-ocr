@@ -65,3 +65,59 @@ def repair_quantity_line(words: list[dict]) -> int:
     w["qty_at"] = True
     w.pop("chars", None)
     return 1
+
+
+# A proportional '1' is narrow and its sidebearing wide, so the decoder (and
+# the reader) see a word gap inside "10/15/2024", "$11,015.50", "4116" and
+# emit "1 0/15/2024" (business census 2026-09-17: 13-23% of the invoice,
+# payslip and statement word errors).  The join is geometric: a lone digit
+# token and a digit-leading token whose gap is a kerning gap, under half an
+# x-height, are one token; a real column gap (a quantity beside an amount)
+# is several x-heights and never joins.
+_LONE_DIGIT = re.compile(r"^\$?\d$")
+
+
+def join_kerned_digits(words: list[dict], x_height: float) -> int:
+    """Merge ``A B`` in place where one side is a lone digit (A optionally
+    '$'-led) and the other is digit-adjacent, and the ink gap between them
+    is under half an x-height; repeats so '4 1 1 6' becomes '4116'.
+    Returns the number of joins."""
+    n = 0
+    i = 0
+    while i + 1 < len(words):
+        a, b = words[i], words[i + 1]
+        gap = b["box"][0] - a["box"][2]
+        lone_left = bool(_LONE_DIGIT.match(a["text"])) and b["text"][:1].isdigit()
+        lone_right = b["text"].isdigit() and len(b["text"]) == 1 and a["text"][-1:].isdigit()
+        if (lone_left or lone_right) and gap < 0.5 * max(x_height, 1.0):
+            merged = dict(a, text=a["text"] + b["text"],
+                          box=[a["box"][0], min(a["box"][1], b["box"][1]), b["box"][2], max(a["box"][3], b["box"][3])],
+                          confidence=round(min(a.get("confidence", 0.0), b.get("confidence", 0.0)), 3),
+                          in_lexicon=False, kern_join=True)
+            merged["numeric_format"] = numeric_endorsed(merged["text"])
+            merged.pop("chars", None)
+            words[i:i + 2] = [merged]
+            n += 1
+        else:
+            i += 1
+    return n
+
+
+def uppercase_caps_page(lines: list[dict], min_frac: float = 0.9, min_letters: int = 50) -> int:
+    """On a page set entirely in capitals (a receipt roll, a form header),
+    a word that came out mixed-case ('SOld', 'Milk', 'ITeMS') is a case
+    error of the reader or the size-twin decision, not a lower-case word:
+    when at least ``min_frac`` of the page's letters are upper case, every
+    word holding both cases is upper-cased.  Returns the number of words
+    changed.  Never fires on ordinary text, whose lower-case share is
+    over half."""
+    letters = [ch for ln in lines for w in ln.get("words", []) for ch in w["text"] if ch.isalpha()]
+    if len(letters) < min_letters or sum(ch.isupper() for ch in letters) < min_frac * len(letters):
+        return 0
+    n = 0
+    for ln in lines:
+        for w in ln.get("words", []):
+            t = w["text"]
+            if any(ch.islower() for ch in t) and any(ch.isupper() for ch in t):
+                w["text"] = t.upper(); w["caps_repair"] = True; w.pop("chars", None); n += 1
+    return n

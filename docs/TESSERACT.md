@@ -23,7 +23,7 @@ install carries (`tessdata_fast`).
 | broad-30 | UNLV business letters, the headline set | 94.8 / 90.2 | 95.5 / 91.7 | **96.0 / 92.7** | behind by 0.7 / 1.5 and 1.2 / 2.5 |
 | legal-8 | UNLV legal pleadings, typewriter | **94.8 / 89.1** | 90.4 / 88.7 | 90.3 / 86.9 | ahead of both by 4 characters |
 | modern | born-digital PDFs, templated letters | **92.0 / 86.8** | 75.4 / 70.8 | 74.2 / 66.6 | ahead of both by 17 characters |
-| business | invoices, payslips, receipts, statements, orders | **92.1 / 86.9** | 70.7 / 68.0 | 70.7 / 68.6 | ahead by 21 characters; level on bag-of-words recall (96.4 vs 97.5 / 98.0) |
+| business | invoices, payslips, receipts, statements, orders | **92.3 / 87.3** | 70.7 / 68.0 | 70.7 / 68.6 | ahead by 21 characters; level on bag-of-words recall (96.5 vs 97.5 / 98.0) |
 | news-8 | UNLV newspapers, measured only | 94.1 / 90.4 | 96.3 / 93.1 | **96.7 / 94.8** | behind by about 2 characters |
 | mag-8 | UNLV magazines, measured only | 76.4 / 67.1 | 87.3 / 84.7 | **87.8 / 84.4** | behind by 11 characters, layout |
 | blocks | broad-30's text zones read alone, no layout | 98.2 / 94.9 | 98.2 / 96.6 | **98.5 / 96.5** | character parity, 1.6 word behind |

@@ -399,6 +399,10 @@ class BeamDecode(Stage):
         "qty_at_repair": False,   # "2 e 2.72" -> "2 @ 2.72": a receipt quantity line's
                                   # middle glyph is '@' by the line's shape (formats.py);
                                   # the '@' class itself measured negative three ways
+        "digit_kern_join": False, # "1 0/15/2024" -> "10/15/2024": a lone digit joins the digit
+                                  # token after it across a kerning gap (< 0.5 x-height; formats.py)
+        "caps_page_repair": False,# a page ≥90% capitals (receipt roll): mixed-case words
+                                  # ('SOld', 'Milk') are upper-cased (formats.py)
         "numeric_join": True,     # a gap right after a thousands comma or a
                                   # decimal point does not end a word, however
                                   # wide it looks (invoice money amounts were
@@ -1089,10 +1093,7 @@ class BeamDecode(Stage):
                 for w in ln.get("words", []):
                     w["p_correct"] = round(calib.p_correct(w), 3)
                     n_review += w["p_correct"] < p["review_below"]
-        n_qty = 0
-        if p["qty_at_repair"]:
-            from .formats import repair_quantity_line
-            n_qty = sum(repair_quantity_line(ln.get("words", [])) for ln in layout["lines"])
+        shape = self._shape_repairs(layout, p)
         for ln in layout["lines"]:
             for w in ln.get("words", []):
                 if "chars" in w and len(w["chars"]) != len(w["text"]):
@@ -1109,10 +1110,30 @@ class BeamDecode(Stage):
                      "seq_words": self._seq_stats[0], "seq_flips": self._seq_stats[1],
                      "seq_rereads": self._seq_stats[2], "seq_line_reads": self._seq_stats[3],
                      "doc_words": len(self._doc_words), "review_words": n_review,
-                     "qty_at_repairs": n_qty},
+                     **shape},
         )
         self._cur_seq = self._cur_line = self._cur_binary = None
         return out, debug
+
+    @staticmethod
+    def _shape_repairs(layout, p) -> dict:
+        """The line- and page-shape repairs (decode/formats.py), run at the
+        end of the classic decode and again by the line reader after its
+        lines replace the classic ones.  Each is an option, off by default;
+        the counts go to the debug bundle."""
+        out = {}
+        lines = layout["lines"]
+        if p["qty_at_repair"]:
+            from .formats import repair_quantity_line
+            out["qty_at_repairs"] = sum(repair_quantity_line(ln.get("words", [])) for ln in lines)
+        if p["digit_kern_join"]:
+            from .formats import join_kerned_digits
+            out["kern_joins"] = sum(join_kerned_digits(ln["words"], ln.get("x_height") or 0.0)
+                                    for ln in lines if ln.get("words") and not ln.get("graphic_suspect"))
+        if p["caps_page_repair"]:
+            from .formats import uppercase_caps_page
+            out["caps_repairs"] = uppercase_caps_page([ln for ln in lines if not ln.get("graphic_suspect")])
+        return out
 
     _model_cache: dict = {}
     _gru_cache: dict = {}

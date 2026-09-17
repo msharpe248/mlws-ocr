@@ -351,8 +351,16 @@ classic channels alone and in both sequence models from scratch.
    from the strip's ink profile (flat on the blocks, −0.5 word on
    legal-8). The residual is touching words, not spacing decisions with a
    signal; it moves with the line model's data, not with a rule.
-4. **Business tables** — cells the reader misreads ('W/THDRAWAL'): a
-   recognition item for the line model, not a spacing rule.
+4. **Business documents** — a word-error census by kind (2026-09-17)
+   found the residual is 52–75% reading order of two-column header blocks
+   (read across, truth column by column: a layout question, and the same
+   penalty Tesseract pays here), then two shapes now repaired in both
+   profiles: a lone '1' split from its digits (`digit_kern_join`) and
+   mixed case on all-capitals receipts (`caps_page_repair`); business
+   92.1 / 86.9 → 92.3 / 87.3, receipts 96.3 / 91.3. Left: masked card
+   numbers ('****9944' read as digits), a dropped '%', and the header
+   reading order, which would need a column cut for key-value blocks that
+   does not split tables.
 5. **Newspapers and magazines** — measured against Tesseract only; the
    magazine gap is layout (image zones over tints, three-column pages,
    reading order).
