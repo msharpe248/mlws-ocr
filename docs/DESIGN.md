@@ -597,7 +597,7 @@ Breuel 2007, `x_wconf` from the calibrator when it ran).
   mechanism (it found the money splits, the deleted quantity cells and
   the date slashes).
 
-## 9. Known limits
+## 10. Known limits
 
 Everything real the models have seen is 300 dpi bitonal UNLV photocopy;
 the modern set is the first look at today's faces, and real scanner
@@ -608,3 +608,28 @@ re-scored but in what a piece is compared against. Letterhead grotesques
 outside the 29-face stock have nothing to match. The outline channel is
 the runtime bottleneck on dense pages. Reading order on letters with
 sidebars is still worth about a point.
+
+## 11. Lineage
+
+- The classic engine — explicit features, prototype matching, adaptive
+  per-document classification, decoding scored by a lexicon and a language
+  model — is the pre-neural OCR stack best documented in R. Smith's
+  Tesseract papers (ICDAR 2007; ICDAR 2009 on layout). It is a from-scratch,
+  legibility-first re-derivation of those ideas, not a port; every stage's
+  departure from the paper and what it measured is a `RESEARCH.md` row, and
+  `TESSERACT.md` lays the two systems side by side.
+- The neural engine follows Tesseract 4's move to a CTC line recognizer
+  (Smith, DAS 2016; Breuel et al. 2013 for the normalised line strip; Shi,
+  Bai & Yao 2017 for the CRNN), with two departures: the reader runs beside
+  the classic decoder and a fitted judge chooses per line, and about a
+  quarter of its training is real scanned strips labelled from UNLV truth.
+- The stage/registry/DebugBundle pipeline and the "manufacture the labels"
+  programme (synthetic degradation, then truth-aligned real harvests) are
+  this project's; the degradation model follows Baird (1992) and Kanungo et
+  al. (2000). The print-and-scan calibration sheet of the original plan was
+  dropped when real UNLV strips proved the better label source.
+- Several layout techniques have direct precedent in the author's own 1994
+  system, IDUR (Sharpe, Ahmed & Sutcliffe, MVA '94): Hough skew correction,
+  RLSA, block classification by image features, X-Y trees; the directional
+  k-NN + SCC segmenter (`layout/knn_scc.py`, and the paper under
+  `docs/papers/`) grew from the same work. `RESEARCH.md` opens with the note.

@@ -55,6 +55,19 @@ So yes: competitive on the document kinds this project is for, ahead on
 most of them, and behind by under a character point on the one set where
 Tesseract's forty years of letter tuning show.
 
+## History
+
+The first measurement against Tesseract was on day two of the project
+(2026-08-31), on the same thirty bus.3B pages: mlws-ocr 77.1 / 47.3 against
+legacy 95.3 / 90.5 and the LSTM 95.9 / 92.2. That table was the project's
+founding premise made concrete — a pre-neural architecture reaches 95% on
+this corpus, so the gap was implementation, not design — and the rows in
+`docs/DESIGN.md` §8 record the climb from there. The Tesseract numbers in
+the table above differ from those first ones by a few tenths because the
+evaluator has since folded line-end hyphenation and dropped rule lines on
+both sides (RESEARCH 2026-09-12); every row on this page is under the
+current convention.
+
 ## Same idea, different hands
 
 The classic profile was built as the readable version of the legacy

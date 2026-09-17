@@ -17,6 +17,12 @@ in this codebase, and how our implementation deviates. Rule of the house:
 **a new algorithm does not land without an entry here and a docstring
 naming its source.**
 
+This file is the provenance and the measurement behind every decision,
+in the order the decisions were made. The current numbers live elsewhere:
+the scoreboard and its history in `DESIGN.md` §8, the comparison with
+Tesseract's two engines in `TESSERACT.md`, the headline table in the
+README. The whole-system lineage is `DESIGN.md` §11.
+
 Status: ✅ implemented · 🔬 implemented, superseded or optional · 🗺 planned
 
 ## Image cleanup
@@ -278,37 +284,3 @@ Status: ✅ implemented · 🔬 implemented, superseded or optional · 🗺 plan
 | ❌ The '@' class as a FINE-TUNE of the live models (`seq_en_atft`, `seq_line_atft`, judge `linechoice_atft`) — receipts down again, the class never fires; the '@' item CLOSED (2026-09-16) | The from-scratch row above confounded the class with the lineage; `SeqNet.with_classes` keeps every live weight and widens the output layer by class name, so this run is the class alone | `train_seq.py --init data/seq_en.npz` on the v6c recipe plus `seq_synth_at` (6 epochs, 170 min, held real 96.3%; the trainer reports the class list change); `--init data/seq_line_en.npz` on the v7a recipe plus the set (4 epochs, 310 min, held real 93.7%); judge re-harvested (2,925 pairs on 251 pages, reading better 61.8%; P ≥ 0.5 takes 80.1% at 72.8% precision); six evaluations with every '@' path swapped, then business and legal-8 again with the LIVE classic tables and only the sequence models swapped; `--dump` of both readers on the business set, diffed | Against the live rows, char / word: dev-8 97.0 / 93.3 → 96.9 / 93.5, broad-30 94.8 / 90.2 → 94.4 / 89.5, legal-8 94.8 / 89.1 → 93.9 / 86.9, modern 92.0 / 86.8 → 91.7 / 86.7, business 91.9 / 86.2 → 91.1 / 84.5, **receipt 94.8 / 87.0 → 90.5 / 79.6**, blocks broad-30 98.2 / 94.9 → 98.1 / 94.6. With the live classic tables: business 91.0 / 84.3, receipt 90.4 / 79.3, legal-8 94.3 / 87.5 — the sequence models are the whole receipts loss and about half the legal-8 loss (the '@' classic tables the other 0.4 / 0.6). The dump says what the class does: NEITHER retrained reader emits a single '@' on the 35 quantity lines (0 of 35; the live reader reads them '3 e 16.09' twenty times and '3 (g 16.09' eleven), and the fine-tuned reader loses the monospace roll elsewhere — 'CASH' → 'ASH', 'CHANGE' → 'HE', 'YOGURT PLAIN' → 'OR PLAIN', '10:39' → '0:39', case flips 'PHARMAcY', 'GROUNd'. A class with no real exemplar (the harvests have no '@'; the synthetic tokens are one or two percent of windows, and the new output row starts rare) is never learned to fire, while the extra epochs at a fresh cosine schedule move a converged reader off the faces the receipts use. Three ways negative (classic tables alone, both models from scratch, both fine-tuned), receipts down every time: the item closes. Every file kept as a variant; `with_classes` stays (it is the right way to add a class that HAS real exemplars). What the 35 lines needed was never a class: their shape is 'INT x AMOUNT' with x one glyph, which the next row turns into a format rule. |
 | ✅ Receipt quantity lines repaired by shape — 'INT x AMOUNT' with x one glyph is '2 @ 2.72' (`qty_at_repair`, `decode/formats.py repair_quantity_line`) — ADOPTED in the neural profile (2026-09-16) | The '@' rows above: the glyph has no class and cannot get one, but the 35 lines that carry it all have one shape; format endorsement at line level, as forms OCR validates a field by its pattern rather than its glyphs (Casey & Lecolinet's survey) | A decoder option, off by default, applied at the end of `BeamDecode.run` and again after the line reader's choice (its lines replace the classic ones): exactly three tokens, the first 1–3 digits, the last a decimal amount, the middle one or two non-digit characters → '@', `numeric_format` set, `qty_at` marked; `tests/test_formats.py` (eight shapes it must leave alone); measured with `--set decode.qty_at_repair=true` on business by kind under both profiles and the four sets | Neural, char / word (recall / precision): business 91.9 / 86.2 (95.7 / 95.2) → **92.1 / 86.9 (96.4 / 95.8)**; by kind receipt 94.8 / 87.0 (92.3 / 92.9) → **95.6 / 90.1 (95.5 / 95.7)**, invoice, payslip, purchase order and statement unchanged to the decimal; dev-8 97.0 / 93.3, broad-30 94.8 / 90.2, legal-8 94.8 / 89.1, modern 92.0 / 86.8 — identical, the rule fires on none of them. Classic with the rule on: business 90.3 / 79.7, identical to its live row — the classic decoder does not produce the three-token shape on these lines (its receipts read 94.5 / 83.8 either way), so the rule is a neural-profile option and classic's row is its own regression guard, unchanged by construction (the option is off there). Receipts gain 0.8 character and 3.1 word points on the twelve pages for a twenty-line rule and no training; against the LSTM yardstick's 93.8 / 91.2 the receipts now lead in characters by 1.8 and trail in words by 1.1. Recorded against it: a rule this narrow is a template's rule — it fires on exactly the shape `make_business_set.py` renders, and a real receipt that prints '2 @ 2.72 ea' or 'x2 2.72' is not covered; the numbers are the synthetic business set's, not a real receipt corpus's. |
 | 📊 Where the letterhead residual sits (broad-30, `scripts/diag_top_lines.py`) — mostly lines BOTH readings misread outright; the judge and the gate together hold about a fifth (2026-09-16) | Before spending training on letterheads (48% of the headline residual), split their 914 errors by mechanism: judge, gate, or recognition | The neural pipeline with `line_keep_alt` on the thirty evaluation pages (diagnosis only, nothing fitted); every line in the top 22% of the page matched to truth by whichever reading comes closer (0.35 classic / 0.5 reader); per line the chosen, classic and reader edit distances; the graphic-flagged lines split into kept, dropped-but-matched and dropped-unmatched | 145 top lines matched, 4,476 characters: chosen reading 289 errors, always-classic 304, oracle over the two readings 149 — a perfect judge would recover 140 characters (15% of the letterhead residual); the judge picked the worse reading on 19 lines and took the reader on 29. Gate: 6 dropped flagged lines did match a truth line (100 characters, the reader's error 31 — keeping them would recover about 70, another 8%), 16 flagged lines were kept and read at 2 errors in 285 characters, and 45 dropped flagged lines matched NO truth line under either reading. The rest of the 914 — roughly 70% — are lines that neither the classic decoder nor the reader brought within matching distance of any truth line: wordmarks and decorative display faces ('WEST OAKEY BAPTIST CHURCH' read 'AESIUAKEY BAPHISTUHURUF' by the reader and 'i;EST OAKEY...' by classic; 'New York, New York' in a script face read as junk by both; a spaced 'F A C S I M I L E'). Conclusion for the roadmap: the letterhead item is a recognition problem on faces our 615-to-3,179 fonts and 86 real lines do not cover, not a choice or gate problem; the rule-fixable share is about a fifth. The 86-line fine-tune (`seq_line_v8a`, running) is the last data-side test; after it the honest options are a judge feature for display lines (15% ceiling) and accepting the letterhead residual as the project's ceiling on this set. |
-
-## External benchmark (2026-08-31)
-
-Same 30-page UNLV bus.3B sample, same harness and metrics
-(`scripts/eval_tesseract.py`):
-
-| system | char acc | word acc |
-|---|---|---|
-| Tesseract 5.5 LSTM (`--oem 3`) | 95.9% | 92.2% |
-| Tesseract legacy pre-neural (`--oem 0`) | 95.3% | 90.5% |
-| **mlws-ocr** (feature+GRU stack, day 2) | **77.1%** | **47.3%** |
-
-Newspapers (10pg): Tesseract LSTM 85.0/81.6; magazines (6pg): 73.3/63.6.
-Reading: the legacy engine proves the pre-neural architecture reaches 95%+
-on this corpus — the project's founding premise is validated by its own
-benchmark rival. The 18-point gap is implementation maturity, chiefly
-(a) classifier training data: legacy Tesseract's shape classifier was
-trained on enormous real-glyph corpora versus our 26 synthetic fonts;
-(b) its character chopper/associator (a full segmentation search we
-approximate with single-cut variants); (c) two decades of accumulated
-edge-case handling. Historical context: ISRI's 1996 annual test reported
-top commercial engines around 97–99% char on these very sets.
-
-## Design lineage (whole-system)
-
-- The overall architecture — explicit features, prototype matching, adaptive
-  per-document classification, LM-scored decoding — is the classic pre-neural
-  OCR stack, best publicly documented in R. Smith's Tesseract papers (2007,
-  2009 "Adapting the Tesseract open source OCR engine for multilingual OCR").
-  This project is a from-scratch, legibility-first reimplementation of those
-  ideas, not a port.
-- Stage/registry/DebugBundle pipeline design and the "manufacture the labels"
-  program (synthetic θ-degradation + printed calibration sheet) are original
-  to this project's plan; the θ-degradation half follows Baird/Kanungo.
