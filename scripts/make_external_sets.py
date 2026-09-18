@@ -50,7 +50,7 @@ def _write(img: Image.Image, text_lines: list[str], out_dir: Path, stem: str, sc
     (out_dir / f"{stem}.txt").write_text("\n".join(text_lines) + "\n")
 
 
-def sroie(root: Path, out: Path, n_eval: int, seed: int, dpi: int) -> None:
+def sroie(root: Path, out: Path, n_eval: int, seed: int, dpi: int, scale: float = 1.0, name: str = "sroie") -> None:
     imgs = sorted((root / "img").glob("*.jpg"))
     rng = random.Random(seed)
     order = imgs[:]
@@ -88,12 +88,12 @@ def sroie(root: Path, out: Path, n_eval: int, seed: int, dpi: int) -> None:
             lines.append(" ".join(t for _, t in sorted(cur)))
         split = "eval" if p.stem in eval_set else "harvest"
         with Image.open(p) as im:
-            _write(im, lines, out / "sroie" / split, p.stem, 1.0, dpi)
+            _write(im, lines, out / name / split, p.stem, scale, dpi)
         n[split] += 1
-    print(f"SROIE: {n['eval']} eval + {n['harvest']} harvest receipts -> {out / 'sroie'}")
+    print(f"SROIE: {n['eval']} eval + {n['harvest']} harvest receipts at {scale}x -> {out / name}")
 
 
-def funsd(root: Path, out: Path, scale: float, dpi: int) -> None:
+def funsd(root: Path, out: Path, scale: float, dpi: int, name: str = "funsd") -> None:
     n = {}
     for split, sub in (("eval", "testing_data"), ("harvest", "training_data")):
         n[split] = 0
@@ -111,9 +111,9 @@ def funsd(root: Path, out: Path, scale: float, dpi: int) -> None:
                     ents.append((y0, x0, text))
             ents.sort()
             with Image.open(img) as im:
-                _write(im, [t for _, _, t in ents], out / "funsd" / split, ann.stem, scale, dpi)
+                _write(im, [t for _, _, t in ents], out / name / split, ann.stem, scale, dpi)
             n[split] += 1
-    print(f"FUNSD: {n['eval']} eval + {n['harvest']} harvest forms at {scale}x -> {out / 'funsd'}")
+    print(f"FUNSD: {n['eval']} eval + {n['harvest']} harvest forms at {scale}x -> {out / name}")
 
 
 def main():
@@ -124,12 +124,16 @@ def main():
     ap.add_argument("--sroie-eval", type=int, default=60)
     ap.add_argument("--seed", type=int, default=7)
     ap.add_argument("--funsd-scale", type=float, default=2.0)
+    ap.add_argument("--sroie-scale", type=float, default=1.0,
+                    help="upscale factor for the receipts (a 461-px-wide scan has an x-height of 7 px; "
+                         "the reader is trained at 10 px and up)")
+    ap.add_argument("--name-suffix", default="", help="e.g. '2x': sets are written as sroie2x / funsd2x")
     ap.add_argument("--dpi", type=int, default=300)
     args = ap.parse_args()
     if args.sroie:
-        sroie(args.sroie, args.out, args.sroie_eval, args.seed, args.dpi)
+        sroie(args.sroie, args.out, args.sroie_eval, args.seed, args.dpi, args.sroie_scale, "sroie" + args.name_suffix)
     if args.funsd:
-        funsd(args.funsd, args.out, args.funsd_scale, args.dpi)
+        funsd(args.funsd, args.out, args.funsd_scale, args.dpi, "funsd" + args.name_suffix)
 
 
 if __name__ == "__main__":

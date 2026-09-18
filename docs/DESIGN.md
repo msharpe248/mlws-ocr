@@ -389,6 +389,8 @@ help on UNLV, whose TIFFs are already bitonal — recorded).
 | modern | govinfo PDFs + templated invoices/payslips/letters in modern faces, three severities | today's documents (`make_modern_set.py`) |
 | business | templated invoices, payslips, receipts (monospace thermal roll), bank statements and purchase orders in modern faces, 60 pages, three severities | tabular business documents, reported per kind (`make_business_set.py`, `--by-kind`) |
 | news-8 / mag-8 | UNLV news.3B / mag.3B, seed 1, 8 pages | measured against Tesseract only |
+| sroie | ICDAR 2019 SROIE receipts (corrected mirror), 60 evaluation receipts by seeded draw, 566 for harvest; `data/ext/sroie` | REAL thermal-roll receipts with line-level truth (`make_external_sets.py`); public, research use |
+| funsd | FUNSD forms, the official 50 test forms at 2x, 149 for harvest; `data/ext/funsd` | REAL scanned forms with entity-level truth; reading order is a convention there, so recall / precision are the honest columns; non-commercial research |
 | blocks | the Text zones of dev-8, legal-8 and broad-30, cut from the page and read alone | recognition with no layout question (`eval_blocks.py`; legacy reads the same crops with `--psm 6`) |
 
 Metrics: character and word accuracy by edit distance, plus order-
