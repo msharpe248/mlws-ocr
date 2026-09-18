@@ -57,6 +57,10 @@ page that is measured:
   lexicon-endorsed words (the classic classifier's flywheel);
 - `harvest_truth.py` — glyph crops labelled by alignment to the truth
   line (the pipeline's real mistakes included);
+- `make_seq_data.py --word-gap LO HI` — lines rendered with a chosen gap
+  between words; `seq_synth_tightgap.npz` (150k, 0.05–0.18 em) is kept as
+  data, measured flat on the blocks as a fine-tune source (RESEARCH
+  2026-09-17);
 - `harvest_lines.py --hard-out` — the lines the standard match cannot use
   (graphic-flagged, badly read) saved whole under a relaxed match, the
   sandwich rule and a columns-per-character check; 86 letterhead lines on

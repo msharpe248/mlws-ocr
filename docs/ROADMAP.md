@@ -330,9 +330,14 @@ a geometric guard, measured alone and together under both profiles):
 six adoptions, every one with the four UNLV sets identical. Training-side
 work on the letterheads and the '@' class was negative every time, and
 the lesson is recorded: a small fine-tune set on a converged line model
-drifts it. Next, if the work continues: the receipts' masked card numbers
-('*' would be a class with no real exemplar — the '@' lesson applies),
-then the press sets only if a shared layout fix presents itself.
+drifts it. The 'what is left' list of 2026-09-17 is worked through: the dropped
+'%' fixed (`line_keep_superset`), the masked card numbers closed ('*' in
+the classic channels mixed, unread under neural), the block touching
+words closed (three mechanisms flat). What would move the numbers next
+is data the constraint does not yet provide: a real receipt corpus with
+truth (the monospace roll fell on every line-model change), and real
+display-face lines for the letterheads. The press sets stay measured
+only.
 
 **The items, in order:**
 
@@ -362,8 +367,10 @@ then the press sets only if a shared layout fix presents itself.
    the two readings when they agree letter for letter (inert: 12 of 752
    lines, all already right) and a gap prior on the reader's space class
    from the strip's ink profile (flat on the blocks, −0.5 word on
-   legal-8). The residual is touching words, not spacing decisions with a
-   signal; it moves with the line model's data, not with a rule.
+   legal-8), then a tight-gap synthetic set (150k lines at 0.05–0.18 em
+   between words) fine-tuned into the line model: the blocks flat to the
+   decimal, receipts −2.4 word. CLOSED as the block metric's residual: a
+   rule between readings, a prior inside one and data all measured flat.
 4. **Business documents** — the word-error census by kind (2026-09-17)
    found the residual was 52–75% reading order of two-column header
    blocks, then two shapes. All repaired in both profiles the same day: a
@@ -377,8 +384,8 @@ then the press sets only if a shared layout fix presents itself.
    invoices 95.7, payslips 90.9, orders 92.8, receipts 91.3, statements
    96.3 word; then the reader's dropped '%' kept from the classic line
    (`line_keep_superset`, receipts 92.3 word, business 97.3 / 93.6). Left:
-   the touching-word residual on blocks (a tight-gap synthetic set is
-   training). Closed: the receipts' masked card numbers — '*' as a class
+   nothing on this set. Closed: the touching-word residual on blocks
+   (item 3); the receipts' masked card numbers — '*' as a class
    in the classic channels measured mixed (dev-8 +0.7, legal-8 −0.6,
    broad-30 −0.3 word) and left the masked tokens unread under the
    neural profile, the same shape as the '@' class; the reader would need

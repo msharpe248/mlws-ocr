@@ -217,7 +217,9 @@ recorded as this set's ceiling under the public-data constraint.
 Business documents went from 92.1 / 86.9 to 97.2 / 93.4 in one day of
 shape and reading-order rules found by a word-error census, and now sit
 within 3.5 word points of their own order-free recall. Newspapers and
-magazines are measured, not tuned. What is left on the roadmap is small
-and named: masked card numbers on receipts (no '*' class), a dropped '%',
-and the touching-word residual on bare blocks, which moves with the line
-model's data rather than with a rule.
+magazines are measured, not tuned. The small items that were left are
+measured and closed: the dropped '%' is fixed, the masked card numbers
+and the touching words on bare blocks each resisted the last honest
+mechanism and are recorded as residuals. What would move the numbers
+next is data the public-data constraint does not yet provide: real
+receipts with truth, and real display-face lines.
