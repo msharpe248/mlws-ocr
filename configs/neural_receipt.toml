@@ -1,7 +1,10 @@
 # The NEURAL profile for RECEIPTS and other thermal-roll or dot-matrix documents: identical to
 # neural.toml except the line reader and its judge, which carry the real receipt and form strips
 # (RESEARCH 2026-09-18). Use it when the input is a receipt; the standard profile keeps the
-# typewriter set's numbers, which this model does not.
+# typewriter set's numbers, which this model does not. For a stream of nothing but thermal-roll
+# receipts, add `line_mode = "pure"` under [stage.decode]: the reader takes every line and reads the
+# SROIE receipts at 69.7 / 38.4 against the judge's 67.2 / 35.8 (RESEARCH 2026-09-18), at a cost on
+# clean templated pages (business 97.5 / 94.7 -> 96.7 / 91.8) that the judge avoids.
 # The NEURAL engine: configs/classic.toml plus the heavier self-trained
 # networks, each added here only when it has been adopted on all four
 # evaluation sets (docs/RESEARCH.md records the measurement).  Every network
