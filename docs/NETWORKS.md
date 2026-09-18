@@ -72,6 +72,16 @@ page that is measured:
   lexicon-endorsed words (the classic classifier's flywheel);
 - `harvest_truth.py` — glyph crops labelled by alignment to the truth
   line (the pipeline's real mistakes included);
+- `harvest_boxes.py` — real line strips cut straight from a corpus's truth
+  boxes, for pages the pipeline cannot align: SROIE receipts (30,325 lines
+  from 566 receipts, `data/linesfull_sroie.npz`) and FUNSD forms (6,598
+  lines from 149 forms, `data/linesfull_funsd.npz`; `make_external_sets.py`
+  lays both corpora out, evaluation pages excluded by directory). Baseline
+  and x-height from the box's row profile, held to a line box's
+  proportions; multi-line entity boxes dropped by columns per character.
+  At real weight 3 they lifted the real receipts 7.7 characters and the
+  templated receipts 3.7 words but cost the typewriter set 2.8 words
+  (RESEARCH 2026-09-18); the weight is the dial (`train_seq.py --lines-once`);
 - `make_seq_data.py --word-gap LO HI` — lines rendered with a chosen gap
   between words; `seq_synth_tightgap.npz` (150k, 0.05–0.18 em) is kept as
   data, measured flat on the blocks as a fine-tune source (RESEARCH

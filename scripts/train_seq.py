@@ -122,6 +122,10 @@ def main():
     ap.add_argument("--hidden", type=int, default=96)
     ap.add_argument("--hold-pages", type=float, default=0.1)
     ap.add_argument("--real-weight", type=int, default=2, help="repeat real strips N times")
+    ap.add_argument("--lines-once", nargs="*", default=[],
+                    help="real strip files taken ONCE an epoch, not --real-weight times: a large new "
+                         "domain (30k SROIE receipt lines) at weight 3 cost the typewriter set 2.8 word "
+                         "(RESEARCH 2026-09-18); the same pages are held out as for --lines")
     ap.add_argument("--smoke", type=int, default=0, help="train on N windows for one epoch")
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--device", default="auto")
@@ -146,14 +150,15 @@ def main():
         tr, ho = split_pages(synth, min(args.hold_pages, 0.02), args.seed)
         train += [(synth, int(i)) for i in tr]; held_synth += [(synth, int(i)) for i in ho]
         print(f"{path}: {len(tr)} train / {len(ho)} held  ({synth.hard.mean():.1%} touching)")
-    for path in args.lines:
+    for path in list(args.lines) + list(args.lines_once):
         if not Path(path).exists():
             print(f"  (no {path}; skipped)"); continue
         real = Windows(path, "real")
         tr, ho = split_pages(real, args.hold_pages, args.seed)
-        train += [(real, int(i)) for i in tr] * args.real_weight
+        weight = 1 if path in args.lines_once else args.real_weight
+        train += [(real, int(i)) for i in tr] * weight
         held_real += [(real, int(i)) for i in ho]
-        print(f"{path}: {len(tr)} train x{args.real_weight} / {len(ho)} held on "
+        print(f"{path}: {len(tr)} train x{weight} / {len(ho)} held on "
               f"{len(set(real.pages[i] for i in ho))} pages ({real.hard.mean():.1%} hard)")
     if args.smoke:
         rng.shuffle(train); train = train[:args.smoke]
