@@ -172,6 +172,11 @@ def main():
             if r is None:
                 continue
             win, xh = r
+            # a multi-line entity box (FUNSD groups an address block as one entity)
+            # normalizes to a narrow strip for its label: fewer than 5 strip columns
+            # a character is not one line of text, nor is more than 30
+            if not 5.0 <= win.shape[1] / max(len(text), 1) <= 30.0:
+                continue
             strips.append(np.packbits(win, axis=1)); widths.append(win.shape[1])
             labels.append(text); pages.append(img.name); xhs.append(float(xh)); kept += 1
         n_pages += 1
