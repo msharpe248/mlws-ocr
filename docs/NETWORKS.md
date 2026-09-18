@@ -30,6 +30,21 @@ with character trigrams (`lang_en.npz`, `build_langmodel.py`). The
 **pure** profile runs with no network at all; **classic** uses the first
 two networks; **neural** uses all but the CNN.
 
+## Released weights
+
+Every GitHub release carries the live model files as one asset,
+`mlws-ocr-models-v<version>.tar.gz`, beside `models-manifest.json`, which
+records for each file its SHA-256, its size and what it is (the adopted
+variant, in the words of this page). `scripts/release_models.py` builds
+the pair from `data/`; `scripts/fetch_models.py` downloads the pair for a
+tag, unpacks the bundle into `data/` and refuses any file whose checksum
+disagrees. The weights are released under the repository's licence; they
+were trained on the public sources named below and on nothing else.
+
+| release | models |
+|---|---|
+| v0.2.0 (2026-09-17) | scorer `seq_en_v6c_s2`, line reader `seq_line_v7a`, judge `linechoice7_unlv`, word confidence, character GRU, prototypes, MLP, outline prototypes, lexicon, the glyph CNN (off) |
+
 ## Where the training data comes from
 
 Three sources, all public, none of them an evaluation page.

@@ -69,6 +69,7 @@ of the numbers, the shared ideas and the differences. The short form:
 
 ```sh
 python3 -m venv .venv && .venv/bin/pip install -e ".[dev]"
+.venv/bin/python scripts/fetch_models.py                      # the released model files into data/, SHA-256 checked
 .venv/bin/pytest                                              # every stage against synthetic ground truth
 .venv/bin/python scripts/make_demo_page.py                    # a degraded demo scan
 .venv/bin/mlws-ocr run configs/neural.toml demo_page.png      # read it (writes text.txt and page.hocr under runs/)
@@ -111,8 +112,11 @@ page under each profile against the accuracies recorded at adoption.
 
 ## Models and data
 
-All models live under `data/` (gitignored) and are built by the scripts
-in this repository, from three public sources: text rendered from the
+All models live under `data/` (gitignored). Every release ships them as
+one asset, `mlws-ocr-models-v<version>.tar.gz` with a manifest naming
+what each file is and its SHA-256; `scripts/fetch_models.py` downloads
+and verifies the set for the version in `pyproject.toml`. They are built
+by the scripts in this repository, from three public sources: text rendered from the
 pinned font stock and any directory of open fonts (the Google Fonts
 checkout gives 3,179 faces past the shape gate), the UNLV/ISRI
 ground-truth scans with a guard that keeps every evaluated page out of

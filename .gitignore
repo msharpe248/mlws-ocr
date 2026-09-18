@@ -12,3 +12,4 @@ theta_fit.json
 # third-party reference papers fetched for reading (copyright: not redistributed)
 docs/papers/refs/
 .zvec-grep/
+dist/
