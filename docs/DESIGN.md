@@ -538,6 +538,27 @@ blocks; legacy keeps a lead of one to two word points on both.
 The reader alone reads the dev-8 blocks at 99.0 / 97.3 and the legal-8
 blocks at 96.2 / 95.9 (RESEARCH).
 
+**Real business documents (2026-09-18).** Two public corpora with truth,
+laid out by `make_external_sets.py`: SROIE (60 evaluation receipts, real
+thermal rolls) and FUNSD (the 50 test forms at 2x). Char / word with
+recall / precision in brackets. The neural-receipt profile is
+`configs/neural_receipt.toml`: the neural profile with the line reader
+fine-tuned on the 566 harvest receipts' real strips (RESEARCH 2026-09-18).
+
+| profile | sroie | funsd |
+|---|---|---|
+| classic | 47.2 / 10.0 (28.0 / 33.0) | 35.9 / 12.2 (17.8 / 26.3) |
+| neural | 55.8 / 23.0 (52.0 / 53.2) | 53.0 / 26.7 (39.9 / 47.3) |
+| neural-receipt | **63.5 / 31.5** (58.4 / 58.1) | 54.9 / 28.5 (43.6 / 49.6) |
+| legacy Tesseract | 56.2 / 29.4 (56.1 / 55.4) | 54.8 / 32.0 (47.5 / 53.0) |
+| Tesseract LSTM | 64.0 / **40.3** (72.7 / 73.3) | **66.4 / 47.2** (66.3 / 71.5) |
+
+The receipts are faded dot-matrix print at an x-height of 7–15 px, the
+forms 72-dpi faxes; every engine reads them at two thirds or less. The
+receipt profile passes legacy Tesseract and matches the LSTM's
+characters on the receipts; the LSTM keeps its word lead, and the forms
+are a layout and a noise problem for us as much as a recognition one.
+
 **Tesseract's LSTM engine (2026-09-16; the full side-by-side is `docs/TESSERACT.md`).** The rows above it are the legacy
 engine, the project's stated reference. The LSTM rows are Tesseract 5.5.3
 with the English model a default install carries (tessdata_fast, `--oem 3`),

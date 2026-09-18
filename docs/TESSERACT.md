@@ -26,6 +26,8 @@ install carries (`tessdata_fast`).
 | business | invoices, payslips, receipts, statements, orders | **97.3 / 93.6** | 70.7 / 68.0 | 70.7 / 68.6 | ahead by 27 characters; level on bag-of-words recall (97.1 vs 97.5 / 98.0) |
 | news-8 | UNLV newspapers, measured only | 94.1 / 90.4 | 96.3 / 93.1 | **96.7 / 94.8** | behind by about 2 characters |
 | mag-8 | UNLV magazines, measured only | 76.4 / 67.1 | 87.3 / 84.7 | **87.8 / 84.4** | behind by 11 characters, layout |
+| sroie | real scanned receipts, ICDAR 2019 (60) | 55.8 / 23.0; receipt profile **63.5 / 31.5** | 56.2 / 29.4 | **64.0 / 40.3** | receipt profile level in characters, 9 words behind |
+| funsd | real scanned forms, FUNSD (50, at 2x) | 53.0 / 26.7 | 54.8 / 32.0 | **66.4 / 47.2** | behind by 12 characters: noise and layout |
 | blocks | broad-30's text zones read alone, no layout | 98.2 / 94.9 | 98.2 / 96.6 | **98.5 / 96.5** | character parity, 1.6 word behind |
 
 Reading the table honestly:

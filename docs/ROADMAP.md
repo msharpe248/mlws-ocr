@@ -339,6 +339,18 @@ truth (the monospace roll fell on every line-model change), and real
 display-face lines for the letterheads. The press sets stay measured
 only.
 
+**Real business documents (2026-09-18).** SROIE receipts and FUNSD forms
+are in as evaluation and harvest sets (`make_external_sets.py`,
+`harvest_boxes.py`). First contact: every engine at two thirds or less;
+the LSTM leads. Real receipt strips in the line model lift the receipts
+7.7 characters and the templated receipts 3.7 words at real weight 3 but
+cost the typewriter set 2.8 words; at weight 1 half the gain and still a
+1.6 loss. The weight-3 model ships as `configs/neural_receipt.toml`; the
+standard profile is unchanged. Under test: `seq_line_v11a`, the full v7a
+recipe with the real sets among its harvests, to see whether one model
+holds both domains. Open after that: the forms (a noise and layout
+problem), and the LSTM's nine-word lead on receipts.
+
 **The items, in order:**
 
 1. ~~The '@' class for receipts~~ — CLOSED 2026-09-16. Three ways
