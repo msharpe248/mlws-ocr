@@ -96,6 +96,9 @@ class HybridDecode(BeamDecode):
                                      # words when confident and endorsed; the flag is
                                      # then cleared so the output keeps the line
         "line_graphic_conf": 0.6,
+        "line_pure_keep_numeric": False, # in pure mode, a data line (half its classic words numeric formats)
+                                         # keeps the classic reading: the reader takes every text line of a
+                                         # receipt, the classic decoder keeps its amounts (receipt profile)
         "line_keep_superset": False, # when the reader's text is the classic text with characters
                                      # DELETED (a strict subsequence) and every classic word is
                                      # endorsed, keep the classic line: the reader cannot have seen
@@ -166,6 +169,10 @@ class HybridDecode(BeamDecode):
                     n_taken += 1; n_graphic += 1
                 continue
             if p["line_mode"] == "pure":
+                old = ln.get("words", [])
+                if p["line_pure_keep_numeric"] and old and \
+                        sum(1 for w in old if w.get("numeric_format")) >= max(1, len(old) // 2):
+                    continue
                 ln["words"] = words; n_taken += 1
                 continue
             old = ln.get("words", [])
@@ -190,37 +197,8 @@ class HybridDecode(BeamDecode):
                 from .linechoice import features
                 ln["line_alt"] = {"classic": [dict(w) for w in old], "reader": words,
                                   "x": features(old, words, nll_old, nll_new).tolist()}
-            take = False
-            rule = p["line_choose_rule"]
-            if rule in ("calibrated", "union") and p["line_choice_path"]:
-                from .linechoice import features
-                judge = self._load_choice(p["line_choice_path"])
-                x = features(old, words, nll_old, nll_new)
-                take = judge.p_reader(x) >= p["line_choice_thresh"]
-            if rule in ("repair", "union") and not take:
-                # The reader is a repair for lines the classic decoder could
-                # not read: a line whose every word is endorsed is left
-                # alone, and a data line (mostly numbers) too -- the reader
-                # has seen few of those and lost the business set's table
-                # rows under both looser rules (2026-09-13).  The reader's
-                # own likelihood is not the judge because it prefers its
-                # own reading by construction (measured worse than the
-                # endorsed-count rule on every set).
-                old_unend = [w for w in old if not (w.get("in_lexicon") or w.get("numeric_format"))]
-                numeric_line = sum(1 for w in old if w.get("numeric_format")) >= max(1, len(old) // 2)
-                take = (bool(old_unend) and not numeric_line and new_end > old_end
-                        and len(new_text) >= p["line_keep_frac"] * len(old_text))
-            elif p["line_choose_rule"] == "likelihood":
-                # both texts under the reader's own posterior of the whole
-                # line (measured worse than the endorsed count: the reader
-                # prefers its own reading by construction)
-                if nll_old is not None and np.isfinite(nll_old) and np.isfinite(nll_new):
-                    take = (nll_new + p["line_choose_margin"] * len(new_text) < nll_old
-                            and new_end >= old_end)
-            else:
-                new_conf = float(np.mean([w["confidence"] for w in words]))
-                old_conf = float(np.mean([w.get("confidence", 0.0) for w in old]))
-                take = new_end > old_end or (new_end == old_end and new_conf > old_conf + p["line_choose_margin"])
+            take = self._choose_line(old, words, old_text, new_text, old_end, new_end,
+                                     nll_old, nll_new, p)
             if take:
                 ln["words"] = words; n_taken += 1
         if p["line_join_spaced"]:
@@ -239,6 +217,49 @@ class HybridDecode(BeamDecode):
         debug.scalars["graphic_lines_read"] = n_graphic
         debug.scalars["superset_kept"] = n_superset
         return out, debug
+
+    def _choose_line(self, old, words, old_text, new_text, old_end, new_end,
+                     nll_old, nll_new, p) -> bool:
+        """Does the reader's line replace the classic one?  One rule, named
+        by ``line_choose_rule``; each returns its own decision and nothing
+        overwrites it (before 2026-09-18 an if/elif/else chain here had no
+        case for "calibrated" and fell through to the endorsed-count rule,
+        so the fitted judge never decided a line -- caught when three
+        different judges gave identical numbers; the re-measurement is the
+        RESEARCH row of that date)."""
+        rule = p["line_choose_rule"]
+        if rule in ("calibrated", "union") and p["line_choice_path"]:
+            from .linechoice import features
+            judge = self._load_choice(p["line_choice_path"])
+            x = features(old, words, nll_old, nll_new)
+            take = judge.p_reader(x) >= p["line_choice_thresh"]
+            if rule == "calibrated" or take:
+                return take
+        if rule in ("repair", "union"):
+            # The reader is a repair for lines the classic decoder could
+            # not read: a line whose every word is endorsed is left
+            # alone, and a data line (mostly numbers) too -- the reader
+            # has seen few of those and lost the business set's table
+            # rows under both looser rules (2026-09-13).  The reader's
+            # own likelihood is not the judge because it prefers its
+            # own reading by construction (measured worse than the
+            # endorsed-count rule on every set).
+            old_unend = [w for w in old if not (w.get("in_lexicon") or w.get("numeric_format"))]
+            numeric_line = sum(1 for w in old if w.get("numeric_format")) >= max(1, len(old) // 2)
+            return (bool(old_unend) and not numeric_line and new_end > old_end
+                    and len(new_text) >= p["line_keep_frac"] * len(old_text))
+        if rule == "likelihood":
+            # both texts under the reader's own posterior of the whole
+            # line (measured worse than the endorsed count: the reader
+            # prefers its own reading by construction)
+            if nll_old is not None and np.isfinite(nll_old) and np.isfinite(nll_new):
+                return (nll_new + p["line_choose_margin"] * len(new_text) < nll_old
+                        and new_end >= old_end)
+            return False
+        # "endorsed": the count of lexicon- or format-endorsed words, confidence on a tie
+        new_conf = float(np.mean([w["confidence"] for w in words]))
+        old_conf = float(np.mean([w.get("confidence", 0.0) for w in old]))
+        return new_end > old_end or (new_end == old_end and new_conf > old_conf + p["line_choose_margin"])
 
     @staticmethod
     def _is_subsequence(short: str, long: str) -> bool:

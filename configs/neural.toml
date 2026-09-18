@@ -72,7 +72,10 @@ line_model_path = "data/seq_line_en.npz"   # the LINE model (seq_line_v7a, 2026-
                                            # 98.9/97.2).  The word scorer (seq_path) stays the judge of the
                                            # classic variants.
 line_mode = "choose"
-line_choose_rule = "calibrated"           # decode/linechoice.py: P(the reading is the better text), fitted
+line_choose_rule = "calibrated"  # the fitted judge (decode/linechoice.py). Until 2026-09-18 a fall-through in the
+                               # choice chain overwrote its decision with the endorsed count; with the judge
+                               # deciding: dev-8 93.4 -> 94.5 word, broad-30 90.2 -> 91.0, legal-8 89.1 -> 90.2,
+                               # modern 88.8 -> 90.5, business 93.6 -> 95.1; mag-8 -3, blocks -1 char
 line_choice_path = "data/linechoice.npz"   # on 2,456 line pairs against this reader (train_line_choice.py)
 line_choice_thresh = 0.5
 line_max_cols = 1400

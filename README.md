@@ -28,20 +28,20 @@ are in `docs/DESIGN.md` §8.
 
 | set | what it is | classic | neural | legacy Tesseract | Tesseract LSTM |
 |---|---|---|---|---|---|
-| dev-8 | UNLV business letters, tuning set | 95.2 / 89.3 | **97.0 / 93.4** | 95.0 / 91.7 | 95.5 / 93.1 |
-| broad-30 | UNLV business letters, the headline set | 91.8 / 82.0 | 94.8 / 90.2 | 95.5 / 91.7 | **96.0 / 92.7** |
-| legal-8 | UNLV legal pleadings (typewriter) | 91.7 / 81.2 | **94.8 / 89.1** | 90.4 / 88.7 | 90.3 / 86.9 |
-| modern | born-digital PDFs and templated business letters | 91.4 / 82.6 | **93.8 / 88.8** | 75.4 / 70.8 | 74.2 / 66.6 |
-| business | invoices, payslips, receipts, statements, purchase orders | 95.2 / 85.7 | **97.3 / 93.6** | 70.7 / 68.0 | 70.7 / 68.6 |
-| news-8 | UNLV newspapers (measured, not tuned) | 92.6 / 81.8 | 94.1 / 90.4 | 96.3 / 93.1 | **96.7 / 94.8** |
-| mag-8 | UNLV magazines (measured, not tuned) | 65.3 / 41.2 | 76.4 / 67.1 | **87.3 / 84.7** | 87.8 / 84.4 |
-| sroie | real scanned receipts, ICDAR 2019 (neural-receipt profile: **63.5 / 31.5**) | 47.2 / 10.0 | 55.8 / 23.0 | 56.2 / 29.4 | **64.0 / 40.3** |
+| dev-8 | UNLV business letters, tuning set | 95.2 / 89.3 | **97.4 / 94.5** | 95.0 / 91.7 | 95.5 / 93.1 |
+| broad-30 | UNLV business letters, the headline set | 91.8 / 82.0 | 95.1 / 91.0 | 95.5 / 91.7 | **96.0 / 92.7** |
+| legal-8 | UNLV legal pleadings (typewriter) | 91.7 / 81.2 | **94.4 / 90.2** | 90.4 / 88.7 | 90.3 / 86.9 |
+| modern | born-digital PDFs and templated business letters | 91.4 / 82.6 | **94.1 / 90.5** | 75.4 / 70.8 | 74.2 / 66.6 |
+| business | invoices, payslips, receipts, statements, purchase orders | 95.2 / 85.7 | **97.5 / 95.1** | 70.7 / 68.0 | 70.7 / 68.6 |
+| news-8 | UNLV newspapers (measured, not tuned) | 92.6 / 81.8 | 94.8 / 91.9 | 96.3 / 93.1 | **96.7 / 94.8** |
+| mag-8 | UNLV magazines (measured, not tuned) | 65.3 / 41.2 | 73.7 / 64.1 | **87.3 / 84.7** | 87.8 / 84.4 |
+| sroie | real scanned receipts, ICDAR 2019 (neural-receipt profile: **67.2 / 35.8**) | 47.2 / 10.0 | 55.7 / 22.9 | 56.2 / 29.4 | **64.0 / 40.3** |
 | funsd | real scanned forms, FUNSD, at 2x | 35.9 / 12.2 | 53.0 / 26.7 | 54.8 / 32.0 | **66.4 / 47.2** |
-| blocks | a paragraph handed in alone, no layout (broad-30's text zones) | 93.4 / 84.3 | 98.2 / 94.9 | **98.2 / 96.6** | 98.5 / 96.5 |
+| blocks | a paragraph handed in alone, no layout (broad-30's text zones) | 93.4 / 84.3 | 97.2 / 94.6 | **98.2 / 96.6** | 98.5 / 96.5 |
 
 On the tabular business pages Tesseract reads by column and pays the
 edit distance for the order; there, the bag-of-words recall is the
-recognition comparison (neural 97.1, legacy 97.5). The two real corpora
+recognition comparison (neural 97.0, legacy 97.5). The two real corpora
 are hard for every engine — faded dot-matrix receipts, 72-dpi faxed
 forms — and are where the work now is; `docs/TESSERACT.md` has the
 detail. The whole run of
@@ -59,8 +59,8 @@ of the numbers, the shared ideas and the differences. The short form:
   distance, level on bag-of-words recall), and on the letter tuning set.
   Tesseract's page analysis is the reason on all three: margins and hole
   punches read as text, templated letters broken, tables read by column.
-- **Behind on the headline letter set** by 0.7 characters / 1.5 words
-  against legacy and 1.2 / 2.5 against the LSTM. Handed the same text as
+- **Behind on the headline letter set** by 0.4 characters / 0.7 words
+  against legacy and 0.9 / 1.7 against the LSTM. Handed the same text as
   bare blocks the reader is at character parity, so the gap is letterhead
   display lines and word spacing, not the recognizer.
 - **Behind on newspapers and magazines**, which are measured and not
@@ -108,7 +108,7 @@ profile, kept as the reference; the neural profile is the accurate one.
 | **classic** | `configs/classic.toml` | the MLP second opinion (53k) and the character GRU (258k) | the feature engine: nearest-prototype, outline and MLP channels over explicit glyph features, a beam decoder with lexicon and language model, per-document adaptation. Its row is the regression guard after every neural adoption. |
 | **pure** | `configs/pure.toml` | none | classic with both networks off; what the feature engine reads on its own |
 | **neural** | `configs/neural.toml` | classic's, plus the word-strip CRNN+CTC scorer as the judge of the classic word variants, the line reader (every line read end to end by the line model), the fitted judge that decides each line between the two readings, and the word-confidence calibrator | the engine to use |
-| **neural-receipt** | `configs/neural_receipt.toml` | neural's, with the line reader fine-tuned on 30k real SROIE receipt lines and its judge refitted | receipts and other thermal-roll or dot-matrix documents: real receipts 63.5 / 31.5 against neural's 55.8 / 23.0, at a cost on typewriter pages the standard profile does not pay |
+| **neural-receipt** | `configs/neural_receipt.toml` | neural's, with the line reader fine-tuned on 30k real SROIE receipt lines and its judge refitted | receipts and other thermal-roll or dot-matrix documents: real receipts 67.2 / 35.8 against neural's 55.7 / 22.9, at a cost on typewriter pages the standard profile does not pay |
 | **neural-line** | `configs/neural_line.toml` | the same, as the experiment profile for a new line model or choice rule | development |
 
 `tests/test_profiles.py` keeps the profiles honest (pure differs from

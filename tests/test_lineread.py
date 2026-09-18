@@ -75,3 +75,24 @@ def test_subsequence_means_characters_deleted_only():
     assert not sub("TAX 8.25%", "TAX 8.25")          # longer: not a deletion
     assert not sub("TAX 8.26", "TAX 8.25%")          # a substitution, not a deletion
     assert not sub("TAX 8.25%", "TAX 8.25%")         # equal texts never reach the rule
+
+
+def test_calibrated_rule_is_the_judge_and_nothing_else(tmp_path):
+    """Before 2026-09-18 the choice chain fell through to the endorsed-count rule after the judge
+    had decided; the judge's decision must stand, whichever way the counts point."""
+    import numpy as np
+    from mlws_ocr.decode.lineread import HybridDecode
+    from mlws_ocr.decode.linechoice import LineChoice, FEATURE_NAMES
+    dec = HybridDecode()
+    yes = tmp_path / "yes.npz"; no = tmp_path / "no.npz"
+    LineChoice(np.array([30.0] + [0.0] * (len(FEATURE_NAMES) - 1))).save(yes)    # P(reader) ~ 1
+    LineChoice(np.array([-30.0] + [0.0] * (len(FEATURE_NAMES) - 1))).save(no)    # P(reader) ~ 0
+    old = [{"text": "Dear", "in_lexicon": True, "confidence": 0.9}, {"text": "Sir", "in_lexicon": True, "confidence": 0.9}]
+    new = [{"text": "Dxar", "in_lexicon": False, "confidence": 0.3}, {"text": "Sir", "in_lexicon": True, "confidence": 0.3}]
+    p = dict(HybridDecode.defaults, line_choose_rule="calibrated", line_choice_thresh=0.5)
+    # the counts say classic (2 endorsed vs 1), the judge says reader: the judge wins
+    assert dec._choose_line(old, new, "Dear Sir", "Dxar Sir", 2, 1, None, None, dict(p, line_choice_path=str(yes))) is True
+    # the counts say reader, the judge says classic: the judge wins
+    assert dec._choose_line(new, old, "Dxar Sir", "Dear Sir", 1, 2, None, None, dict(p, line_choice_path=str(no))) is False
+    # the endorsed rule, by name, follows the counts
+    assert dec._choose_line(new, old, "Dxar Sir", "Dear Sir", 1, 2, None, None, dict(p, line_choose_rule="endorsed")) is True
