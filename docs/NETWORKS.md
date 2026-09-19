@@ -44,6 +44,7 @@ were trained on the public sources named below and on nothing else.
 | release | models |
 |---|---|
 | v0.2.0 (2026-09-17) | scorer `seq_en_v6c_s2`, line reader `seq_line_v7a`, judge `linechoice7_unlv`, word confidence, character GRU, prototypes, MLP, outline prototypes, lexicon, the glyph CNN (off) |
+| v0.3.0 (2026-09-19) | the same ten, plus the receipt profile's line reader `seq_line_receipt` (= v10a, real SROIE strips) and its judge `linechoice_receipt`; the judge fix of 2026-09-18 is in the code, not the weights |
 
 ## Where the training data comes from
 

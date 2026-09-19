@@ -31,6 +31,8 @@ MODELS = {
     "seq_line_en.npz": "line reader CRNN+CTC = seq_line_v7a (train_seq.py; long synthetic lines + whole UNLV lines)",
     "linechoice.npz": "logistic judge between the classic and the reader's line (train_line_choice.py)",
     "wordconf.npz": "logistic word-confidence calibrator, P(correct) per word in the hOCR (train_wordconf.py)",
+    "seq_line_receipt.npz": "line reader of the RECEIPT profile = seq_line_v10a: the live reader fine-tuned on 30k real SROIE receipt lines (configs/neural_receipt.toml)",
+    "linechoice_receipt.npz": "the receipt profile's judge = linechoice10, refitted with receipt line pairs",
 }
 
 

@@ -346,10 +346,15 @@ the LSTM leads. Real receipt strips in the line model lift the receipts
 7.7 characters and the templated receipts 3.7 words at real weight 3 but
 cost the typewriter set 2.8 words; at weight 1 half the gain and still a
 1.6 loss. The weight-3 model ships as `configs/neural_receipt.toml`; the
-standard profile is unchanged. Under test: `seq_line_v11a`, the full v7a
-recipe with the real sets among its harvests, to see whether one model
-holds both domains. Open after that: the forms (a noise and layout
-problem), and the LSTM's nine-word lead on receipts.
+standard profile is unchanged. Then `seq_line_v11a`, the full v7a recipe
+with the real sets among its harvests: real receipts 55.7 / 22.9 → 65.0 /
+33.8 under the standard profile, blocks +0.8, legal-8 −0.6 word, modern
+−0.3 — closer to holding than any fine-tune; its second seed decides
+(2026-09-19). The same day found the fitted line judge had never been in
+effect (a fall-through to the endorsed count since 2026-09-13); fixed, and
+with the judge deciding every standard set gained 0.8–1.7 word — the
+headline gap to legacy is 0.4 character / 0.7 word. Open: the forms (a
+noise and layout problem), and the LSTM's word lead on receipts.
 
 **The items, in order:**
 
