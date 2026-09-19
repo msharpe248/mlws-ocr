@@ -349,8 +349,11 @@ cost the typewriter set 2.8 words; at weight 1 half the gain and still a
 standard profile is unchanged. Then `seq_line_v11a`, the full v7a recipe
 with the real sets among its harvests: real receipts 55.7 / 22.9 → 65.0 /
 33.8 under the standard profile, blocks +0.8, legal-8 −0.6 word, modern
-−0.3 — closer to holding than any fine-tune; its second seed decides
-(2026-09-19). The same day found the fitted line judge had never been in
+−0.3; its second seed agrees (receipts 65.0 / 35.0, blocks +1.2, modern
+−0.5, legal-8 −0.1 word / −0.4 char). Not adopted under the four-set rule;
+the trade — twelve word points on real receipts by default against half a
+point on modern and half a character on the typewriter set — is put to the
+owner (RESEARCH 2026-09-19). The same day found the fitted line judge had never been in
 effect (a fall-through to the endorsed count since 2026-09-13); fixed, and
 with the judge deciding every standard set gained 0.8–1.7 word — the
 headline gap to legacy is 0.4 character / 0.7 word. Open: the forms (a
