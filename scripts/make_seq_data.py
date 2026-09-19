@@ -35,7 +35,9 @@ _G: dict = {}
 
 
 def _init(corpus_dirs, fonts, x_heights=None, x_weights=None, words=(2, 5), take=(1, 3),
-          max_width=MAX_WIDTH, caps_frac=0.10, word_gap=None):
+          max_width=MAX_WIDTH, caps_frac=0.10, word_gap=None, lowres_frac=0.0):
+    import mlws_ocr.factory.words as _w
+    _w.LOWRES_FRAC = float(lowres_frac)
     _G["words"], _G["probs"] = corpus_words(corpus_dirs)
     _G["word_gap"] = tuple(word_gap) if word_gap else None   # em range for the gap between words; None = the face's space
     _G["fonts"] = fonts
@@ -95,6 +97,9 @@ def main():
     ap.add_argument("--x-weights", type=float, nargs="+", default=list(X_HEIGHT_WEIGHTS))
     ap.add_argument("--caps-frac", type=float, default=0.10,
                     help="share of words rendered in capitals (display and letterhead sets want more)")
+    ap.add_argument("--lowres-frac", type=float, default=0.0,
+                    help="share of degraded windows rendered as a low-resolution scan (downsample 1.6-3x "
+                         "then back): the 72-dpi fax forms of FUNSD read at 2x (RESEARCH 2026-09-19)")
     ap.add_argument("--word-gap", type=float, nargs=2, default=None, metavar=("LO", "HI"),
                     help="gap between words in em, sampled per line (default: the face's own space); "
                          "tight gaps (0.05 0.18) render TOUCHING WORDS, the block metric's split/merge residual")
@@ -118,7 +123,8 @@ def main():
     done = 0
     with mp.Pool(args.workers, initializer=_init,
                  initargs=(args.corpus, fonts, args.x_heights, args.x_weights,
-                           args.words, args.take, args.max_width, args.caps_frac, args.word_gap)) as pool:
+                           args.words, args.take, args.max_width, args.caps_frac, args.word_gap,
+                           args.lowres_frac)) as pool:
         for chunk in pool.imap_unordered(_chunk, jobs):
             for pk, w, lab, tch, name, xh, tr in chunk:
                 packed.append(pk); widths.append(w); labels.append(lab)

@@ -84,6 +84,11 @@ page that is measured:
   At real weight 3 they lifted the real receipts 7.7 characters and the
   templated receipts 3.7 words but cost the typewriter set 2.8 words
   (RESEARCH 2026-09-18); the weight is the dial (`train_seq.py --lines-once`);
+- `make_seq_data.py --lowres-frac F` — a share of degraded windows rendered
+  as low-resolution scans (`Degradation.downsample`: area-average down by
+  1.6–3x, bilinear back, then the optics blur), the regime of a 72-dpi
+  fax read at 2x; `seq_synth_lowres.npz` (150k lines) feeds `seq_line_v12a`
+  (RESEARCH 2026-09-19);
 - `make_seq_data.py --word-gap LO HI` — lines rendered with a chosen gap
   between words; `seq_synth_tightgap.npz` (150k, 0.05–0.18 em) is kept as
   data, measured flat on the blocks as a fine-tune source (RESEARCH

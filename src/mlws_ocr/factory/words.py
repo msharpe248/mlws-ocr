@@ -374,6 +374,9 @@ X_HEIGHTS = (10, 12, 14, 18, 22, 26, 32)
 X_HEIGHT_WEIGHTS = (0.06, 0.09, 0.15, 0.22, 0.20, 0.16, 0.12)
 
 
+LOWRES_FRAC = 0.0   # share of degraded windows scanned at low resolution; make_seq_data --lowres-frac sets it
+
+
 def sample_theta(rng: np.random.Generator, x_height: float) -> Degradation:
     """A scanner theta for a line whose x-height is ``x_height`` px.
 
@@ -391,8 +394,13 @@ def sample_theta(rng: np.random.Generator, x_height: float) -> Degradation:
     thr = float(rng.uniform(0.40, 0.60))
     fg = float(rng.choice([0.0, 0.03, 0.06, 0.10], p=[0.35, 0.3, 0.2, 0.15]))
     bg = float(rng.choice([0.0, 0.0002, 0.0005], p=[0.6, 0.25, 0.15]))
+    # a low-resolution scan (72-150 dpi, upscaled): the x-height at scan time
+    # is x_height / downsample, so the factor is held to leave at least 4 px
+    down = 0.0
+    if rng.random() < LOWRES_FRAC and x_height >= 8:
+        down = float(rng.uniform(1.6, min(3.0, x_height / 4.0)))
     return Degradation(blur_sigma=sigma, threshold=thr, flip_fg=fg, flip_bg=bg,
-                       seed=int(rng.integers(0, 2**31 - 1)))
+                       downsample=down, seed=int(rng.integers(0, 2**31 - 1)))
 
 
 def sample_tracking(rng: np.random.Generator, italic: bool) -> float:

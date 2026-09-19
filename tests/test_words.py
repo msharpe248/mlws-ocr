@@ -97,3 +97,14 @@ def test_negative_bearing_glyph_at_the_margin_does_not_crash():
     assert lr.owner.shape == lr.gray.shape
     assert (lr.owner > 0).any()
     assert set(np.unique(lr.owner)) <= {0, 1, 2, 4, 5}
+
+
+def test_lowres_degradation_softens_and_keeps_shape():
+    import numpy as np
+    from mlws_ocr.factory.synth import Degradation, degrade
+    img = np.ones((40, 120), np.float32); img[15:25, 20:22] = 0.0   # a 2-px vertical stroke
+    out = degrade(img, Degradation(downsample=2.5))
+    assert out.shape == img.shape
+    assert 0.0 < out[20, 20] < 1.0            # the stroke is gray now, not black
+    assert out[20, 60] > 0.95                 # paper stays paper
+    assert not Degradation(downsample=2.0).is_identity()

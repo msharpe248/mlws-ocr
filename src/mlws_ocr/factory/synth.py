@@ -28,13 +28,18 @@ class Degradation:
     threshold: float = 0.0       # if >0: hard-binarize after blur, as a
                                  # bitonal scanner/fax does (the dominant
                                  # degradation in the UNLV 3B sets)
+    downsample: float = 0.0      # if >1: the page was scanned at 1/downsample
+                                 # of the rendering resolution and upscaled back
+                                 # (a 72-dpi fax read at 2x: FUNSD, RESEARCH
+                                 # 2026-09-19) -- area-average down, bilinear up,
+                                 # before the optics blur
     flip_fg: float = 0.0         # Kanungo: base P(ink pixel -> paper)
     flip_bg: float = 0.0         # Kanungo: base P(paper pixel -> ink)
     flip_decay: float = 1.0      # decay rate of flip prob with edge distance
     seed: int = 0
 
     def is_identity(self) -> bool:
-        return (self.skew_deg == 0 and self.blur_sigma == 0
+        return (self.skew_deg == 0 and self.blur_sigma == 0 and self.downsample == 0
                 and self.illum_amplitude == 0 and self.threshold == 0
                 and self.flip_fg == 0 and self.flip_bg == 0)
 
@@ -124,6 +129,18 @@ def degrade(img: np.ndarray, theta: Degradation) -> np.ndarray:
         f = 0.5 + 0.25 * (np.sin(2 * np.pi * xx / theta.illum_period + phase_x)
                           + np.sin(2 * np.pi * yy / theta.illum_period + phase_y))
         out = out * (1.0 - theta.illum_amplitude * f)
+
+    if theta.downsample > 1.0:
+        # a low-resolution scan: average over downsample x downsample source
+        # pixels (the sensor integrates), then resample back to the rendering
+        # grid as a viewer or a 2x preprocessing step would
+        h, w = out.shape
+        small = ndimage.zoom(out, 1.0 / theta.downsample, order=1)
+        small = np.clip(small, 0.0, 1.0)
+        out = ndimage.zoom(small, (h / small.shape[0], w / small.shape[1]), order=1)
+        out = np.clip(out[:h, :w], 0.0, 1.0)
+        if out.shape != (h, w):
+            pad = np.ones((h, w), np.float32); pad[:out.shape[0], :out.shape[1]] = out; out = pad
 
     if theta.blur_sigma != 0.0:
         out = ndimage.gaussian_filter(out, theta.blur_sigma)
