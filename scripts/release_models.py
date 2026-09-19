@@ -28,11 +28,9 @@ MODELS = {
     "outline_protos.npz": "outline-segment prototypes for the outline channel (build_outline_protos.py)",
     "cnn.npz": "glyph CNN, kept OFF in every profile; shipped for the record (train_cnn.py)",
     "seq_en.npz": "word-strip CRNN+CTC scorer = seq_en_v6c_s2 (train_seq.py; 615 faces, five UNLV harvests at real weight 3)",
-    "seq_line_en.npz": "line reader CRNN+CTC = seq_line_v7a (train_seq.py; long synthetic lines + whole UNLV lines)",
-    "linechoice.npz": "logistic judge between the classic and the reader's line (train_line_choice.py)",
+    "seq_line_en.npz": "line reader CRNN+CTC = seq_line_v11s2 (train_seq.py; long synthetic lines + whole UNLV, SROIE receipt and FUNSD form lines)",
+    "linechoice.npz": "logistic judge between the classic and the reader's line = linechoice11s2 (train_line_choice.py)",
     "wordconf.npz": "logistic word-confidence calibrator, P(correct) per word in the hOCR (train_wordconf.py)",
-    "seq_line_receipt.npz": "line reader of the RECEIPT profile = seq_line_v10a: the live reader fine-tuned on 30k real SROIE receipt lines (configs/neural_receipt.toml)",
-    "linechoice_receipt.npz": "the receipt profile's judge = linechoice10, refitted with receipt line pairs",
 }
 
 

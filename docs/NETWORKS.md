@@ -45,6 +45,7 @@ were trained on the public sources named below and on nothing else.
 |---|---|
 | v0.2.0 (2026-09-17) | scorer `seq_en_v6c_s2`, line reader `seq_line_v7a`, judge `linechoice7_unlv`, word confidence, character GRU, prototypes, MLP, outline prototypes, lexicon, the glyph CNN (off) |
 | v0.3.0 (2026-09-19) | the same ten, plus the receipt profile's line reader `seq_line_receipt` (= v10a, real SROIE strips) and its judge `linechoice_receipt`; the judge fix of 2026-09-18 is in the code, not the weights |
+| v0.4.0 (2026-09-19) | ten files again: line reader `seq_line_v11s2` (the v7a recipe with the real SROIE and FUNSD lines among its harvests) and judge `linechoice11s2` replace v7a and linechoice7; the receipt profile and its two files are retired |
 
 ## Where the training data comes from
 
@@ -230,21 +231,33 @@ a 1,400-column line.
 
 **Data.** The word windows above, two long synthetic sets (two to ten
 words, up to 1,700 columns; `make_seq_data.py --words 3 8 --take 2 6
---max-width 1400`), and 15,549 real whole lines with the truth line as
-label (`harvest_lines.py --line-out`, five UNLV sets), real strips
-repeated three times an epoch.
+--max-width 1400`), and real whole lines with the truth line as label:
+15,549 from the five UNLV sets (`harvest_lines.py --line-out`), 30,325
+from the SROIE receipts and 6,598 from the FUNSD forms cut straight from
+their truth boxes (`harvest_boxes.py`); real strips repeated three times
+an epoch. The live model is `seq_line_v11s2` (2026-09-19); its
+predecessor `seq_line_v7a` had the UNLV lines only.
 
 **Training.** As the word scorer, initialized from the long-window model
-and run eight epochs (531 minutes on the GPU). Judged first on the block
-metric (`eval_blocks.py`, `--set decode.line_mode=pure`) — the reader
-alone on a paragraph — then on every set with the judge.
+and run eight epochs (614 minutes on the GPU), two seeds. Judged first on
+the block metric (`eval_blocks.py`, `--set decode.line_mode=pure`) — the
+reader alone on a paragraph — then on every set with the judge. Adding
+the real receipt lines by FINE-TUNING the converged v7a cost the
+typewriter set 2.8 words at real weight 3 and 1.6 at weight 1; the full
+run from the pre-line init carries them at 0.4 characters (RESEARCH
+2026-09-18/19): a new real domain enters through the recipe, not through
+a fine-tune.
 
 ```sh
 .venv/bin/python scripts/make_seq_data.py --out data/seq_synth_gfonts_long.npz --n 150000 --no-stock --font-dirs /path/to/google-fonts --words 3 8 --take 2 6 --max-width 1400
 .venv/bin/python scripts/harvest_lines.py data/unlv/bus.3B --pages 170 --out /tmp/words.npz --line-out data/linesfull_en.npz   # and the other sets
 .venv/bin/python scripts/train_seq.py --backend torch --init data/seq_en_v5s1.npz \
     --synth data/seq_synth_v1.npz data/seq_synth_gfonts_v1.npz data/seq_synth_gfonts_long.npz data/seq_synth_long2.npz \
-    --lines data/lines_*.npz data/linesfull_*.npz --real-weight 3 --epochs 8 --batch 32 --out data/seq_line_v7.npz
+    --lines data/lines_*.npz data/linesfull_*.npz --real-weight 3 --epochs 8 --batch 32 --seed 2 --out data/seq_line_v11.npz
+# linesfull_*.npz includes the SROIE and FUNSD box harvests:
+.venv/bin/python scripts/make_external_sets.py --sroie /path/ICDAR-2019-SROIE/data --funsd /path/funsd/dataset --out data/ext
+.venv/bin/python scripts/harvest_boxes.py --sroie /path/ICDAR-2019-SROIE/data --eval-dir data/ext/sroie/eval --out data/linesfull_sroie.npz
+.venv/bin/python scripts/harvest_boxes.py --funsd /path/funsd/dataset --eval-dir data/ext/funsd/eval --out data/linesfull_funsd.npz --scale 2
 ```
 
 ### Word-confidence calibrator — `decode/wordconf.py`

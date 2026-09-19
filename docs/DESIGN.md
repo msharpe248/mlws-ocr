@@ -441,7 +441,7 @@ with the MLP and the GRU off:
 |---|---|---|---|---|
 | classic | 95.2 / 89.3 | 91.8 / 82.0 (86.3 / 89.2) | 91.7 / 81.2 | 91.4 / 82.6 (86.1 / 90.4) |
 | pure | 94.8 / 88.0 | 91.0 / 79.3 (83.0 / 86.2) | 90.9 / 78.0 | 88.2 / 77.1 (82.4 / 86.7) |
-| neural | 97.4 / 94.5 | 95.1 / 91.0 (94.3 / 95.4) | 94.4 / 90.2 | 94.1 / 90.5 (92.8 / 96.9) |
+| neural | 97.4 / 94.6 | 95.1 / 91.1 (94.6 / 95.3) | 94.0 / 90.1 | 93.9 / 90.0 (92.5 / 96.5) |
 | legacy Tesseract | 95.0 / 91.7 | 95.5 / 91.7 (96.3 / 94.2) | 90.4 / 88.7 | 75.4 / 70.8 (88.9 / 95.7) |
 | Tesseract LSTM (5.5.3, tessdata_fast) | 95.5 / 93.1 (97.1 / 96.8) | 96.0 / 92.7 (96.7 / 95.4) | 90.3 / 86.9 (98.8 / 90.9) | 74.2 / 66.6 (89.5 / 91.6) |
 
@@ -511,7 +511,7 @@ magazine / newspaper) are measured but not tuned on and not harvested
 | profile | news-8 | mag-8 |
 |---|---|---|
 | classic | 92.6 / 81.8 | 65.3 / 41.2 |
-| neural | 94.8 / 91.9 (recall 95.8, precision 95.3) | 73.7 / 64.1 (88.0 / 85.3) |
+| neural | 95.4 / 92.5 (recall 96.1, precision 95.2) | 77.0 / 68.5 (91.8 / 86.3) |
 | legacy Tesseract | 96.3 / 93.1 (97.5 / 94.4) | 87.3 / 84.7 (95.9 / 90.5) |
 | Tesseract LSTM | 96.7 / 94.8 (98.6 / 95.7) | 87.8 / 84.4 (97.4 / 90.5) |
 
@@ -525,7 +525,7 @@ by column blocks and pays the edit distance for the order:
 | profile | business | blocks dev-8 (pooled) | blocks legal-8 | blocks broad-30 |
 |---|---|---|---|---|
 | classic | 95.2 / 85.7 (88.8 / 89.8) | 97.2 / 93.3 | 92.7 / 86.7 | 93.4 / 84.3 |
-| neural | 97.5 / 95.1 (97.0 / 98.2) | 99.1 / 97.6 | 95.9 / 95.1 | 97.2 / 94.6 |
+| neural | 97.7 / 95.6 (97.4 / 98.3) | 99.2 / 97.3 | 96.6 / 95.7 | 98.4 / 95.8 |
 | legacy Tesseract | 70.7 / 68.0 (97.5 / 97.8) | 98.9 / 97.2 | 96.7 / 95.3 | 98.2 / 96.6 |
 | Tesseract LSTM | 70.7 / 68.6 (98.0 / 98.6) | 99.4 / 98.5 | 97.1 / 96.0 | 98.5 / 96.5 |
 
@@ -541,22 +541,21 @@ blocks at 96.2 / 95.9 (RESEARCH).
 **Real business documents (2026-09-18).** Two public corpora with truth,
 laid out by `make_external_sets.py`: SROIE (60 evaluation receipts, real
 thermal rolls) and FUNSD (the 50 test forms at 2x). Char / word with
-recall / precision in brackets. The neural-receipt profile is
-`configs/neural_receipt.toml`: the neural profile with the line reader
-fine-tuned on the 566 harvest receipts' real strips (RESEARCH 2026-09-18).
+recall / precision in brackets. The line reader carries the 566 harvest
+receipts' real strips since `seq_line_v11s2` (RESEARCH 2026-09-19); the
+receipt profile that preceded it is retired.
 
 | profile | sroie | funsd |
 |---|---|---|
 | classic | 47.2 / 10.0 (28.0 / 33.0) | 35.9 / 12.2 (17.8 / 26.3) |
-| neural | 55.7 / 22.9 (51.0 / 53.6) | 53.0 / 26.7 (39.9 / 47.3) |
-| neural-receipt | **67.2 / 35.8** (59.7 / 59.6) | 54.9 / 28.5 (43.6 / 49.6) |
+| neural | **65.0 / 35.0** (56.7 / 58.6) | 52.3 / 29.0 (40.0 / 51.1) |
 | legacy Tesseract | 56.2 / 29.4 (56.1 / 55.4) | 54.8 / 32.0 (47.5 / 53.0) |
 | Tesseract LSTM | 64.0 / **40.3** (72.7 / 73.3) | **66.4 / 47.2** (66.3 / 71.5) |
 
 The receipts are faded dot-matrix print at an x-height of 7–15 px, the
 forms 72-dpi faxes; every engine reads them at two thirds or less. The
-receipt profile passes legacy Tesseract and matches the LSTM's
-characters on the receipts; the LSTM keeps its word lead, and the forms
+neural profile passes legacy Tesseract and the LSTM's characters on
+the receipts; the LSTM keeps its word lead, and the forms
 are a layout and a noise problem for us as much as a recognition one.
 
 **Tesseract's LSTM engine (2026-09-16; the full side-by-side is `docs/TESSERACT.md`).** The rows above it are the legacy

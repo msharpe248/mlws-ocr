@@ -19,16 +19,16 @@ install carries (`tessdata_fast`).
 
 | set | what it is | mlws-ocr neural | Tesseract legacy | Tesseract LSTM | verdict |
 |---|---|---|---|---|---|
-| dev-8 | UNLV business letters, our tuning set | **97.4 / 94.5** | 95.0 / 91.7 | 95.5 / 93.1 | ahead of both |
-| broad-30 | UNLV business letters, the headline set | 95.1 / 91.0 | 95.5 / 91.7 | **96.0 / 92.7** | behind by 0.4 / 0.7 and 0.9 / 1.7 |
-| legal-8 | UNLV legal pleadings, typewriter | **94.4 / 90.2** | 90.4 / 88.7 | 90.3 / 86.9 | ahead of both by 4 characters |
-| modern | born-digital PDFs, templated letters | **94.1 / 90.5** | 75.4 / 70.8 | 74.2 / 66.6 | ahead of both by 19 characters |
-| business | invoices, payslips, receipts, statements, orders | **97.5 / 95.1** | 70.7 / 68.0 | 70.7 / 68.6 | ahead by 27 characters; level on bag-of-words recall (97.0 vs 97.5 / 98.0) |
-| news-8 | UNLV newspapers, measured only | 94.8 / 91.9 | 96.3 / 93.1 | **96.7 / 94.8** | behind by about 2 characters |
-| mag-8 | UNLV magazines, measured only | 73.7 / 64.1 | 87.3 / 84.7 | **87.8 / 84.4** | behind by 14 characters, layout |
-| sroie | real scanned receipts, ICDAR 2019 (60) | 55.7 / 22.9; receipt profile **67.2 / 35.8** | 56.2 / 29.4 | 64.0 / **40.3** | receipt profile 3 characters ahead, 4.5 words behind |
-| funsd | real scanned forms, FUNSD (50, at 2x) | 53.0 / 26.7 | 54.8 / 32.0 | **66.4 / 47.2** | behind by 12 characters: noise and layout |
-| blocks | broad-30's text zones read alone, no layout | 97.2 / 94.6 | 98.2 / 96.6 | **98.5 / 96.5** | 1.3 characters and 2 words behind |
+| dev-8 | UNLV business letters, our tuning set | **97.4 / 94.6** | 95.0 / 91.7 | 95.5 / 93.1 | ahead of both |
+| broad-30 | UNLV business letters, the headline set | 95.1 / 91.1 | 95.5 / 91.7 | **96.0 / 92.7** | behind by 0.4 / 0.6 and 0.9 / 1.6 |
+| legal-8 | UNLV legal pleadings, typewriter | **94.0 / 90.1** | 90.4 / 88.7 | 90.3 / 86.9 | ahead of both by 4 characters |
+| modern | born-digital PDFs, templated letters | **93.9 / 90.0** | 75.4 / 70.8 | 74.2 / 66.6 | ahead of both by 19 characters |
+| business | invoices, payslips, receipts, statements, orders | **97.7 / 95.6** | 70.7 / 68.0 | 70.7 / 68.6 | ahead by 27 characters; level on bag-of-words recall (97.4 vs 97.5 / 98.0) |
+| news-8 | UNLV newspapers, measured only | 95.4 / 92.5 | 96.3 / 93.1 | **96.7 / 94.8** | behind by about 2 characters |
+| mag-8 | UNLV magazines, measured only | 77.0 / 68.5 | 87.3 / 84.7 | **87.8 / 84.4** | behind, layout |
+| sroie | real scanned receipts, ICDAR 2019 (60) | 65.0 / 35.0; reader-only **72.1 / 42.6** | 56.2 / 29.4 | 64.0 / 40.3 | ahead of both with reader-only decoding (`line_mode = "pure"`); the judge's default a character ahead, 5 words behind |
+| funsd | real scanned forms, FUNSD (50, at 2x) | 52.3 / 29.0 | 54.8 / 32.0 | **66.4 / 47.2** | behind by 14 characters: noise and layout |
+| blocks | broad-30's text zones read alone, no layout | 98.4 / 95.8 | 98.2 / 96.6 | **98.5 / 96.5** | character parity, 0.8 word behind |
 
 Reading the table honestly:
 
