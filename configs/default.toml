@@ -5,9 +5,13 @@
 # tests/test_profiles.py asserts this file and classic.toml agree.
 
 [pipeline]
-stages = ["deskew", "illumination", "binarize", "despeckle",
+stages = ["magnify", "deskew", "illumination", "binarize", "despeckle",
           "imagezones", "rulings", "blocks", "tables", "lines",
           "components", "recognize", "decode", "adapt", "decode", "output"]
+
+[stage.magnify]
+impl = "xheight"
+target_px = 0                  # median glyph height to magnify small-type pages up to (0 = off; measured 2026-09-20)
 
 [stage.deskew]
 impl = "projection"

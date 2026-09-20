@@ -2,4 +2,4 @@
 
 Importing this package registers every built-in cleanup implementation.
 """
-from . import binarize, deskew, despeckle, illumination  # noqa: F401
+from . import binarize, deskew, despeckle, illumination, magnify  # noqa: F401
