@@ -362,10 +362,17 @@ found recognition of blurred 72-dpi type, not layout — recall is flat
 across field types and 3x upscaling lifts them 6 characters; the
 degradation model gained a low-resolution scan term, and `seq_line_v12a`
 (the v11 recipe plus a low-resolution synthetic set) measured FLAT on the
-forms (2026-09-20): the synthetic blur is not the fax's. Next for the
-forms: a page-level magnify keyed on the measured x-height (3x lifted them
-six characters). Open: the LSTM's word lead on receipts, throughput, a
-modularity pass on the beam decoder.
+forms (2026-09-20): the synthetic blur is not the fax's. A page-level
+magnify keyed on the measured type size (`magnify.xheight`, a new first
+slot) gains the forms two characters and costs the receipts eleven words;
+kept as an option, off. The forms close at their ceiling with our data.
+Open: throughput (profiled 2026-09-20: a letter 18.5 s — recognize 8.8,
+two decode passes 6.4, adapt 1.6; the torch backend one window at a time
+is SLOWER, 28.8 s), the receipts' word gap, a modularity pass on the beam
+decoder, and the Library of Congress "By the People" transcriptions as a
+printed-text source (434k human-transcribed pages; the printed campaigns —
+Early Copyright title pages 97k, African American Perspectives in Print
+11k, Legal Reports 10k, Federal Theatre playbills 8k — are being probed).
 
 **The items, in order:**
 
