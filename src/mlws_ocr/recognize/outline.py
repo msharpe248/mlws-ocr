@@ -212,9 +212,16 @@ def _rating_from_evidence(E: np.ndarray, L: np.ndarray,
     rating = (both) / (n_features + sum L).
     """
     n = E.shape[0]
-    # per-segment top-L sums, vectorized: sort each column descending,
-    # cumulative-sum, read the (L-1)th row
-    srt = -np.sort(-E, axis=0)
+    # per-segment top-L sums: only the top max(L) rows of each column are
+    # ever summed, so partition them off first and sort just those (a full
+    # column sort was 8% of a page's recognize time, 2026-09-20; the sums
+    # are the same to the last bit -- same values, same order)
+    kmax = int(min(L.max(), n))
+    if kmax < n:
+        top = -np.partition(-E, kmax - 1, axis=0)[:kmax]
+    else:
+        top = E
+    srt = -np.sort(-top, axis=0)
     csum = np.cumsum(srt, axis=0)
     k = np.minimum(L, n) - 1
     proto_ev = csum[k, np.arange(E.shape[1])]

@@ -130,3 +130,19 @@ def test_batched_ratings_equal_per_class_ratings():
     batched = om.ratings(feats, classes)
     for c in classes:
         assert abs(batched[c] - om.rating(feats, c)) < 1e-5, c
+
+
+def test_rating_from_evidence_partial_sort_matches_full_sort():
+    import numpy as np
+    from mlws_ocr.recognize.outline import _rating_from_evidence
+    rng = np.random.default_rng(9)
+    for _ in range(30):
+        n, m = int(rng.integers(3, 60)), int(rng.integers(2, 80))
+        E = rng.random((n, m)).astype(np.float32)
+        L = rng.integers(1, 12, size=m)
+        cuts = np.sort(rng.choice(np.arange(1, m), size=min(3, m - 1), replace=False)) if m > 1 else np.array([], int)
+        bounds = np.concatenate([[0], cuts, [m]]); groups = [np.arange(a, b) for a, b in zip(bounds, bounds[1:])]
+        srt = -np.sort(-E, axis=0); csum = np.cumsum(srt, axis=0); k = np.minimum(L, n) - 1
+        proto = csum[k, np.arange(m)]; starts = np.array([g[0] for g in groups])
+        ref = ((np.maximum.reduceat(E, starts, axis=1).sum(axis=0) + np.add.reduceat(proto, starts)) / (n + np.add.reduceat(L, starts))).astype(np.float32)
+        assert np.allclose(_rating_from_evidence(E, L, groups), ref, atol=1e-6)
