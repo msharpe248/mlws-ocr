@@ -360,10 +360,12 @@ with the judge deciding every standard set gained 0.8–1.7 word — the
 headline gap to legacy is 0.4 character / 0.7 word. The forms: a census (2026-09-19)
 found recognition of blurred 72-dpi type, not layout — recall is flat
 across field types and 3x upscaling lifts them 6 characters; the
-degradation model gained a low-resolution scan term and `seq_line_v12a`
-(the v11 recipe plus a low-resolution synthetic set) is training. Open:
-the LSTM's word lead on receipts, throughput, a modularity pass on the
-beam decoder.
+degradation model gained a low-resolution scan term, and `seq_line_v12a`
+(the v11 recipe plus a low-resolution synthetic set) measured FLAT on the
+forms (2026-09-20): the synthetic blur is not the fax's. Next for the
+forms: a page-level magnify keyed on the measured x-height (3x lifted them
+six characters). Open: the LSTM's word lead on receipts, throughput, a
+modularity pass on the beam decoder.
 
 **The items, in order:**
 
