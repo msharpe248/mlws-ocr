@@ -251,6 +251,17 @@ exempt); mixed alphanumerics ("0f"→"of" when the lexicon endorses,
 "482D2"→"48202" when digits flank); a standalone 'l' becomes 'I';
 cross-line dehyphenation; fragment joins for letter-spaced words.
 
+**Where the decoder's code lives (2026-09-20).** `decode/beam.py` is the
+beam and its terms; the passes that follow a decoded page are
+`decode/postpass.py` (line and sentence case, word-case coherence, stray
+digits and letters, dehyphenation), the sequence scorer's terms are the
+`SeqTerms` mixin in `decode/seqterm.py`, the line geometry (gap band,
+line x-height, word segmentation, k-best merge) is `decode/segment.py`,
+the numeric formats and shape repairs `decode/formats.py`, the line
+reader `decode/lineread.py` with its judge in `decode/linechoice.py`.
+Each move was checked by a dev-8 dump identical to the one before it
+(RESEARCH 2026-09-20).
+
 ### 5.5 adapt (`cluster_refit`)
 
 The page is its own font sample. All glyph features are clustered
