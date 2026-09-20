@@ -54,8 +54,15 @@ def main():
     ap.add_argument("--seed", type=int, default=7)
     ap.add_argument("--out", type=Path, required=True)
     ap.add_argument("--dpi", type=int, default=300)
+    ap.add_argument("--exclude-dir", type=Path, default=None,
+                    help="a set already written (the evaluation split): its stems are never drawn -- the "
+                         "contamination guard for a harvest split")
     args = ap.parse_args()
     rows = list(rows_for(args.csv, args.campaign))
+    if args.exclude_dir:
+        taken = {p.stem for p in args.exclude_dir.glob("*.tif")}
+        rows = [r for r in rows if re.sub(r"[^A-Za-z0-9_.-]", "_", r["AssetId"] or r["Asset"])[:80] not in taken]
+        print(f"{len(taken)} evaluation stems excluded")
     print(f"{len(rows)} completed pages match {args.campaign!r}")
     random.Random(args.seed).shuffle(rows)
     args.out.mkdir(parents=True, exist_ok=True)
