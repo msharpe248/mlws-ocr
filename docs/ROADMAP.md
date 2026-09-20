@@ -370,9 +370,12 @@ Open: throughput (profiled 2026-09-20: a letter 18.5 s — recognize 8.8,
 two decode passes 6.4, adapt 1.6; the torch backend one window at a time
 is SLOWER, 28.8 s), the receipts' word gap, a modularity pass on the beam
 decoder, and the Library of Congress "By the People" transcriptions as a
-printed-text source (434k human-transcribed pages; the printed campaigns —
-Early Copyright title pages 97k, African American Perspectives in Print
-11k, Legal Reports 10k, Federal Theatre playbills 8k — are being probed).
+printed-text source: probed 2026-09-20 — the Historical Legal Reports
+(9,807 typescript and printed pages with human truth) read at 74.7 / 55.5
+against the LSTM's 76.8 / 64.5 untrained, the domain this engine is for;
+the letterpress title pages and playbills are another century's display
+type and stay measured only. Next: the Legal Reports harvest into the
+line model's recipe, the receipts' path.
 
 **The items, in order:**
 
