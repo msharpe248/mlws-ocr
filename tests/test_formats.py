@@ -56,3 +56,14 @@ def test_caps_page_repair_only_on_capital_pages():
 def test_masked_numbers_are_a_numeric_format():
     assert numeric_endorsed("****9944") and numeric_endorsed("XXXX5816")
     assert not numeric_endorsed("****") and not numeric_endorsed("**99")   # ("89944" is a ZIP code and endorsed as one)
+
+
+def test_caps_page_all_lower_option():
+    from mlws_ocr.decode.formats import uppercase_caps_page
+    def page():
+        return [{"words": [_w("tan", 0, 1), _w("woon", 0, 1), _w("yann", 0, 1), _w("x", 0, 1)]},
+                {"words": [_w(t, 0, 1) for t in "CASH CHANGE TOTAL THANK YOU GOODS SOLD ARE NOT RETURNABLE RECEIPT NUMBER SIMPLIFIED TAX INVOICE CASHIER SALESPERSON AMOUNT DISCOUNT ROUNDING".split()]}]
+    caps = page()
+    assert uppercase_caps_page(caps) == 0                              # default: mixed-case words only
+    caps = page()
+    assert uppercase_caps_page(caps, all_lower=True) == 3 and caps[0]["words"][0]["text"] == "TAN" and caps[0]["words"][3]["text"] == "x"

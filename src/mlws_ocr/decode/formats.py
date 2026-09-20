@@ -104,7 +104,8 @@ def join_kerned_digits(words: list[dict], x_height: float, max_gap: float = 0.5)
     return n
 
 
-def uppercase_caps_page(lines: list[dict], min_frac: float = 0.9, min_letters: int = 50) -> int:
+def uppercase_caps_page(lines: list[dict], min_frac: float = 0.9, min_letters: int = 50,
+                        all_lower: bool = False) -> int:
     """On a page set entirely in capitals (a receipt roll, a form header),
     a word that came out mixed-case ('SOld', 'Milk', 'ITeMS') is a case
     error of the reader or the size-twin decision, not a lower-case word:
@@ -119,6 +120,12 @@ def uppercase_caps_page(lines: list[dict], min_frac: float = 0.9, min_letters: i
     for ln in lines:
         for w in ln.get("words", []):
             t = w["text"]
-            if any(ch.islower() for ch in t) and any(ch.isupper() for ch in t):
+            mixed = any(ch.islower() for ch in t) and any(ch.isupper() for ch in t)
+            # all_lower: an all-lower-case word of two or more letters on a
+            # capitals page is a case error too ('tan woon yann' for the
+            # receipt's bold header; SROIE census 2026-09-20: 7% of its
+            # word errors); one-letter words ('x' as a multiplier) stay
+            lower = all_lower and t.isalpha() and t.islower() and len(t) >= 2
+            if mixed or lower:
                 w["text"] = t.upper(); w["caps_repair"] = True; w.pop("chars", None); n += 1
     return n
