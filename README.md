@@ -186,7 +186,7 @@ src/mlws_ocr/
   glyph/      connected components and cuts, the 95-element feature vector, skeletons, line strips
   recognize/  nearest-prototype, MLP and outline channels; the CRNN sequence model (numpy + torch mirror) and CTC
   lang/       lexicon and character trigrams, the character GRU
-  decode/     the beam decoder, numeric formats, the line reader, the judge, word confidence, text and hOCR output
+  decode/     the beam decoder, its post-passes and sequence-scorer terms, numeric formats and shape repairs, the line reader, the judge, word confidence, text and hOCR output
   adapt/      per-document cluster refit
   factory/    synthetic data: font stock, glyph and line rendering, the degradation model
   eval/       alignment of output to ground truth
