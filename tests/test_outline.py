@@ -115,3 +115,18 @@ def test_outline_features_match_the_pointwise_definition():
         dx, dy = px[1:] - px[:-1], py[1:] - py[:-1]
         got = np.stack([(px[:-1] + px[1:]) / 2, (py[:-1] + py[1:]) / 2, np.arctan2(dy, dx)], axis=1)[(dx != 0) | (dy != 0)]
         assert np.allclose(np.array(ref), got, atol=1e-9)
+
+
+def test_batched_ratings_equal_per_class_ratings():
+    import numpy as np
+    from mlws_ocr.recognize.outline import OutlineMatcher
+    from mlws_ocr.factory.synth import render_glyph  # noqa: F401  (import guard: renderer present)
+    om = OutlineMatcher.load("data/outline_protos.npz") if __import__("pathlib").Path("data/outline_protos.npz").exists() else None
+    if om is None:
+        import pytest; pytest.skip("no outline prototypes built")
+    rng = np.random.default_rng(5)
+    feats = np.column_stack([rng.uniform(-30, 30, 40), rng.uniform(-30, 30, 40), rng.uniform(-np.pi, np.pi, 40)]).astype(np.float32)
+    classes = ["a", "e", "o", "c", "s", "Q", "1"]
+    batched = om.ratings(feats, classes)
+    for c in classes:
+        assert abs(batched[c] - om.rating(feats, c)) < 1e-5, c

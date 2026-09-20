@@ -297,11 +297,48 @@ class OutlineMatcher:
             kept[cls] = len(chosen)
         return kept
 
+    def _joint_bank(self, classes: tuple[str, ...]):
+        """One segment bank over every configuration of several classes,
+        with the class of each configuration, cached per class tuple: the
+        candidate lists of a page repeat (the same six letters in a
+        different order is a different tuple, but there are few of them),
+        and the all-classes bank of the chopped pieces is one entry."""
+        cache = self.__dict__.setdefault("_joint", {})
+        if classes not in cache:
+            if len(cache) > 4096:
+                cache.clear()
+            cfgs, owner = [], []
+            for c in classes:
+                for cfg in self.configs.get(c, []):
+                    cfgs.append(cfg); owner.append(c)
+            cache[classes] = (_SegmentBank(cfgs, FEATURE_LEN), owner) if cfgs else (None, owner)
+        return cache[classes]
+
+    def ratings(self, feats: np.ndarray, classes: list[str]) -> dict[str, float]:
+        """`rating` for several classes from ONE evidence matrix over all
+        their configurations (a configuration's rating depends only on its
+        own columns, so the joint computation equals the per-class one;
+        per-class calls were 40% of a page's recognize time, 2026-09-20).
+        A class with no configurations rates 0."""
+        out = {c: 0.0 for c in classes}
+        if len(feats) == 0 or not classes:
+            return out
+        bank, owner = self._joint_bank(tuple(classes))
+        if bank is None:
+            return out
+        E = bank.evidence(feats, self.sigma_d, self.sigma_t)
+        r = _rating_from_evidence(E, bank.lengths, bank.groups)
+        for c, v in zip(owner, r):
+            if v > out[c]:
+                out[c] = float(v)
+        return out
+
     def costs(self, mask: np.ndarray, classes: list[str],
               cut_edges: tuple[str, ...] = ()) -> dict[str, float]:
         """1 - rating for each requested class."""
         feats = outline_features(mask, cut_edges=cut_edges)
-        return {c: 1.0 - self.rating(feats, c) for c in classes}
+        r = self.ratings(feats, classes)
+        return {c: 1.0 - r[c] for c in classes}
 
     def costs_all(self, mask: np.ndarray,
                   cut_edges: tuple[str, ...] = ()) -> dict[str, float]:
