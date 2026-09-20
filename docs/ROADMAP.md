@@ -374,8 +374,10 @@ printed-text source: probed 2026-09-20 — the Historical Legal Reports
 (9,807 typescript and printed pages with human truth) read at 74.7 / 55.5
 against the LSTM's 76.8 / 64.5 untrained, the domain this engine is for;
 the letterpress title pages and playbills are another century's display
-type and stay measured only. Next: the Legal Reports harvest into the
-line model's recipe, the receipts' path.
+type and stay measured only. The Legal Reports harvest (600 pages,
+37,960 word strips, 1,993 whole lines) is in `seq_line_v13a`, the adopted
+recipe plus these strips, training 2026-09-20; its evaluation includes the
+40-page Legal Reports set.
 
 **The items, in order:**
 

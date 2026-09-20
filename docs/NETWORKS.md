@@ -74,6 +74,13 @@ page that is measured:
   lexicon-endorsed words (the classic classifier's flywheel);
 - `harvest_truth.py` — glyph crops labelled by alignment to the truth
   line (the pipeline's real mistakes included);
+- `make_btp_set.py` + `harvest_lines.py --no-guard` — the Library of Congress
+  "By the People" Historical Legal Reports (typescript and printed office
+  pages with human transcriptions, public domain): 40 evaluation pages and
+  a disjoint 600-page harvest split (`data/ext/btp_legal`), harvested by
+  the line matcher into 37,960 word strips and 1,993 whole lines from 496
+  matched pages (`data/lines_btp_legal.npz`, `data/linesfull_btp_legal.npz`);
+  in `seq_line_v13a`, under measurement (RESEARCH 2026-09-20);
 - `harvest_boxes.py` — real line strips cut straight from a corpus's truth
   boxes, for pages the pipeline cannot align: SROIE receipts (30,325 lines
   from 566 receipts, `data/linesfull_sroie.npz`) and FUNSD forms (6,598
