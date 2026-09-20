@@ -99,19 +99,17 @@ def outline_features(mask: np.ndarray, feature_len: float = FEATURE_LEN,
             continue
         cum = np.concatenate([[0.0], np.cumsum(lens)])
         step = total / n
-        for k in range(n):
-            s0, s1 = k * step, (k + 1) * step
-            p0 = _point_at(pts, cum, s0)
-            p1 = _point_at(pts, cum, s1)
-            d = p1 - p0
-            if not d.any():
-                continue
-            mx = (p0[0] + p1[0]) / 2
-            if mx < x_lo or mx > x_hi:
-                continue                    # on a cut edge
-            feats.append([mx, (p0[1] + p1[1]) / 2,
-                          float(np.arctan2(d[1], d[0]))])
-    return np.array(feats, np.float32).reshape(-1, 3)
+        # the piece endpoints at arc lengths 0, step, 2 step, ... : linear
+        # interpolation along the polyline, all at once (this loop and its
+        # per-point search were 5% of a page's recognize time, 2026-09-20)
+        s = np.arange(n + 1) * step
+        px = np.interp(s, cum, pts[:, 0]); py = np.interp(s, cum, pts[:, 1])
+        dx, dy = px[1:] - px[:-1], py[1:] - py[:-1]
+        mx, my = (px[:-1] + px[1:]) / 2, (py[:-1] + py[1:]) / 2
+        keep = ((dx != 0) | (dy != 0)) & (mx >= x_lo) & (mx <= x_hi)   # a cut edge is dropped
+        if keep.any():
+            feats.append(np.stack([mx[keep], my[keep], np.arctan2(dy[keep], dx[keep])], axis=1))
+    return (np.concatenate(feats).astype(np.float32) if feats else np.zeros((0, 3), np.float32))
 
 
 def _point_at(pts, cum, s):

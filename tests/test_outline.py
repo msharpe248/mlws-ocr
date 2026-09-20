@@ -93,3 +93,25 @@ def test_condense_keeps_a_covering_subset():
     # every render still rates well against the kept set
     for f in feats["r"]:
         assert m.rating(f, "r") >= 0.85
+
+
+def test_outline_features_match_the_pointwise_definition():
+    """The vectorised piece walk equals the original point-at-arc-length loop."""
+    import numpy as np
+    from mlws_ocr.recognize import outline as ol
+    rng = np.random.default_rng(3)
+    for _ in range(20):
+        n = int(rng.integers(6, 40))
+        pts = np.cumsum(rng.normal(0, 3, size=(n, 2)), axis=0).astype(np.float64)
+        seg = np.diff(pts, axis=0); lens = np.hypot(seg[:, 0], seg[:, 1]); total = lens.sum()
+        k = max(int(round(total / ol.FEATURE_LEN)), 1); cum = np.concatenate([[0.0], np.cumsum(lens)]); step = total / k
+        ref = []
+        for i in range(k):
+            p0 = ol._point_at(pts, cum, i * step); p1 = ol._point_at(pts, cum, (i + 1) * step); d = p1 - p0
+            if d.any():
+                ref.append([(p0[0] + p1[0]) / 2, (p0[1] + p1[1]) / 2, np.arctan2(d[1], d[0])])
+        s = np.arange(k + 1) * step
+        px = np.interp(s, cum, pts[:, 0]); py = np.interp(s, cum, pts[:, 1])
+        dx, dy = px[1:] - px[:-1], py[1:] - py[:-1]
+        got = np.stack([(px[:-1] + px[1:]) / 2, (py[:-1] + py[1:]) / 2, np.arctan2(dy, dx)], axis=1)[(dx != 0) | (dy != 0)]
+        assert np.allclose(np.array(ref), got, atol=1e-9)
