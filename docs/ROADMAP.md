@@ -380,7 +380,12 @@ Reports 74.7 / 55.5 → 77.7 / 60.2 (past the LSTM's characters), the
 standard sets flat except legal-8 −0.6 word and the blocks −0.9 — seed 3
 held every standard set within its range with the Legal Reports +1.4 word
 and the receipts +0.9, and is the live reader (`seq_line_v13b`,
-2026-09-21): a fourth real domain in the recipe.
+2026-09-21): a fourth real domain in the recipe. The
+judge then gained a page-level feature and the receipt pairs
+(`linechoice14s`, 2026-09-21): real receipts 71.0 / 41.1 under the
+default profile, past the LSTM in both columns; legal-8 +0.7 word. Under
+way: 5,000 more By the People pages (Legal Reports, NAWSA records, WWII
+Rumor Project) harvested for `seq_line_v14a`.
 
 **The items, in order:**
 

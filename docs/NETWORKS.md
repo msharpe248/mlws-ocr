@@ -47,6 +47,7 @@ were trained on the public sources named below and on nothing else.
 | v0.3.0 (2026-09-19) | the same ten, plus the receipt profile's line reader `seq_line_receipt` (= v10a, real SROIE strips) and its judge `linechoice_receipt`; the judge fix of 2026-09-18 is in the code, not the weights |
 | v0.4.0 (2026-09-19) | ten files again: line reader `seq_line_v11s2` (the v7a recipe with the real SROIE and FUNSD lines among its harvests) and judge `linechoice11s2` replace v7a and linechoice7; the receipt profile and its two files are retired |
 | v0.5.0 (2026-09-21) | line reader `seq_line_v13b` (the recipe with the Library of Congress Legal Reports harvest added) and judge `linechoice13b` replace v11s2 and linechoice11s2 |
+| v0.6.0 (2026-09-21) | judge `linechoice14s` (the page-level unendorsed-lines feature, fitted with receipt pairs) replaces 13b; the reader unchanged |
 
 ## Where the training data comes from
 
@@ -319,6 +320,13 @@ the fixed rules.
 .venv/bin/python scripts/harvest_line_choice.py data/unlv/bus.3B --pages 80 --config configs/neural.toml --out data/linechoice_en.npz   # and legal.3B, bus.3A, news.3B
 .venv/bin/python scripts/train_line_choice.py data/linechoice_*.npz --out data/linechoice.npz
 ```
+
+**The live judge** is `linechoice14s` (2026-09-21): fitted against the
+`seq_line_v13b` reader on the four UNLV harvests plus 545 receipt line
+pairs, with the page-level feature added that day (the share of the
+page's classic lines with no endorsed word); real receipts 66.0 / 35.9 →
+71.0 / 41.1 and the typewriter set +0.7 word (RESEARCH). A judge file
+fitted before a feature was added loads with that feature at zero weight.
 
 ### Glyph CNN — `recognize/cnn.py` (trained, kept off)
 

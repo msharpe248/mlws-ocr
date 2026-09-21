@@ -80,7 +80,9 @@ line_choose_rule = "calibrated"  # the fitted judge (decode/linechoice.py). Unti
                                # choice chain overwrote its decision with the endorsed count; with the judge
                                # deciding: dev-8 93.4 -> 94.5 word, broad-30 90.2 -> 91.0, legal-8 89.1 -> 90.2,
                                # modern 88.8 -> 90.5, business 93.6 -> 95.1; mag-8 -3, blocks -1 char
-line_choice_path = "data/linechoice.npz"  # = linechoice13b, fitted against the v13b reader on the four UNLV harvests
+line_choice_path = "data/linechoice.npz"  # = linechoice14s (2026-09-21): fitted against the v13b reader on the four UNLV harvests plus
+                               # 545 receipt line pairs, with the page-level unendorsed-lines feature; SROIE 66.0/35.9 -> 71.0/41.1,
+                               # legal-8 89.8 -> 90.5 word, Legal Reports +1.1 char; modern -0.2 word. Previous: linechoice13b
 line_choice_thresh = 0.5
 line_max_cols = 1400
 line_read_graphic = true       # the reader reads the lines the classic decoder flagged as graphics

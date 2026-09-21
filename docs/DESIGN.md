@@ -402,7 +402,7 @@ help on UNLV, whose TIFFs are already bitonal — recorded).
 | news-8 / mag-8 | UNLV news.3B / mag.3B, seed 1, 8 pages | measured against Tesseract only |
 | sroie | ICDAR 2019 SROIE receipts (corrected mirror), 60 evaluation receipts by seeded draw, 566 for harvest; `data/ext/sroie` | REAL thermal-roll receipts with line-level truth (`make_external_sets.py`); public, research use |
 | funsd | FUNSD forms, the official 50 test forms at 2x, 149 for harvest; `data/ext/funsd` | REAL scanned forms with entity-level truth; reading order is a convention there, so recall / precision are the honest columns; non-commercial research |
-| btp_legal | Library of Congress "By the People", Historical Legal Reports campaign, 40 pages by seeded draw; `data/ext/btp_legal` (`make_btp_set.py`) | REAL typescript and printed office pages with HUMAN transcriptions, public domain; per-page truth in the volunteers' order, so recall / precision are the honest columns; neural 75.6 / 56.9 (63.9 / 64.6) since `seq_line_v13b` carries 600 harvested pages of the campaign, LSTM 76.8 / 64.5 |
+| btp_legal | Library of Congress "By the People", Historical Legal Reports campaign, 40 pages by seeded draw; `data/ext/btp_legal` (`make_btp_set.py`) | REAL typescript and printed office pages with HUMAN transcriptions, public domain; per-page truth in the volunteers' order, so recall / precision are the honest columns; neural 76.7 / 57.2 (64.2 / 65.1) since `seq_line_v13b` carries 600 harvested pages of the campaign and the judge its page feature, LSTM 76.8 / 64.5 |
 | blocks | the Text zones of dev-8, legal-8 and broad-30, cut from the page and read alone | recognition with no layout question (`eval_blocks.py`; legacy reads the same crops with `--psm 6`) |
 
 Metrics: character and word accuracy by edit distance, plus order-
@@ -453,7 +453,7 @@ with the MLP and the GRU off:
 |---|---|---|---|---|
 | classic | 95.2 / 89.3 | 91.8 / 82.0 (86.3 / 89.2) | 91.7 / 81.2 | 91.4 / 82.6 (86.1 / 90.4) |
 | pure | 94.8 / 88.0 | 91.0 / 79.3 (83.0 / 86.2) | 90.9 / 78.0 | 88.2 / 77.1 (82.4 / 86.7) |
-| neural | 97.2 / 94.5 | 95.2 / 91.1 (94.8 / 95.2) | 94.2 / 89.8 | 94.0 / 90.4 (92.8 / 96.9) |
+| neural | 97.3 / 94.5 | 95.2 / 91.2 (95.1 / 95.0) | 94.5 / 90.5 | 93.9 / 90.2 (92.6 / 96.8) |
 | legacy Tesseract | 95.0 / 91.7 | 95.5 / 91.7 (96.3 / 94.2) | 90.4 / 88.7 | 75.4 / 70.8 (88.9 / 95.7) |
 | Tesseract LSTM (5.5.3, tessdata_fast) | 95.5 / 93.1 (97.1 / 96.8) | 96.0 / 92.7 (96.7 / 95.4) | 90.3 / 86.9 (98.8 / 90.9) | 74.2 / 66.6 (89.5 / 91.6) |
 
@@ -523,7 +523,7 @@ magazine / newspaper) are measured but not tuned on and not harvested
 | profile | news-8 | mag-8 |
 |---|---|---|
 | classic | 92.6 / 81.8 | 65.3 / 41.2 |
-| neural | 95.4 / 92.7 (recall 96.2, precision 95.0) | 76.9 / 67.3 (91.1 / 85.8) |
+| neural | 95.5 / 92.8 (recall 96.2, precision 94.9) | 76.7 / 66.8 (90.7 / 85.2) |
 | legacy Tesseract | 96.3 / 93.1 (97.5 / 94.4) | 87.3 / 84.7 (95.9 / 90.5) |
 | Tesseract LSTM | 96.7 / 94.8 (98.6 / 95.7) | 87.8 / 84.4 (97.4 / 90.5) |
 
@@ -537,7 +537,7 @@ by column blocks and pays the edit distance for the order:
 | profile | business | blocks dev-8 (pooled) | blocks legal-8 | blocks broad-30 |
 |---|---|---|---|---|
 | classic | 95.2 / 85.7 (88.8 / 89.8) | 97.2 / 93.3 | 92.7 / 86.7 | 93.4 / 84.3 |
-| neural | 97.6 / 95.7 (97.7 / 98.5) | 98.4 / 96.3 | 96.8 / 95.9 | 98.3 / 95.6 |
+| neural | 97.6 / 95.7 (97.7 / 98.5) | 98.4 / 96.4 | 96.9 / 96.0 | 98.3 / 95.6 |
 | legacy Tesseract | 70.7 / 68.0 (97.5 / 97.8) | 98.9 / 97.2 | 96.7 / 95.3 | 98.2 / 96.6 |
 | Tesseract LSTM | 70.7 / 68.6 (98.0 / 98.6) | 99.4 / 98.5 | 97.1 / 96.0 | 98.5 / 96.5 |
 
@@ -560,7 +560,7 @@ receipt profile that preceded it is retired.
 | profile | sroie | funsd |
 |---|---|---|
 | classic | 47.2 / 10.0 (28.0 / 33.0) | 35.9 / 12.2 (17.8 / 26.3) |
-| neural | **66.0 / 35.9** (57.6 / 58.9) | 53.6 / 29.3 (40.7 / 51.1) |
+| neural | **71.0 / 41.1** (60.9 / 61.2) | 55.3 / 30.0 (43.4 / 51.8) |
 | legacy Tesseract | 56.2 / 29.4 (56.1 / 55.4) | 54.8 / 32.0 (47.5 / 53.0) |
 | Tesseract LSTM | 64.0 / **40.3** (72.7 / 73.3) | **66.4 / 47.2** (66.3 / 71.5) |
 

@@ -29,7 +29,7 @@ MODELS = {
     "cnn.npz": "glyph CNN, kept OFF in every profile; shipped for the record (train_cnn.py)",
     "seq_en.npz": "word-strip CRNN+CTC scorer = seq_en_v6c_s2 (train_seq.py; 615 faces, five UNLV harvests at real weight 3)",
     "seq_line_en.npz": "line reader CRNN+CTC = seq_line_v13b (train_seq.py; long synthetic lines + whole UNLV, SROIE receipt, FUNSD form and Library of Congress Legal Reports lines)",
-    "linechoice.npz": "logistic judge between the classic and the reader's line = linechoice13b (train_line_choice.py)",
+    "linechoice.npz": "logistic judge between the classic and the reader's line = linechoice14s (train_line_choice.py; with the page-level feature and receipt pairs)",
     "wordconf.npz": "logistic word-confidence calibrator, P(correct) per word in the hOCR (train_wordconf.py)",
 }
 
