@@ -149,6 +149,10 @@ class BeamDecode(SeqTerms, Stage):
         # make, because no cut is placed.  "" = off (the classic profile).
         "seq_path": "",            # data/seq_en.npz when adopted
         "seq_backend": "auto",     # numpy | torch | auto (= numpy: one window at a
+        "seq_prefetch": False,    # score a line's segment windows in ONE batched call before the
+                                  # word loop asks for them one at a time (the torch backend paid a
+                                  # launch per window and read slower than numpy, 2026-09-20); the
+                                  # gap variants still score on demand
                                    # time is launch-bound on MPS, measured +5 s a page)
         "seq_weight": 0.5,         # decoder units per nat of CTC disagreement
         "seq_margin": 0.3,         # x-heights of neighbour slack on each side
@@ -602,6 +606,8 @@ class BeamDecode(SeqTerms, Stage):
             else:
                 scale = x_height
             segments = self._segment_line(groups, scale, p)
+            if p["seq_prefetch"] and self._cur_seq is not None:
+                self._seq_prefetch([sg for sg, _ in segments], x_height, p)
 
             decoded = []
             for seg_groups, uncertain in segments:

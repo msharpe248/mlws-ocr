@@ -123,6 +123,25 @@ class SeqTerms:
             cache[span] = self._seq_scorer.log_probs([strip[:, span[0]:span[1]]])[0]
         return cache[span]
 
+    def _seq_prefetch(self, segment_groups, x_height, p) -> int:
+        """Fill the line's window cache for every segment's whole span in
+        one batched scorer call, so the word loop finds them ready.  The
+        scorer batches by width internally; a launch-bound backend (torch
+        on MPS) does one launch for the line instead of one per window.
+        Returns the number of windows scored."""
+        strip, _, _, cache = self._cur_seq
+        spans = []
+        for groups in segment_groups:
+            span = self._seq_span([g["box"] for g in groups], x_height, p)
+            if span is not None and span not in cache and span not in spans:
+                spans.append(span)
+        if not spans:
+            return 0
+        lps = self._seq_scorer.log_probs([strip[:, a:b] for a, b in spans])
+        for span, lp in zip(spans, lps):
+            cache[span] = lp
+        return len(spans)
+
     def _seq_reread(self, seg_groups, words, x_height, lm, p):
         """Replace a segment's words by the scorer's own reading when the
         decoder's are mostly junk.  The reading is placed back on the
