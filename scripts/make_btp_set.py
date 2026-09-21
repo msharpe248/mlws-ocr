@@ -54,15 +54,20 @@ def main():
     ap.add_argument("--seed", type=int, default=7)
     ap.add_argument("--out", type=Path, required=True)
     ap.add_argument("--dpi", type=int, default=300)
-    ap.add_argument("--exclude-dir", type=Path, default=None,
-                    help="a set already written (the evaluation split): its stems are never drawn -- the "
-                         "contamination guard for a harvest split")
+    ap.add_argument("--exclude-dir", type=Path, nargs="*", default=[],
+                    help="sets already written (evaluation and earlier harvest splits): their stems are "
+                         "never drawn -- the contamination guard between splits")
+    ap.add_argument("--shard", type=int, default=0,
+                    help="write the pages into numbered subdirectories of this many pages each (0 = one directory), "
+                         "so several harvest processes can run at once")
     args = ap.parse_args()
     rows = list(rows_for(args.csv, args.campaign))
-    if args.exclude_dir:
-        taken = {p.stem for p in args.exclude_dir.glob("*.tif")}
+    taken = set()
+    for d in args.exclude_dir:
+        taken |= {p.stem for p in d.rglob("*.tif")}
+    if taken:
         rows = [r for r in rows if re.sub(r"[^A-Za-z0-9_.-]", "_", r["AssetId"] or r["Asset"])[:80] not in taken]
-        print(f"{len(taken)} evaluation stems excluded")
+        print(f"{len(taken)} stems excluded")
     print(f"{len(rows)} completed pages match {args.campaign!r}")
     random.Random(args.seed).shuffle(rows)
     args.out.mkdir(parents=True, exist_ok=True)
@@ -79,9 +84,11 @@ def main():
         except Exception as e:  # noqa: BLE001
             print(f"  skip {stem}: {e}", file=sys.stderr)
             continue
-        im.save(args.out / f"{stem}.tif", dpi=(args.dpi, args.dpi), compression="tiff_lzw")
+        out_dir = args.out / f"shard{n // args.shard:02d}" if args.shard else args.out
+        out_dir.mkdir(parents=True, exist_ok=True)
+        im.save(out_dir / f"{stem}.tif", dpi=(args.dpi, args.dpi), compression="tiff_lzw")
         text = r["Transcription"].replace("\r", "")
-        (args.out / f"{stem}.txt").write_text(text.strip() + "\n")
+        (out_dir / f"{stem}.txt").write_text(text.strip() + "\n")
         n += 1
         print(f"  [{n}/{args.n}] {stem} {im.size} {len(text)} chars", flush=True)
         time.sleep(0.5)
