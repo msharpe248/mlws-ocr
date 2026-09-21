@@ -16,8 +16,11 @@ the model when ``line_choose_rule = "calibrated"``.
 
 The evidence is deliberately symmetric and cheap: what each reading
 endorses, how confident each is, how much they agree, how numeric the
-line is, and the reader's likelihood of BOTH texts (a relative quantity
-the fit can weigh as far as it deserves).
+line is, the reader's likelihood of BOTH texts (a relative quantity the
+fit can weigh as far as it deserves), and one page-level fact -- the
+share of the page's classic lines with no endorsed word -- so the judge
+can tell a receipt roll or a form from a letter and weigh the classic
+reading's endorsements accordingly (2026-09-21).
 """
 from __future__ import annotations
 
@@ -39,11 +42,15 @@ FEATURE_NAMES = [
     "reader_nll_char_reader",  # reader's -log P(reading) per character
     "nll_gap_char",            # classic - reader, per character (positive favours the reading)
     "classic_has_reject",      # any classic word rejected by the decoder
+    "page_unendorsed_frac",    # share of the PAGE's classic lines with no endorsed word at all: a
+                               # thermal-roll receipt or a form reads near 1, a letter near 0 -- the
+                               # judge kept classic junk on receipts (73% of their word errors,
+                               # RESEARCH 2026-09-20) that the reader had right
 ]
 
 
 def features(classic: list[dict], reader: list[dict], nll_classic: float | None,
-             nll_reader: float | None) -> np.ndarray:
+             nll_reader: float | None, page_unendorsed_frac: float = 0.0) -> np.ndarray:
     from .beam import numeric_endorsed
 
     def endorsed(w):
@@ -74,6 +81,7 @@ def features(classic: list[dict], reader: list[dict], nll_classic: float | None,
         float(np.clip(nllc - nllr, -10.0, 10.0)) if (nll_classic is not None and nll_reader is not None
                                                      and np.isfinite(nll_classic) and np.isfinite(nll_reader)) else 0.0,
         float(any(w.get("rejected") for w in classic)),
+        float(np.clip(page_unendorsed_frac, 0.0, 1.0)),
     ], dtype=np.float64)
 
 
@@ -108,5 +116,11 @@ class LineChoice:
     @classmethod
     def load(cls, path) -> "LineChoice":
         d = np.load(path, allow_pickle=False)
-        assert [str(n) for n in d["names"]] == FEATURE_NAMES, "feature set changed; retrain"
-        return cls(d["w"])
+        names = [str(n) for n in d["names"]]
+        if names == FEATURE_NAMES:
+            return cls(d["w"])
+        # a judge fitted before a feature was added: the new features get zero
+        # weight, so it decides exactly as it did (2026-09-21, page_unendorsed_frac)
+        assert names == FEATURE_NAMES[:len(names)], "feature set changed incompatibly; retrain"
+        w = np.zeros(len(FEATURE_NAMES)); w[:len(names)] = d["w"]
+        return cls(w)

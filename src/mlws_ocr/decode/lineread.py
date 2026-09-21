@@ -130,6 +130,11 @@ class HybridDecode(BeamDecode):
         def word_bonus(word: str) -> float:
             return p["line_lex_bonus"] if endorsed(word) else -p["line_unk_penalty"]
 
+        # the page-level fact for the judge: how many classic lines have no endorsed word
+        _cl = [ln for ln in layout["lines"] if ln.get("words") and not ln.get("graphic_suspect")]
+        page_unend = (sum(1 for ln in _cl if not any(w.get("in_lexicon") or w.get("numeric_format") for w in ln["words"]))
+                      / len(_cl)) if _cl else 0.0
+
         n_read = n_taken = 0
         n_graphic = n_superset = 0
         for ln in layout["lines"]:
@@ -155,7 +160,7 @@ class HybridDecode(BeamDecode):
                 nll_new = None
                 if all(ch in model.index for ch in new_text):
                     nll_new = float(ctc_nll_batch(logp, [model.encode(new_text)])[0])
-                x = features([], words, None, nll_new)
+                x = features([], words, None, nll_new, page_unend)
                 if p["line_keep_alt"]:
                     ln["line_alt"] = {"classic": [dict(w) for w in old], "reader": words,
                                       "x": x.tolist(), "graphic": True}
@@ -196,9 +201,9 @@ class HybridDecode(BeamDecode):
             if p["line_keep_alt"]:
                 from .linechoice import features
                 ln["line_alt"] = {"classic": [dict(w) for w in old], "reader": words,
-                                  "x": features(old, words, nll_old, nll_new).tolist()}
+                                  "x": features(old, words, nll_old, nll_new, page_unend).tolist()}
             take = self._choose_line(old, words, old_text, new_text, old_end, new_end,
-                                     nll_old, nll_new, p)
+                                     nll_old, nll_new, p, page_unend)
             if take:
                 ln["words"] = words; n_taken += 1
         if p["line_join_spaced"]:
@@ -219,7 +224,7 @@ class HybridDecode(BeamDecode):
         return out, debug
 
     def _choose_line(self, old, words, old_text, new_text, old_end, new_end,
-                     nll_old, nll_new, p) -> bool:
+                     nll_old, nll_new, p, page_unend: float = 0.0) -> bool:
         """Does the reader's line replace the classic one?  One rule, named
         by ``line_choose_rule``; each returns its own decision and nothing
         overwrites it (before 2026-09-18 an if/elif/else chain here had no
@@ -231,7 +236,7 @@ class HybridDecode(BeamDecode):
         if rule in ("calibrated", "union") and p["line_choice_path"]:
             from .linechoice import features
             judge = self._load_choice(p["line_choice_path"])
-            x = features(old, words, nll_old, nll_new)
+            x = features(old, words, nll_old, nll_new, page_unend)
             take = judge.p_reader(x) >= p["line_choice_thresh"]
             if rule == "calibrated" or take:
                 return take
