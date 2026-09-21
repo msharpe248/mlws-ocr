@@ -377,9 +377,10 @@ the letterpress title pages and playbills are another century's display
 type and stay measured only. The Legal Reports harvest (600 pages,
 37,960 word strips, 1,993 whole lines) trained `seq_line_v13a`: Legal
 Reports 74.7 / 55.5 → 77.7 / 60.2 (past the LSTM's characters), the
-standard sets flat except legal-8 −0.6 word and the blocks −0.9 — not
-adopted on one seed; a second seed is the door if the owner wants the
-corpus in the default profile.
+standard sets flat except legal-8 −0.6 word and the blocks −0.9 — seed 3
+held every standard set within its range with the Legal Reports +1.4 word
+and the receipts +0.9, and is the live reader (`seq_line_v13b`,
+2026-09-21): a fourth real domain in the recipe.
 
 **The items, in order:**
 

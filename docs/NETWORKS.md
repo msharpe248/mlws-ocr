@@ -46,6 +46,7 @@ were trained on the public sources named below and on nothing else.
 | v0.2.0 (2026-09-17) | scorer `seq_en_v6c_s2`, line reader `seq_line_v7a`, judge `linechoice7_unlv`, word confidence, character GRU, prototypes, MLP, outline prototypes, lexicon, the glyph CNN (off) |
 | v0.3.0 (2026-09-19) | the same ten, plus the receipt profile's line reader `seq_line_receipt` (= v10a, real SROIE strips) and its judge `linechoice_receipt`; the judge fix of 2026-09-18 is in the code, not the weights |
 | v0.4.0 (2026-09-19) | ten files again: line reader `seq_line_v11s2` (the v7a recipe with the real SROIE and FUNSD lines among its harvests) and judge `linechoice11s2` replace v7a and linechoice7; the receipt profile and its two files are retired |
+| v0.5.0 (2026-09-21) | line reader `seq_line_v13b` (the recipe with the Library of Congress Legal Reports harvest added) and judge `linechoice13b` replace v11s2 and linechoice11s2 |
 
 ## Where the training data comes from
 
@@ -80,8 +81,8 @@ page that is measured:
   a disjoint 600-page harvest split (`data/ext/btp_legal`), harvested by
   the line matcher into 37,960 word strips and 1,993 whole lines from 496
   matched pages (`data/lines_btp_legal.npz`, `data/linesfull_btp_legal.npz`);
-  trained `seq_line_v13a` (Legal Reports +4.7 word, legal-8 −0.6, blocks
-  −0.9; not adopted on one seed, RESEARCH 2026-09-20);
+  in the live line model since `seq_line_v13b` (two seeds; RESEARCH
+  2026-09-20/21);
 - `harvest_boxes.py` — real line strips cut straight from a corpus's truth
   boxes, for pages the pipeline cannot align: SROIE receipts (30,325 lines
   from 566 receipts, `data/linesfull_sroie.npz`) and FUNSD forms (6,598
@@ -248,8 +249,10 @@ words, up to 1,700 columns; `make_seq_data.py --words 3 8 --take 2 6
 15,549 from the five UNLV sets (`harvest_lines.py --line-out`), 30,325
 from the SROIE receipts and 6,598 from the FUNSD forms cut straight from
 their truth boxes (`harvest_boxes.py`); real strips repeated three times
-an epoch. The live model is `seq_line_v11s2` (2026-09-19); its
-predecessor `seq_line_v7a` had the UNLV lines only.
+an epoch. The live model is `seq_line_v13b` (2026-09-21), which adds 37,960 word
+strips and 1,993 whole lines from the Library of Congress Legal Reports
+(`make_btp_set.py`, `harvest_lines.py`); `seq_line_v11s2` (2026-09-19)
+had the receipts and forms, `seq_line_v7a` the UNLV lines only.
 
 **Training.** As the word scorer, initialized from the long-window model
 and run eight epochs (614 minutes on the GPU), two seeds. Judged first on

@@ -28,20 +28,21 @@ are in `docs/DESIGN.md` §8.
 
 | set | what it is | classic | neural | legacy Tesseract | Tesseract LSTM |
 |---|---|---|---|---|---|
-| dev-8 | UNLV business letters, tuning set | 95.2 / 89.3 | **97.4 / 94.6** | 95.0 / 91.7 | 95.5 / 93.1 |
-| broad-30 | UNLV business letters, the headline set | 91.8 / 82.0 | 95.1 / 91.1 | 95.5 / 91.7 | **96.0 / 92.7** |
-| legal-8 | UNLV legal pleadings (typewriter) | 91.7 / 81.2 | **94.0 / 90.1** | 90.4 / 88.7 | 90.3 / 86.9 |
-| modern | born-digital PDFs and templated business letters | 91.4 / 82.6 | **93.9 / 90.0** | 75.4 / 70.8 | 74.2 / 66.6 |
-| business | invoices, payslips, receipts, statements, purchase orders | 95.2 / 85.7 | **97.7 / 95.6** | 70.7 / 68.0 | 70.7 / 68.6 |
-| news-8 | UNLV newspapers (measured, not tuned) | 92.6 / 81.8 | 95.4 / 92.5 | 96.3 / 93.1 | **96.7 / 94.8** |
-| mag-8 | UNLV magazines (measured, not tuned) | 65.3 / 41.2 | 77.0 / 68.5 | **87.3 / 84.7** | 87.8 / 84.4 |
-| sroie | real scanned receipts, ICDAR 2019 (reader-only decoding: **72.1 / 42.6**) | 47.2 / 10.0 | 65.0 / 35.0 | 56.2 / 29.4 | 64.0 / 40.3 |
-| funsd | real scanned forms, FUNSD, at 2x | 35.9 / 12.2 | 52.3 / 29.0 | 54.8 / 32.0 | **66.4 / 47.2** |
-| blocks | a paragraph handed in alone, no layout (broad-30's text zones) | 93.4 / 84.3 | 98.4 / 95.8 | 98.2 / 96.6 | **98.5 / 96.5** |
+| dev-8 | UNLV business letters, tuning set | 95.2 / 89.3 | **97.2 / 94.5** | 95.0 / 91.7 | 95.5 / 93.1 |
+| broad-30 | UNLV business letters, the headline set | 91.8 / 82.0 | 95.2 / 91.1 | 95.5 / 91.7 | **96.0 / 92.7** |
+| legal-8 | UNLV legal pleadings (typewriter) | 91.7 / 81.2 | **94.2 / 89.8** | 90.4 / 88.7 | 90.3 / 86.9 |
+| modern | born-digital PDFs and templated business letters | 91.4 / 82.6 | **94.0 / 90.4** | 75.4 / 70.8 | 74.2 / 66.6 |
+| business | invoices, payslips, receipts, statements, purchase orders | 95.2 / 85.7 | **97.6 / 95.7** | 70.7 / 68.0 | 70.7 / 68.6 |
+| news-8 | UNLV newspapers (measured, not tuned) | 92.6 / 81.8 | 95.4 / 92.7 | 96.3 / 93.1 | **96.7 / 94.8** |
+| mag-8 | UNLV magazines (measured, not tuned) | 65.3 / 41.2 | 76.9 / 67.3 | **87.3 / 84.7** | 87.8 / 84.4 |
+| sroie | real scanned receipts, ICDAR 2019 (reader-only decoding: **73.4 / 44.5**) | 47.2 / 10.0 | **66.0 / 35.9** | 56.2 / 29.4 | 64.0 / **40.3** |
+| funsd | real scanned forms, FUNSD, at 2x | 35.9 / 12.2 | 53.6 / 29.3 | 54.8 / 32.0 | **66.4 / 47.2** |
+| legal reports | real typescript and printed office pages, Library of Congress | | 75.6 / 56.9 | | **76.8 / 64.5** |
+| blocks | a paragraph handed in alone, no layout (broad-30's text zones) | 93.4 / 84.3 | 98.3 / 95.6 | 98.2 / 96.6 | **98.5 / 96.5** |
 
 On the tabular business pages Tesseract reads by column and pays the
 edit distance for the order; there, the bag-of-words recall is the
-recognition comparison (neural 97.4, legacy 97.5). The two real corpora
+recognition comparison (neural 97.7, legacy 97.5). The two real corpora
 are hard for every engine — faded dot-matrix receipts, 72-dpi faxed
 forms — and are where the work now is; `docs/TESSERACT.md` has the
 detail. The whole run of

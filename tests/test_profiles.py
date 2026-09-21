@@ -71,3 +71,13 @@ def test_profile_parameters_are_declared(name):
         declared = registry.get(spec.slot, spec.impl).defaults
         unknown = set(spec.params) - set(declared)
         assert not unknown, f"{name} [stage.{spec.slot}] sets unknown {unknown}"
+
+
+def test_neural_profile_keeps_its_decoder_identity():
+    """The line reader's mode, rule and paths are the neural profile's identity; an edit
+    that drops one of them silently changes every measurement (2026-09-21: a config
+    rewrite lost line_mode and line_choose_rule and six rows were measured wrong)."""
+    p = {s.slot: s for s in load_config(CONFIGS / "neural.toml").stages}["decode"].params
+    assert p["line_mode"] == "choose" and p["line_choose_rule"] == "calibrated"
+    assert p["line_model_path"] == "data/seq_line_en.npz" and p["line_choice_path"] == "data/linechoice.npz"
+    assert p["seq_path"] == "data/seq_en.npz"

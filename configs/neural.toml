@@ -70,21 +70,17 @@ impl = "hybrid"                # the line reader beside the classic decoder (dec
                                # judge says so (2026-09-13: dev-8 91.9 -> 93.2 word, broad-30 87.5 -> 89.8,
                                # legal-8 84.4 -> 88.5, news-8 88.2 -> 90.2, blocks broad-30 91.1 -> 95.1).
                                # "beam" is the classic decoder alone.
-line_model_path = "data/seq_line_en.npz"  # = seq_line_v11s2 (2026-09-19): the v7a recipe from its v5s1 init with the real SROIE
-                               # receipt and FUNSD form lines among the harvests, 8 epochs; real receipts 55.7/22.9 -> 65.0/35.0,
-                               # blocks +1.2 word, business +0.5; modern -0.5 word and legal-8 -0.4 char on both seeds, taken
-                               # by the owner as the trade (RESEARCH). Previous live kept as data/seq_line_v7a.npz.
-                               # For thermal-roll receipts alone, line_mode = "pure" reads SROIE at 72.1/42.6 (LSTM 64.0/40.3)
-                                           # scorer trained on 15,549 real whole lines and long synthetic
-                                           # windows; alone it reads the dev-8 blocks at 99.0/97.3 (legacy
-                                           # 98.9/97.2).  The word scorer (seq_path) stays the judge of the
-                                           # classic variants.
+line_model_path = "data/seq_line_en.npz"  # = seq_line_v13b (2026-09-21): the v11 recipe (seed 3) with the Library of Congress
+                               # Legal Reports harvest among its real strips; Legal Reports 74.7/55.5 -> 75.6/56.9, SROIE
+                               # 65.0/35.0 -> 66.0/35.9, modern +0.4 word, templated receipts +1.7; every standard set within
+                               # its seed range (two seeds: RESEARCH). Previous live kept as data/seq_line_v11s2.npz.
+                               # For thermal-roll receipts alone, line_mode = "pure" reads SROIE better than the judge.
 line_mode = "choose"
 line_choose_rule = "calibrated"  # the fitted judge (decode/linechoice.py). Until 2026-09-18 a fall-through in the
                                # choice chain overwrote its decision with the endorsed count; with the judge
                                # deciding: dev-8 93.4 -> 94.5 word, broad-30 90.2 -> 91.0, legal-8 89.1 -> 90.2,
                                # modern 88.8 -> 90.5, business 93.6 -> 95.1; mag-8 -3, blocks -1 char
-line_choice_path = "data/linechoice.npz"  # = linechoice11s2, fitted against the v11s2 reader on the four UNLV harvests
+line_choice_path = "data/linechoice.npz"  # = linechoice13b, fitted against the v13b reader on the four UNLV harvests
 line_choice_thresh = 0.5
 line_max_cols = 1400
 line_read_graphic = true       # the reader reads the lines the classic decoder flagged as graphics
