@@ -375,9 +375,11 @@ printed-text source: probed 2026-09-20 — the Historical Legal Reports
 against the LSTM's 76.8 / 64.5 untrained, the domain this engine is for;
 the letterpress title pages and playbills are another century's display
 type and stay measured only. The Legal Reports harvest (600 pages,
-37,960 word strips, 1,993 whole lines) is in `seq_line_v13a`, the adopted
-recipe plus these strips, training 2026-09-20; its evaluation includes the
-40-page Legal Reports set.
+37,960 word strips, 1,993 whole lines) trained `seq_line_v13a`: Legal
+Reports 74.7 / 55.5 → 77.7 / 60.2 (past the LSTM's characters), the
+standard sets flat except legal-8 −0.6 word and the blocks −0.9 — not
+adopted on one seed; a second seed is the door if the owner wants the
+corpus in the default profile.
 
 **The items, in order:**
 
