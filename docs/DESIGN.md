@@ -74,7 +74,7 @@ grey once silently changed binarization and corrupted a paper figure.
 | slot | impl | what and why |
 |---|---|---|
 | deskew | `projection` (default), `hough` | Small scanner rotation is estimated by searching the angle that maximizes row-profile variance (text lines are horizontal when the profile is sharpest); Hough on text-row accumulation is the alternative (Hinds et al. 1990). |
-| illumination | `median_background` | Divide by a heavy median-blur estimate of the paper field; removes photocopier shading before thresholding. |
+| illumination | `median_background` | Divide by a heavy median-blur estimate of the paper field; removes photocopier shading before thresholding. A scanner's dark frame (a dark region of the raw gray touching three of the four edges) is set to paper first: left in, the median background inside the frame is the frame, division turns it paper-white with speckle, and Sauvola binarises the speckle into hundreds of junk lines (`frame_dark`, 2026-09-22). |
 | binarize | `sauvola` (default), `otsu` | Local adaptive threshold (Sauvola & Pietikäinen 2000) survives shading and bleed-through; Otsu is the global baseline for comparison. |
 | despeckle | `components` | Connected components of one to a few pixels are scanner salt; dropped by size and shape. |
 

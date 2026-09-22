@@ -20,6 +20,7 @@ max_angle = 5.0
 
 [stage.illumination]
 impl = "median_background"
+frame_dark = 0.5   # clear a scanner's dark frame (a dark region touching three edges) to paper; 2026-09-22
 
 [stage.binarize]
 impl = "sauvola"
