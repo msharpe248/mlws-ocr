@@ -30,6 +30,25 @@ with character trigrams (`lang_en.npz`, `build_langmodel.py`). The
 **pure** profile runs with no network at all; **classic** uses the first
 two networks; **neural** uses all but the CNN.
 
+## Training on a second machine
+
+The trainer runs anywhere torch runs; the pipeline and the evaluations
+stay where the evaluation sets and Tesseract are. A Linux box with an
+RTX 3080 Ti (2026-09-21) steps the line recipe at 0.018 s a batch of 64
+against 0.117 s a batch of 32 on the laptop's MPS backend — an
+eight-epoch run in about an hour instead of eleven. Set-up, once:
+
+```sh
+ssh box 'git clone https://github.com/msharpe248/mlws-ocr.git && cd mlws-ocr && python3 -m venv .venv && .venv/bin/pip install -e ".[dev,train]"'
+rsync -a data/seq_synth_*.npz data/seq_en_v5s1.npz data/lines_*.npz data/linesfull_*.npz box:mlws-ocr/data/   # the training inputs, ~400 MB
+ssh box 'cd mlws-ocr && .venv/bin/python scripts/train_seq.py --backend torch --device cuda ... --out data/seq_line_vN.npz'
+rsync -a box:mlws-ocr/data/seq_line_vN.npz data/                    # then the judge re-harvest and the evaluations here
+```
+
+Keep the recipe's batch size when comparing runs across machines: the
+batch is part of the recipe, and a larger one on the faster card is a
+different run.
+
 ## Released weights
 
 Every GitHub release carries the live model files as one asset,
