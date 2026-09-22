@@ -30,6 +30,12 @@ class MedianBackgroundIllumination(Stage):
                              # frame, division turns it paper-white with speckle, and Sauvola
                              # made 176 lines of a 15-line Library of Congress page (2026-09-22).
         "frame_blur_300dpi": 15,
+        "frame_min_edges": 3,  # a frame touches at least three of the image's four edges
+                               # (a surround touches four, a lid's strip three); a dark
+                               # photograph bleeding off a corner touches two and stays.
+                               # Hollowness and thinness were tried first: a halftone's
+                               # patchy dark regions pass a hollowness test and cost a
+                               # newspaper page 4 words (2026-09-22).
     }
 
     def run(self, page: Page) -> tuple[Page, DebugBundle]:
@@ -46,7 +52,7 @@ class MedianBackgroundIllumination(Stage):
         frame_px = 0
         if p["frame_dark"] > 0:
             size = max(3, round(p["frame_blur_300dpi"] * page.dpi / 300.0))
-            frame = scanner_frame(gray, float(p["frame_dark"]), size)
+            frame = scanner_frame(gray, float(p["frame_dark"]), size, int(p["frame_min_edges"]))
             frame_px = int(frame.sum())
             if frame_px:
                 corrected[frame] = 1.0
@@ -62,20 +68,27 @@ class MedianBackgroundIllumination(Stage):
         return out, debug
 
 
-def scanner_frame(gray: np.ndarray, dark: float, size: int) -> np.ndarray:
+def scanner_frame(gray: np.ndarray, dark: float, size: int, min_edges: int = 3) -> np.ndarray:
     """The mask of a scanner's frame.  Text is dark marks on light paper, so
     its local mean gray stays high (a text line is at most a third ink); a
-    frame is a region whose local mean is dark.  The dark regions (box mean
-    of ``gray`` over ``size`` px below ``dark``) that touch the image edge are
-    the frame, grown by ``size`` to take the ragged transition into the
-    paper.  A dark region that does not reach an edge (a photograph, a solid
-    graphic) is not a frame and is left to the image-zone stage."""
+    frame is a region whose local mean is dark AND that touches at least
+    ``min_edges`` of the image's four edges: the black surround of a page
+    or of a receipt on a dark table touches four, a scanner lid's strip
+    three.  A dark photograph bleeding off a corner touches two and stays
+    for the image-zone stage; so does the cut-off last line of a page.
+    Candidates are the regions whose box mean of ``gray`` over ``size`` px
+    is below ``dark``; the mask is grown by ``size`` to take the ragged
+    transition into the paper."""
     mean = ndimage.uniform_filter(gray.astype(np.float32), size=size, mode="nearest")
     labels, n = ndimage.label(mean < dark)
     if not n:
         return np.zeros(gray.shape, bool)
-    edge = np.unique(np.concatenate([labels[0], labels[-1], labels[:, 0], labels[:, -1]]))
-    edge = edge[edge > 0]
-    if not len(edge):
+    sides = (labels[0], labels[-1], labels[:, 0], labels[:, -1])
+    touched = np.zeros(n + 1, int)
+    for side in sides:
+        touched[np.unique(side)] += 1
+    touched[0] = 0
+    keep = np.flatnonzero(touched >= min_edges)
+    if not len(keep):
         return np.zeros(gray.shape, bool)
-    return ndimage.binary_dilation(np.isin(labels, edge), iterations=size)
+    return ndimage.binary_dilation(np.isin(labels, keep), iterations=size)

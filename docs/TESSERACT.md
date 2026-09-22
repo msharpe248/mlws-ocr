@@ -28,7 +28,7 @@ install carries (`tessdata_fast`).
 | mag-8 | UNLV magazines, measured only | 76.7 / 66.8 | 87.3 / 84.7 | **87.8 / 84.4** | behind, layout |
 | sroie | real scanned receipts, ICDAR 2019 (60) | **71.0 / 41.1**; reader-only 73.4 / 44.5 | 56.2 / 29.4 | 64.0 / 40.3 | ahead of both in both columns |
 | funsd | real scanned forms, FUNSD (50, at 2x) | 55.3 / 30.0 | 54.8 / 32.0 | **66.4 / 47.2** | behind by 13 characters: noise and layout |
-| legal reports | Library of Congress typescript and print (40) | 76.7 / 57.2 | | **76.8 / 64.5** | level in characters, 7 words behind; 600 harvested pages are in the reader |
+| legal reports | Library of Congress typescript and print (40, at their measured ~365 dpi) | **81.0** / 60.9 | | 78.8 / **66.3** | ahead by 2 characters, 5 words behind; 600 harvested pages are in the reader |
 | blocks | broad-30's text zones read alone, no layout | 98.3 / 95.6 | 98.2 / 96.6 | **98.5 / 96.5** | character parity, about a word behind |
 
 Reading the table honestly:
