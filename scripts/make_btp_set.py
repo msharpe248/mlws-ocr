@@ -53,7 +53,9 @@ def main():
     ap.add_argument("--n", type=int, default=40)
     ap.add_argument("--seed", type=int, default=7)
     ap.add_argument("--out", type=Path, required=True)
-    ap.add_argument("--dpi", type=int, default=300)
+    ap.add_argument("--dpi", type=int, default=0, help="dpi tag; 0 = infer from the page width (default)")
+    ap.add_argument("--page-width-in", type=float, default=8.5, help="the paper width the dpi is inferred against")
+    ap.add_argument("--max-dpi", type=int, default=300, help="resample pages above this dpi down to it (0 = never)")
     ap.add_argument("--exclude-dir", type=Path, nargs="*", default=[],
                     help="sets already written (evaluation and earlier harvest splits): their stems are "
                          "never drawn -- the contamination guard between splits")
@@ -86,7 +88,17 @@ def main():
             continue
         out_dir = args.out / f"shard{n // args.shard:02d}" if args.shard else args.out
         out_dir.mkdir(parents=True, exist_ok=True)
-        im.save(out_dir / f"{stem}.tif", dpi=(args.dpi, args.dpi), compression="tiff_lzw")
+        # The Library serves each item at its own resolution: the Legal Reports at about
+        # 270 dpi of a letter page, the Rumor Project at about 400.  A 300-dpi tag on a
+        # 400-dpi page doubles every size the pipeline expects (harvest of 75 Rumor pages:
+        # 2 lines matched, 3.6 min a page, 2026-09-22), so the dpi is inferred from the
+        # page width against --page-width-in and the page is resampled down to --max-dpi.
+        dpi = args.dpi if args.dpi > 0 else max(72, round(im.width / args.page_width_in))
+        if args.max_dpi and dpi > args.max_dpi:
+            f = args.max_dpi / dpi
+            im = im.resize((round(im.width * f), round(im.height * f)), Image.LANCZOS)
+            dpi = args.max_dpi
+        im.save(out_dir / f"{stem}.tif", dpi=(dpi, dpi), compression="tiff_lzw")
         text = r["Transcription"].replace("\r", "")
         (out_dir / f"{stem}.txt").write_text(text.strip() + "\n")
         n += 1
