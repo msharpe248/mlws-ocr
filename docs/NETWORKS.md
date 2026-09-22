@@ -49,6 +49,17 @@ Keep the recipe's batch size when comparing runs across machines: the
 batch is part of the recipe, and a larger one on the faster card is a
 different run.
 
+Two more things the box taught (2026-09-22). Harvests run there too
+(`harvest_lines.py` needs the ten model files from the release bundle in
+`data/`, not just the training inputs), and several numpy processes at
+once must each be capped — `OMP_NUM_THREADS=2` per process — or six of
+them drive a 16-core box to a load of 44 and every one crawls. And a
+large new real pool goes under `--lines-once` ONLY: a file named in both
+`--lines` and `--lines-once` is loaded twice, so it trains at weight two,
+and the same pool at the full real weight (`seq_line_v14a`) doubled the
+real strips with one domain and lost the receipts and the letters
+(RESEARCH, 2026-09-22).
+
 ## Released weights
 
 Every GitHub release carries the live model files as one asset,
