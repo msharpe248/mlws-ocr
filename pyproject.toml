@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "mlws-ocr"
-version = "0.6.0"
+version = "0.7.0"
 description = "A readable OCR reference implementation for scanned documents: a classic feature-based engine and a neural engine of self-trained networks"
 requires-python = ">=3.11"
 dependencies = [

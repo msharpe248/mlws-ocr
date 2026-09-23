@@ -78,6 +78,7 @@ were trained on the public sources named below and on nothing else.
 | v0.4.0 (2026-09-19) | ten files again: line reader `seq_line_v11s2` (the v7a recipe with the real SROIE and FUNSD lines among its harvests) and judge `linechoice11s2` replace v7a and linechoice7; the receipt profile and its two files are retired |
 | v0.5.0 (2026-09-21) | line reader `seq_line_v13b` (the recipe with the Library of Congress Legal Reports harvest added) and judge `linechoice13b` replace v11s2 and linechoice11s2 |
 | v0.6.0 (2026-09-21) | judge `linechoice14s` (the page-level unendorsed-lines feature, fitted with receipt pairs) replaces 13b; the reader unchanged |
+| v0.7.0 (2026-09-22) | the same ten files as v0.6.0: this release is code and profiles — scanner-frame clearing, the declined-line rule, the corrected Legal Reports set, the faster prefix beam |
 
 ## Where the training data comes from
 
