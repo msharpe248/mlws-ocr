@@ -22,7 +22,7 @@ class SeqTerms:
     @classmethod
     def _load_seq(cls, path: str, backend: str):
         from mlws_ocr.recognize.seq import load_scorer
-        key = (path, Path(path).stat().st_mtime, backend)
+        key = (path, tuple(Path(q).stat().st_mtime for q in str(path).split("+")), backend)
         if key not in cls._seq_cache:
             cls._seq_cache.clear()
             cls._seq_cache[key] = load_scorer(path, backend)

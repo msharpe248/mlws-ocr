@@ -349,6 +349,39 @@ def default_classes() -> list[str]:
     return classes
 
 
+class SeqEnsemble:
+    """Several readers over one class list, their frame posteriors averaged
+    in probability (log of the mean of the members' probabilities): the
+    classic output ensemble (L.K. Hansen & P. Salamon, "Neural network
+    ensembles", IEEE PAMI 12, 1990; for CTC readers, the frame-level
+    posterior average used by speech systems).  Named in a profile as
+    ``"a.npz+b.npz+c.npz"``.  Why here: seeds of one recipe move each
+    receipt by a median 7.6 words and their weight average is worse than
+    any of them (RESEARCH 2026-09-23); an output average keeps every
+    member's basin and cancels the members' uncorrelated errors, at k
+    times the reader's forward cost."""
+
+    def __init__(self, members):
+        self.members = members
+        first = members[0]
+        for m in members[1:]:
+            if list(m.classes) != list(first.classes):
+                raise ValueError("ensemble members must share one class list")
+        self.classes, self.index = first.classes, first.index
+
+    def encode(self, text: str) -> list[int]:
+        return self.members[0].encode(text)
+
+    def log_probs(self, strips, batch: int = 64):
+        outs = [m.log_probs(strips) for m in self.members]
+        k = np.log(len(self.members))
+        return [np.logaddexp.reduce(np.stack([o[i] for o in outs]), axis=0) - k
+                for i in range(len(strips))]
+
+    def __getattr__(self, name):
+        return getattr(self.members[0], name)
+
+
 def load_scorer(path: str | Path, backend: str = "auto"):
     """The inference object the decoder uses: ``.classes``, ``.encode``,
     ``.log_probs(strips)``.  ``backend`` 'numpy' is the reference; 'torch'
@@ -359,6 +392,8 @@ def load_scorer(path: str | Path, backend: str = "auto"):
     torch/MPS (10.9 ms each) against under a second in numpy, 22.0 s
     against 17.2 s for the page.  torch pays for training and for batched
     offline scoring (the harness), and can be asked for explicitly."""
+    if "+" in str(path):
+        return SeqEnsemble([load_scorer(q, backend) for q in str(path).split("+")])
     net = SeqNet.load(path)
     if backend != "torch":
         return net

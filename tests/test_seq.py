@@ -151,3 +151,14 @@ def test_with_classes_moves_output_rows_by_name():
         assert b.params["bo"][b.index[c]] == a.params["bo"][a.index[c]]
     assert b.params["bo"][2] < a.params["bo"].mean()          # the new class starts rare
     assert (b.params["W1"] == a.params["W1"]).all()
+
+
+def test_ensemble_of_one_model_twice_equals_the_model():
+    import numpy as np
+    from mlws_ocr.recognize.seq import load_scorer
+    one = load_scorer("data/seq_line_en.npz")
+    two = load_scorer("data/seq_line_en.npz+data/seq_line_en.npz")
+    strip = (np.random.default_rng(0).random((32, 120)) < 0.2).astype(np.float32)
+    a, b = one.log_probs([strip])[0], two.log_probs([strip])[0]
+    assert np.allclose(a, b, atol=1e-5)
+    assert two.encode("abc") == one.encode("abc")
