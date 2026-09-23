@@ -58,7 +58,12 @@ large new real pool goes under `--lines-once` ONLY: a file named in both
 `--lines` and `--lines-once` is loaded twice, so it trains at weight two,
 and the same pool at the full real weight (`seq_line_v14a`) doubled the
 real strips with one domain and lost the receipts and the letters
-(RESEARCH, 2026-09-22).
+(RESEARCH, 2026-09-22). Two small habits that save an evening: a
+`pkill -f PATTERN` sent over `ssh box '...'` kills the ssh session itself
+when PATTERN appears in that command line, so kills and restarts go in a
+script file on the box; and a completion waiter that polls
+`pgrep -f harvest_lines.py` matches its own shell — write the pattern as
+`harvest_[l]ines.py`.
 
 ## Released weights
 
@@ -108,13 +113,29 @@ page that is measured:
 - `harvest_truth.py` — glyph crops labelled by alignment to the truth
   line (the pipeline's real mistakes included);
 - `make_btp_set.py` + `harvest_lines.py --no-guard` — the Library of Congress
-  "By the People" Historical Legal Reports (typescript and printed office
-  pages with human transcriptions, public domain): 40 evaluation pages and
-  a disjoint 600-page harvest split (`data/ext/btp_legal`), harvested by
-  the line matcher into 37,960 word strips and 1,993 whole lines from 496
-  matched pages (`data/lines_btp_legal.npz`, `data/linesfull_btp_legal.npz`);
-  in the live line model since `seq_line_v13b` (two seeds; RESEARCH
-  2026-09-20/21);
+  "By the People" campaigns (typescript and printed office pages with human
+  transcriptions, public domain). Historical Legal Reports: 40 evaluation
+  pages (`data/ext/btp_legal/eval`), a disjoint 100-page draw (`eval100`),
+  a 600-page harvest (`harvest`) and a 3,000-page expansion in shards of
+  500 (`harvest2/shard0*`); NAWSA records and the WWII Rumor Project, 1,000
+  pages each (`data/ext/btp_nawsa`, `data/ext/btp_rumor`). Two facts about
+  the source, both learned the hard way (RESEARCH 2026-09-22): the Library's
+  TIFFs are all tagged 300 dpi but are ~365-dpi (Legal Reports) and ~400-dpi
+  (Rumor) scans, so the builder infers the dpi from the page width
+  (`--page-width-in 8.5`) and resamples to `--max-dpi 300` — every directory
+  built before that is re-tagged (`*_tag300` kept beside it) and re-harvested,
+  because a harvest a fifth over scale is not neutral: two line-model runs
+  carrying 208k such strips lost the real receipts by nine words at any
+  weight (`seq_line_v14a`, `v15a`), and the same recipe without them on the
+  same machine did not (`v13c`); and the Rumor scans carry a black scanner
+  frame that the median-background stage flattened into speckle and the
+  line finder into 176 lines a page, so every harvest runs under the
+  profile's `frame_dark` (adopted 2026-09-22). The original 600-page harvest
+  (37,960 word strips, 1,993 whole lines; `data/lines_btp_legal.npz`,
+  `data/linesfull_btp_legal.npz`) is in the live line model since
+  `seq_line_v13b`; the corrected re-harvests live on the training box as
+  `data/ext_shards/rt_{words,full}_*.npz` (Rumor as `btp_{words,full}_btp_rumor_*`)
+  and feed `seq_line_v15b`;
 - `harvest_boxes.py` — real line strips cut straight from a corpus's truth
   boxes, for pages the pipeline cannot align: SROIE receipts (30,325 lines
   from 566 receipts, `data/linesfull_sroie.npz`) and FUNSD forms (6,598
@@ -287,14 +308,50 @@ strips and 1,993 whole lines from the Library of Congress Legal Reports
 had the receipts and forms, `seq_line_v7a` the UNLV lines only.
 
 **Training.** As the word scorer, initialized from the long-window model
-and run eight epochs (614 minutes on the GPU), two seeds. Judged first on
+and run eight epochs (614 minutes on the laptop's GPU, 60–100 on the CUDA
+box), two seeds. Judged first on
 the block metric (`eval_blocks.py`, `--set decode.line_mode=pure`) — the
 reader alone on a paragraph — then on every set with the judge. Adding
 the real receipt lines by FINE-TUNING the converged v7a cost the
 typewriter set 2.8 words at real weight 3 and 1.6 at weight 1; the full
 run from the pre-line init carries them at 0.4 characters (RESEARCH
 2026-09-18/19): a new real domain enters through the recipe, not through
-a fine-tune.
+a fine-tune. A LARGE new pool enters under `--lines-once` — named there
+and only there, since a file named in both lists loads twice — because a
+pool at the full real weight moves the domain shares and the reader with
+them (`seq_line_v14a`, 2026-09-22: the eight Library of Congress shards at
+x3 doubled the real strips and the letters fell from 70% of them to under
+40%). The trainer's held-real figure is drawn per file, so it follows the
+pool; it rose to 87.2% on the run that lost the receipts by nine words and
+answers no adoption question — the evaluation sets do.
+
+**Status (2026-09-22).** Live: `seq_line_v13b`. Not adopted: `v14a` (the
+eight shards at x3) and `v15a` (the same shards once an epoch) — both lost
+the real receipts to 65 / 32 from 71 / 41, the cause being the shards'
+wrong dpi (above), established by the bisect `v13c` (v13b's command on the
+CUDA box: receipts reader-only 71.9 / 42.2 against v13b's 73.4 / 44.5,
+seed spread). In progress: `v15b`, v13b's recipe with the corrected
+re-harvest — the Legal 600 replaced by `rt_*_btp_legal_harvest`, the Legal
+shards 00–04 and the Rumor Project under `--lines-once`; NAWSA and Legal
+shard 05 join a later run. Its chain is the standard one, below.
+
+**The chain, as run.** Every candidate line model goes through the same
+five steps, scripted end to end so a run started at night evaluates
+itself (`train_v15b_remote.sh` in the session scratchpad is the current
+form): (1) wait for the harvests' `.npz` files to exist on the box (a
+harvest writes its file only when it finishes); (2) train there with
+`--backend torch --device cuda --seed 3 --batch 32`, the recipe's batch;
+(3) copy the model back and take the quick verdict first — reader-only
+receipts (`--set decode.line_mode=pure` on SROIE) and dev-8 under the live
+judge — since those two numbers have decided every run so far; (4)
+re-harvest the judge's pairs under the new reader (`harvest_line_choice.py`
+on bus.3B, legal.3B, bus.3A, news.3B and the SROIE harvest) and fit
+`linechoiceNs` WITH the receipt pairs (the fit without them measured worse
+on every set, 2026-09-21); (5) the eleven evaluations against the live
+rows: dev-8, legal-8, SROIE, Legal Reports, broad-30, modern, business by
+kind, FUNSD, blocks, news-8, mag-8. Adoption by the four-set rule: the
+standard sets within the recipe's seed range, gains on the real sets, a
+second seed when a set sits at the edge.
 
 ```sh
 .venv/bin/python scripts/make_seq_data.py --out data/seq_synth_gfonts_long.npz --n 150000 --no-stock --font-dirs /path/to/google-fonts --words 3 8 --take 2 6 --max-width 1400
@@ -390,8 +447,11 @@ directory:
    `build_prototypes.py` again with them, `build_outline_protos.py`,
    `build_skeletons.py`, and `train_mlp.py` from the uncondensed pool.
 3. Sequence models: `make_seq_data.py` (the word set, the long sets),
-   `harvest_lines.py` with `--line-out`, `train_seq.py` for the word
-   scorer and for the line model.
+   `harvest_lines.py` with `--line-out` on the UNLV sets and, with
+   `--no-guard`, on the By the People sets that `make_btp_set.py` builds
+   (dpi inferred from the page width); `harvest_boxes.py` for SROIE and
+   FUNSD; `train_seq.py` for the word scorer and for the line model, a new
+   real pool under `--lines-once`.
 4. Calibrators: `harvest_word_conf.py` + `train_wordconf.py`;
    `harvest_line_choice.py` + `train_line_choice.py` against the line
    model in use.
