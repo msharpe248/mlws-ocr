@@ -345,8 +345,12 @@ the receipts 44.1 / 38.6 / 36.7 words against the live 41.5: one win in
 three, a seed spread of eight words on that set. Not adopted: the live recipe's own three seeds read the receipts at
 41.5 / 40.0 / 39.2, so the two recipes are level there on average and
 v15e is the more variable; the owner held v13b (2026-09-23) and asked
-for stability first. Stability work: weight-averaged seeds (`scripts/soup_models.py`,
-model soups), measured on both recipes. Judges: a
+for stability first. Stability work (2026-09-23): weight averages failed — seed soups read
+worse than every seed, EMA and late-epoch soups did not narrow the spread;
+the live recipe's five draws read the receipts at 41.5 / 40.0 / 39.2 /
+37.6 / 38.3 (v13b the best), and a paired bootstrap says the seeds truly
+differ. Now measured: an output ensemble of seeds (`SeqEnsemble`, a reader
+path `a.npz+b.npz+c.npz`). Judges: a
 refit under a new reader (`linechoice18s`) measured worse than the live
 judge on legal-8, business and the Legal Reports, so a candidate reader is
 now measured under the live judge first and a refit adopted only if it
