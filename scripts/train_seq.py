@@ -126,6 +126,12 @@ def main():
                     help="real strip files taken ONCE an epoch, not --real-weight times: a large new "
                          "domain (30k SROIE receipt lines) at weight 3 cost the typewriter set 2.8 word "
                          "(RESEARCH 2026-09-18); the same pages are held out as for --lines")
+    ap.add_argument("--weight", nargs="*", default=[], metavar="FILE=W",
+                    help="a per-file weight for a real strip file, overriding --real-weight / --lines-once: "
+                         "W >= 1 repeats the file's training windows W times an epoch (integer); W < 1 takes "
+                         "a seeded random share W of them. The dial for a domain's share of the real pool "
+                         "(RESEARCH 2026-09-22/23: 200k typewriter strips at any repeat count lost the "
+                         "receipts; the shares, not the repeats, are what a run sets)")
     ap.add_argument("--smoke", type=int, default=0, help="train on N windows for one epoch")
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--device", default="auto")
@@ -150,15 +156,28 @@ def main():
         tr, ho = split_pages(synth, min(args.hold_pages, 0.02), args.seed)
         train += [(synth, int(i)) for i in tr]; held_synth += [(synth, int(i)) for i in ho]
         print(f"{path}: {len(tr)} train / {len(ho)} held  ({synth.hard.mean():.1%} touching)")
+    weights = {}
+    for item in args.weight:
+        f, w = item.rsplit("=", 1)
+        weights[f] = float(w)
+    seen_paths = set()
     for path in list(args.lines) + list(args.lines_once):
+        if path in seen_paths:
+            continue   # a file named in both lists is loaded once, at its --lines-once weight
+        seen_paths.add(path)
         if not Path(path).exists():
             print(f"  (no {path}; skipped)"); continue
         real = Windows(path, "real")
         tr, ho = split_pages(real, args.hold_pages, args.seed)
-        weight = 1 if path in args.lines_once else args.real_weight
-        train += [(real, int(i)) for i in tr] * weight
+        weight = weights.get(path, 1 if path in args.lines_once else args.real_weight)
+        if weight < 1:
+            take = np.random.default_rng(args.seed + len(seen_paths)).permutation(len(tr))[: max(1, round(weight * len(tr)))]
+            items = [(real, int(tr[i])) for i in take]
+        else:
+            items = [(real, int(i)) for i in tr] * int(weight)
+        train += items
         held_real += [(real, int(i)) for i in ho]
-        print(f"{path}: {len(tr)} train x{weight} / {len(ho)} held on "
+        print(f"{path}: {len(tr)} train x{weight:g} ({len(items)} windows) / {len(ho)} held on "
               f"{len(set(real.pages[i] for i in ho))} pages ({real.hard.mean():.1%} hard)")
     if args.smoke:
         rng.shuffle(train); train = train[:args.smoke]

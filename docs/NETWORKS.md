@@ -323,7 +323,10 @@ them (`seq_line_v14a`, 2026-09-22: the eight Library of Congress shards at
 x3 doubled the real strips and the letters fell from 70% of them to under
 40%). The trainer's held-real figure is drawn per file, so it follows the
 pool; it rose to 87.2% on the run that lost the receipts by nine words and
-answers no adoption question — the evaluation sets do.
+answers no adoption question — the evaluation sets do. `--weight FILE=W`
+sets one file's share directly (W ≥ 1 repeats, W < 1 a seeded share of
+its windows), overriding `--real-weight` and `--lines-once` for that file;
+a file named in both lists now loads once, at the once-an-epoch weight.
 
 **Status (2026-09-23).** Live: `seq_line_v13b`. Not adopted: `v14a` (the
 eight Library of Congress shards at x3, wrong dpi), `v15a` (the same once
