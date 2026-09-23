@@ -22,6 +22,8 @@ never as evidence against the string.
 """
 from __future__ import annotations
 
+import math
+
 import numpy as np
 
 NEG = -1e30   # log(0) that survives arithmetic (np.logaddexp handles -inf, but
@@ -194,64 +196,97 @@ def prefix_beam_search(logp: np.ndarray, classes: list[str], beam_width: int = 8
     """
     T, C = logp.shape
     NEG = -np.inf
-    # beam entry: prefix (tuple of class ids) -> (p_blank, p_nonblank, frames, emit_lp)
-    beams = {(): (0.0, NEG, (), ())}
+    # A prefix is a str of class ids as characters (chr(id)): a str caches its hash,
+    # a tuple of ints recomputes it on every lookup, and the beam looks a long line's
+    # prefix up a million times.  frames/emit are parent-linked chains, (t, lp, parent),
+    # extended in O(1) and unrolled once for the winner; the readable tuple form this
+    # replaced grew both by copying at every extension (2026-09-22).
+    # beam entry: prefix -> (p_blank, p_nonblank, chain)
+    beams = {"": (0.0, NEG, None)}
     lp_space = classes.index(space) if space in classes else -1
+    ch_space = chr(lp_space) if lp_space >= 0 else None
+
+    log, exp = math.log, math.exp   # libm on Python floats: bit-identical to numpy's
+                                     # scalar path and 2.7x faster (checked on 50k pairs,
+                                     # 2026-09-22); this loop ran 154 million of them on
+                                     # one dense typescript page
 
     def lse(a, b):
         if a == NEG:
             return b
         if b == NEG:
             return a
-        m = max(a, b)
-        return m + np.log(np.exp(a - m) + np.exp(b - m))
+        m = a if a > b else b
+        return m + log(exp(a - m) + exp(b - m))
 
-    def bonus(prefix_ids, frames):
+    def bonus(prefix):
         """word_bonus for the word just closed (the run since the last space)."""
         if word_bonus is None:
             return 0.0
-        k = len(prefix_ids)
-        while k > 0 and prefix_ids[k - 1] != lp_space:
-            k -= 1
-        word = "".join(classes[c] for c in prefix_ids[k:])
+        k = prefix.rfind(ch_space) + 1 if ch_space is not None else 0
+        word = "".join(classes[ord(c)] for c in prefix[k:])
         return float(word_bonus(word)) if word else 0.0
 
+    k = min(beam_width, C - 1)
+    rows = logp.tolist()   # Python floats: arithmetic on numpy scalars costs several
+                           # times more per operation and the values are the same
+    chrs = [chr(i) for i in range(C)]
     for t in range(T):
-        row = logp[t]
+        arow = logp[t]
+        row = rows[t]
         # candidate classes this frame: the blank plus the few likely ones
-        top = np.argpartition(row, -min(beam_width, C - 1))[-min(beam_width, C - 1):]
+        top = np.argpartition(arow, -k)[-k:]
         top = [int(c) for c in top if c != 0 and row[c] > -12.0]
+        row0 = row[0]
         nxt: dict = {}
-
-        def add(prefix, pb, pnb, frames, emit):
-            ob, onb, of, oe = nxt.get(prefix, (NEG, NEG, frames, emit))
-            nxt[prefix] = (lse(ob, pb), lse(onb, pnb), of if of else frames, oe if oe else emit)
-
-        for prefix, (pb, pnb, frames, emit) in beams.items():
+        get = nxt.get
+        for prefix, (pb, pnb, chain) in beams.items():
             total = lse(pb, pnb)
             # blank: prefix unchanged
-            add(prefix, total + row[0], NEG, frames, emit)
+            e = get(prefix)
+            if e is None:
+                nxt[prefix] = [total + row0, NEG, chain]
+            else:
+                e[0] = lse(e[0], total + row0)
             last = prefix[-1] if prefix else None
             for c in top:
-                if c == last:
+                rc = row[c]
+                cc = chrs[c]
+                if cc == last:
                     # repeat of the last char: extends only after a blank;
                     # otherwise it is the same emission continuing
-                    add(prefix, NEG, pnb + row[c], frames, emit)
-                    add(prefix + (c,), NEG, pb + row[c], frames + (t,), emit + (float(row[c]),))
+                    e = get(prefix)
+                    if e is None:
+                        nxt[prefix] = [NEG, pnb + rc, chain]
+                    else:
+                        e[1] = lse(e[1], pnb + rc)
+                    new_pnb = pb + rc
                 else:
-                    new_pnb = total + row[c]
-                    if c == lp_space and prefix and last != lp_space:
-                        new_pnb += bonus(prefix, frames)
-                    add(prefix + (c,), NEG, new_pnb, frames + (t,), emit + (float(row[c]),))
+                    new_pnb = total + rc
+                    if cc == ch_space and prefix and last != ch_space:
+                        new_pnb += bonus(prefix)
+                ext = prefix + cc
+                e = get(ext)
+                if e is None:
+                    nxt[ext] = [NEG, new_pnb, (t, rc, chain)]
+                else:
+                    e[1] = lse(e[1], new_pnb)
         # prune
-        beams = dict(sorted(nxt.items(), key=lambda kv: -lse(kv[1][0], kv[1][1]))[:beam_width])
+        scored = [(lse(e[0], e[1]), prefix, e) for prefix, e in nxt.items()]
+        scored.sort(key=lambda x: -x[0])
+        beams = {prefix: (e[0], e[1], e[2]) for _, prefix, e in scored[:beam_width]}
 
     def final_score(item):
-        prefix, (pb, pnb, frames, emit) = item
+        prefix, (pb, pnb, chain) = item
         s = lse(pb, pnb)
-        if prefix and prefix[-1] != lp_space:
-            s += bonus(prefix, frames)
+        if prefix and prefix[-1] != ch_space:
+            s += bonus(prefix)
         return s
 
-    best_prefix, (pb, pnb, frames, emit) = max(beams.items(), key=final_score)
-    return [(classes[c], f, e) for c, f, e in zip(best_prefix, frames, emit)]
+    best_prefix, (pb, pnb, chain) = max(beams.items(), key=final_score)
+    out = []
+    while chain is not None:
+        t, rc, chain = chain
+        out.append((t, rc))
+    out.reverse()
+    return [(classes[ord(c)], f, e) for c, (f, e) in zip(best_prefix, out)]
