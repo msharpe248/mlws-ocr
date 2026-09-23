@@ -96,3 +96,12 @@ def test_calibrated_rule_is_the_judge_and_nothing_else(tmp_path):
     assert dec._choose_line(new, old, "Dxar Sir", "Dear Sir", 1, 2, None, None, dict(p, line_choice_path=str(no))) is False
     # the endorsed rule, by name, follows the counts
     assert dec._choose_line(new, old, "Dxar Sir", "Dear Sir", 1, 2, None, None, dict(p, line_choose_rule="endorsed")) is True
+
+
+def test_unendorsed_line_is_words_without_any_vouched_word():
+    from mlws_ocr.decode.lineread import HybridDecode
+    u = HybridDecode._unendorsed
+    assert not u([])
+    assert u([{"text": "jjc)", "in_lexicon": False}, {"text": "ssi", "in_lexicon": False}])
+    assert not u([{"text": "jjc)", "in_lexicon": False}, {"text": "total", "in_lexicon": True}])
+    assert not u([{"text": "12.50", "in_lexicon": False, "numeric_format": True}])

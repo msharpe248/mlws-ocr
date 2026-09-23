@@ -402,7 +402,7 @@ help on UNLV, whose TIFFs are already bitonal — recorded).
 | news-8 / mag-8 | UNLV news.3B / mag.3B, seed 1, 8 pages | measured against Tesseract only |
 | sroie | ICDAR 2019 SROIE receipts (corrected mirror), 60 evaluation receipts by seeded draw, 566 for harvest; `data/ext/sroie` | REAL thermal-roll receipts with line-level truth (`make_external_sets.py`); public, research use |
 | funsd | FUNSD forms, the official 50 test forms at 2x, 149 for harvest; `data/ext/funsd` | REAL scanned forms with entity-level truth; reading order is a convention there, so recall / precision are the honest columns; non-commercial research |
-| btp_legal | Library of Congress "By the People", Historical Legal Reports campaign, 40 pages by seeded draw; `data/ext/btp_legal` (`make_btp_set.py`) | REAL typescript and printed office pages with HUMAN transcriptions, public domain; per-page truth in the volunteers' order, so recall / precision are the honest columns; the Library's TIFFs are tagged 300 dpi but are ~365-dpi scans of letter paper, so the set is built with the dpi inferred from the page width and resampled to 300 (`make_btp_set.py`, 2026-09-22; under the wrong tag the set read 76.7 / 57.2 and the LSTM 76.8 / 64.5); neural 81.0 / 60.9 (66.6 / 67.8) since `seq_line_v13b` carries 600 harvested pages of the campaign and the judge its page feature, LSTM 78.8 / 66.3 |
+| btp_legal | Library of Congress "By the People", Historical Legal Reports campaign, 40 pages by seeded draw; `data/ext/btp_legal` (`make_btp_set.py`) | REAL typescript and printed office pages with HUMAN transcriptions, public domain; per-page truth in the volunteers' order, so recall / precision are the honest columns; the Library's TIFFs are tagged 300 dpi but are ~365-dpi scans of letter paper, so the set is built with the dpi inferred from the page width and resampled to 300 (`make_btp_set.py`, 2026-09-22; under the wrong tag the set read 76.7 / 57.2 and the LSTM 76.8 / 64.5); neural 81.4 / 61.9 (66.5 / 67.8) since `seq_line_v13b` carries 600 harvested pages of the campaign and the judge its page feature, LSTM 78.8 / 66.3 |
 | blocks | the Text zones of dev-8, legal-8 and broad-30, cut from the page and read alone | recognition with no layout question (`eval_blocks.py`; legacy reads the same crops with `--psm 6`) |
 
 Metrics: character and word accuracy by edit distance, plus order-
@@ -560,7 +560,7 @@ receipt profile that preceded it is retired.
 | profile | sroie | funsd |
 |---|---|---|
 | classic | 47.2 / 10.0 (28.0 / 33.0) | 35.9 / 12.2 (17.8 / 26.3) |
-| neural | **71.0 / 41.1** (60.9 / 61.2) | 55.3 / 30.0 (43.4 / 51.8) |
+| neural | **71.1 / 41.5** (60.9 / 61.4) | 55.5 / 30.7 (43.4 / 52.6) |
 | legacy Tesseract | 56.2 / 29.4 (56.1 / 55.4) | 54.8 / 32.0 (47.5 / 53.0) |
 | Tesseract LSTM | 64.0 / **40.3** (72.7 / 73.3) | **66.4 / 47.2** (66.3 / 71.5) |
 

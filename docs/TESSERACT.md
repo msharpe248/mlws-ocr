@@ -26,9 +26,9 @@ install carries (`tessdata_fast`).
 | business | invoices, payslips, receipts, statements, orders | **97.6 / 95.7** | 70.7 / 68.0 | 70.7 / 68.6 | ahead by 27 characters; level on bag-of-words recall (97.7 vs 97.5 / 98.0) |
 | news-8 | UNLV newspapers, measured only | 95.5 / 92.8 | 96.3 / 93.1 | **96.7 / 94.8** | behind by about 2 characters |
 | mag-8 | UNLV magazines, measured only | 76.7 / 66.8 | 87.3 / 84.7 | **87.8 / 84.4** | behind, layout |
-| sroie | real scanned receipts, ICDAR 2019 (60) | **71.0 / 41.1**; reader-only 73.4 / 44.5 | 56.2 / 29.4 | 64.0 / 40.3 | ahead of both in both columns |
-| funsd | real scanned forms, FUNSD (50, at 2x) | 55.3 / 30.0 | 54.8 / 32.0 | **66.4 / 47.2** | behind by 13 characters: noise and layout |
-| legal reports | Library of Congress typescript and print (40, at their measured ~365 dpi) | 81.0 / 60.9 (100-page draw 80.2 / 64.2) | | 78.8 / **66.3** (81.6 / 70.8) | level in characters, six or seven words behind; 600 harvested pages are in the reader |
+| sroie | real scanned receipts, ICDAR 2019 (60) | **71.1 / 41.5**; reader-only 73.4 / 44.5 | 56.2 / 29.4 | 64.0 / 40.3 | ahead of both in both columns |
+| funsd | real scanned forms, FUNSD (50, at 2x) | 55.5 / 30.7 | 54.8 / 32.0 | **66.4 / 47.2** | behind by 13 characters: noise and layout |
+| legal reports | Library of Congress typescript and print (40, at their measured ~365 dpi) | 81.4 / 61.9 (100-page draw 80.2 / 64.2) | | 78.8 / **66.3** (81.6 / 70.8) | level in characters, six or seven words behind; 600 harvested pages are in the reader |
 | blocks | broad-30's text zones read alone, no layout | 98.3 / 95.6 | 98.2 / 96.6 | **98.5 / 96.5** | character parity, about a word behind |
 
 Reading the table honestly:

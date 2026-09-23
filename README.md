@@ -35,9 +35,9 @@ are in `docs/DESIGN.md` §8.
 | business | invoices, payslips, receipts, statements, purchase orders | 95.2 / 85.7 | **97.6 / 95.7** | 70.7 / 68.0 | 70.7 / 68.6 |
 | news-8 | UNLV newspapers (measured, not tuned) | 92.6 / 81.8 | 95.5 / 92.8 | 96.3 / 93.1 | **96.7 / 94.8** |
 | mag-8 | UNLV magazines (measured, not tuned) | 65.3 / 41.2 | 76.7 / 66.8 | **87.3 / 84.7** | 87.8 / 84.4 |
-| sroie | real scanned receipts, ICDAR 2019 (reader-only decoding: 73.4 / 44.5) | 47.2 / 10.0 | **71.0 / 41.1** | 56.2 / 29.4 | 64.0 / 40.3 |
-| funsd | real scanned forms, FUNSD, at 2x | 35.9 / 12.2 | 55.3 / 30.0 | 54.8 / 32.0 | **66.4 / 47.2** |
-| legal reports | real typescript and printed office pages, Library of Congress | | 81.0 / 60.9 | | 78.8 / **66.3** |
+| sroie | real scanned receipts, ICDAR 2019 (reader-only decoding: 73.4 / 44.5) | 47.2 / 10.0 | **71.1 / 41.5** | 56.2 / 29.4 | 64.0 / 40.3 |
+| funsd | real scanned forms, FUNSD, at 2x | 35.9 / 12.2 | 55.5 / 30.7 | 54.8 / 32.0 | **66.4 / 47.2** |
+| legal reports | real typescript and printed office pages, Library of Congress | | 81.4 / 61.9 | | 78.8 / **66.3** |
 | blocks | a paragraph handed in alone, no layout (broad-30's text zones) | 93.4 / 84.3 | 98.3 / 95.6 | 98.2 / 96.6 | **98.5 / 96.5** |
 
 On the tabular business pages Tesseract reads by column and pays the

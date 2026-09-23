@@ -89,6 +89,17 @@ class HybridDecode(BeamDecode):
         "line_keep_alt": False,    # keep both readings and their evidence on the line
                                    # (ln["line_alt"]) for scripts/harvest_line_choice.py
         "line_min_conf": 0.35,     # a reading whose mean emission probability is
+        "line_drop_declined": 0.0,    # a line the reader declines (no geometry, a strip too
+                                      # narrow, nothing emitted, or confidence under
+                                      # line_min_conf) whose classic words carry no
+                                      # endorsement AND whose x-height is under this
+                                      # fraction of the page's median is dropped rather
+                                      # than kept.  0 = off.  On the receipts 458 of 2,373
+                                      # output lines were such lines at x-heights of 1-6 px
+                                      # (dashed rules and noise read as punctuation and
+                                      # letter salad, census 2026-09-22); without the
+                                      # x-height qualifier the rule also dropped invoices'
+                                      # product-code lines (business -0.4 word).
                                    # under this is not offered
         "line_read_graphic": False,  # read the lines the classic decoder flagged as
                                      # graphics too (letterheads in display faces):
@@ -136,13 +147,21 @@ class HybridDecode(BeamDecode):
                       / len(_cl)) if _cl else 0.0
 
         n_read = n_taken = 0
-        n_graphic = n_superset = 0
+        n_graphic = n_superset = n_dropped = 0
+        _xh = [ln["x_height"] for ln in layout["lines"] if ln.get("x_height") and ln.get("words")]
+        xh_floor = p["line_drop_declined"] * float(np.median(_xh)) if _xh and p["line_drop_declined"] else 0.0
         for ln in layout["lines"]:
             graphic = bool(ln.get("graphic_suspect"))
             if (graphic and not p["line_read_graphic"]) or ln.get("baseline") is None or not ln.get("x_height"):
+                if xh_floor and not graphic and (ln.get("x_height") or 0.0) < xh_floor \
+                        and self._unendorsed(ln.get("words", [])):
+                    ln["words"] = []; n_dropped += 1
                 continue
             read = self._read_line(page.binary, ln, model, word_bonus, p, min_conf=0.0 if graphic else None)
             if read is None:
+                if xh_floor and not graphic and ln["x_height"] < xh_floor \
+                        and self._unendorsed(ln.get("words", [])):
+                    ln["words"] = []; n_dropped += 1
                 continue
             words, logp = read
             n_read += 1
@@ -221,6 +240,7 @@ class HybridDecode(BeamDecode):
         debug.scalars["lines_taken"] = n_taken
         debug.scalars["graphic_lines_read"] = n_graphic
         debug.scalars["superset_kept"] = n_superset
+        debug.scalars["lines_dropped"] = n_dropped
         return out, debug
 
     def _choose_line(self, old, words, old_text, new_text, old_end, new_end,
@@ -323,6 +343,12 @@ class HybridDecode(BeamDecode):
             cls._choice_cache.clear()
             cls._choice_cache[key] = LineChoice.load(path)
         return cls._choice_cache[key]
+
+    @staticmethod
+    def _unendorsed(words) -> bool:
+        """A classic line with words and not one the lexicon or a numeric
+        format vouches for."""
+        return bool(words) and not any(w.get("in_lexicon") or w.get("numeric_format") for w in words)
 
     def _read_line(self, binary, ln, model, word_bonus, p, min_conf=None):
         strip, scale, x0, _ = line_strip(binary, ln, ln["x_height"])

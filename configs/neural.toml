@@ -91,6 +91,7 @@ line_read_graphic = true       # the reader reads the lines the classic decoder 
                                # reading (2026-09-14: legal-8 88.5 -> 89.1 word, dev-8 +0.4 char,
                                # broad-30 +0.5 char; 49 of 118 flagged letterhead lines rescued)
 line_keep_superset = true      # the reader's text = the classic text minus characters, every classic word
+line_drop_declined = 0.5       # a line the reader declines whose classic words carry no endorsement and whose x-height is under half the page median is dropped (dashed rules and specks; receipts +0.4, forms +0.7, Legal Reports +0.8 word; 2026-09-22)
                                # endorsed -> keep classic ('TAX 8.25%' vs 'TAX 8.25'; 2026-09-17: receipts
                                # 91.3 -> 92.3 word, dev-8 +0.1, the rest identical)
 line_join_spaced = true        # letter-spaced display type read as single letters is re-joined into
