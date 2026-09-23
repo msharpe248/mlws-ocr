@@ -334,10 +334,13 @@ strips lost the real receipts to 67 / 36 reader-only at any weight and
 either dpi — a volume effect, typewriter outnumbering thermal receipts
 seven to one), `v15d` (the same volume spread over all shards, worse
 still), and `v15c` as a reader (one corrected shard: Legal Reports +4.9
-words, receipts −1.6, a mixed result). Candidate: `v15e` = v15c with the
-SROIE lines at `--weight 5` — Legal Reports +3.7 / +6.4 words on two
-seeds, receipts +2.6 on seed 3 and −2.9 on seed 2, the standard sets
-holding on both; a third seed decides under the two-seed rule. Judges: a
+words, receipts −1.6, a mixed result). Candidate held for the owner: `v15e` = v15c with the
+SROIE lines at `--weight 5` — Legal Reports +3.2 / +3.7 / +6.4 words on
+three seeds (past the LSTM), the standard sets holding on all three, but
+the receipts 44.1 / 38.6 / 36.7 words against the live 41.5: one win in
+three, a seed spread of eight words on that set. Not adopted under the
+two-seed rule; the receipts' own seed spread is being measured on the live
+recipe. Judges: a
 refit under a new reader (`linechoice18s`) measured worse than the live
 judge on legal-8, business and the Legal Reports, so a candidate reader is
 now measured under the live judge first and a refit adopted only if it
