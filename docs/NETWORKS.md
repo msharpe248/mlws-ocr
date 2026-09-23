@@ -325,15 +325,17 @@ x3 doubled the real strips and the letters fell from 70% of them to under
 pool; it rose to 87.2% on the run that lost the receipts by nine words and
 answers no adoption question — the evaluation sets do.
 
-**Status (2026-09-22).** Live: `seq_line_v13b`. Not adopted: `v14a` (the
-eight shards at x3) and `v15a` (the same shards once an epoch) — both lost
-the real receipts to 65 / 32 from 71 / 41, the cause being the shards'
-wrong dpi (above), established by the bisect `v13c` (v13b's command on the
-CUDA box: receipts reader-only 71.9 / 42.2 against v13b's 73.4 / 44.5,
-seed spread). In progress: `v15b`, v13b's recipe with the corrected
-re-harvest — the Legal 600 replaced by `rt_*_btp_legal_harvest`, the Legal
-shards 00–04 and the Rumor Project under `--lines-once`; NAWSA and Legal
-shard 05 join a later run. Its chain is the standard one, below.
+**Status (2026-09-23).** Live: `seq_line_v13b`. Not adopted: `v14a` (the
+eight Library of Congress shards at x3, wrong dpi), `v15a` (the same once
+an epoch), `v15b` (the corrected re-harvest once an epoch) — all three
+lost the real receipts reader-only to 67 / 36 from v13b's 73.4 / 44.5, while
+`v13c` (v13b's command on the CUDA box, no shards) held them within seed
+spread. Weight, scale and the machine are ruled out; the shards' VOLUME
+(170–210k typewriter strips against the 34k of the Legal 600 that v13b
+carries) is what the collapsing runs share, and the bisect on it is
+`v15c` (one corrected shard). The corrected re-harvests are on the box
+(`data/ext_shards/rt_*`, `btp_*_rumor_*`); NAWSA and Legal shard 05 are
+still harvesting. Its chain is the standard one, below.
 
 **The chain, as run.** Every candidate line model goes through the same
 five steps, scripted end to end so a run started at night evaluates
