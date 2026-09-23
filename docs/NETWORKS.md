@@ -135,7 +135,7 @@ page that is measured:
   `data/linesfull_btp_legal.npz`) is in the live line model since
   `seq_line_v13b`; the corrected re-harvests live on the training box as
   `data/ext_shards/rt_{words,full}_*.npz` (Rumor as `btp_{words,full}_btp_rumor_*`)
-  and feed `seq_line_v15b`;
+  and fed the v15 runs;
 - `harvest_boxes.py` — real line strips cut straight from a corpus's truth
   boxes, for pages the pipeline cannot align: SROIE receipts (30,325 lines
   from 566 receipts, `data/linesfull_sroie.npz`) and FUNSD forms (6,598
@@ -344,8 +344,9 @@ recipe. Judges: a
 refit under a new reader (`linechoice18s`) measured worse than the live
 judge on legal-8, business and the Legal Reports, so a candidate reader is
 now measured under the live judge first and a refit adopted only if it
-beats it. The corrected re-harvests are on the box (`data/ext_shards/rt_*`,
-`btp_*_rumor_*`); NAWSA and Legal shard 05 are still harvesting.
+beats it. The corrected re-harvests are complete on the box (`data/ext_shards/rt_*`:
+the Legal 600, six Legal shards, two NAWSA shards; `btp_*_rumor_*`: two
+Rumor shards), all frame-cleared, at the inferred dpi.
 
 **The chain, as run.** Every candidate line model goes through the same
 five steps, scripted end to end so a run started at night evaluates
