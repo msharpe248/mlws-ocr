@@ -339,8 +339,9 @@ SROIE lines at `--weight 5` — Legal Reports +3.2 / +3.7 / +6.4 words on
 three seeds (past the LSTM), the standard sets holding on all three, but
 the receipts 44.1 / 38.6 / 36.7 words against the live 41.5: one win in
 three, a seed spread of eight words on that set. Not adopted under the
-two-seed rule; the receipts' own seed spread is being measured on the live
-recipe. Judges: a
+two-seed rule; the live recipe's own three seeds read the receipts at
+41.5 / 40.0 / 39.2, so the two recipes are level there on average and
+v15e is the more variable — the owner's call. Judges: a
 refit under a new reader (`linechoice18s`) measured worse than the live
 judge on legal-8, business and the Legal Reports, so a candidate reader is
 now measured under the live judge first and a refit adopted only if it
