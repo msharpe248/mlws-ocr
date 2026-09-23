@@ -132,6 +132,13 @@ def main():
                          "a seeded random share W of them. The dial for a domain's share of the real pool "
                          "(RESEARCH 2026-09-22/23: 200k typewriter strips at any repeat count lost the "
                          "receipts; the shares, not the repeats, are what a run sets)")
+    ap.add_argument("--save-epochs", action="store_true",
+                    help="also write every epoch's weights as <out>_epN.npz, so the late epochs of one run "
+                         "can be averaged (scripts/soup_models.py); seeds of one recipe do NOT average -- "
+                         "they leave the init for different basins (RESEARCH 2026-09-23)")
+    ap.add_argument("--ema", type=float, default=0.0,
+                    help="keep an exponential moving average of the weights with this decay per step "
+                         "(Polyak averaging; e.g. 0.999) and write it each epoch as <out>_ema.npz; torch only")
     ap.add_argument("--smoke", type=int, default=0, help="train on N windows for one epoch")
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--device", default="auto")
@@ -218,9 +225,34 @@ def main():
             opt.step()
             return float(loss.detach())
 
+        ema_state = None
+        if args.ema > 0:
+            ema_state = {k: v.detach().clone() for k, v in module.state_dict().items()}
+
+        def ema_update():
+            if ema_state is None:
+                return
+            with torch.no_grad():
+                for k, v in module.state_dict().items():
+                    if v.dtype.is_floating_point:
+                        ema_state[k].mul_(args.ema).add_(v.detach(), alpha=1 - args.ema)
+                    else:
+                        ema_state[k].copy_(v)
+
         def export():
             return module.to_numpy(classes)
+
+        def export_ema():
+            keep = {k: v.detach().clone() for k, v in module.state_dict().items()}
+            module.load_state_dict(ema_state)
+            net_ema = module.to_numpy(classes)
+            module.load_state_dict(keep)
+            return net_ema
     else:
+        ema_state = None
+
+        def ema_update():
+            pass
         def scorer(strips):
             return net.log_probs(strips)
 
@@ -240,6 +272,7 @@ def main():
         for k, b in enumerate(batches):
             X, lengths, labels = collate(b, net)
             losses.append(train_step(X, lengths, labels, lr))
+            ema_update()
             if args.smoke and (k + 1) % 10 == 0:
                 print(f"  step {k + 1}/{len(batches)}  loss {np.mean(losses[-10:]):.3f}  "
                       f"{(time.time() - t_ep) / (k + 1):.3f} s/step", flush=True)
@@ -250,6 +283,11 @@ def main():
               f"synth {acc_s:.1%} (touching {hard_s:.1%})  "
               f"{time.time() - t_ep:.0f} s", flush=True)
         score = acc_r if held_real else acc_s
+        stem = Path(args.out).with_suffix("")
+        if args.save_epochs:
+            export().save(f"{stem}_ep{ep + 1}.npz")
+        if ema_state is not None:
+            export_ema().save(f"{stem}_ema.npz")
         if score > best:
             best = score
             export().save(args.out)

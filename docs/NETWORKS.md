@@ -327,6 +327,10 @@ answers no adoption question — the evaluation sets do. `--weight FILE=W`
 sets one file's share directly (W ≥ 1 repeats, W < 1 a seeded share of
 its windows), overriding `--real-weight` and `--lines-once` for that file;
 a file named in both lists now loads once, at the once-an-epoch weight.
+`--save-epochs` writes every epoch as `<out>_epN.npz` and `--ema D` writes a
+Polyak average of the weights as `<out>_ema.npz`: the two variance reducers
+that stay inside one run's basin (seeds of one recipe do not average —
+their soup read worse than every seed, 2026-09-23).
 
 **Status (2026-09-23).** Live: `seq_line_v13b`. Not adopted: `v14a`,
 `v15a`, `v15b` (the Library of Congress shards at 170–210k typewriter
