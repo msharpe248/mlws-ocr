@@ -329,16 +329,20 @@ its windows), overriding `--real-weight` and `--lines-once` for that file;
 a file named in both lists now loads once, at the once-an-epoch weight.
 
 **Status (2026-09-23).** Live: `seq_line_v13b`. Not adopted: `v14a`,
-`v15a`, `v15b` — the Library of Congress shards at 170–210k typewriter
-strips, at any weight and at either dpi, lost the real receipts reader-only
-to 67 / 36 from v13b's 73.4 / 44.5; `v13c` (v13b's command on the CUDA box,
-no shards) held them, and `v15c` (v13b plus ONE corrected shard, 34k strips)
-held them too while lifting the Legal Reports 81.4 / 61.9 → 84.1 / 66.8. The
-cause was volume: two monospace domains, typewriter outnumbering thermal
-receipts seven to one. In the chain now: `v15c` for adoption (judge
-`linechoice18s`, twelve evaluations) and `v15d` (all corrected shards at a
-0.2 share each via `--weight`, one shard's volume over six times the
-pages). NAWSA and Legal shard 05 are still harvesting on the box.
+`v15a`, `v15b` (the Library of Congress shards at 170–210k typewriter
+strips lost the real receipts to 67 / 36 reader-only at any weight and
+either dpi — a volume effect, typewriter outnumbering thermal receipts
+seven to one), `v15d` (the same volume spread over all shards, worse
+still), and `v15c` as a reader (one corrected shard: Legal Reports +4.9
+words, receipts −1.6, a mixed result). Candidate: `v15e` = v15c with the
+SROIE lines at `--weight 5` — Legal Reports +3.7 / +6.4 words on two
+seeds, receipts +2.6 on seed 3 and −2.9 on seed 2, the standard sets
+holding on both; a third seed decides under the two-seed rule. Judges: a
+refit under a new reader (`linechoice18s`) measured worse than the live
+judge on legal-8, business and the Legal Reports, so a candidate reader is
+now measured under the live judge first and a refit adopted only if it
+beats it. The corrected re-harvests are on the box (`data/ext_shards/rt_*`,
+`btp_*_rumor_*`); NAWSA and Legal shard 05 are still harvesting.
 
 **The chain, as run.** Every candidate line model goes through the same
 five steps, scripted end to end so a run started at night evaluates
@@ -349,11 +353,13 @@ harvest writes its file only when it finishes); (2) train there with
 (3) copy the model back and take the quick verdict first — reader-only
 receipts (`--set decode.line_mode=pure` on SROIE) and dev-8 under the live
 judge — since those two numbers have decided every run so far; (4)
-re-harvest the judge's pairs under the new reader (`harvest_line_choice.py`
-on bus.3B, legal.3B, bus.3A, news.3B and the SROIE harvest) and fit
-`linechoiceNs` WITH the receipt pairs (the fit without them measured worse
-on every set, 2026-09-21); (5) the eleven evaluations against the live
-rows: dev-8, legal-8, SROIE, Legal Reports, broad-30, modern, business by
+the eleven evaluations under the LIVE judge; (5) only then a judge refit —
+re-harvest the pairs under the new reader (`harvest_line_choice.py` on
+bus.3B, legal.3B, bus.3A, news.3B and the SROIE harvest), fit `linechoiceNs`
+WITH the receipt pairs (the fit without them measured worse on every set,
+2026-09-21), and adopt it only if it beats the live judge on legal-8,
+business and SROIE (a refit under v15c lost 0.9 and 1.0 words on the first
+two, 2026-09-23). The evaluations: dev-8, legal-8, SROIE, Legal Reports, broad-30, modern, business by
 kind, FUNSD, blocks, news-8, mag-8. Adoption by the four-set rule: the
 standard sets within the recipe's seed range, gains on the real sets, a
 second seed when a set sits at the edge.
