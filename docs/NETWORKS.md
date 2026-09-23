@@ -328,17 +328,17 @@ sets one file's share directly (W ≥ 1 repeats, W < 1 a seeded share of
 its windows), overriding `--real-weight` and `--lines-once` for that file;
 a file named in both lists now loads once, at the once-an-epoch weight.
 
-**Status (2026-09-23).** Live: `seq_line_v13b`. Not adopted: `v14a` (the
-eight Library of Congress shards at x3, wrong dpi), `v15a` (the same once
-an epoch), `v15b` (the corrected re-harvest once an epoch) — all three
-lost the real receipts reader-only to 67 / 36 from v13b's 73.4 / 44.5, while
-`v13c` (v13b's command on the CUDA box, no shards) held them within seed
-spread. Weight, scale and the machine are ruled out; the shards' VOLUME
-(170–210k typewriter strips against the 34k of the Legal 600 that v13b
-carries) is what the collapsing runs share, and the bisect on it is
-`v15c` (one corrected shard). The corrected re-harvests are on the box
-(`data/ext_shards/rt_*`, `btp_*_rumor_*`); NAWSA and Legal shard 05 are
-still harvesting. Its chain is the standard one, below.
+**Status (2026-09-23).** Live: `seq_line_v13b`. Not adopted: `v14a`,
+`v15a`, `v15b` — the Library of Congress shards at 170–210k typewriter
+strips, at any weight and at either dpi, lost the real receipts reader-only
+to 67 / 36 from v13b's 73.4 / 44.5; `v13c` (v13b's command on the CUDA box,
+no shards) held them, and `v15c` (v13b plus ONE corrected shard, 34k strips)
+held them too while lifting the Legal Reports 81.4 / 61.9 → 84.1 / 66.8. The
+cause was volume: two monospace domains, typewriter outnumbering thermal
+receipts seven to one. In the chain now: `v15c` for adoption (judge
+`linechoice18s`, twelve evaluations) and `v15d` (all corrected shards at a
+0.2 share each via `--weight`, one shard's volume over six times the
+pages). NAWSA and Legal shard 05 are still harvesting on the box.
 
 **The chain, as run.** Every candidate line model goes through the same
 five steps, scripted end to end so a run started at night evaluates
