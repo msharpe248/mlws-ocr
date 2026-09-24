@@ -633,6 +633,14 @@ builds the text and hOCR. The one stage change it needed is deskew's
 (a test). The server is the standard-library one; the page is plain
 JavaScript and canvas with overlays drawn from the layout JSON.
 
+**Batch.** `mlws-ocr batch CONFIG INPUTS... --out DIR` (`batch.py`)
+reads files, directories and every page of a PDF with the service's
+arrangement: one page per worker process, the stages built once per
+worker; each page writes `<name>.txt` and `<name>.hocr`, and `batch.json`
+lists every page's time, word count and mean `p_correct` (a failing page
+is reported, not fatal). 16 UNLV letters: 185 s on one worker, 58 s on
+four, 29 s on thirteen (2026-09-24).
+
 **Service.** `mlws-ocr-service` (`service.py`) is the same standard-
 library HTTP server the inspector uses, in front of a process pool: each
 worker loads the profile's models once and reads one page at a time, so

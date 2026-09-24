@@ -142,9 +142,15 @@ def _hole_count(mask: np.ndarray, close_radius: int) -> int:
     m = mask
     if close_radius > 0:
         m = ndimage.binary_closing(m, iterations=close_radius)
-    filled = ndimage.binary_fill_holes(m)
-    holes, n = ndimage.label(filled & ~m)
-    return int(n)
+    # A hole is a 4-connected background component that does not reach the
+    # crop's border -- exactly what binary_fill_holes fills and the old code
+    # then labelled; one labelling of the background counts them without the
+    # fill's iterative flood (identical on 9,000 random masks, 2026-09-24).
+    lab, n = ndimage.label(~m)
+    if n == 0:
+        return 0
+    border = np.unique(np.concatenate([lab[0], lab[-1], lab[:, 0], lab[:, -1]]))
+    return int(n - np.count_nonzero(border))
 
 
 def _crossing_counts(mask: np.ndarray, n_lines: int, axis: int) -> list[float]:

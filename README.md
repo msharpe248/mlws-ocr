@@ -89,6 +89,7 @@ python3 -m venv .venv && .venv/bin/pip install -e ".[dev]"
 .venv/bin/mlws-ocr run configs/neural.toml paragraph.png --doc-type block   # the image is one block of text
 .venv/bin/mlws-ocr-ui scan.png                                # the interactive workbench at http://127.0.0.1:8330
 .venv/bin/mlws-ocr inspect                                    # browse persisted runs (read-only)
+.venv/bin/mlws-ocr batch configs/neural.toml scans/ --out out/  # many pages at once, one per worker process
 .venv/bin/mlws-ocr-service --config configs/neural.toml       # POST an image to http://127.0.0.1:8340/ocr
 .venv/bin/mlws-ocr-lab data/unlv/bus.3B                       # live segmentation lab at http://127.0.0.1:8801
 ```
@@ -99,6 +100,10 @@ Every run writes `text.txt` and `page.hocr` — hOCR with a calibrated
 probability per word — beside the persisted page. The service returns
 the same as JSON, one page per worker process, so a machine with N cores
 reads about N pages at once (`scripts/service_load.py` is its load test).
+`mlws-ocr batch` does the same for files, directories and whole PDFs: 16
+UNLV letters take 185 s on one worker and 29 s on thirteen (33 pages a
+minute on a 14-core laptop), with text, hOCR and a `batch.json` summary
+per run.
 
 Training the sequence models is faster with the optional extra
 (`pip install -e ".[train]"`, torch on the machine's own GPU); the numpy

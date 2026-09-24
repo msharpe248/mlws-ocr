@@ -51,6 +51,7 @@ async function init() {
   $("config").value = "configs/neural.toml";
   $("openBtn").onclick = () => openPath($("path").value.trim());
   $("path").addEventListener("keydown", (e) => { if (e.key === "Enter") openPath($("path").value.trim()); });
+  $("path").addEventListener("input", () => { $("pdfPageBox").hidden = !/\.pdf$/i.test($("path").value.trim()); });
   $("upload").onchange = uploadFile;
   $("browseBtn").onclick = () => browse($("path").value ? $("path").value.replace(/\/[^/]*$/, "") : "");
   $("browserClose").onclick = () => $("browser").close();
@@ -66,7 +67,9 @@ async function init() {
 async function openPath(p) {
   if (!p) return status("type or browse an image path");
   try {
-    await api("/api/open", { path: p, config: $("config").value, doc_type: $("doctype").value });
+    $("pdfPageBox").hidden = !/\.pdf$/i.test(p);
+    await api("/api/open", { path: p, config: $("config").value, doc_type: $("doctype").value,
+                             pdf_page: /\.pdf$/i.test(p) ? Math.max(0, Number($("pdfPage").value) - 1) : 0 });
     S.sel = null; S.imgKey = ""; S.layoutKey = ""; S.finalKey = ""; S.draft = null; fitNext = true;
     status("reading…");
     await poll(true);

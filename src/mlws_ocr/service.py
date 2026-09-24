@@ -61,6 +61,13 @@ def read_page(data: bytes, suffix: str, pdf_page: int = 0, doc_type: str | None 
             gray, dpi = load_gray(path)
     finally:
         os.unlink(path)
+    return read_gray(gray, dpi, doc_type, t0)
+
+
+def read_gray(gray, dpi, doc_type: str | None = None, t0: float | None = None) -> dict:
+    """Run the loaded pipeline on a loaded page (the service and the batch runner)."""
+    from mlws_ocr.core.artifacts import Page
+    t0 = time.perf_counter() if t0 is None else t0
     page = Page(gray=gray, dpi=dpi or 300.0, meta={"doc_type": doc_type} if doc_type else {})
     summary = {}
     for stage in _STAGES:

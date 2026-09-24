@@ -5,6 +5,7 @@
     mlws-ocr stages                              # list registered algorithms
     mlws-ocr inspect                             # browse runs/ in the browser
     mlws-ocr-ui [IMAGE]                          # the interactive workbench in the browser
+    mlws-ocr batch CONFIG INPUTS... --out DIR    # many pages at once, one per worker process
 """
 from __future__ import annotations
 
@@ -28,6 +29,15 @@ def main(argv=None) -> int:
                        help="optional layout hint (never required); 'block' says the image "
                             "is one block of text -- a paragraph or a table handed in alone")
 
+    p_b = sub.add_parser("batch", help="read many pages at once, one per worker process")
+    p_b.add_argument("config", help="TOML run config (engine profile)")
+    p_b.add_argument("inputs", nargs="+", help="image files, directories of images, PDFs")
+    p_b.add_argument("--out", required=True, help="directory for <name>.txt, <name>.hocr and batch.json")
+    p_b.add_argument("--workers", type=int, default=0, help="worker processes (default: cores - 1)")
+    p_b.add_argument("--doc-type", default=None, help="optional layout hint for every page")
+    p_b.add_argument("--recursive", action="store_true", help="descend into subdirectories")
+    p_b.add_argument("--pdf-pages", type=int, nargs="*", default=None, help="PDF pages to read (default: all)")
+
     sub.add_parser("stages", help="list registered stage implementations")
 
     p_ins = sub.add_parser("inspect", help="serve the inspector UI over a runs directory")
@@ -43,6 +53,12 @@ def main(argv=None) -> int:
     import mlws_ocr.decode            # noqa: F401
     import mlws_ocr.adapt             # noqa: F401
     from mlws_ocr.core import registry
+
+    if args.command == "batch":
+        from mlws_ocr.batch import run_batch
+        s = run_batch(args.config, args.inputs, args.out, args.workers, args.doc_type,
+                      args.recursive, args.pdf_pages)
+        return 0 if not s["failed"] else 2
 
     if args.command == "stages":
         for name in registry.available():
