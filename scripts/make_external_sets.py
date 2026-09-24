@@ -116,10 +116,48 @@ def funsd(root: Path, out: Path, scale: float, dpi: int, name: str = "funsd") ->
     print(f"FUNSD: {n['eval']} eval + {n['harvest']} harvest forms at {scale}x -> {out / name}")
 
 
+def cord(root: Path, out: Path, dpi: int, name: str = "cord") -> None:
+    """CORD v2 as unpacked by fetch_cord.py: the official test split (100
+    receipts) is the evaluation set, train + validation (900) the harvest.
+    The truth file is the annotated rows top to bottom; only the receipt
+    body is annotated (the header is blurred), so recall is the honest
+    column. Photos, median row height 40 px: written at their own scale."""
+    n = {"eval": 0, "harvest": 0}
+    for split, dst in (("test", "eval"), ("validation", "harvest"), ("train", "harvest")):
+        for js in sorted((root / split).glob("*.json")):
+            rows = json.loads(js.read_text())
+            if not rows:
+                continue
+            with Image.open(js.with_suffix(".png")) as im:
+                _write(im, [r["text"] for r in rows], out / name / dst, js.stem, 1.0, dpi)
+            n[dst] += 1
+    print(f"CORD: {n['eval']} eval + {n['harvest']} harvest receipts -> {out / name}")
+    # The same test receipts cut to the region their truth covers (the union of
+    # the annotated rows, a margin of 8% of its height on every side): the photos
+    # put the receipt on fabric, in a hand, beside other paper, and the full frame
+    # measures finding the document as much as reading it (2026-09-23: fabric
+    # texture read as dozens of junk lines; Tesseract's LSTM 35% word recall on the
+    # full frames). The crop is to this set what the blocks metric is to UNLV.
+    k = 0
+    for js in sorted((root / "test").glob("*.json")):
+        rows = json.loads(js.read_text())
+        if not rows:
+            continue
+        x0 = min(r["box"][0] for r in rows); y0 = min(r["box"][1] for r in rows)
+        x1 = max(r["box"][2] for r in rows); y1 = max(r["box"][3] for r in rows)
+        m = int(0.08 * (y1 - y0))
+        with Image.open(js.with_suffix(".png")) as im:
+            crop = im.crop((max(0, x0 - m), max(0, y0 - m), min(im.width, x1 + m), min(im.height, y1 + m)))
+            _write(crop, [r["text"] for r in rows], out / name / "evalcrop", js.stem, 1.0, dpi)
+        k += 1
+    print(f"CORD: {k} cropped eval receipts -> {out / name / 'evalcrop'}")
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     ap.add_argument("--sroie", type=Path, help="the mirror's data/ directory (img/, box/, key/)")
     ap.add_argument("--funsd", type=Path, help="FUNSD dataset/ directory (training_data/, testing_data/)")
+    ap.add_argument("--cord", type=Path, help="CORD v2 unpacked by fetch_cord.py (test/, validation/, train/)")
     ap.add_argument("--out", type=Path, default=Path("data/ext"))
     ap.add_argument("--sroie-eval", type=int, default=60)
     ap.add_argument("--seed", type=int, default=7)
@@ -134,6 +172,8 @@ def main():
         sroie(args.sroie, args.out, args.sroie_eval, args.seed, args.dpi, args.sroie_scale, "sroie" + args.name_suffix)
     if args.funsd:
         funsd(args.funsd, args.out, args.funsd_scale, args.dpi, "funsd" + args.name_suffix)
+    if args.cord:
+        cord(args.cord, args.out, args.dpi, "cord" + args.name_suffix)
 
 
 if __name__ == "__main__":

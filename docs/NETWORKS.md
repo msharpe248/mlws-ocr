@@ -137,6 +137,14 @@ page that is measured:
   `seq_line_v13b`; the corrected re-harvests live on the training box as
   `data/ext_shards/rt_{words,full}_*.npz` (Rumor as `btp_{words,full}_btp_rumor_*`)
   and fed the v15 runs;
+- `fetch_cord.py` + `make_external_sets.py --cord` + `harvest_boxes.py --cord`
+  — CORD v2 (1,000 photographed Indonesian receipts, human word quads,
+  CC-BY-4.0): the official test 100 are the evaluation sets (`data/ext/cord/eval`,
+  full photos; `evalcrop`, cut to the annotated rows), train + validation
+  900 the harvest, 6,314 row strips in `data/linesfull_cord.npz` (a row is
+  CORD's words sharing a `row_id`); harvested under the 0.3 frame threshold
+  — at 0.5 the rule erased shaded paper and an earlier harvest carried
+  rows with erased words under full labels (2026-09-23);
 - `harvest_boxes.py` — real line strips cut straight from a corpus's truth
   boxes, for pages the pipeline cannot align: SROIE receipts (30,325 lines
   from 566 receipts, `data/linesfull_sroie.npz`) and FUNSD forms (6,598

@@ -16,6 +16,7 @@ counts as "hard" in the trainer's report.
 Sources (see make_external_sets.py for the corpora and their terms):
   --sroie DIR   the mirror's data/ (img/*.jpg + box/*.csv), line boxes
   --funsd DIR   FUNSD dataset/, entity boxes from training_data/annotations
+  --cord DIR    CORD v2 unpacked by fetch_cord.py, row boxes from train + validation
 Only pages NOT in the evaluation split are harvested: pass --eval-dir with
 the evaluation set written by make_external_sets.py and its stems are
 excluded (the contamination guard, by construction).
@@ -142,10 +143,19 @@ def funsd_pages(root: Path):
         yield img, items
 
 
+def cord_pages(root: Path):
+    """CORD v2 as unpacked by fetch_cord.py: train + validation receipts,
+    one box per physical row (words sharing CORD's row_id)."""
+    for split in ("validation", "train"):
+        for js in sorted((root / split).glob("*.json")):
+            yield js.with_suffix(".png"), [(tuple(r["box"]), r["text"]) for r in json.loads(js.read_text())]
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     ap.add_argument("--sroie", type=Path)
     ap.add_argument("--funsd", type=Path)
+    ap.add_argument("--cord", type=Path, help="CORD v2 unpacked by fetch_cord.py")
     ap.add_argument("--eval-dir", type=Path, required=True, help="the evaluation split to exclude (stems)")
     ap.add_argument("--out", required=True)
     ap.add_argument("--scale", type=float, default=1.0, help="upscale the page before cutting (FUNSD wants 2)")
@@ -154,7 +164,8 @@ def main():
     args = ap.parse_args()
     excluded = {p.stem for p in args.eval_dir.glob("*.tif")}
     pipeline = load_pipeline(args.config)
-    src = sroie_pages(args.sroie) if args.sroie else funsd_pages(args.funsd)
+    src = (sroie_pages(args.sroie) if args.sroie else cord_pages(args.cord) if args.cord
+           else funsd_pages(args.funsd))
     strips, widths, labels, pages, xhs = [], [], [], [], []
     n_pages = 0
     for img, items in src:
