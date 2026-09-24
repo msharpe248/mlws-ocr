@@ -27,12 +27,22 @@ def main():
     ap.add_argument("image", type=Path)
     ap.add_argument("--doc-type", default="letter")
     ap.add_argument("--repeat", type=int, default=1, help="run the page this many times; the first run warms caches")
+    ap.add_argument("--cprofile", type=int, default=0, metavar="N",
+                    help="also profile the LAST repeat with cProfile and print the top N functions "
+                         "by own time and by cumulative time")
     add_pipeline_args(ap)
     args = ap.parse_args()
     overrides = parse_overrides(args.set)
     pipeline = load_pipeline(args.config)
     gray, dpi = load_gray(args.image)
+    prof = None
+    import mlws_ocr.recognize.seq as seqmod
     for rep in range(args.repeat):
+        seqmod._MEMO = None   # each repeat pays for its own page (the memo is per page's strips)
+        if args.cprofile and rep == args.repeat - 1:
+            import cProfile
+            prof = cProfile.Profile()
+            prof.enable()
         page = Page(gray=gray, dpi=dpi or 300.0, meta={"doc_type": args.doc_type})
         rows, t_all = [], time.perf_counter()
         for slot, impl, params in pipeline:
@@ -46,9 +56,16 @@ def main():
                 note = "  " + " ".join(f"{k}={dbg.scalars[k]}" for k in keys if k in dbg.scalars)
             rows.append((slot, impl, dt, note))
         total = time.perf_counter() - t_all
+        if prof is not None:
+            prof.disable()
         print(f"\n{args.image.name}  run {rep + 1}/{args.repeat}  total {total:.2f} s  ({args.config})")
         for slot, impl, dt, note in sorted(rows, key=lambda r: -r[2]):
             print(f"  {dt:6.2f} s  {100 * dt / total:5.1f}%  {slot}.{impl}{note}")
+    if prof is not None:
+        import pstats
+        for key in ("tottime", "cumulative"):
+            print(f"\n--- top {args.cprofile} by {key} ---")
+            pstats.Stats(prof).strip_dirs().sort_stats(key).print_stats(args.cprofile)
 
 
 if __name__ == "__main__":

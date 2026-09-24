@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>mlws-ocr workbench</title>
+<link rel="stylesheet" href="/static/workbench.css">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 16 16%22%3E%3Crect width=%2216%22 height=%2216%22 rx=%223%22 fill=%22%232463eb%22/%3E%3Cpath d=%22M4 4h8M4 8h8M4 12h5%22 stroke=%22white%22 stroke-width=%221.6%22/%3E%3C/svg%3E">
+</head>
+<body>
+<header>
+  <strong class="brand">mlws-ocr</strong>
+  <input id="path" type="text" placeholder="image path (tif, png, jpg, pdf)" spellcheck="false">
+  <button id="browseBtn" title="browse for an image">Browse…</button>
+  <label class="upload">Upload<input id="upload" type="file" accept=".tif,.tiff,.png,.jpg,.jpeg,.bmp,.pdf"></label>
+  <select id="config" title="engine profile"></select>
+  <select id="doctype" title="document type (layout hints)">
+    <option value="">auto</option><option>letter</option><option>legal</option><option>receipt</option>
+    <option>newspaper</option><option>magazine</option><option>form</option><option>block</option>
+  </select>
+  <button id="openBtn" class="primary">Open</button>
+  <span class="spacer"></span>
+  <span id="status"></span>
+  <button id="saveBtn" title="save the session (settings and corrections)">Save session</button>
+  <button id="loadBtn" title="load a saved session">Load session</button>
+  <select id="exportSel" title="export">
+    <option value="">Export…</option><option value="text">Text (.txt)</option><option value="hocr">hOCR</option>
+    <option value="json">Page JSON</option><option value="png">Cleaned image (.png)</option>
+    <option value="toml">Settings as profile (.toml)</option><option value="session">Session file</option>
+  </select>
+</header>
+
+<main>
+  <nav id="phases"><div class="empty">Open an image to begin.</div></nav>
+
+  <section id="viewer">
+    <div id="toolbar"></div>
+    <div id="canvasWrap"><canvas id="canvas"></canvas><div id="hint"></div></div>
+  </section>
+
+  <aside id="side">
+    <div id="stageHead"></div>
+    <div id="tools"></div>
+    <details open><summary>Parameters</summary><form id="params"></form></details>
+    <details open><summary>What the stage reported</summary><div id="scalars"></div></details>
+    <details id="textBox" open><summary>Recognised text</summary><div id="text"></div></details>
+  </aside>
+</main>
+
+<dialog id="browser">
+  <div class="dlghead"><strong>Choose an image</strong><button id="browserClose">✕</button></div>
+  <div id="browserDir"></div>
+  <ul id="browserList"></ul>
+</dialog>
+
+<script src="/static/workbench.js"></script>
+</body>
+</html>

@@ -87,7 +87,8 @@ python3 -m venv .venv && .venv/bin/pip install -e ".[dev]"
 .venv/bin/mlws-ocr run configs/neural.toml demo_page.png      # read it (writes text.txt and page.hocr under runs/)
 .venv/bin/mlws-ocr run configs/neural.toml scan.pdf --pdf-page 0
 .venv/bin/mlws-ocr run configs/neural.toml paragraph.png --doc-type block   # the image is one block of text
-.venv/bin/mlws-ocr-ui                                         # browse the runs at http://127.0.0.1:8330
+.venv/bin/mlws-ocr-ui scan.png                                # the interactive workbench at http://127.0.0.1:8330
+.venv/bin/mlws-ocr inspect                                    # browse persisted runs (read-only)
 .venv/bin/mlws-ocr-service --config configs/neural.toml       # POST an image to http://127.0.0.1:8340/ocr
 .venv/bin/mlws-ocr-lab data/unlv/bus.3B                       # live segmentation lab at http://127.0.0.1:8801
 ```
@@ -103,6 +104,32 @@ Training the sequence models is faster with the optional extra
 (`pip install -e ".[train]"`, torch on the machine's own GPU); the numpy
 implementation of every model is the reference, and the pipeline never
 imports torch unless asked to.
+
+## The workbench
+
+`mlws-ocr-ui [IMAGE]` opens a page in the browser and runs it through the
+whole pipeline, then lets you revisit any stage: see what it did (its
+images, numbers and overlays), pick another algorithm or change its
+parameters, correct it by hand, and re-run from there — upstream stages
+are kept, downstream ones re-run. Corrections are data, saved with the
+session and re-applied on every re-run:
+
+- **deskew** — the stage's estimate beside the angle applied; type an
+  angle, or click two points along a line of text;
+- **noise** — tune the despeckle size, click a mark to erase it, click a
+  removed speck to restore it, drag a box to clear;
+- **blocks and lines** — select, move, resize, add, delete, split, merge,
+  and click the blocks in reading order;
+- **text** — click a word on the page or in the text panel to correct
+  it; the text and hOCR are rebuilt.
+
+Sessions save to a `.mlws.json` file (image, profile, every choice and
+correction) and reload; the page exports as text, hOCR, page JSON, the
+cleaned image, or the session's settings as a profile TOML. Standard
+library server, plain JavaScript and canvas, no build step
+(`src/mlws_ocr/workbench/`).
+
+![The workbench on a UNLV letter: the block stage, its reading order and the block editor](docs/img/workbench_blocks.png)
 
 ## Engines
 
@@ -198,6 +225,7 @@ src/mlws_ocr/
   factory/    synthetic data: font stock, glyph and line rendering, the degradation model
   eval/       alignment of output to ground truth
   inspector/  the run browser and the segmentation lab (stdlib http.server + static HTML)
+  workbench/  the interactive workbench: a session of per-stage snapshots, user corrections, its server and page
   service.py  the HTTP service (process pool, one page per worker)
 configs/      classic.toml (= default.toml), pure.toml, neural.toml, neural_line.toml, and layout variants
 scripts/      builders, trainers, harvesters and evaluators (41 scripts; each has a docstring saying what it is for)

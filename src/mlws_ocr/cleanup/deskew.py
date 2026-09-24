@@ -61,6 +61,9 @@ class ProjectionDeskew(Stage):
         "coarse_step": 0.5,    # degrees, first pass
         "fine_step": 0.05,     # degrees, refinement around the coarse winner
         "working_width": 1200, # px; the search runs on a downsampled mask
+        "angle_deg": None,     # a manual correction (degrees, + = counter-clockwise) that
+                               # replaces the estimate; the estimate is still computed and
+                               # reported. None = use the estimate. Set by the workbench.
     }
 
     def run(self, page: Page) -> tuple[Page, DebugBundle]:
@@ -81,7 +84,8 @@ class ProjectionDeskew(Stage):
                          min(best + p["coarse_step"], p["max_angle"]) + 1e-9,
                          p["fine_step"])   # the refinement stays inside max_angle
         fine_scores = [proj.variance(a) for a in fine]
-        correction = float(fine[int(np.argmax(fine_scores))])
+        estimate = float(fine[int(np.argmax(fine_scores))])
+        correction = estimate if p["angle_deg"] is None else float(p["angle_deg"])
 
         corrected = ndimage.rotate(gray, correction, reshape=False, order=1,
                                    mode="constant", cval=1.0)
@@ -97,7 +101,8 @@ class ProjectionDeskew(Stage):
                                              marker_x=correction),
             },
             scalars={"correction_deg": round(correction, 3),
-                     "estimated_skew_deg": round(-correction, 3)},
+                     "estimated_skew_deg": round(-estimate, 3),
+                     "manual": p["angle_deg"] is not None},
         )
         return out, debug
 
@@ -125,6 +130,7 @@ class HoughDeskew(Stage):
         "angle_step": 0.05,    # accumulator angle resolution
         "working_width": 1600, # px; points are extracted at this scale
         "rho_bin_px": 2.0,     # offset bin size at the working scale
+        "angle_deg": None,     # a manual correction replacing the estimate (see projection)
     }
 
     def run(self, page: Page) -> tuple[Page, DebugBundle]:
@@ -137,6 +143,16 @@ class HoughDeskew(Stage):
 
         # One reference point per connected component: (x centroid, bottom y).
         labels, n = ndimage.label(mask)
+        if n < 3 and p["angle_deg"] is not None:
+            a = float(p["angle_deg"])
+            corrected = np.clip(ndimage.rotate(gray, a, reshape=False, order=1, mode="constant",
+                                               cval=1.0), 0.0, 1.0).astype(np.float32)
+            out = page.evolve(gray=corrected)
+            out.meta.setdefault("corrections", {})["deskew_deg"] = a
+            return out, DebugBundle(images={"input": gray, "corrected": corrected},
+                                    scalars={"correction_deg": round(a, 3), "estimated_skew_deg": 0.0,
+                                             "manual": True},
+                                    notes=["too few components to estimate; manual angle applied"])
         if n < 3:
             return page.evolve(), DebugBundle(
                 scalars={"correction_deg": 0.0, "estimated_skew_deg": 0.0},
@@ -164,7 +180,8 @@ class HoughDeskew(Stage):
             counts = np.bincount(rho_bins[:, j], minlength=n_bins)
             acc[j] = counts
             scores[j] = float((counts.astype(np.float64) ** 2).sum())
-        correction = float(angles[int(np.argmax(scores))])
+        estimate = float(angles[int(np.argmax(scores))])
+        correction = estimate if p["angle_deg"] is None else float(p["angle_deg"])
 
         corrected = ndimage.rotate(gray, correction, reshape=False, order=1,
                                    mode="constant", cval=1.0)
@@ -187,7 +204,8 @@ class HoughDeskew(Stage):
                 "score_vs_angle": plot_curve(scores, angles, marker_x=correction),
             },
             scalars={"correction_deg": round(correction, 3),
-                     "estimated_skew_deg": round(-correction, 3),
+                     "estimated_skew_deg": round(-estimate, 3),
+                     "manual": p["angle_deg"] is not None,
                      "n_points": int(n)},
         )
         return out, debug

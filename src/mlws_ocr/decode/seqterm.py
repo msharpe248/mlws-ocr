@@ -24,7 +24,11 @@ class SeqTerms:
         from mlws_ocr.recognize.seq import load_scorer
         key = (path, tuple(Path(q).stat().st_mtime for q in str(path).split("+")), backend)
         if key not in cls._seq_cache:
-            cls._seq_cache.clear()
+            # up to four models stay loaded: a decode pass asks for the word scorer
+            # and the line reader in turn, and a cache of one reloaded both from
+            # disk on every switch, twice a pass (found 2026-09-24)
+            while len(cls._seq_cache) >= 4:
+                cls._seq_cache.pop(next(iter(cls._seq_cache)))
             cls._seq_cache[key] = load_scorer(path, backend)
         return cls._seq_cache[key]
 
@@ -42,7 +46,12 @@ class SeqTerms:
         strip, scale, x0, _ = line_strip(binary, ln, x_height)
         if strip.shape[1] < 4:
             return None
-        return (strip < 0.5).astype(np.float32), x0, scale, {}
+        ink = (strip < 0.5).astype(np.float32)
+        # the span cache is keyed by the strip's pixels and kept with the scorer,
+        # so the second decode pass finds the first pass's windows already scored
+        from mlws_ocr.recognize.seq import memo_get, strip_key
+        cache = memo_get(scorer, strip_key("line_windows", ink), dict, limit=2048)
+        return ink, x0, scale, cache
 
     def _collect_doc_words(self, layout, lm, p) -> set:
         """What this page calls its people, places and products, from the

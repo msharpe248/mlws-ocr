@@ -4,7 +4,7 @@
     mlws-ocr run configs/default.toml doc.pdf --pdf-page 0
     mlws-ocr stages                              # list registered algorithms
     mlws-ocr inspect                             # browse runs/ in the browser
-    mlws-ocr-ui                                  # same as: mlws-ocr inspect
+    mlws-ocr-ui [IMAGE]                          # the interactive workbench in the browser
 """
 from __future__ import annotations
 
@@ -67,14 +67,25 @@ def main(argv=None) -> int:
 
 
 def ui_main(argv=None) -> int:
-    """Entry point for the ``mlws-ocr-ui`` executable: inspector only."""
+    """Entry point for the ``mlws-ocr-ui`` executable: the interactive workbench
+    (open a page, see and correct every stage, re-run from any stage, save).
+    The read-only run inspector is ``mlws-ocr inspect``."""
     parser = argparse.ArgumentParser(prog="mlws-ocr-ui",
-                                     description="serve the mlws-ocr inspector UI")
-    parser.add_argument("--runs-dir", default="runs")
+                                     description="the mlws-ocr workbench: an interactive page reader in the browser")
+    parser.add_argument("image", nargs="?", help="an image or PDF to open straight away")
+    parser.add_argument("--config", default="configs/neural.toml", help="engine profile")
+    parser.add_argument("--doc-type", default=None, help="letter, legal, receipt, newspaper, ...")
+    parser.add_argument("--runs-dir", default="runs", help="where uploads and saved sessions go")
     parser.add_argument("--port", type=int, default=8330)
+    parser.add_argument("--no-browser", action="store_true", help="do not open a browser tab")
     args = parser.parse_args(argv)
-    from mlws_ocr.inspector.server import serve
-    serve(runs_dir=args.runs_dir, port=args.port)
+    from mlws_ocr.workbench.server import serve
+    if not args.no_browser:
+        import threading
+        import webbrowser
+        threading.Timer(0.8, lambda: webbrowser.open(f"http://127.0.0.1:{args.port}/")).start()
+    serve(image=args.image, config=args.config, port=args.port, runs_dir=args.runs_dir,
+          doc_type=args.doc_type)
     return 0
 
 

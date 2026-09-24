@@ -37,6 +37,7 @@ from ..core.registry import register
 from ..core.stage import DebugBundle
 from ..glyph.strip import line_strip
 from ..recognize.ctc import prefix_beam_search
+from ..recognize.seq import cached_log_probs
 from .beam import BeamDecode, numeric_endorsed
 
 
@@ -361,7 +362,7 @@ class HybridDecode(BeamDecode):
         for c0, c1 in spans:
             if c1 - c0 < 4:
                 continue
-            logp = model.log_probs([ink[:, c0:c1]])[0]
+            logp = cached_log_probs(model, ink[:, c0:c1])
             posts.append(logp)
             read = prefix_beam_search(logp, model.classes, beam_width=p["line_beam"],
                                       word_bonus=word_bonus)

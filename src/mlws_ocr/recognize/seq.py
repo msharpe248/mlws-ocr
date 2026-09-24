@@ -349,6 +349,51 @@ def default_classes() -> list[str]:
     return classes
 
 
+_MEMO = None
+
+
+def _memo_for(scorer):
+    """The scorer's result cache (created on first use, dropped with the scorer)."""
+    global _MEMO
+    import weakref
+    from collections import OrderedDict
+    if _MEMO is None:
+        _MEMO = weakref.WeakKeyDictionary()
+    try:
+        return _MEMO[scorer]
+    except KeyError:
+        _MEMO[scorer] = OrderedDict()
+        return _MEMO[scorer]
+
+
+def strip_key(tag: str, strip: np.ndarray) -> tuple:
+    import hashlib
+    a = np.ascontiguousarray(strip)
+    return (tag, a.shape, str(a.dtype), hashlib.blake2b(a.tobytes(), digest_size=16).digest())
+
+
+def memo_get(scorer, key, make, limit: int = 4096):
+    """``make()`` computed once per (scorer, key) and kept in a bounded LRU.
+    The decoders' second pass (after glyph adaptation) cuts the same strips
+    from the same binary and asks the same networks about them; the answer
+    is a pure function of the pixels, so it is reused, not recomputed
+    (2026-09-24: the second decode pass cost as much as the first)."""
+    m = _memo_for(scorer)
+    if key in m:
+        m.move_to_end(key)
+        return m[key]
+    v = make()
+    m[key] = v
+    if len(m) > limit:
+        m.popitem(last=False)
+    return v
+
+
+def cached_log_probs(scorer, strip: np.ndarray) -> np.ndarray:
+    """``scorer.log_probs([strip])[0]``, memoised by the strip's pixels."""
+    return memo_get(scorer, strip_key("lp", strip), lambda: scorer.log_probs([strip])[0])
+
+
 class SeqEnsemble:
     """Several readers over one class list, their frame posteriors averaged
     in probability (log of the mean of the members' probabilities): the

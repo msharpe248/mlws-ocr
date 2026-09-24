@@ -32,7 +32,8 @@ from a TOML config or, in the evaluation scripts, with `--set SLOT.KEY=VAL`.
 **Eyes on everything.** The runner persists every stage boundary under
 `runs/<doc-id>/<n>-<slot>/` (page image, page JSON, debug images,
 `debug.json` with parameters, scalars, notes and timing). The inspector
-(`mlws-ocr-ui`) is a dependency-free local viewer over that tree; the
+(`mlws-ocr inspect`) is a dependency-free local viewer over that tree, the
+workbench (`mlws-ocr-ui`, §9) re-runs and corrects any stage live; the
 segmentation lab (`mlws-ocr-lab`) re-runs block segmentation live with
 every internal drawn. A stage is not done until a human can look at it.
 
@@ -611,6 +612,27 @@ Python hash seeds), so the tenths were stale entries, not a change.
 
 ## 9. Tooling
 
+**Workbench.** `mlws-ocr-ui` (`workbench/`) is the interactive front end
+(2026-09-24). A `Session` holds one page and its stage list by POSITION
+(`decode` occurs twice) and keeps the page after every stage as a
+snapshot: the image arrays are shared (stages never mutate their input),
+`meta` is deep-copied at every boundary because several stages extend
+`meta["layout"]` in place and `Page.evolve` copies it one level deep —
+without the copy a downstream re-run would change an upstream snapshot
+(a test holds it). Changing a stage's algorithm, parameters or
+corrections invalidates it and everything after; `run_from(k)` re-runs
+k..end on a worker thread from snapshot k−1, and a newer request
+supersedes an older one at the next stage boundary. Corrections are
+data applied to a stage's OUTPUT (`workbench/edits.py`), so the stages
+stay pure and a correction survives any re-run: noise erase/restore on
+the binary, the block and line lists replaced wholesale, word text
+matched to the final words by box overlap and applied before `output`
+builds the text and hOCR. The one stage change it needed is deskew's
+`angle_deg` (a manual angle; the estimate is still computed and shown).
+`Session.run_from(0)` with no corrections equals the batch path's text
+(a test). The server is the standard-library one; the page is plain
+JavaScript and canvas with overlays drawn from the layout JSON.
+
 **Service.** `mlws-ocr-service` (`service.py`) is the same standard-
 library HTTP server the inspector uses, in front of a process pool: each
 worker loads the profile's models once and reads one page at a time, so
@@ -624,8 +646,11 @@ letters at once on four workers, all served, at the dev-8 accuracy).
 Breuel 2007, `x_wconf` from the calibrator when it ran).
 
 
-- `mlws-ocr run <config> <image|pdf>` — run and persist; `mlws-ocr-ui`
-  inspects `runs/`; `mlws-ocr-lab <dir>` is the live segmentation lab.
+- `mlws-ocr run <config> <image|pdf>` — run and persist; `mlws-ocr inspect`
+  browses `runs/`; `mlws-ocr-ui [image]` is the workbench;
+  `mlws-ocr-lab <dir>` is the live segmentation lab.
+- `scripts/profile_page.py <image> --cprofile N` — per-stage wall time and
+  the top N functions.
 - `scripts/eval_*.py` — the measurement suite (all accept `--set`).
 - `scripts/build_*.py`, `train_*.py`, `harvest_*.py` — models and data.
 - `scripts/compare_legacy*.py`, `confusion_report.py`,
