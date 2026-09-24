@@ -28,8 +28,10 @@ MODELS = {
     "outline_protos.npz": "outline-segment prototypes for the outline channel (build_outline_protos.py)",
     "cnn.npz": "glyph CNN, kept OFF in every profile; shipped for the record (train_cnn.py)",
     "seq_en.npz": "word-strip CRNN+CTC scorer = seq_en_v6c_s2 (train_seq.py; 615 faces, five UNLV harvests at real weight 3)",
-    "seq_line_en.npz": "line reader CRNN+CTC = seq_line_v13b (train_seq.py; long synthetic lines + whole UNLV, SROIE receipt, FUNSD form and Library of Congress Legal Reports lines)",
-    "linechoice.npz": "logistic judge between the classic and the reader's line = linechoice14s (train_line_choice.py; with the page-level feature and receipt pairs)",
+    "seq_line_en.npz": "line reader CRNN+CTC, ensemble member 1 = seq_line_v15e seed 3 (train_seq.py; long synthetic lines + whole UNLV, SROIE receipt at weight 5, FUNSD form and Library of Congress Legal Reports lines)",
+    "seq_line_en_2.npz": "line reader ensemble member 2 = seq_line_v15e seed 2 (same recipe)",
+    "seq_line_en_3.npz": "line reader ensemble member 3 = seq_line_v15e seed 1 (same recipe)",
+    "linechoice.npz": "logistic judge between the classic and the reader's line = linechoice_e15s (train_line_choice.py; fitted on the three-seed ensemble's own pairs, page-level feature, receipt pairs)",
     "wordconf.npz": "logistic word-confidence calibrator, P(correct) per word in the hOCR (train_wordconf.py)",
 }
 

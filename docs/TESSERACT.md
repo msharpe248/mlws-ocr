@@ -20,16 +20,16 @@ install carries (`tessdata_fast`).
 | set | what it is | mlws-ocr neural | Tesseract legacy | Tesseract LSTM | verdict |
 |---|---|---|---|---|---|
 | dev-8 | UNLV business letters, our tuning set | **97.3 / 94.5** | 95.0 / 91.7 | 95.5 / 93.1 | ahead of both |
-| broad-30 | UNLV business letters, the headline set | 95.2 / 91.2 | 95.5 / 91.7 | **96.0 / 92.7** | behind by 0.3 / 0.5 and 0.8 / 1.5 |
-| legal-8 | UNLV legal pleadings, typewriter | **94.5 / 90.5** | 90.4 / 88.7 | 90.3 / 86.9 | ahead of both by 4 characters |
-| modern | born-digital PDFs, templated letters | **93.9 / 90.2** | 75.4 / 70.8 | 74.2 / 66.6 | ahead of both by 19 characters |
-| business | invoices, payslips, receipts, statements, orders | **97.6 / 95.7** | 70.7 / 68.0 | 70.7 / 68.6 | ahead by 27 characters; level on bag-of-words recall (97.7 vs 97.5 / 98.0) |
-| news-8 | UNLV newspapers, measured only | 95.5 / 92.8 | 96.3 / 93.1 | **96.7 / 94.8** | behind by about 2 characters |
-| mag-8 | UNLV magazines, measured only | 76.7 / 66.8 | 87.3 / 84.7 | **87.8 / 84.4** | behind, layout |
-| sroie | real scanned receipts, ICDAR 2019 (60) | **71.1 / 41.5**; reader-only 73.4 / 44.5 | 56.2 / 29.4 | 64.0 / 40.3 | ahead of both in both columns |
-| funsd | real scanned forms, FUNSD (50, at 2x) | 55.5 / 30.7 | 54.8 / 32.0 | **66.4 / 47.2** | behind by 13 characters: noise and layout |
-| legal reports | Library of Congress typescript and print (40, at their measured ~365 dpi) | 81.4 / 61.9 (100-page draw 80.2 / 64.2) | | 78.8 / **66.3** (81.6 / 70.8) | level in characters, six or seven words behind; 600 harvested pages are in the reader |
-| blocks | broad-30's text zones read alone, no layout | 98.3 / 95.6 | 98.2 / 96.6 | **98.5 / 96.5** | character parity, about a word behind |
+| broad-30 | UNLV business letters, the headline set | 95.3 / 91.4 | 95.5 / 91.7 | **96.0 / 92.7** | behind by 0.2 / 0.3 and 0.7 / 1.3 |
+| legal-8 | UNLV legal pleadings, typewriter | **94.6 / 91.1** | 90.4 / 88.7 | 90.3 / 86.9 | ahead of both by 4 characters |
+| modern | born-digital PDFs, templated letters | **93.8 / 89.9** | 75.4 / 70.8 | 74.2 / 66.6 | ahead of both by 19 characters |
+| business | invoices, payslips, receipts, statements, orders | **97.6 / 95.0** | 70.7 / 68.0 | 70.7 / 68.6 | ahead by 27 characters; level on bag-of-words recall (96.7 vs 97.5 / 98.0) |
+| news-8 | UNLV newspapers, measured only | 95.8 / 93.1 | 96.3 / 93.1 | **96.7 / 94.8** | behind by about 1 character |
+| mag-8 | UNLV magazines, measured only | 77.6 / 69.0 | 87.3 / 84.7 | **87.8 / 84.4** | behind, layout |
+| sroie | real scanned receipts, ICDAR 2019 (60) | **70.3 / 40.1**; reader-only 71.7 / 42.8 | 56.2 / 29.4 | 64.0 / **40.3** | ahead in characters, level in words |
+| funsd | real scanned forms, FUNSD (50, at 2x) | 57.8 / 32.6 | 54.8 / 32.0 | **66.4 / 47.2** | behind by 13 characters: noise and layout |
+| legal reports | Library of Congress typescript and print (40, at their measured ~365 dpi) | **85.6 / 69.0** (100-page draw **85.8 / 72.3**) | | 78.8 / 66.3 (81.6 / 70.8) | ahead of the LSTM in both columns on both draws, since the three-seed ensemble reader (2026-09-23) |
+| blocks | broad-30's text zones read alone, no layout | 98.3 / 95.7 | 98.2 / 96.6 | **98.5 / 96.5** | character parity, about a word behind |
 
 Reading the table honestly:
 
@@ -40,8 +40,8 @@ Reading the table honestly:
   on the pleadings, breaks on templated letters and forms, and reads a
   table by column blocks so its words are right but its lines are not.
 - **Where we trail, the gap is small and located.** On clean
-  single-column letters the neural profile is 0.4 characters behind
-  legacy and 0.9 behind the LSTM. The bare-block row says how much of that
+  single-column letters the neural profile is 0.2 characters behind
+  legacy and 0.7 behind the LSTM. The bare-block row says how much of that
   is recognition: at character parity, about 1.6 word points of spacing
   and punctuation. The rest is letterhead lines in display faces that the
   reader still declines or misreads, 48% of the residual on that set.

@@ -71,19 +71,21 @@ impl = "hybrid"                # the line reader beside the classic decoder (dec
                                # judge says so (2026-09-13: dev-8 91.9 -> 93.2 word, broad-30 87.5 -> 89.8,
                                # legal-8 84.4 -> 88.5, news-8 88.2 -> 90.2, blocks broad-30 91.1 -> 95.1).
                                # "beam" is the classic decoder alone.
-line_model_path = "data/seq_line_en.npz"  # = seq_line_v13b (2026-09-21): the v11 recipe (seed 3) with the Library of Congress
-                               # Legal Reports harvest among its real strips; Legal Reports 74.7/55.5 -> 75.6/56.9, SROIE
-                               # 65.0/35.0 -> 66.0/35.9, modern +0.4 word, templated receipts +1.7; every standard set within
-                               # its seed range (two seeds: RESEARCH). Previous live kept as data/seq_line_v11s2.npz.
-                               # For thermal-roll receipts alone, line_mode = "pure" reads SROIE better than the judge.
+line_model_path = "data/seq_line_en.npz+data/seq_line_en_2.npz+data/seq_line_en_3.npz"
+                               # = an output ensemble of seq_line_v15e seeds 3, 2 and 1 (2026-09-23): v13b's recipe plus
+                               # one corrected Library of Congress Legal Reports shard, the SROIE lines at weight 5; frame
+                               # posteriors averaged (recognize/seq.py SeqEnsemble). Against v13b: Legal Reports 81.4/61.9
+                               # -> 85.6/69.0, legal-8 +0.6 word, SROIE -1.4, business -0.7 (owner's exception). The
+                               # ensemble removes the seed lottery (one seed's receipts swing 8 words). Previous live
+                               # kept as data/seq_line_v13b.npz.
 line_mode = "choose"
 line_choose_rule = "calibrated"  # the fitted judge (decode/linechoice.py). Until 2026-09-18 a fall-through in the
                                # choice chain overwrote its decision with the endorsed count; with the judge
                                # deciding: dev-8 93.4 -> 94.5 word, broad-30 90.2 -> 91.0, legal-8 89.1 -> 90.2,
                                # modern 88.8 -> 90.5, business 93.6 -> 95.1; mag-8 -3, blocks -1 char
-line_choice_path = "data/linechoice.npz"  # = linechoice14s (2026-09-21): fitted against the v13b reader on the four UNLV harvests plus
-                               # 545 receipt line pairs, with the page-level unendorsed-lines feature; SROIE 66.0/35.9 -> 71.0/41.1,
-                               # legal-8 89.8 -> 90.5 word, Legal Reports +1.1 char; modern -0.2 word. Previous: linechoice13b
+line_choice_path = "data/linechoice.npz"  # = linechoice_e15s (2026-09-23): fitted on the v15e ensemble's own line pairs
+                               # (the four UNLV harvests + receipt pairs, page-level feature); an averaged posterior is flatter,
+                               # and the single-model judge lost 2-3 receipt words to it. Previous: linechoice14s
 line_choice_thresh = 0.5
 line_max_cols = 1400
 line_read_graphic = true       # the reader reads the lines the classic decoder flagged as graphics

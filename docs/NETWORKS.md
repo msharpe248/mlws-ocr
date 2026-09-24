@@ -84,6 +84,7 @@ were trained on the public sources named below and on nothing else.
 | v0.5.0 (2026-09-21) | line reader `seq_line_v13b` (the recipe with the Library of Congress Legal Reports harvest added) and judge `linechoice13b` replace v11s2 and linechoice11s2 |
 | v0.6.0 (2026-09-21) | judge `linechoice14s` (the page-level unendorsed-lines feature, fitted with receipt pairs) replaces 13b; the reader unchanged |
 | v0.7.0 (2026-09-22) | the same ten files as v0.6.0: this release is code and profiles — scanner-frame clearing, the declined-line rule, the corrected Legal Reports set, the faster prefix beam |
+| v0.8.0 (2026-09-23) | twelve files: the line reader is a three-seed ensemble (`seq_line_en.npz`, `seq_line_en_2.npz`, `seq_line_en_3.npz` = `seq_line_v15e` seeds 3, 2, 1) and the judge `linechoice_e15s` fitted on it; the rest unchanged |
 
 ## Where the training data comes from
 
@@ -302,7 +303,7 @@ words, up to 1,700 columns; `make_seq_data.py --words 3 8 --take 2 6
 15,549 from the five UNLV sets (`harvest_lines.py --line-out`), 30,325
 from the SROIE receipts and 6,598 from the FUNSD forms cut straight from
 their truth boxes (`harvest_boxes.py`); real strips repeated three times
-an epoch. The live model is `seq_line_v13b` (2026-09-21), which adds 37,960 word
+an epoch. The live reader is a three-seed ensemble of `seq_line_v15e` (2026-09-23; Status below); `seq_line_v13b` (2026-09-21) added 37,960 word
 strips and 1,993 whole lines from the Library of Congress Legal Reports
 (`make_btp_set.py`, `harvest_lines.py`); `seq_line_v11s2` (2026-09-19)
 had the receipts and forms, `seq_line_v7a` the UNLV lines only.
@@ -332,31 +333,23 @@ Polyak average of the weights as `<out>_ema.npz`: the two variance reducers
 that stay inside one run's basin (seeds of one recipe do not average —
 their soup read worse than every seed, 2026-09-23).
 
-**Status (2026-09-23).** Live: `seq_line_v13b`. Not adopted: `v14a`,
-`v15a`, `v15b` (the Library of Congress shards at 170–210k typewriter
-strips lost the real receipts to 67 / 36 reader-only at any weight and
-either dpi — a volume effect, typewriter outnumbering thermal receipts
-seven to one), `v15d` (the same volume spread over all shards, worse
-still), and `v15c` as a reader (one corrected shard: Legal Reports +4.9
-words, receipts −1.6, a mixed result). Candidate held for the owner: `v15e` = v15c with the
-SROIE lines at `--weight 5` — Legal Reports +3.2 / +3.7 / +6.4 words on
-three seeds (past the LSTM), the standard sets holding on all three, but
-the receipts 44.1 / 38.6 / 36.7 words against the live 41.5: one win in
-three, a seed spread of eight words on that set. Not adopted: the live recipe's own three seeds read the receipts at
-41.5 / 40.0 / 39.2, so the two recipes are level there on average and
-v15e is the more variable; the owner held v13b (2026-09-23) and asked
-for stability first. Stability work (2026-09-23): weight averages failed — seed soups read
-worse than every seed, EMA and late-epoch soups did not narrow the spread;
-the live recipe's five draws read the receipts at 41.5 / 40.0 / 39.2 /
-37.6 / 38.3 (v13b the best), and a paired bootstrap says the seeds truly
-differ. Now measured: an output ensemble of seeds (`SeqEnsemble`, a reader
-path `a.npz+b.npz+c.npz`). Judges: a
-refit under a new reader (`linechoice18s`) measured worse than the live
-judge on legal-8, business and the Legal Reports, so a candidate reader is
-now measured under the live judge first and a refit adopted only if it
-beats it. The corrected re-harvests are complete on the box (`data/ext_shards/rt_*`:
-the Legal 600, six Legal shards, two NAWSA shards; `btp_*_rumor_*`: two
-Rumor shards), all frame-cleared, at the inferred dpi.
+**Status (2026-09-23).** Live: an output ensemble of three
+`seq_line_v15e` seeds (`data/seq_line_en.npz`, `_2`, `_3`; the neural
+profile names them `a+b+c`, `recognize/seq.py` `SeqEnsemble` averages their
+frame posteriors) with a judge fitted on the ensemble's own pairs
+(`linechoice_e15s`). The recipe: v13b's (the UNLV lines, SROIE and FUNSD
+box lines, the Legal 600) plus ONE corrected Legal Reports shard under
+`--lines-once`, the SROIE lines at `--weight 5`. Why an ensemble: one
+seed's receipts swing eight words, and seed soups, EMA and late-epoch
+averages did not narrow that; three members deliver their average every
+time. Against v13b: Legal Reports 81.4 / 61.9 → 85.6 / 69.0 (the 100-page
+draw 80.2 / 64.2 → 85.8 / 72.3, past the LSTM in both columns), mag-8
++2.2 words, FUNSD +1.9, legal-8 +0.6, news-8 +0.3; receipts −1.4 and
+business −0.7 accepted by the owner. Cost: three reader forwards, the
+letter 13.8 → 15.4 s. Previous live kept: `seq_line_v13b`, `linechoice14s`.
+Not adopted along the way: `v14a`, `v15a`, `v15b` (170–210k typewriter
+strips drowned the receipts at any weight and either dpi), `v15d` (the
+same volume spread thin), single-seed `v15c` and `v15e`.
 
 **The chain, as run.** Every candidate line model goes through the same
 five steps, scripted end to end so a run started at night evaluates

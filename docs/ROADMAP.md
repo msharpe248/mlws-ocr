@@ -383,9 +383,21 @@ and the receipts +0.9, and is the live reader (`seq_line_v13b`,
 2026-09-21): a fourth real domain in the recipe. The
 judge then gained a page-level feature and the receipt pairs
 (`linechoice14s`, 2026-09-21): real receipts 71.0 / 41.1 under the
-default profile, past the LSTM in both columns; legal-8 +0.7 word. Under
-way: 5,000 more By the People pages (Legal Reports, NAWSA records, WWII
-Rumor Project) harvested for `seq_line_v14a`.
+default profile, past the LSTM in both columns; legal-8 +0.7 word. The
+5,000-page expansion (Legal Reports, NAWSA, the WWII Rumor Project) taught
+three lessons in a week (RESEARCH 2026-09-22/23): the Library's TIFFs lie
+about their resolution (dpi now inferred from the page width), scanner
+frames need clearing before the background division (`frame_dark`), and
+typewriter strips at 170k+ drown the thermal receipts at any weight — one
+500-page shard is what the mix carries. The receipts' seed spread (eight
+words) then drove the stability work: seed soups and weight averages
+failed, an output ensemble of three seeds with a judge fitted on its own
+pairs succeeded, and is the live reader since 2026-09-23 (`seq_line_v15e`
+seeds 1–3 + `linechoice_e15s`): Legal Reports 81.4 / 61.9 → 85.6 / 69.0,
+past the LSTM in both columns on both draws; mag-8 +2.2 words, FUNSD +1.9,
+legal-8 +0.6; receipts −1.4 and business −0.7 accepted as an exception by
+the owner. Next: the receipts' variance (more receipt pages), and the
+NAWSA and Rumor harvests, which no run has yet carried at a safe volume.
 
 **The items, in order:**
 
