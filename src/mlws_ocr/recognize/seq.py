@@ -372,7 +372,65 @@ class SeqEnsemble:
     def encode(self, text: str) -> list[int]:
         return self.members[0].encode(text)
 
+    def _stacked(self) -> bool:
+        return all(isinstance(m, SeqNet) for m in self.members) and \
+            len({(m.hidden, m.dtype) for m in self.members}) == 1
+
+    def _gru_stacked(self, Fs, lengths, direction):
+        """The members' recurrent layers in ONE timestep loop: member m's
+        state and weights are slice m of stacked arrays, and each step is
+        a batched matrix product, so the Python loop (the reader's cost:
+        half a million small calls a letter page) runs once instead of
+        once per member.  The same arithmetic as SeqNet._gru per member."""
+        ms = self.members
+        Wih = np.stack([m.params[f"{direction}_Wih"] for m in ms])
+        Whh = np.stack([m.params[f"{direction}_Whh"] for m in ms])
+        bih = np.stack([m.params[f"{direction}_bih"] for m in ms])[:, None, None, :]
+        bhh = np.stack([m.params[f"{direction}_bhh"] for m in ms])[:, None, :]
+        F = np.stack(Fs)                                      # (M, N, T, D)
+        M, N, T, _ = F.shape
+        H = ms[0].hidden
+        GI = F @ Wih[:, None] + bih                           # (M, N, T, 3H)
+        h = np.zeros((M, N, H), F.dtype)
+        out = np.zeros((M, N, T, H), F.dtype)
+        order = range(T) if direction == "f" else range(T - 1, -1, -1)
+        for t in order:
+            m = (t < lengths).astype(F.dtype)[None, :, None]
+            gh = h @ Whh + bhh
+            gi = GI[:, :, t]
+            r = _sigmoid(gi[..., :H] + gh[..., :H])
+            z = _sigmoid(gi[..., H:2 * H] + gh[..., H:2 * H])
+            n = np.tanh(gi[..., 2 * H:] + r * gh[..., 2 * H:])
+            h_new = (1 - z) * n + z * h
+            h = m * h_new + (1 - m) * h
+            out[:, :, t] = h
+        return out
+
+    def _forward_stacked(self, X, lengths):
+        ms = self.members
+        Fs = [m._conv_stack(X.astype(m.dtype), lengths, False)[0] for m in ms]
+        Hf = self._gru_stacked(Fs, lengths, "f")
+        Hb = self._gru_stacked(Fs, lengths, "b")
+        Hcat = np.concatenate([Hf, Hb], axis=3)
+        lps = []
+        for k, m in enumerate(ms):
+            logits = Hcat[k] @ m.params["Wo"] + m.params["bo"]
+            logits = logits - logits.max(2, keepdims=True)
+            lps.append(logits - np.log(np.exp(logits).sum(2, keepdims=True)))
+        return np.logaddexp.reduce(np.stack(lps), axis=0) - np.log(len(ms))
+
     def log_probs(self, strips, batch: int = 64):
+        if self._stacked():
+            first = self.members[0]
+            out: list = [None] * len(strips)
+            order = sorted(range(len(strips)), key=lambda i: strips[i].shape[1])
+            for s0 in range(0, len(order), batch):
+                idx = order[s0:s0 + batch]
+                X, lengths = first.pad([strips[i] for i in idx])
+                lp = self._forward_stacked(X, lengths)
+                for k, i in enumerate(idx):
+                    out[i] = lp[k, :lengths[k]].astype(np.float32)
+            return out
         outs = [m.log_probs(strips) for m in self.members]
         k = np.log(len(self.members))
         return [np.logaddexp.reduce(np.stack([o[i] for o in outs]), axis=0) - k

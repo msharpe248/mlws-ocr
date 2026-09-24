@@ -162,3 +162,16 @@ def test_ensemble_of_one_model_twice_equals_the_model():
     a, b = one.log_probs([strip])[0], two.log_probs([strip])[0]
     assert np.allclose(a, b, atol=1e-5)
     assert two.encode("abc") == one.encode("abc")
+
+
+def test_stacked_ensemble_matches_member_by_member():
+    import numpy as np
+    from mlws_ocr.recognize.seq import load_scorer
+    ens = load_scorer("data/seq_line_v13a.npz+data/seq_line_v13b.npz+data/seq_line_v13c.npz")
+    rng = np.random.default_rng(1)
+    strips = [(rng.random((32, w)) < 0.2).astype(np.float32) for w in (60, 150, 333)]
+    stacked = ens.log_probs(strips)
+    outs = [m.log_probs(strips) for m in ens.members]
+    for i in range(len(strips)):
+        ref = np.logaddexp.reduce(np.stack([o[i] for o in outs]), axis=0) - np.log(3)
+        assert np.allclose(stacked[i], ref, atol=1e-4)
