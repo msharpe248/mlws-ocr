@@ -28,17 +28,18 @@ are in `docs/DESIGN.md` §8.
 
 | set | what it is | classic | neural | legacy Tesseract | Tesseract LSTM |
 |---|---|---|---|---|---|
-| dev-8 | UNLV business letters, tuning set | 95.2 / 89.3 | **97.3 / 94.5** | 95.0 / 91.7 | 95.5 / 93.1 |
-| broad-30 | UNLV business letters, the headline set | 91.8 / 82.0 | 95.3 / 91.4 | 95.5 / 91.7 | **96.0 / 92.7** |
-| legal-8 | UNLV legal pleadings (typewriter) | 91.7 / 81.2 | **94.6 / 91.1** | 90.4 / 88.7 | 90.3 / 86.9 |
-| modern | born-digital PDFs and templated business letters | 91.4 / 82.6 | **93.8 / 89.9** | 75.4 / 70.8 | 74.2 / 66.6 |
+| dev-8 | UNLV business letters, tuning set | 95.2 / 89.3 | **97.3 / 94.6** | 95.0 / 91.7 | 95.5 / 93.1 |
+| broad-30 | UNLV business letters, the headline set | 91.8 / 82.0 | 95.3 / 91.6 | 95.5 / 91.7 | **96.0 / 92.7** |
+| legal-8 | UNLV legal pleadings (typewriter) | 91.7 / 81.2 | **94.5 / 90.7** | 90.4 / 88.7 | 90.3 / 86.9 |
+| modern | born-digital PDFs and templated business letters | 91.4 / 82.6 | **94.0 / 90.2** | 75.4 / 70.8 | 74.2 / 66.6 |
 | business | invoices, payslips, receipts, statements, purchase orders | 95.2 / 85.7 | **97.6 / 95.0** | 70.7 / 68.0 | 70.7 / 68.6 |
-| news-8 | UNLV newspapers (measured, not tuned) | 92.6 / 81.8 | 95.8 / 93.1 | 96.3 / 93.1 | **96.7 / 94.8** |
-| mag-8 | UNLV magazines (measured, not tuned) | 65.3 / 41.2 | 77.6 / 69.0 | **87.3 / 84.7** | 87.8 / 84.4 |
-| sroie | real scanned receipts, ICDAR 2019 (reader-only decoding: 71.7 / 42.8) | 47.2 / 10.0 | **70.3 / 40.1** | 56.2 / 29.4 | 64.0 / 40.3 |
-| funsd | real scanned forms, FUNSD, at 2x | 35.9 / 12.2 | 57.8 / 32.6 | 54.8 / 32.0 | **66.4 / 47.2** |
-| legal reports | real typescript and printed office pages, Library of Congress | | **85.6 / 69.0** | | 78.8 / 66.3 |
-| blocks | a paragraph handed in alone, no layout (broad-30's text zones) | 93.4 / 84.3 | 98.3 / 95.7 | 98.2 / 96.6 | **98.5 / 96.5** |
+| news-8 | UNLV newspapers (measured, not tuned) | 92.6 / 81.8 | 95.8 / 93.2 | 96.3 / 93.1 | **96.7 / 94.8** |
+| mag-8 | UNLV magazines (measured, not tuned) | 65.3 / 41.2 | 77.4 / 68.7 | **87.3 / 84.7** | 87.8 / 84.4 |
+| sroie | real scanned receipts, ICDAR 2019 (reader-only decoding: 70.5 / 42.4) | 47.2 / 10.0 | **68.3** / 39.7 | 56.2 / 29.4 | 64.0 / **40.3** |
+| funsd | real scanned forms, FUNSD, at 2x | 35.9 / 12.2 | 57.8 / 33.6 | 54.8 / 32.0 | **66.4 / 47.2** |
+| legal reports | real typescript and printed office pages, Library of Congress | | **85.5 / 69.9** | | 78.8 / 66.3 |
+| cord | photographed receipts, CORD, cut to the receipt | | 37.7 / 8.0 | | **46.7 / 21.1** |
+| blocks | a paragraph handed in alone, no layout (broad-30's text zones) | 93.4 / 84.3 | **98.5** / 96.0 | 98.2 / **96.6** | **98.5 / 96.5** |
 
 On the tabular business pages Tesseract reads by column and pays the
 edit distance for the order; there, the bag-of-words recall is the
@@ -62,14 +63,15 @@ of the numbers, the shared ideas and the differences. The short form:
   words over the LSTM; +4.2 / +1.5 on a 100-page draw).
   Tesseract's page analysis is the reason on all three: margins and hole
   punches read as text, templated letters broken, tables read by column.
-- **Behind on the headline letter set** by 0.2 characters / 0.3 words
-  against legacy and 0.7 / 1.3 against the LSTM. Handed the same text as
+- **Behind on the headline letter set** by 0.2 characters / 0.1 words
+  against legacy and 0.7 / 1.1 against the LSTM. Handed the same text as
   bare blocks the reader is at character parity, so the gap is letterhead
   display lines and word spacing, not the recognizer.
 - **Behind on newspapers and magazines**, which are measured and not
   tuned; the loss is column layout.
-- **Real receipts level with the LSTM** in words (40.1 against 40.3)
-  and six characters ahead; forms behind by eight.
+- **Scanned receipts level with the LSTM** in words (39.7 against 40.3)
+  and four characters ahead; forms behind by eight. **Photographed
+  receipts** (CORD) are the widest gap: 9 characters and 13 words behind.
 - **A tenth of the training data**: 286k parameters trained on this
   machine from open fonts and UNLV truth, against Tesseract's 4,500 fonts
   and Google's training run. Real scanned strips in training are what buy

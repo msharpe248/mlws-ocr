@@ -85,6 +85,7 @@ were trained on the public sources named below and on nothing else.
 | v0.6.0 (2026-09-21) | judge `linechoice14s` (the page-level unendorsed-lines feature, fitted with receipt pairs) replaces 13b; the reader unchanged |
 | v0.7.0 (2026-09-22) | the same ten files as v0.6.0: this release is code and profiles — scanner-frame clearing, the declined-line rule, the corrected Legal Reports set, the faster prefix beam |
 | v0.8.0 (2026-09-23) | twelve files: the line reader is a three-seed ensemble (`seq_line_en.npz`, `seq_line_en_2.npz`, `seq_line_en_3.npz` = `seq_line_v15e` seeds 3, 2, 1) and the judge `linechoice_e15s` fitted on it; the rest unchanged |
+| v0.9.0 (2026-09-24) | twelve files: the ensemble members are now `seq_line_v17a` seeds 3, 2, 1 (the v15e recipe plus the CORD photographed-receipt rows) and the judge `linechoice_v17as`; the rest unchanged |
 
 ## Where the training data comes from
 
@@ -311,7 +312,7 @@ words, up to 1,700 columns; `make_seq_data.py --words 3 8 --take 2 6
 15,549 from the five UNLV sets (`harvest_lines.py --line-out`), 30,325
 from the SROIE receipts and 6,598 from the FUNSD forms cut straight from
 their truth boxes (`harvest_boxes.py`); real strips repeated three times
-an epoch. The live reader is a three-seed ensemble of `seq_line_v15e` (2026-09-23; Status below); `seq_line_v13b` (2026-09-21) added 37,960 word
+an epoch. The live reader is a three-seed ensemble of `seq_line_v17a` (2026-09-24; Status below); `seq_line_v13b` (2026-09-21) added 37,960 word
 strips and 1,993 whole lines from the Library of Congress Legal Reports
 (`make_btp_set.py`, `harvest_lines.py`); `seq_line_v11s2` (2026-09-19)
 had the receipts and forms, `seq_line_v7a` the UNLV lines only.
@@ -341,23 +342,25 @@ Polyak average of the weights as `<out>_ema.npz`: the two variance reducers
 that stay inside one run's basin (seeds of one recipe do not average —
 their soup read worse than every seed, 2026-09-23).
 
-**Status (2026-09-23).** Live: an output ensemble of three
-`seq_line_v15e` seeds (`data/seq_line_en.npz`, `_2`, `_3`; the neural
-profile names them `a+b+c`, `recognize/seq.py` `SeqEnsemble` averages their
-frame posteriors) with a judge fitted on the ensemble's own pairs
-(`linechoice_e15s`). The recipe: v13b's (the UNLV lines, SROIE and FUNSD
-box lines, the Legal 600) plus ONE corrected Legal Reports shard under
-`--lines-once`, the SROIE lines at `--weight 5`. Why an ensemble: one
-seed's receipts swing eight words, and seed soups, EMA and late-epoch
-averages did not narrow that; three members deliver their average every
-time. Against v13b: Legal Reports 81.4 / 61.9 → 85.6 / 69.0 (the 100-page
-draw 80.2 / 64.2 → 85.8 / 72.3, past the LSTM in both columns), mag-8
-+2.2 words, FUNSD +1.9, legal-8 +0.6, news-8 +0.3; receipts −1.4 and
-business −0.7 accepted by the owner. Cost: three reader forwards, the
-letter 13.8 → 15.4 s. Previous live kept: `seq_line_v13b`, `linechoice14s`.
-Not adopted along the way: `v14a`, `v15a`, `v15b` (170–210k typewriter
-strips drowned the receipts at any weight and either dpi), `v15d` (the
-same volume spread thin), single-seed `v15c` and `v15e`.
+**Status (2026-09-24).** Live: an output ensemble of three
+`seq_line_v17a` seeds (`data/seq_line_en.npz`, `_2`, `_3` = seeds 3, 2, 1;
+the neural profile names them `a+b+c`, `recognize/seq.py` `SeqEnsemble`
+averages their frame posteriors in one stacked recurrent loop) with a
+judge fitted on the ensemble's own pairs (`linechoice_v17as`). The recipe:
+v13b's (the UNLV lines, SROIE and FUNSD box lines, the Legal 600) plus ONE
+corrected Legal Reports shard under `--lines-once`, the SROIE lines and
+the CORD rows each at `--weight 5`. Against the v15e ensemble it replaced:
+CORD cropped 33.5 / 1.4 → 37.7 / 8.0, FUNSD +1.0 word, the Legal Reports
++0.9, broad-30 +0.2, modern +0.3, blocks +0.3; legal-8 −0.4 word, SROIE
+−2.0 characters (recall +1.8). Previous live kept: `seq_line_v15e` (seeds
+3, 2, 1) with `linechoice_e15s`; before it `seq_line_v13b` with
+`linechoice14s`. Why an ensemble: one seed's receipts swing eight words;
+seed soups, EMA and late-epoch averages did not narrow that, three members
+deliver their average every time. Not adopted along the way: `v14a`,
+`v15a`, `v15b` (170–210k typewriter strips drowned the receipts), `v15d`
+(the same volume spread thin), `v17b` (v17a plus half-shards of Legal and
+NAWSA and a Rumor shard: the Legal Reports −3 words — the other archives
+dilute the Legal shard rather than add a domain).
 
 **The chain, as run.** Every candidate line model goes through the same
 five steps, scripted end to end so a run started at night evaluates

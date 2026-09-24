@@ -402,7 +402,8 @@ help on UNLV, whose TIFFs are already bitonal — recorded).
 | news-8 / mag-8 | UNLV news.3B / mag.3B, seed 1, 8 pages | measured against Tesseract only |
 | sroie | ICDAR 2019 SROIE receipts (corrected mirror), 60 evaluation receipts by seeded draw, 566 for harvest; `data/ext/sroie` | REAL thermal-roll receipts with line-level truth (`make_external_sets.py`); public, research use |
 | funsd | FUNSD forms, the official 50 test forms at 2x, 149 for harvest; `data/ext/funsd` | REAL scanned forms with entity-level truth; reading order is a convention there, so recall / precision are the honest columns; non-commercial research |
-| btp_legal | Library of Congress "By the People", Historical Legal Reports campaign, 40 pages by seeded draw; `data/ext/btp_legal` (`make_btp_set.py`) | REAL typescript and printed office pages with HUMAN transcriptions, public domain; per-page truth in the volunteers' order, so recall / precision are the honest columns; the Library's TIFFs are tagged 300 dpi but are ~365-dpi scans of letter paper, so the set is built with the dpi inferred from the page width and resampled to 300 (`make_btp_set.py`, 2026-09-22; under the wrong tag the set read 76.7 / 57.2 and the LSTM 76.8 / 64.5); neural 85.6 / 69.0 (72.9 / 75.0; the 100-page draw 85.8 / 72.3) since the live reader became an ensemble of three `seq_line_v15e` seeds carrying the 600 harvested pages and one corrected 500-page shard (2026-09-23), LSTM 78.8 / 66.3 (100-page draw 81.6 / 70.8) |
+| cord | CORD v2 photographed receipts (Park et al. 2019, CC-BY-4.0), the official 100 test receipts; `data/ext/cord/eval` (full photos) and `evalcrop` (each cut to its annotated rows + 8%), 900 for harvest; `fetch_cord.py`, `make_external_sets.py --cord` | REAL camera photos of shop receipts with human word quads; only the receipt body is annotated (the header is blurred), so recall is the honest column; the cropped set measures reading, the full photos finding the document; neural 37.7 / 8.0 cropped (recall 31.6), Tesseract LSTM 46.7 / 21.1 (44.1) |
+| btp_legal | Library of Congress "By the People", Historical Legal Reports campaign, 40 pages by seeded draw; `data/ext/btp_legal` (`make_btp_set.py`) | REAL typescript and printed office pages with HUMAN transcriptions, public domain; per-page truth in the volunteers' order, so recall / precision are the honest columns; the Library's TIFFs are tagged 300 dpi but are ~365-dpi scans of letter paper, so the set is built with the dpi inferred from the page width and resampled to 300 (`make_btp_set.py`, 2026-09-22; under the wrong tag the set read 76.7 / 57.2 and the LSTM 76.8 / 64.5); neural 85.5 / 69.9 (73.7 / 75.6; the 100-page draw 85.7 / 72.7) since the live reader became an ensemble of three seeds carrying the 600 harvested pages and one corrected 500-page shard (v15e 2026-09-23, v17a with CORD 2026-09-24), LSTM 78.8 / 66.3 (100-page draw 81.6 / 70.8) |
 | blocks | the Text zones of dev-8, legal-8 and broad-30, cut from the page and read alone | recognition with no layout question (`eval_blocks.py`; legacy reads the same crops with `--psm 6`) |
 
 Metrics: character and word accuracy by edit distance, plus order-
@@ -453,7 +454,7 @@ with the MLP and the GRU off:
 |---|---|---|---|---|
 | classic | 95.2 / 89.3 | 91.8 / 82.0 (86.3 / 89.2) | 91.7 / 81.2 | 91.4 / 82.6 (86.1 / 90.4) |
 | pure | 94.8 / 88.0 | 91.0 / 79.3 (83.0 / 86.2) | 90.9 / 78.0 | 88.2 / 77.1 (82.4 / 86.7) |
-| neural | 97.3 / 94.5 | 95.3 / 91.4 (94.9 / 95.4) | 94.6 / 91.1 | 93.8 / 89.9 (92.4 / 96.5) |
+| neural | 97.3 / 94.6 | 95.3 / 91.6 (94.9 / 95.6) | 94.5 / 90.7 | 94.0 / 90.2 (92.5 / 96.8) |
 | legacy Tesseract | 95.0 / 91.7 | 95.5 / 91.7 (96.3 / 94.2) | 90.4 / 88.7 | 75.4 / 70.8 (88.9 / 95.7) |
 | Tesseract LSTM (5.5.3, tessdata_fast) | 95.5 / 93.1 (97.1 / 96.8) | 96.0 / 92.7 (96.7 / 95.4) | 90.3 / 86.9 (98.8 / 90.9) | 74.2 / 66.6 (89.5 / 91.6) |
 
@@ -523,7 +524,7 @@ magazine / newspaper) are measured but not tuned on and not harvested
 | profile | news-8 | mag-8 |
 |---|---|---|
 | classic | 92.6 / 81.8 | 65.3 / 41.2 |
-| neural | 95.8 / 93.1 (recall 96.4, precision 95.0) | 77.6 / 69.0 (92.5 / 87.3) |
+| neural | 95.8 / 93.2 (recall 96.4, precision 95.3) | 77.4 / 68.7 (92.2 / 86.7) |
 | legacy Tesseract | 96.3 / 93.1 (97.5 / 94.4) | 87.3 / 84.7 (95.9 / 90.5) |
 | Tesseract LSTM | 96.7 / 94.8 (98.6 / 95.7) | 87.8 / 84.4 (97.4 / 90.5) |
 
@@ -537,7 +538,7 @@ by column blocks and pays the edit distance for the order:
 | profile | business | blocks dev-8 (pooled) | blocks legal-8 | blocks broad-30 |
 |---|---|---|---|---|
 | classic | 95.2 / 85.7 (88.8 / 89.8) | 97.2 / 93.3 | 92.7 / 86.7 | 93.4 / 84.3 |
-| neural | 97.6 / 95.0 (96.7 / 98.0) | 98.4 / 96.1 | 96.9 / 96.3 | 98.3 / 95.7 |
+| neural | 97.6 / 95.0 (96.7 / 98.1) | 99.2 / 97.6 | 96.9 / 95.8 | 98.5 / 96.0 |
 | legacy Tesseract | 70.7 / 68.0 (97.5 / 97.8) | 98.9 / 97.2 | 96.7 / 95.3 | 98.2 / 96.6 |
 | Tesseract LSTM | 70.7 / 68.6 (98.0 / 98.6) | 99.4 / 98.5 | 97.1 / 96.0 | 98.5 / 96.5 |
 
@@ -560,7 +561,7 @@ receipt profile that preceded it is retired.
 | profile | sroie | funsd |
 |---|---|---|
 | classic | 47.2 / 10.0 (28.0 / 33.0) | 35.9 / 12.2 (17.8 / 26.3) |
-| neural | **70.3 / 40.1** (61.3 / 62.6) | 57.8 / 32.6 (44.4 / 53.9) |
+| neural | **68.3** / 39.7 (63.1 / 63.7) | 57.8 / 33.6 (45.7 / 55.5) |
 | legacy Tesseract | 56.2 / 29.4 (56.1 / 55.4) | 54.8 / 32.0 (47.5 / 53.0) |
 | Tesseract LSTM | 64.0 / **40.3** (72.7 / 73.3) | **66.4 / 47.2** (66.3 / 71.5) |
 

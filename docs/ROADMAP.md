@@ -396,8 +396,15 @@ pairs succeeded, and is the live reader since 2026-09-23 (`seq_line_v15e`
 seeds 1–3 + `linechoice_e15s`): Legal Reports 81.4 / 61.9 → 85.6 / 69.0,
 past the LSTM in both columns on both draws; mag-8 +2.2 words, FUNSD +1.9,
 legal-8 +0.6; receipts −1.4 and business −0.7 accepted as an exception by
-the owner. Next: the receipts' variance (more receipt pages), and the
-NAWSA and Rumor harvests, which no run has yet carried at a safe volume.
+the owner. The owner then asked for all three follow-ups (2026-09-24): CORD
+(1,000 photographed receipts) joined the recipe (`seq_line_v17a`, live:
+photographed receipts +6.6 words, small gains on seven more sets); the
+NAWSA and Rumor harvests at half a shard each measured negative (the
+Legal Reports −3 words); the ensemble's forward was stacked (38% faster
+per line call). Photographed receipts are now the widest gap to
+Tesseract (13 words cropped): the next lever there is photo cleanup
+(perspective, uneven light) and more annotated rows than CORD's body-only
+six a receipt.
 
 **The items, in order:**
 
