@@ -106,11 +106,16 @@ negative on legal pages.
   Letters, books and legal filings also get a 2.5× wider gutter
   threshold: their monospace text is full of vertical whitespace rivers.
 - `whitespace`: Breuel's maximal empty rectangles with side-support
-  validation; experimental, at parity on newspapers.
+  validation; experimental (2026-09-25, neural: letters broad-30 92.0 char
+  against XY-cut's 95.3, news-8 69.2 against 95.8).
 - `knn_scc`: the author's 1995 directional k-NN graph → strongly
   connected components, with pooled-k, edge or centroid distance,
   several pruning rules, component conditioning and image-block
-  re-emission. The subject of `docs/papers/knn-scc-block-segmentation.md`.
+  re-emission. Untuned, level with XY-cut on letters (broad-30 95.4 /
+  92.3 against 95.3 / 91.6); at its default it merges newspaper and
+  magazine columns (news-8 45.4 char), and at a tighter cut the gap that
+  remains there is its top-left reading order. The subject of
+  `docs/papers/knn-scc-block-segmentation.md` (§5.3 has the set table).
 
 **tables (`grid`).** Ruling intersections become a cell grid; decoded
 words are later placed into cells by centre. Unruled tables are handled

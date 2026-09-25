@@ -68,3 +68,19 @@ def test_open_with_line_equals_scipy_opening():
     for L, axis, shape in ((40, 1, (1, 40)), (40, 0, (40, 1)), (10, 1, (1, 10))):
         ref = ndimage.binary_opening(b, structure=np.ones(shape, bool))
         assert np.array_equal(open_with_line(b, L, axis), ref)
+
+
+@pytest.mark.parametrize("params", [{}, {"prune_factor": 1.2}, {"prune_factor": 4.0},
+                                    {"k_total": 5, "prune_factor": 1.8}, {"distance_mode": "edge"}])
+def test_knn_scc_recovers_the_fixture_blocks_exactly(font_path, params):
+    """The knn_scc paper's fixture claim (docs/papers, section 5.2): every
+    ground-truth block at IoU 1.00, at the 1995 settings and across the
+    threshold plateau, pooled-k and edge distances."""
+    img, gt = render_multicolumn_page(font_path)
+    page = Page(gray=img, binary=img < 0.5, dpi=300.0)
+    page, _ = registry.get("rulings", "morphological")().run(page)
+    page, _ = registry.get("blocks", "knn_scc")(**params).run(page)
+    detected = page.meta["layout"]["blocks"]
+    assert len(detected) == len(gt["blocks"])
+    for g in gt["blocks"]:
+        assert max(iou(g, d) for d in detected) > 0.99

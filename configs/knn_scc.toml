@@ -1,5 +1,9 @@
-# Default cleanup pipeline. Swap any stage's impl to compare algorithms;
-# the inspector's diff view renders two runs side by side.
+# The classic engine with the directional k-NN + strongly-connected-component
+# block segmenter (layout/knn_scc.py; docs/papers/knn-scc-block-segmentation.md)
+# in place of XY-cut. Every other stage matches configs/classic.toml, except the
+# word corrector, which is an option here (switched off) as in every profile
+# but classic. For the neural engine with these blocks, use configs/neural.toml
+# with [stage.blocks] impl = "knn_scc" (or pick knn_scc in the workbench).
 
 [pipeline]
 stages = ["magnify", "deskew", "illumination", "binarize", "despeckle",
@@ -38,7 +42,7 @@ impl = "morphological"
 impl = "grid"
 
 [stage.blocks]
-impl = "knn_scc"
+impl = "knn_scc"          # the 1995 settings; pooled-k: k_total = 5, prune_factor = 1.8
 
 [stage.lines]
 impl = "profile"
@@ -51,6 +55,10 @@ impl = "prototypes"
 
 [stage.decode]
 impl = "beam"
+digit_kern_join = true         # shape repairs shared with the neural profile (decode/formats.py), 2026-09-17:
+digit_kern_gap = 0.75          # the kerning gap in x-heights (2026-09-17: 0.5 missed a '1' 0.7 x-heights from its digits;
+                               # 0.75 took business 92.6 -> 93.4 word neural, recall and precision up; UNLV sets identical)
+caps_page_repair = true        # business 90.3/79.7 -> 90.3/80.2 word; dev-8, broad-30, legal-8, modern identical
 
 
 [stage.correct]
@@ -63,6 +71,12 @@ impl = "text"
 
 # [stage.chop]  impl = "unendorsed" -- word-level chopping between the decode
 # passes; opt-in, measured inert until cut pieces get piece-aware scoring.
+align_pair_min_rows = 2        # a text pair may form from two aligned rows (a table needs three) and takes the
+                               # unpartnered one-line blocks on its columns' left edges; the higher-starting
+                               # column reads first (2026-09-17: payslips 84.6 -> 89.3 word, orders 86.7 -> 92.3)
+align_two_col_max_gap = 0.25   # two TEXT columns of one-line cells more than a quarter page apart are a pair
+                               # of blocks read column by column, not a table (2026-09-17: business invoices
+                               # 87.7 -> 95.5 word neural, modern +1.0 word; a numeric column keeps a table)
 
 [stage.adapt]
 impl = "cluster_refit"

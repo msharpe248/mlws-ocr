@@ -172,10 +172,10 @@ class KnnSccBlocks(Stage):
                                    # explode sigma and COLLAPSE newspapers
                                    # to one block -- the 1995 spec's
                                    # 1.5x mean is the domain-robust default
-                                   # lengths (the author's own refinement of
-                                   # the spec's 1.5x-mean guess; measured
-                                   # +0.4 char over the fixed ratio -- the
-                                   # spread-adaptive cut wins).  None falls
+                                   # (the author's 2026 refinement of the
+                                   # spec's guess; k=1 won +0.4 char on
+                                   # clean letters, then lost the default
+                                   # to the newspaper collapse).  None falls
                                    # back to prune_factor x mean.
         "large_char_factor": 2.0,  # "large" = size > this x median size
         "max_char_factor": 12.0,   # ...but below this cap: photo remnants
