@@ -206,9 +206,10 @@ the abstract's heading separates from its body and the introduction
 splits at its paragraph break. What it costs is the display title,
 which fragments at its wide word gaps — the headline weakness the hybrid
 rule addresses for newspaper type, at a size (about twice the body) it
-does not reach here. The page that described separating text from
-graphics by geometry, segmented by a geometric method from the same
-author thirty years on, separates them only once the links are pooled.
+does not reach here. On a page with a line-art figure the lesson is the
+same as on the newspaper: the global cut cannot see a bridge made of
+short links; pooling the neighbours shortens the mean and the bridge
+breaks.
 (Figure 9, HTML edition.)
 
 ## 5. Limitations and future work
