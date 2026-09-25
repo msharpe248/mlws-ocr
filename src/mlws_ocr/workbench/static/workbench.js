@@ -37,10 +37,13 @@ const S = {
   pts: [],             // deskew horizon points (page coords)
   selWord: null,
   hover: null,
+  resultMode: "text",   // text | hocr
+  result: null, resultKey: "",
 };
 const CLEANUP = new Set(["magnify", "deskew", "illumination", "binarize", "despeckle"]);
 const LAYOUT = new Set(["imagezones", "rulings", "blocks", "tables", "lines", "components"]);
-const READ = new Set(["recognize", "decode", "adapt", "chop", "output"]);
+const READ = new Set(["recognize", "decode", "adapt", "chop", "correct", "output"]);
+const RESULT = "result";   // the last tab: the extracted text, as plain text or hOCR
 
 const canvas = $("canvas"), ctx = canvas.getContext("2d");
 
@@ -133,9 +136,12 @@ async function poll(force) {
          st.stages.some((s) => s.status === "error") ? "a stage failed" :
          busy ? "queued…" : `done in ${(total / 1000).toFixed(1)} s`);
   $("path").value ||= st.image;
+  // the header shows the profile this page was READ with (it also picks the profile for the next Open)
+  const cfg = "configs/" + st.config.split("/").pop();
+  if ([...$("config").options].some((o) => o.value === cfg) && S.shownConfig !== cfg) { $("config").value = cfg; S.shownConfig = cfg; }
   renderPhases();
   if (S.sel == null) { S.sel = defaultStage(); }
-  await showStage(S.sel, false);
+  if (S.sel === RESULT) await showResult(); else await showStage(S.sel, false);
   await refreshText();
 }
 
@@ -156,13 +162,72 @@ function renderPhases() {
         n ? el("div", { class: "edited" }, "✎ corrected") : null),
       el("span", { class: "ms" }, s.status === "done" ? fmtMs(s.ms) : s.status === "error" ? "error" : "")));
   });
+  const last = S.st.stages[S.st.stages.length - 1];
+  nav.append(el("div", { class: "phase result" + (S.sel === RESULT ? " sel" : ""), onclick: () => selectStage(RESULT) },
+    el("span", { class: "dot " + last.status }),
+    el("span", {}, el("div", { class: "name" }, "result"), el("div", { class: "impl" }, "extracted text · hOCR")),
+    el("span", { class: "ms" }, "")));
 }
 const fmtMs = (ms) => ms >= 1000 ? (ms / 1000).toFixed(1) + " s" : Math.round(ms) + " ms";
 
 async function selectStage(k) {
   if (S.sel !== k) { S.tool = null; S.draft = null; S.pts = []; S.imgName = null; S.selWord = null; }
-  S.sel = k; renderPhases(); await showStage(k, true);
+  S.sel = k; renderPhases();
+  const isResult = k === RESULT;
+  $("canvasWrap").hidden = isResult; $("resultPane").hidden = !isResult;
+  $("textBox").hidden = isResult; $("params").parentElement.hidden = isResult;
+  if (isResult) await showResult(); else { await showStage(k, true); draw(); }
 }
+
+// ------------------------------------------------------------------ the result tab
+async function showResult() {
+  const st = S.st.stages, last = st[st.length - 1];
+  $("canvasWrap").hidden = true; $("resultPane").hidden = false; $("textBox").hidden = true;
+  $("params").parentElement.hidden = true;
+  const key = `${last.status}/${last.ms}/${last.edits.length}`;
+  if (key !== S.resultKey) { S.result = await api("/api/result").catch(() => null); S.resultKey = key; }
+  const R = S.result;
+  // toolbar: text | hOCR, copy, download
+  const tb = $("toolbar"); tb.innerHTML = "";
+  const seg = el("span", { class: "seg" },
+    el("button", { class: S.resultMode === "text" ? "on" : "", onclick: () => { S.resultMode = "text"; showResult(); } }, "Text"),
+    el("button", { class: S.resultMode === "hocr" ? "on" : "", onclick: () => { S.resultMode = "hocr"; showResult(); } }, "hOCR"),
+    el("button", { class: S.resultMode === "render" ? "on" : "", onclick: () => { S.resultMode = "render"; showResult(); } }, "Rendered"));
+  tb.append(seg, el("span", { class: "sep" }),
+    S.resultMode === "render" ? el("label", {}, el("input", { type: "checkbox", ...(S.renderScan ? { checked: "" } : {}),
+      onchange: (e) => { S.renderScan = e.target.checked; showResult(); } }), "scan underneath") : null,
+    S.resultMode === "render" ? el("label", {}, el("input", { type: "checkbox", ...(S.renderBoxes !== false ? { checked: "" } : {}),
+      onchange: (e) => { S.renderBoxes = e.target.checked; showResult(); } }), "structure") : null,
+    el("button", { onclick: async () => { await navigator.clipboard.writeText(S.resultMode === "text" ? R.text : R.hocr); status("copied"); } }, "Copy"),
+    el("button", { onclick: () => { window.location = "/api/export/" + (S.resultMode === "text" ? "text" : "hocr"); } },
+      S.resultMode === "text" ? "Download .txt" : "Download .hocr"));
+  // side panel: a summary of the page
+  $("stageHead").innerHTML = ""; $("tools").innerHTML = ""; $("params").innerHTML = "";
+  $("stageHead").append(el("h2", {}, "Result"), el("div", {}, S.resultMode === "text"
+    ? "The page's text, as the output stage wrote it (reading order, table rows aligned)."
+    : S.resultMode === "hocr"
+    ? "hOCR: the page's structure — blocks in reading order, lines, words with boxes and confidence, tables, images, rulings."
+    : "The page redrawn from the hOCR file alone: every word at its box, blocks numbered in reading order, tables, images and rulings. Red words are low-confidence, green ones were corrected; hover for the confidence."));
+  const pre = $("resultText");
+  if (!R || !R.ready) { pre.className = ""; pre.textContent = "(the page is still being read)"; $("scalars").innerHTML = ""; return; }
+  const sm = R.summary, t = el("table");
+  for (const [k, v] of [["words", sm.words], ["lines", sm.lines], ["characters", sm.characters],
+                        ["mean confidence", sm.mean_confidence], ["low-confidence words", sm.low_confidence_words],
+                        ["corrected by the dictionary pass", sm.corrected_words], ["corrected by hand", sm.edited_words]])
+    t.append(el("tr", {}, el("td", {}, k), el("td", {}, v == null ? "—" : String(v))));
+  $("scalars").innerHTML = ""; $("scalars").append(t);
+  $("resultRender").hidden = S.resultMode !== "render"; pre.hidden = S.resultMode === "render";
+  if (S.resultMode === "text") { pre.className = ""; pre.textContent = R.text; return; }
+  if (S.resultMode === "render") { renderHocr(R.hocr); return; }
+  pre.className = "hocr"; pre.innerHTML = "";
+  // light highlighting: tags muted/accent, word text bold
+  for (const line of R.hocr.split("\n")) {
+    const m = line.match(/^(<span class="ocrx_word"[^>]*>)(.*)(<\/span>)$/);
+    if (m) pre.append(el("span", { class: "tag" }, m[1]), el("span", { class: "t" }, decodeEntities(m[2])), el("span", { class: "tag" }, m[3]), "\n");
+    else pre.append(el("span", { class: line.startsWith("<") ? "tag" : "" }, line), "\n");
+  }
+}
+function decodeEntities(s) { const d = document.createElement("textarea"); d.innerHTML = s; return d.value; }
 
 // ------------------------------------------------------------------ one stage
 function stageKind(slot) { return CLEANUP.has(slot) ? "cleanup" : LAYOUT.has(slot) ? "layout" : "read"; }
@@ -282,6 +347,7 @@ function renderTools(s, k) {
   if (s.slot === "despeckle") return noiseTools(t, s, k);
   if (s.slot === "blocks") return boxTools(t, s, k, "blocks");
   if (s.slot === "lines") return boxTools(t, s, k, "lines");
+  if (s.slot === "correct") return correctTools(t, s, k);
   if (READ.has(s.slot)) return wordTools(t, s, k);
 }
 
@@ -374,6 +440,23 @@ async function applyDraft(D, s, k) {
   S.draft = null; await pushEdits(k, edits);
 }
 
+// --- the dictionary post-processing pass
+function correctTools(t, s, k) {
+  const on = (s.params.enabled ?? s.defaults.enabled) !== false;
+  const words = S.layout ? S.layout.lines.flatMap((l) => l.words).filter((w) => w.corrected_from) : [];
+  const box = el("div", { class: "box" },
+    el("div", {}, on ? `The learned-dictionary pass changed ${words.length} word${words.length === 1 ? "" : "s"}: ` +
+      `unknown words fixed to dictionary words when the word's image agrees. Click one to find it.`
+      : "The learned-dictionary pass is switched off for this profile."),
+    el("div", { class: "row" },
+      el("button", { class: on ? "" : "primary", onclick: async () => {
+        await api(`/api/stage/${k}`, { params: { enabled: !on } }); await poll(true); } }, on ? "Switch off" : "Switch on")));
+  for (const w of words)
+    box.append(el("div", { class: "corr", onclick: () => { S.selWord = w; centerOn(w.box); draw(); } },
+      el("s", {}, w.corrected_from), " → ", el("b", {}, w.text)));
+  t.append(box);
+}
+
 // --- words
 function wordTools(t, s, k) {
   const out = S.st.stages.length - 1;
@@ -444,8 +527,13 @@ function zoomAt(sx, sy, f) {
   const v = S.view, px = (sx - v.x) / v.z, py = (sy - v.y) / v.z;
   v.z = Math.max(0.02, Math.min(8, v.z * f)); v.x = sx - px * v.z; v.y = sy - py * v.z; draw();
 }
-function centerOn(b) {
-  const v = S.view; v.x = canvas.clientWidth / 2 - (b[0] + b[2]) / 2 * v.z; v.y = canvas.clientHeight / 2 - (b[1] + b[3]) / 2 * v.z; draw();
+function centerOn(b, zoom = true) {
+  const v = S.view;
+  if (zoom) {   // bring the word up to a readable size: about a sixth of the view's width
+    const want = Math.min(4, canvas.clientWidth / 6 / Math.max(20, b[2] - b[0]));
+    if (v.z < want) v.z = want;
+  }
+  v.x = canvas.clientWidth / 2 - (b[0] + b[2]) / 2 * v.z; v.y = canvas.clientHeight / 2 - (b[1] + b[3]) / 2 * v.z; draw();
 }
 const toPage = (e) => [(e.offsetX - S.view.x) / S.view.z, (e.offsetY - S.view.y) / S.view.z];
 function evPage(e) { const r = canvas.getBoundingClientRect(); return [(e.clientX - r.left - S.view.x) / S.view.z, (e.clientY - r.top - S.view.y) / S.view.z]; }
@@ -573,7 +661,8 @@ function draw() {
     else if (S.layers.lines && !READ.has(s.slot)) for (const l of L.lines || []) rect(l.box, "#1b8a4b", lw * 0.8);
     if (S.layers.words && READ.has(s.slot)) for (const l of L.lines || []) for (const w of l.words) {
       const p = w.p_correct ?? w.confidence ?? 1;
-      rect(w.box, w.edited ? "#2463eb" : p < 0.5 ? "#c53030" : "#b7791f", lw * 0.8);
+      rect(w.box, w.edited ? "#2463eb" : w.corrected_from ? "#1b8a4b" : p < 0.5 ? "#c53030" : "#b7791f",
+           w.corrected_from ? lw * 2 : lw * 0.8);
     }
   }
   if (S.selWord) rect(S.selWord.box, "#c53030", lw * 2);
@@ -613,3 +702,62 @@ function drawItems(D, color, lw, numbers) {
 }
 
 init();
+
+// ------------------------------------------------------------------ hOCR, rendered from the file itself
+function hocrBox(title) {
+  const m = /bbox (-?\d+) (-?\d+) (-?\d+) (-?\d+)/.exec(title || "");
+  return m ? m.slice(1, 5).map(Number) : null;
+}
+function hocrProp(title, key) {
+  const m = new RegExp(key + " ([-\\d.]+)").exec(title || "");
+  return m ? Number(m[1]) : null;
+}
+function renderHocr(hocr) {
+  const host = $("resultRender"); host.innerHTML = "";
+  const doc = new DOMParser().parseFromString(hocr, "application/xhtml+xml");
+  if (doc.getElementsByTagName("parsererror").length) { host.textContent = "this hOCR does not parse as XHTML"; return; }
+  const pageEl = [...doc.getElementsByTagName("*")].find((e) => e.getAttribute("class") === "ocr_page");
+  const pb = hocrBox(pageEl && pageEl.getAttribute("title")) || [0, 0, 2550, 3300];
+  const W = pb[2] - pb[0], H = pb[3] - pb[1];
+  const avail = Math.max(300, host.clientWidth - 32);
+  const sc = Math.min(1, avail / W);
+  const page = el("div", { class: "hpage", style: `width:${W * sc}px;height:${H * sc}px` });
+  if (S.renderScan) {
+    const last = S.st.stages.length - 1;
+    page.append(el("img", { src: `/api/image/${last}/gray.png?scale=${Math.min(1, 1600 / W)}`, class: "hscan" }));
+  }
+  const box = (b, cls, label, title) => {
+    const d = el("div", { class: cls, title: title || "", style:
+      `left:${(b[0] - pb[0]) * sc}px;top:${(b[1] - pb[1]) * sc}px;width:${(b[2] - b[0]) * sc}px;height:${(b[3] - b[1]) * sc}px` });
+    if (label != null) d.append(el("span", { class: "hlabel" }, label));
+    page.append(d); return d;
+  };
+  const all = [...doc.getElementsByTagName("*")];
+  const words = new Map();   // hOCR word -> whether the layout says it was corrected
+  if (S.finalLayout) for (const l of S.finalLayout.lines) for (const w of l.words) if (w.corrected_from) words.set(w.box.join(","), true);
+  let area = 0;
+  for (const e of all) {
+    const cls = e.getAttribute("class"), b = hocrBox(e.getAttribute("title"));
+    if (!b) continue;
+    if (S.renderBoxes !== false) {
+      if (cls === "ocr_carea") box(b, "hcarea", ++area);
+      else if (cls === "ocr_table") box(b, "htable", "table");
+      else if (e.tagName.toLowerCase() === "td") box(b, "hcell");
+      else if (cls === "ocr_photo") box(b, "hphoto", "image");
+      else if (cls === "ocr_separator") box(b, "hsep");
+    }
+    if (cls === "ocrx_word") {
+      const conf = hocrProp(e.getAttribute("title"), "x_wconf");
+      const h = (b[3] - b[1]) * sc, w = (b[2] - b[0]) * sc;
+      const corrected = words.has(b.join(","));
+      const span = el("span", { class: "hword" + (conf != null && conf < 50 ? " low" : "") + (corrected ? " fixed" : ""),
+        title: `${e.textContent}  —  confidence ${conf ?? "?"}%${corrected ? " (dictionary-corrected)" : ""}`,
+        style: `left:${(b[0] - pb[0]) * sc}px;top:${(b[1] - pb[1]) * sc}px;height:${h}px;font-size:${Math.max(4, h * 0.82)}px;line-height:${h}px` },
+        e.textContent);
+      page.append(span);
+      // stretch or squeeze each word to its box width, as the scan printed it
+      requestAnimationFrame(() => { const nat = span.scrollWidth || 1; span.style.transform = `scaleX(${Math.min(3, w / nat)})`; });
+    }
+  }
+  host.append(page);
+}

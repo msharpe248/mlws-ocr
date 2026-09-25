@@ -128,7 +128,16 @@ session and re-applied on every re-run:
 - **blocks and lines** — select, move, resize, add, delete, split, merge,
   and click the blocks in reading order;
 - **text** — click a word on the page or in the text panel to correct
-  it; the text and hOCR are rebuilt.
+  it; the text and hOCR are rebuilt;
+- **post-processing** — the learned-dictionary pass's corrections, each
+  clickable on the page, and its on/off switch.
+
+The last tab is the **result**: the extracted text, the hOCR source, or
+the page **rendered from the hOCR file alone** — every word at its box,
+blocks numbered in reading order, tables, images and rulings, low-
+confidence words in red and corrected ones in green, optionally over a
+faint copy of the scan. It shows at a glance what the file carries and
+what the page lost (a line never read, a headline taken for a picture).
 
 Sessions save to a `.mlws.json` file (image, profile, every choice and
 correction) and reload; the page exports as text, hOCR, page JSON, the
@@ -137,6 +146,8 @@ library server, plain JavaScript and canvas, no build step
 (`src/mlws_ocr/workbench/`).
 
 ![The workbench on a UNLV letter: the block stage, its reading order and the block editor](docs/img/workbench_blocks.png)
+
+![The result tab: a newspaper page redrawn from its hOCR over a faint copy of the scan](docs/img/workbench_rendered.png)
 
 ## Engines
 

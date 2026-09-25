@@ -126,6 +126,8 @@ def make_handler(wb: Workbench):
                     return self._image(int(parts[2]), parts[3].removesuffix(".png"), float(q.get("scale", 1)))
                 if parts[:2] == ["api", "layout"] and len(parts) == 3:
                     return self._layout(int(parts[2]))
+                if parts[:2] == ["api", "result"]:
+                    return self._result()
                 if parts[:2] == ["api", "export"] and len(parts) == 3:
                     return self._export(parts[2])
                 return self._error("not found", 404)
@@ -230,11 +232,30 @@ def make_handler(wb: Workbench):
                 "x_height": ln.get("x_height"),
                 "words": [{"text": w.get("text", ""), "box": w.get("box"),
                            "confidence": w.get("confidence"), "p_correct": w.get("p_correct"),
-                           "edited": w.get("edited", False)} for w in ln.get("words", [])],
+                           "edited": w.get("edited", False),
+                           "corrected_from": w.get("corrected_from")} for w in ln.get("words", [])],
             } for ln in layout.get("lines", [])]
             out["text"] = page.meta.get("text")
             out["corrections"] = page.meta.get("corrections", {})
             return self._json(out)
+
+        def _result(self):
+            """The extracted text and hOCR of the finished page, with a summary."""
+            final = self._sess().final()
+            if final is None:
+                return self._json({"ready": False})
+            words = [w for ln in final.meta.get("layout", {}).get("lines", []) for w in ln.get("words", [])]
+            conf = [w.get("p_correct", w.get("confidence")) for w in words]
+            conf = [c for c in conf if c is not None]
+            return self._json({
+                "ready": True, "text": final.meta.get("text", ""), "hocr": final.meta.get("hocr", ""),
+                "summary": {"words": len(words), "lines": sum(1 for ln in final.meta.get("layout", {}).get("lines", [])
+                                                               if ln.get("words")),
+                            "mean_confidence": round(sum(conf) / len(conf), 3) if conf else None,
+                            "low_confidence_words": sum(1 for c in conf if c < 0.5),
+                            "corrected_words": sum(1 for w in words if w.get("corrected_from")),
+                            "edited_words": sum(1 for w in words if w.get("edited")),
+                            "characters": len(final.meta.get("text", ""))}})
 
         def _export(self, kind: str):
             sess = self._sess()
