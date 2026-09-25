@@ -272,38 +272,126 @@ def _esc(t: str) -> str:
 
 
 def hocr_document(layout: dict, page) -> str:
-    """The page as hOCR (Breuel 2007, the hOCR microformat): one ocr_line
-    per decoded line, one ocrx_word per word with its box and confidence.
-    ``x_wconf`` carries the calibrated p_correct as a percentage when the
-    decoder's calibrator ran, else the beam margin scaled the same way,
-    and each word also carries the raw ``x_conf`` for tools that read
-    it.  Lines are emitted in the layout's order; the row-aligned text
-    of unruled tables is a property of the plain text, not of hOCR, whose
-    consumers place words by box."""
+    """The page as hOCR (T. Breuel, "The hOCR Microformat for OCR Workflow
+    and Results", ICDAR 2007; hOCR 1.2), with the structure the layout
+    stages found:
+
+        ocr_page
+          ocr_carea   one per block, in reading order (the blocks list's order)
+            ocr_par   the block's text (paragraphs are not segmented: one per block)
+              ocr_line    bbox, baseline
+                ocrx_word bbox, x_wconf (calibrated p_correct as a percentage,
+                          else the beam margin), x_conf (raw)
+          ocr_table   a ruled table's box, holding the lines inside it
+          ocr_photo   an image zone (no text)
+          ocr_separator  a ruling
+
+    A line belongs to the block its ``block`` index names; lines with no
+    block, or outside every block, go in a final content area so nothing
+    read is dropped. Lines inside a table's box are emitted under the
+    table instead of their block. Words and lines are escaped XHTML;
+    graphic-suspect lines are left out, as in the plain text."""
     h, w = (page.gray.shape if page.gray is not None else (0, 0))
+    caps = "ocr_page ocr_carea ocr_par ocr_line ocrx_word ocr_table ocr_photo ocr_separator"
     out = ['<?xml version="1.0" encoding="UTF-8"?>',
-           '<html xmlns="http://www.w3.org/1999/xhtml"><head><meta charset="utf-8"/>',
+           '<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" '
+           '"http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">',
+           '<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en"><head>',
+           '<title></title><meta http-equiv="Content-Type" content="text/html;charset=utf-8"/>',
            '<meta name="ocr-system" content="mlws-ocr"/>',
-           '<meta name="ocr-capabilities" content="ocr_page ocr_line ocrx_word"/></head><body>',
+           f'<meta name="ocr-capabilities" content="{caps}"/></head><body>',
            f'<div class="ocr_page" id="page_1" title="bbox 0 0 {w} {h}; ppageno 0">']
-    li = 0
-    for ln in layout.get("lines", []):
-        words = ln.get("words", [])
-        if not words or ln.get("graphic_suspect"):
+    bb = lambda b: " ".join(str(int(v)) for v in b)  # noqa: E731
+    lines = [ln for ln in layout.get("lines", []) if ln.get("words") and not ln.get("graphic_suspect")]
+    blocks = layout.get("blocks", [])
+    tables = [t for t in layout.get("tables", []) if t.get("cells")]
+
+    def tbox(t):
+        cs = [c["box"] for c in t["cells"]]
+        return [min(c[0] for c in cs), min(c[1] for c in cs), max(c[2] for c in cs), max(c[3] for c in cs)]
+
+    def inside(ln, box):
+        x0, y0, x1, y1 = ln["box"]
+        cx, cy = (x0 + x1) / 2, (y0 + y1) / 2
+        return box[0] <= cx <= box[2] and box[1] <= cy <= box[3]
+
+    table_boxes = [tbox(t) for t in tables]
+    in_table = {id(ln): ti for ln in lines for ti, tb in enumerate(table_boxes) if inside(ln, tb)}
+    by_block: dict[int, list] = {}
+    orphans = []
+    for ln in lines:
+        if id(ln) in in_table:
             continue
-        li += 1
+        bi = ln.get("block")
+        if isinstance(bi, int) and 0 <= bi < len(blocks):
+            by_block.setdefault(bi, []).append(ln)
+        else:
+            orphans.append(ln)
+    n = {"line": 0, "area": 0}
+
+    def emit_line(ln):
+        n["line"] += 1
+        li = n["line"]
         x0, y0, x1, y1 = (int(v) for v in ln["box"])
-        base = ln.get("baseline")
         title = f"bbox {x0} {y0} {x1} {y1}"
+        base = ln.get("baseline")
         if base is not None:
             title += f"; baseline 0 {int(base) - y1}"
-        out.append(f'<span class="ocr_line" id="line_{li}" title="{title}">')
-        for wi, wd in enumerate(words, 1):
-            bx = [int(v) for v in wd["box"]]
-            conf = wd.get("p_correct", wd.get("confidence", 0.0))
-            out.append(f'<span class="ocrx_word" id="word_{li}_{wi}" '
-                       f'title="bbox {bx[0]} {bx[1]} {bx[2]} {bx[3]}; x_wconf {int(round(100 * conf))}">'
-                       f'{_esc(wd["text"])}</span>')
+        if ln.get("x_height"):
+            title += f"; x_xheight {float(ln['x_height']):.1f}"
+        out.append(f'<span class="ocr_line" id="line_1_{li}" title="{title}">')
+        for wi, wd in enumerate(ln["words"], 1):
+            conf = wd.get("p_correct", wd.get("confidence", 0.0)) or 0.0
+            raw = wd.get("confidence", conf) or 0.0
+            out.append(f'<span class="ocrx_word" id="word_1_{li}_{wi}" '
+                       f'title="bbox {bb(wd["box"])}; x_wconf {int(round(100 * conf))}; '
+                       f'x_conf {100 * raw:.1f}">{_esc(wd["text"])}</span>')
         out.append("</span>")
+
+    def emit_area(box, lns):
+        n["area"] += 1
+        a = n["area"]
+        out.append(f'<div class="ocr_carea" id="block_1_{a}" title="bbox {bb(box)}">')
+        out.append(f'<p class="ocr_par" id="par_1_{a}" title="bbox {bb(box)}">')
+        for ln in lns:
+            emit_line(ln)
+        out.append("</p></div>")
+
+    def union(lns):
+        return [min(l["box"][0] for l in lns), min(l["box"][1] for l in lns),
+                max(l["box"][2] for l in lns), max(l["box"][3] for l in lns)]
+
+    # tables are placed in reading order at the first block they overlap
+    table_at: dict[int, list[int]] = {}
+    for ti, tb in enumerate(table_boxes):
+        first = next((bi for bi, b in enumerate(blocks)
+                      if not (b[2] < tb[0] or b[0] > tb[2] or b[3] < tb[1] or b[1] > tb[3])), len(blocks))
+        table_at.setdefault(first, []).append(ti)
+    for bi in range(len(blocks) + 1):
+        for ti in table_at.get(bi, []):
+            tl = [ln for ln in lines if in_table.get(id(ln)) == ti]
+            out.append(f'<table class="ocr_table" id="table_1_{ti + 1}" title="bbox {bb(table_boxes[ti])}"><tbody>')
+            rows: dict[int, list] = {}
+            for c in tables[ti]["cells"]:
+                rows.setdefault(c["row"], []).append(c)
+            for r in sorted(rows):
+                out.append("<tr>")
+                for c in sorted(rows[r], key=lambda c: c["col"]):
+                    out.append(f'<td title="bbox {bb(c["box"])}">')
+                    for ln in tl:
+                        if inside(ln, c["box"]):
+                            emit_line(ln)
+                    out.append("</td>")
+                out.append("</tr>")
+            out.append("</tbody></table>")
+        if bi < len(blocks) and by_block.get(bi):
+            emit_area(blocks[bi], by_block[bi])
+    if orphans:
+        emit_area(union(orphans), orphans)
+    for zi, z in enumerate(layout.get("image_zones", []), 1):
+        out.append(f'<div class="ocr_photo" id="image_1_{zi}" title="bbox {bb(z)}"></div>')
+    for ri, r in enumerate(list(layout.get("rules_h", [])) + list(layout.get("rules_v", [])), 1):
+        if isinstance(r, (list, tuple)) and len(r) == 4:
+            out.append(f'<div class="ocr_separator" id="separator_1_{ri}" title="bbox {bb(r)}"></div>')
     out.append("</div></body></html>")
     return "\n".join(out)

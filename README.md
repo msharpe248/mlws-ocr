@@ -96,8 +96,10 @@ python3 -m venv .venv && .venv/bin/pip install -e ".[dev]"
 
 `--doc-type` is an optional layout hint (`letter`, `legal`, `book`,
 `form`, `newspaper`, `magazine`, `block`); the engine never requires it.
-Every run writes `text.txt` and `page.hocr` — hOCR with a calibrated
-probability per word — beside the persisted page. The service returns
+Every run writes `text.txt` and `page.hocr` — hOCR with the page's
+structure (blocks in reading order, lines, words with boxes and a
+calibrated probability each, tables, image zones, rulings) — beside the
+persisted page. The service returns
 the same as JSON, one page per worker process, so a machine with N cores
 reads about N pages at once (`scripts/service_load.py` is its load test).
 `mlws-ocr batch` does the same for files, directories and whole PDFs: 16

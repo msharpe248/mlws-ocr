@@ -298,7 +298,13 @@ tables), guarded by a cell-length prior (median words per line ≤ 4) and a
 newspaper/magazine opt-out. Ligature characters expand (NFKC); runs of
 three or more hyphens are scrubbed. Ruled-table cells are filled by word
 centre. Output is text plus a JSON record with boxes, confidences and
-provenance.
+provenance, and an hOCR document (Breuel 2007) carrying the layout's
+structure (2026-09-24): `ocr_carea` per block in reading order with an
+`ocr_par` inside, `ocr_line` (bbox, baseline, x-height), `ocrx_word` (bbox,
+`x_wconf` = calibrated p_correct, `x_conf` raw); ruled tables as
+`ocr_table` with a cell per `td`; image zones as `ocr_photo`; rulings as
+`ocr_separator`. It passes `hocr-check` (hocr-tools) on a newspaper page
+and an invoice, every word exactly once.
 
 ## 6. Models and data
 
