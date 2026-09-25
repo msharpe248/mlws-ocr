@@ -18,7 +18,8 @@ from mlws_ocr.core import registry
 from mlws_ocr.core.config import load_config
 
 CONFIGS = Path(__file__).resolve().parents[1] / "configs"
-NET_SWITCHES = {("recognize", "mlp_path"): "", ("decode", "char_lm"): ""}
+# the word corrector is on in classic and off in pure: its image check is a network (2026-09-25)
+NET_SWITCHES = {("recognize", "mlp_path"): "", ("decode", "char_lm"): "", ("correct", "enabled"): False}
 
 
 def _specs(name):
@@ -62,7 +63,9 @@ def test_neural_shares_the_stage_list_with_classic():
     neural, classic = _specs("neural.toml"), _specs("classic.toml")
     for key, spec in neural.items():
         if spec.params != classic.get(key, classic.get(("decode", "beam"))).params:
-            assert key[1] in ("recognize", "decode"), key
+            # the word corrector: on in classic, an option (off) in neural -- the owner's
+            # decision of 2026-09-25; the neural profile carries its own confusion table
+            assert key[1] in ("recognize", "decode", "correct"), key
 
 
 @pytest.mark.parametrize("name", ["classic.toml", "pure.toml", "neural.toml"])
@@ -81,3 +84,14 @@ def test_neural_profile_keeps_its_decoder_identity():
     assert p["line_mode"] == "choose" and p["line_choose_rule"] == "calibrated"
     assert p["line_model_path"] == "data/seq_line_en.npz+data/seq_line_en_2.npz+data/seq_line_en_3.npz" and p["line_choice_path"] == "data/linechoice.npz"
     assert p["seq_path"] == "data/seq_en.npz"
+
+
+def test_command_line_sets_reach_the_stage():
+    from mlws_ocr.core.config import apply_sets, parse_sets
+    sets = parse_sets(["correct.enabled=true", "despeckle.min_area_300dpi=8", 'correct.confusions_path="x.json"'])
+    assert sets == {"correct": {"enabled": True, "confusions_path": "x.json"}, "despeckle": {"min_area_300dpi": 8}}
+    cfg = apply_sets(load_config(CONFIGS / "neural.toml"), sets)
+    spec = next(s for s in cfg.stages if s.slot == "correct")
+    assert spec.params["enabled"] is True and spec.params["confusions_path"] == "x.json"
+    with pytest.raises(ValueError):
+        apply_sets(load_config(CONFIGS / "neural.toml"), parse_sets(["nosuchslot.x=1"]))

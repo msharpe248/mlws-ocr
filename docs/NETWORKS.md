@@ -86,6 +86,7 @@ were trained on the public sources named below and on nothing else.
 | v0.7.0 (2026-09-22) | the same ten files as v0.6.0: this release is code and profiles — scanner-frame clearing, the declined-line rule, the corrected Legal Reports set, the faster prefix beam |
 | v0.8.0 (2026-09-23) | twelve files: the line reader is a three-seed ensemble (`seq_line_en.npz`, `seq_line_en_2.npz`, `seq_line_en_3.npz` = `seq_line_v15e` seeds 3, 2, 1) and the judge `linechoice_e15s` fitted on it; the rest unchanged |
 | v0.9.0 (2026-09-24) | twelve files: the ensemble members are now `seq_line_v17a` seeds 3, 2, 1 (the v15e recipe plus the CORD photographed-receipt rows) and the judge `linechoice_v17as`; the rest unchanged |
+| v0.10.0 (2026-09-25) | fourteen files: the twelve of v0.9.0 plus the word corrector's learned confusion tables (`confusions_classic.json`, on in the classic profile; `confusions_neural.json`, for the option elsewhere) — not networks, but models of each engine's errors learned from non-evaluation pages |
 
 ## Where the training data comes from
 

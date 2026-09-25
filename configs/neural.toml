@@ -20,7 +20,7 @@
 [pipeline]
 stages = ["magnify", "deskew", "illumination", "binarize", "despeckle",
           "imagezones", "rulings", "blocks", "tables", "lines",
-          "components", "recognize", "decode", "adapt", "decode", "output"]
+          "components", "recognize", "decode", "adapt", "decode", "correct", "output"]
 
 [stage.magnify]
 impl = "xheight"
@@ -129,6 +129,12 @@ conf_path = "data/wordconf.npz"   # calibrated word confidence (decode/wordconf.
                                   # dev-8 keep p>=0.9 -> 91% of words kept at 98.0%
                                   # right, from 94.4% with no reject path)
 review_below = 0.8
+
+
+[stage.correct]
+impl = "noisy_channel"   # OPTIONAL: a learned OCR-aware dictionary pass over the unknown words
+enabled = false          # (decode/correct.py); switch on here, in the workbench, or with --set correct.enabled=true
+confusions_path = "data/confusions_neural.json"
 
 [stage.output]
 impl = "text"

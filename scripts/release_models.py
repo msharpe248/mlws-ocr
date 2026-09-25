@@ -33,6 +33,8 @@ MODELS = {
     "seq_line_en_3.npz": "line reader ensemble member 3 = seq_line_v17a seed 1 (same recipe)",
     "linechoice.npz": "logistic judge between the classic and the reader's line = linechoice_v17as (train_line_choice.py; fitted on the three-seed ensemble's own pairs, page-level feature, receipt pairs)",
     "wordconf.npz": "logistic word-confidence calibrator, P(correct) per word in the hOCR (train_wordconf.py)",
+    "confusions_classic.json": "the classic engine's learned OCR confusions for the word corrector (harvest_confusions.py; 480 non-evaluation pages)",
+    "confusions_neural.json": "the neural engine's learned OCR confusions for the word corrector (harvest_confusions.py; 480 non-evaluation pages)",
 }
 
 

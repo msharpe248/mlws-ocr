@@ -29,17 +29,17 @@ are in `docs/DESIGN.md` §8.
 | set | what it is | classic | neural | legacy Tesseract | Tesseract LSTM |
 |---|---|---|---|---|---|
 | dev-8 | UNLV business letters, tuning set | 95.2 / 89.3 | **97.3 / 94.6** | 95.0 / 91.7 | 95.5 / 93.1 |
-| broad-30 | UNLV business letters, the headline set | 91.8 / 82.0 | 95.3 / 91.6 | 95.5 / 91.7 | **96.0 / 92.7** |
+| broad-30 | UNLV business letters, the headline set | 91.9 / 82.5 | 95.3 / 91.6 | 95.5 / 91.7 | **96.0 / 92.7** |
 | legal-8 | UNLV legal pleadings (typewriter) | 91.7 / 81.2 | **94.5 / 90.7** | 90.4 / 88.7 | 90.3 / 86.9 |
-| modern | born-digital PDFs and templated business letters | 91.4 / 82.6 | **94.0 / 90.2** | 75.4 / 70.8 | 74.2 / 66.6 |
-| business | invoices, payslips, receipts, statements, purchase orders | 95.2 / 85.7 | **97.6 / 95.0** | 70.7 / 68.0 | 70.7 / 68.6 |
-| news-8 | UNLV newspapers (measured, not tuned) | 92.6 / 81.8 | 95.8 / 93.2 | 96.3 / 93.1 | **96.7 / 94.8** |
-| mag-8 | UNLV magazines (measured, not tuned) | 65.3 / 41.2 | 77.4 / 68.7 | **87.3 / 84.7** | 87.8 / 84.4 |
-| sroie | real scanned receipts, ICDAR 2019 (reader-only decoding: 70.5 / 42.4) | 47.2 / 10.0 | **68.3** / 39.7 | 56.2 / 29.4 | 64.0 / **40.3** |
-| funsd | real scanned forms, FUNSD, at 2x | 35.9 / 12.2 | 57.8 / 33.6 | 54.8 / 32.0 | **66.4 / 47.2** |
+| modern | born-digital PDFs and templated business letters | 91.6 / 83.5 | **94.0 / 90.2** | 75.4 / 70.8 | 74.2 / 66.6 |
+| business | invoices, payslips, receipts, statements, purchase orders | 95.3 / 86.0 | **97.6 / 95.0** | 70.7 / 68.0 | 70.7 / 68.6 |
+| news-8 | UNLV newspapers (measured, not tuned) | 92.7 / 82.3 | 95.8 / 93.2 | 96.3 / 93.1 | **96.7 / 94.8** |
+| mag-8 | UNLV magazines (measured, not tuned) | 65.3 / 41.5 | 77.4 / 68.7 | **87.3 / 84.7** | 87.8 / 84.4 |
+| sroie | real scanned receipts, ICDAR 2019 (reader-only decoding: 70.5 / 42.4) | 47.3 / 10.1 | **68.3** / 39.7 | 56.2 / 29.4 | 64.0 / **40.3** |
+| funsd | real scanned forms, FUNSD, at 2x | 36.0 / 12.3 | 57.8 / 33.6 | 54.8 / 32.0 | **66.4 / 47.2** |
 | legal reports | real typescript and printed office pages, Library of Congress | | **85.5 / 69.9** | | 78.8 / 66.3 |
 | cord | photographed receipts, CORD, cut to the receipt | | 37.7 / 8.0 | | **46.7 / 21.1** |
-| blocks | a paragraph handed in alone, no layout (broad-30's text zones) | 93.4 / 84.3 | **98.5** / 96.0 | 98.2 / **96.6** | **98.5 / 96.5** |
+| blocks | a paragraph handed in alone, no layout (broad-30's text zones) | 94.4 / 85.8 | **98.5** / 96.0 | 98.2 / **96.6** | **98.5 / 96.5** |
 
 On the tabular business pages Tesseract reads by column and pays the
 edit distance for the order; there, the bag-of-words recall is the

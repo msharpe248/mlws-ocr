@@ -298,7 +298,10 @@ the word's own image (scored by the sequence network under both
 spellings) does not prefer the original. Measured 2026-09-25: classic
 +0.4 to +0.9 word on the letter, modern and business sets with 1 wrong
 correction in 413; the neural engine barely makes the errors it fixes.
-Not in any profile yet; insert `"correct"` before `"output"` to use it.
+On in the classic profile (and `default.toml`, its twin) since
+2026-09-25; in every other full profile as a stage switched off
+(`enabled = false`), to turn on in the workbench or with
+`--set correct.enabled=true` on `mlws-ocr run` and `batch`.
 
 ### 5.7 output (`text`)
 
@@ -474,7 +477,7 @@ with the MLP and the GRU off:
 
 | profile | dev-8 | broad-30 | legal-8 | modern |
 |---|---|---|---|---|
-| classic | 95.2 / 89.3 | 91.8 / 82.0 (86.3 / 89.2) | 91.7 / 81.2 | 91.4 / 82.6 (86.1 / 90.4) |
+| classic | 95.2 / 89.3 | 91.9 / 82.5 (86.8 / 89.7) | 91.7 / 81.2 | 91.6 / 83.5 (87.1 / 91.5) |
 | pure | 94.8 / 88.0 | 91.0 / 79.3 (83.0 / 86.2) | 90.9 / 78.0 | 88.2 / 77.1 (82.4 / 86.7) |
 | neural | 97.3 / 94.6 | 95.3 / 91.6 (94.9 / 95.6) | 94.5 / 90.7 | 94.0 / 90.2 (92.5 / 96.8) |
 | legacy Tesseract | 95.0 / 91.7 | 95.5 / 91.7 (96.3 / 94.2) | 90.4 / 88.7 | 75.4 / 70.8 (88.9 / 95.7) |
@@ -545,7 +548,7 @@ magazine / newspaper) are measured but not tuned on and not harvested
 
 | profile | news-8 | mag-8 |
 |---|---|---|
-| classic | 92.6 / 81.8 | 65.3 / 41.2 |
+| classic | 92.7 / 82.3 | 65.3 / 41.5 |
 | neural | 95.8 / 93.2 (recall 96.4, precision 95.3) | 77.4 / 68.7 (92.2 / 86.7) |
 | legacy Tesseract | 96.3 / 93.1 (97.5 / 94.4) | 87.3 / 84.7 (95.9 / 90.5) |
 | Tesseract LSTM | 96.7 / 94.8 (98.6 / 95.7) | 87.8 / 84.4 (97.4 / 90.5) |
@@ -559,7 +562,7 @@ by column blocks and pays the edit distance for the order:
 
 | profile | business | blocks dev-8 (pooled) | blocks legal-8 | blocks broad-30 |
 |---|---|---|---|---|
-| classic | 95.2 / 85.7 (88.8 / 89.8) | 97.2 / 93.3 | 92.7 / 86.7 | 93.4 / 84.3 |
+| classic | 95.3 / 86.0 (89.1 / 90.2) | 98.6 / 94.7 | 94.2 / 87.0 | 94.4 / 85.8 |
 | neural | 97.6 / 95.0 (96.7 / 98.1) | 99.2 / 97.6 | 96.9 / 95.8 | 98.5 / 96.0 |
 | legacy Tesseract | 70.7 / 68.0 (97.5 / 97.8) | 98.9 / 97.2 | 96.7 / 95.3 | 98.2 / 96.6 |
 | Tesseract LSTM | 70.7 / 68.6 (98.0 / 98.6) | 99.4 / 98.5 | 97.1 / 96.0 | 98.5 / 96.5 |
@@ -582,7 +585,7 @@ receipt profile that preceded it is retired.
 
 | profile | sroie | funsd |
 |---|---|---|
-| classic | 47.2 / 10.0 (28.0 / 33.0) | 35.9 / 12.2 (17.8 / 26.3) |
+| classic | 47.3 / 10.1 (28.1 / 33.2) | 36.0 / 12.3 (18.0 / 26.6) |
 | neural | **68.3** / 39.7 (63.1 / 63.7) | 57.8 / 33.6 (45.7 / 55.5) |
 | legacy Tesseract | 56.2 / 29.4 (56.1 / 55.4) | 54.8 / 32.0 (47.5 / 53.0) |
 | Tesseract LSTM | 64.0 / **40.3** (72.7 / 73.3) | **66.4 / 47.2** (66.3 / 71.5) |

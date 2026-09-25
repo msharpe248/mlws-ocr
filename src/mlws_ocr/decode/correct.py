@@ -92,23 +92,28 @@ class NoisyChannelCorrect(Stage):
     slot = "correct"
     impl = "noisy_channel"
     defaults = {
+        "enabled": True,                 # the profiles that carry it switched off set false
         "confusions_path": "data/confusions_neural.json",  # scripts/harvest_confusions.py
         "lang_model": "data/lang_en.npz",
         "seq_path": "data/seq_en.npz",   # the pixel check ("" = off)
         "min_len": 4,                    # characters in the word's core
-        "max_edits": 2,                  # learned edits undone per word
+        "max_edits": 3,                  # learned edits undone per word
         "min_count": 2,                  # an edit must have been seen this often
         "prior_weight": 1.0,
-        "min_gain": 2.0,                 # nats the best candidate must gain over the word
+        "min_gain": 0.0,                 # nats the best candidate must gain over the word
         "margin": 1.0,                   # nats it must beat the runner-up by
-        "seq_tau": 2.0,                  # nats the image may prefer the original by
-        "beam": 200,                     # partial rewrites kept between edit rounds
-        "per_site": 12,                  # likeliest edits tried at each position
+        "seq_tau": 4.0,                  # nats the image may prefer the original by
+        "beam": 400,                     # partial rewrites kept between edit rounds
+        "per_site": 40,                  # likeliest edits tried at each position (12: 53
+                                         # corrections on degraded modern pages; 40: 360, none
+                                         # wrong -- breadth was the lever, 2026-09-25)
     }
 
     def run(self, page: Page) -> tuple[Page, DebugBundle]:
         p = self.params
         out = page.evolve()
+        if not p["enabled"]:
+            return out, DebugBundle(notes=["switched off (enabled = false)"])
         layout = out.meta.get("layout")
         if not layout or not Path(p["confusions_path"]).is_file():
             return out, DebugBundle(notes=["no layout or no confusion table; nothing corrected"])

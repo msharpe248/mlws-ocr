@@ -51,3 +51,31 @@ def load_config(path: str | Path) -> RunConfig:
             raise ValueError(f"{path}: [stage.{slot}] must declare 'impl'")
         specs.append(StageSpec(slot=slot, impl=impl, params=table))
     return RunConfig(stages=specs, source=str(path))
+
+
+def parse_sets(items: list[str] | None) -> dict[str, dict]:
+    """``["correct.enabled=true", "despeckle.min_area_300dpi=8"]`` as
+    ``{slot: {key: value}}``; values parse as TOML scalars where they can
+    (true/false, numbers, quoted strings), else stay strings."""
+    out: dict[str, dict] = {}
+    for item in items or []:
+        key, _, raw = item.partition("=")
+        slot, _, name = key.partition(".")
+        if not slot or not name or not _:
+            raise ValueError(f"--set wants SLOT.KEY=VALUE, got {item!r}")
+        try:
+            value = tomllib.loads(f"v = {raw}")["v"]
+        except tomllib.TOMLDecodeError:
+            value = raw
+        out.setdefault(slot, {})[name] = value
+    return out
+
+
+def apply_sets(config: RunConfig, sets: dict[str, dict]) -> RunConfig:
+    """The config with ``--set`` values applied to every stage of that slot."""
+    unknown = set(sets) - {s.slot for s in config.stages}
+    if unknown:
+        raise ValueError(f"--set names slot(s) not in the profile: {sorted(unknown)}")
+    for spec in config.stages:
+        spec.params.update(sets.get(spec.slot, {}))
+    return config

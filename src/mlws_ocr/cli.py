@@ -22,6 +22,8 @@ def main(argv=None) -> int:
     p_run.add_argument("image", help="input page image")
     p_run.add_argument("--runs-dir", default="runs")
     p_run.add_argument("--doc-id", default=None)
+    p_run.add_argument("--set", action="append", default=[], metavar="SLOT.KEY=VALUE",
+                       help="override one stage parameter, e.g. correct.enabled=true (repeatable)")
     p_run.add_argument("--pdf-page", type=int, default=0,
                        help="page number for PDF inputs (0-based)")
     p_run.add_argument("--doc-type", default=None,
@@ -37,6 +39,8 @@ def main(argv=None) -> int:
     p_b.add_argument("--doc-type", default=None, help="optional layout hint for every page")
     p_b.add_argument("--recursive", action="store_true", help="descend into subdirectories")
     p_b.add_argument("--pdf-pages", type=int, nargs="*", default=None, help="PDF pages to read (default: all)")
+    p_b.add_argument("--set", action="append", default=[], metavar="SLOT.KEY=VALUE",
+                     help="override one stage parameter, e.g. correct.enabled=true (repeatable)")
 
     sub.add_parser("stages", help="list registered stage implementations")
 
@@ -56,8 +60,9 @@ def main(argv=None) -> int:
 
     if args.command == "batch":
         from mlws_ocr.batch import run_batch
+        from mlws_ocr.core.config import parse_sets
         s = run_batch(args.config, args.inputs, args.out, args.workers, args.doc_type,
-                      args.recursive, args.pdf_pages)
+                      args.recursive, args.pdf_pages, sets=parse_sets(args.set))
         return 0 if not s["failed"] else 2
 
     if args.command == "stages":
@@ -73,7 +78,8 @@ def main(argv=None) -> int:
     if args.command == "run":
         from mlws_ocr.core.config import load_config
         from mlws_ocr.core.runner import run_pipeline
-        run_dir = run_pipeline(load_config(args.config), args.image,
+        from mlws_ocr.core.config import apply_sets, parse_sets
+        run_dir = run_pipeline(apply_sets(load_config(args.config), parse_sets(args.set)), args.image,
                                runs_dir=args.runs_dir, doc_id=args.doc_id,
                                pdf_page=args.pdf_page, doc_type=args.doc_type)
         print(f"run written to {run_dir}")

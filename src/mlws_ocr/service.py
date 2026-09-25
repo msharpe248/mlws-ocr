@@ -34,14 +34,15 @@ _CONFIG = None      # per worker process
 _STAGES = None
 
 
-def _worker_init(config_path: str) -> None:
+def _worker_init(config_path: str, sets: dict | None = None) -> None:
     global _CONFIG, _STAGES
     import mlws_ocr.cleanup, mlws_ocr.layout  # noqa: F401
     import mlws_ocr.glyph.components, mlws_ocr.recognize.stage  # noqa: F401
     import mlws_ocr.decode, mlws_ocr.adapt  # noqa: F401
     from mlws_ocr.core import registry
     from mlws_ocr.core.config import load_config
-    _CONFIG = load_config(config_path)
+    from mlws_ocr.core.config import apply_sets
+    _CONFIG = apply_sets(load_config(config_path), sets or {})
     _STAGES = [registry.get(sp.slot, sp.impl)(**sp.params) for sp in _CONFIG.stages]
 
 

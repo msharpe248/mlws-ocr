@@ -7,7 +7,7 @@
 [pipeline]
 stages = ["magnify", "deskew", "illumination", "binarize", "despeckle",
           "imagezones", "rulings", "blocks", "tables", "lines",
-          "components", "recognize", "decode", "adapt", "decode", "output"]
+          "components", "recognize", "decode", "adapt", "decode", "correct", "output"]
 
 [stage.magnify]
 impl = "xheight"
@@ -57,6 +57,13 @@ digit_kern_join = true         # shape repairs shared with the neural profile (d
 digit_kern_gap = 0.75          # the kerning gap in x-heights (2026-09-17: 0.5 missed a '1' 0.7 x-heights from its digits;
                                # 0.75 took business 92.6 -> 93.4 word neural, recall and precision up; UNLV sets identical)
 caps_page_repair = true        # business 90.3/79.7 -> 90.3/80.2 word; dev-8, broad-30, legal-8, modern identical
+
+
+[stage.correct]
+impl = "noisy_channel"   # a learned OCR-aware dictionary pass over the unknown words (decode/correct.py):
+enabled = true           # classic broad-30 +0.43 word, modern +0.85, business +0.24; 1 wrong in 413 corrections
+confusions_path = "data/confusions_classic.json"   # this engine's own confusions (scripts/harvest_confusions.py)
+seq_path = "data/seq_en.npz"   # the image check: the word scorer must not prefer the original spelling
 
 [stage.output]
 impl = "text"

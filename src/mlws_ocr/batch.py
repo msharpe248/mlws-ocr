@@ -59,7 +59,7 @@ def _read_one(path: str, pdf_page: int, name: str, out_dir: str, doc_type: str |
 
 def run_batch(config: str, inputs: list[str], out_dir: str, workers: int = 0,
               doc_type: str | None = None, recursive: bool = False,
-              pdf_pages: list[int] | None = None, echo=print) -> dict:
+              pdf_pages: list[int] | None = None, echo=print, sets: dict | None = None) -> dict:
     from . import service
     jobs = collect(inputs, recursive, pdf_pages)
     Path(out_dir).mkdir(parents=True, exist_ok=True)
@@ -68,7 +68,7 @@ def run_batch(config: str, inputs: list[str], out_dir: str, workers: int = 0,
     echo(f"{len(jobs)} pages, {workers} worker processes, profile {config}")
     t0 = time.perf_counter()
     done, failed = [], []
-    with ProcessPoolExecutor(workers, initializer=service._worker_init, initargs=(config,)) as pool:
+    with ProcessPoolExecutor(workers, initializer=service._worker_init, initargs=(config, sets or {})) as pool:
         futs = {pool.submit(_read_one, p, n, name, out_dir, doc_type): (p, n, name) for p, n, name in jobs}
         for fut in as_completed(futs):
             p, n, name = futs[fut]
