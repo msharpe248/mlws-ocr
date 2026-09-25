@@ -210,7 +210,8 @@ does not reach here. On a page with a line-art figure the lesson is the
 same as on the newspaper: the global cut cannot see a bridge made of
 short links; pooling the neighbours shortens the mean and the bridge
 breaks.
-(Figure 9, HTML edition.)
+(Figure 9 in the HTML edition: the blocks under both settings, and
+the whole page's kept and pruned links under each.)
 
 ## 5. Limitations and future work
 
