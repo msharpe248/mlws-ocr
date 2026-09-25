@@ -285,6 +285,21 @@ survives only if both pieces beat the whole. It measured inert (397
 hypotheses per 8 pages, 9 accepted): cut pieces' whole-glyph candidates
 are wrong. It stays registered as the harness for piece-aware scoring.
 
+### 5.6b correct (`noisy_channel`, opt-in)
+
+A last look at the words the lexicon does not know. The channel model is
+learned per engine from its own output aligned to truth on pages never
+evaluated on (`scripts/harvest_confusions.py`): edits of up to two
+characters each way (Brill & Moore 2000), so 'm' read as 'u1' or 'rn' is
+one edit with its own probability. For an unknown word the corrector
+undoes learned edits at every site, keeps lexicon words, scores them by
+channel likelihood plus word frequency, and accepts a clear winner only if
+the word's own image (scored by the sequence network under both
+spellings) does not prefer the original. Measured 2026-09-25: classic
++0.4 to +0.9 word on the letter, modern and business sets with 1 wrong
+correction in 413; the neural engine barely makes the errors it fixes.
+Not in any profile yet; insert `"correct"` before `"output"` to use it.
+
 ### 5.7 output (`text`)
 
 Lines are assembled in block order. A line is suppressed as junk only

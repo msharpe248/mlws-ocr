@@ -224,8 +224,17 @@ def write_page(stem: str, gray: np.ndarray, truth: str) -> None:
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--templates-per-face", type=int, default=3)
+    ap.add_argument("--seed", type=int, default=11,
+                    help="content seed; 11 is the evaluation set -- any other seed makes a TRAINING set "
+                         "of the same kinds, faces and degradations with different content")
+    ap.add_argument("--out", default="data/business",
+                    help="where sev0..2 go (a training set: data/business_train)")
     args = ap.parse_args()
-    rng = random.Random(11)
+    global OUT
+    OUT = Path(args.out)
+    if args.seed != 11 and OUT == Path("data/business"):
+        raise SystemExit("a non-evaluation seed must not overwrite data/business; pass --out")
+    rng = random.Random(args.seed)
     faces = {
         "helvetica-neue": (font("HelveticaNeue", 40, 0), font("HelveticaNeue", 40, 1), font("HelveticaNeue", 64, 1)),
         "avenir": (font("Avenir", 40, 0), font("Avenir", 40, 2), font("Avenir", 64, 2)),
