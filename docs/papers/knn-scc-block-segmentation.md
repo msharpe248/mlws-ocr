@@ -186,6 +186,31 @@ bullets. The same layering, whitespace-honest segmentation below a
 grammar-based logical composer, is the natural consumer of pooled-k
 output.
 
+**The author's own page (MVA '94).** As a last example the method was
+run on the first page of the IDUR paper itself (Sharpe, Ahmed &
+Sutcliffe, MVA '94) — a 150 dpi scan from the MVA commemorative DVD,
+through the pipeline's standard cleanup (projection deskew, background
+flattening, Sauvola, despeckle, image zones, rulings). At the 1995
+default (5,267 components; 111,949 links, mean 23.6px, cut at 1.5×mean =
+35px; 16 SCCs) the page resolves into 9 blocks: the running header, the
+title, the author block, the abstract, the section heading, the whole
+left column — and the whole right column, where the opening paragraph,
+the system-design diagram, its caption and the closing paragraph weld
+into one. The links show why: the diagram's dashed frames and arrows
+are chains of small, evenly spaced marks, each kept-linked to the next,
+a bridge of short links from the paragraph above the diagram to the one
+below. Pooled-k (k_total=5, factor 1.8; 25,261 links kept, mean 11.7px,
+cut 21px; 58 SCCs, 20 blocks) breaks the bridge: the diagram becomes one
+block, its caption another, the paragraphs above and below their own,
+the abstract's heading separates from its body and the introduction
+splits at its paragraph break. What it costs is the display title,
+which fragments at its wide word gaps — the headline weakness the hybrid
+rule addresses for newspaper type, at a size (about twice the body) it
+does not reach here. The page that described separating text from
+graphics by geometry, segmented by a geometric method from the same
+author thirty years on, separates them only once the links are pooled.
+(Figure 9, HTML edition.)
+
 ## 5. Limitations and future work
 
 On photo-heavy magazine pages, overall word recall drops; the prime suspect is
