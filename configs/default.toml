@@ -12,6 +12,7 @@ stages = ["magnify", "deskew", "illumination", "binarize", "despeckle",
 [stage.magnify]
 impl = "xheight"
 target_px = 0                  # median glyph height to magnify small-type pages up to (0 = off; measured 2026-09-20)
+min_dpi = 200                  # a page declared below 200 dpi is resampled to 300 (2026-09-25: a 150-dpi paper scan 0.57 -> 0.81 mean word confidence; no evaluation page declares under 209)
 
 [stage.deskew]
 impl = "projection"

@@ -198,6 +198,8 @@ async function showResult() {
       onchange: (e) => { S.renderScan = e.target.checked; showResult(); } }), "scan underneath") : null,
     S.resultMode === "render" ? el("label", {}, el("input", { type: "checkbox", ...(S.renderBoxes !== false ? { checked: "" } : {}),
       onchange: (e) => { S.renderBoxes = e.target.checked; showResult(); } }), "structure") : null,
+    S.resultMode === "render" ? el("label", {}, el("input", { type: "checkbox", ...(S.renderSide ? { checked: "" } : {}),
+      onchange: (e) => { S.renderSide = e.target.checked; showResult(); } }), "side by side") : null,
     el("button", { onclick: async () => { await navigator.clipboard.writeText(S.resultMode === "text" ? R.text : R.hocr); status("copied"); } }, "Copy"),
     el("button", { onclick: () => { window.location = "/api/export/" + (S.resultMode === "text" ? "text" : "hocr"); } },
       S.resultMode === "text" ? "Download .txt" : "Download .hocr"));
@@ -207,7 +209,8 @@ async function showResult() {
     ? "The page's text, as the output stage wrote it (reading order, table rows aligned)."
     : S.resultMode === "hocr"
     ? "hOCR: the page's structure — blocks in reading order, lines, words with boxes and confidence, tables, images, rulings."
-    : "The page redrawn from the hOCR file alone: every word at its box, blocks numbered in reading order, tables, images and rulings. Red words are low-confidence, green ones were corrected; hover for the confidence."));
+    : "The page redrawn from the hOCR file alone: every word at its box, blocks numbered in reading order, tables, images and rulings. Red words are low-confidence, green ones were corrected; hover for the confidence."
+      + (S.renderSide ? " Side by side: the scan on the left, the redrawn page on the right; hovering a word marks its box on the scan." : "")));
   const pre = $("resultText");
   if (!R || !R.ready) { pre.className = ""; pre.textContent = "(the page is still being read)"; $("scalars").innerHTML = ""; return; }
   const sm = R.summary, t = el("table");
@@ -719,12 +722,20 @@ function renderHocr(hocr) {
   const pageEl = [...doc.getElementsByTagName("*")].find((e) => e.getAttribute("class") === "ocr_page");
   const pb = hocrBox(pageEl && pageEl.getAttribute("title")) || [0, 0, 2550, 3300];
   const W = pb[2] - pb[0], H = pb[3] - pb[1];
-  const avail = Math.max(300, host.clientWidth - 32);
+  const side = !!S.renderSide;
+  const avail = Math.max(300, side ? (host.clientWidth - 48) / 2 : host.clientWidth - 32);
   const sc = Math.min(1, avail / W);
+  const last = S.st.stages.length - 1;
+  // the page image the hOCR boxes refer to (after deskew and cleanup of the grey level)
+  const scanSrc = `/api/image/${last}/gray.png?scale=${Math.min(1, 1600 / W)}`;
   const page = el("div", { class: "hpage", style: `width:${W * sc}px;height:${H * sc}px` });
-  if (S.renderScan) {
-    const last = S.st.stages.length - 1;
-    page.append(el("img", { src: `/api/image/${last}/gray.png?scale=${Math.min(1, 1600 / W)}`, class: "hscan" }));
+  if (S.renderScan) page.append(el("img", { src: scanSrc, class: "hscan" }));
+  let scan = null, mark = null;
+  if (side) {
+    scan = el("div", { class: "hpage", style: `width:${W * sc}px;height:${H * sc}px` },
+      el("img", { src: scanSrc, class: "hscan full" }));
+    mark = el("div", { class: "hmark", hidden: "" });
+    scan.append(mark);
   }
   const box = (b, cls, label, title) => {
     const d = el("div", { class: cls, title: title || "", style:
@@ -755,9 +766,14 @@ function renderHocr(hocr) {
         style: `left:${(b[0] - pb[0]) * sc}px;top:${(b[1] - pb[1]) * sc}px;height:${h}px;font-size:${Math.max(4, h * 0.82)}px;line-height:${h}px` },
         e.textContent);
       page.append(span);
+      if (mark) {
+        const at = `left:${(b[0] - pb[0]) * sc - 2}px;top:${(b[1] - pb[1]) * sc - 2}px;width:${w + 4}px;height:${h + 4}px`;
+        span.addEventListener("mouseenter", () => { mark.style.cssText = at; mark.hidden = false; });
+        span.addEventListener("mouseleave", () => { mark.hidden = true; });
+      }
       // stretch or squeeze each word to its box width, as the scan printed it
       requestAnimationFrame(() => { const nat = span.scrollWidth || 1; span.style.transform = `scaleX(${Math.min(3, w / nat)})`; });
     }
   }
-  host.append(page);
+  host.append(side ? el("div", { class: "hside" }, scan, page) : page);
 }

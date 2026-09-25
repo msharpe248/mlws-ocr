@@ -26,3 +26,15 @@ def test_small_type_is_magnified_and_large_type_is_not():
     assert dbg2.scalars["scale"] == 1.0 and out2.gray.shape == large.gray.shape
     off, dbg3 = XHeightMagnify(target_px=0).run(small)
     assert dbg3.scalars["scale"] == 1.0
+
+
+def test_low_declared_resolution_is_brought_to_300_dpi():
+    page = _page(40)
+    page = Page(gray=page.gray, dpi=150.0, meta={})
+    out, dbg = XHeightMagnify(min_dpi=200).run(page)
+    assert dbg.scalars["scale"] == 2.0 and out.dpi == 300.0 and out.gray.shape[1] == 2 * page.gray.shape[1]
+    # a 300-dpi page, or the trigger off, is left alone
+    same, dbg2 = XHeightMagnify(min_dpi=200).run(_page(40))
+    assert dbg2.scalars["scale"] == 1.0 and same.gray.shape == _page(40).gray.shape
+    off, dbg3 = XHeightMagnify().run(page)
+    assert dbg3.scalars["scale"] == 1.0

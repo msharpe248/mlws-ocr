@@ -21,6 +21,20 @@ negative once before, at a FIXED 2x on the receipts under the old reader
 (2026-09-17: junk words doubled); keying it on the measured size and
 capping the target is what makes it fire on the pages that need it and
 not on the ones that do not.  ``target_px = 0`` turns it off.
+
+A second trigger reads the resolution the file declares rather than the
+type: a page scanned below ``min_dpi`` is resampled up to ``to_dpi``
+(2026-09-25).  Every network and threshold here was trained or tuned on
+300-dpi scans, and a 150-dpi scan of a 10-pt paper (the MVA '94 page of
+the knn_scc paper) has a median glyph height of 8 px -- the neural
+profile read it at a mean word confidence of 0.57 and in pieces
+("Lhe design and impgementation of" inte)."), and at 2x reads it at 0.81,
+nearly clean.  The type-size trigger cannot be the default for this: its
+measurement reads 3-5 px on receipt, halftone and noisy pages (CORD,
+Rumor, Legal Reports; the census in RESEARCH), where magnifying was
+measured harmful.  The declared resolution is quiet on all of those --
+every evaluation set declares 209-300 dpi -- and a file without a
+resolution loads as 300, so the gate never fires on a guess.
 """
 from __future__ import annotations
 
@@ -72,6 +86,8 @@ class XHeightMagnify(Stage):
         "target_px": 0,        # median glyph height to bring the page up to; 0 = off
         "max_scale": 3.0,      # never more than this
         "min_scale": 1.2,      # a smaller ratio is not worth a resample
+        "min_dpi": 0,          # a page declared below this dpi is resampled to to_dpi; 0 = off
+        "to_dpi": 300,
     }
 
     def run(self, page: Page) -> tuple[Page, DebugBundle]:
@@ -81,7 +97,11 @@ class XHeightMagnify(Stage):
         size = type_size_px(page.gray) if target > 0 else None
         scale = 1.0
         if size is not None and size < target:
-            scale = min(float(self.params["max_scale"]), target / size)
+            scale = target / size
+        min_dpi = float(self.params["min_dpi"])
+        if min_dpi > 0 and page.dpi and float(page.dpi) < min_dpi:
+            scale = max(scale, float(self.params["to_dpi"]) / float(page.dpi))
+        scale = min(float(self.params["max_scale"]), scale)
         if scale < float(self.params["min_scale"]):
             return page, DebugBundle(scalars={"type_size_px": size or 0.0, "scale": 1.0})
         gray = ndimage.zoom(page.gray.astype(np.float32), scale, order=3)

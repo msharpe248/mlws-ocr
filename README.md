@@ -136,7 +136,8 @@ The last tab is the **result**: the extracted text, the hOCR source, or
 the page **rendered from the hOCR file alone** — every word at its box,
 blocks numbered in reading order, tables, images and rulings, low-
 confidence words in red and corrected ones in green, optionally over a
-faint copy of the scan. It shows at a glance what the file carries and
+faint copy of the scan or side by side with it (hovering a word marks
+its box on the scan). It shows at a glance what the file carries and
 what the page lost (a line never read, a headline taken for a picture).
 
 Sessions save to a `.mlws.json` file (image, profile, every choice and
