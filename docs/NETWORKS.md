@@ -406,14 +406,30 @@ of them right (dev-8).
 
 **Data.** `harvest_word_conf.py` runs the neural profile on
 non-evaluation pages, aligns every output word to the truth, labels an
-unaligned output word wrong, and stores the evidence vector.
+unaligned output word wrong, and stores the evidence vector. A word whose
+characters carry no glyph record of their own (a string the sequence
+scorer injected, a re-read split) is located by its word box.
+
+**Current file (2026-09-25, `wordconf_v2`).** Refitted on a fresh harvest
+(`wordconf_v2_en`, `wordconf_v2_legal`: 60 bus.3B + 60 legal.3B pages,
+26,758 words) after the first harvest was found to label every injected
+word wrong: such words got no alignment span, and all 538 fell into the
+"unaligned, therefore wrong" set. The first fit (`wordconf_v1`, 2026-09-10)
+learned "injected = wrong" and "no scorer likelihood = wrong" (117 words,
+all mislabelled the same way) and, on today's pipeline, put 7,313 of the
+26,758 words under 1% — 6,591 of them right; injected words are right 89%
+of the time. Held-out Brier 0.0367 (beam margin 0.0498, constant 0.0468);
+at a 0.9 threshold 91% of words are kept at 97.8% right. Text output is
+unchanged (the calibrator only sets `p_correct`: hOCR `x_wconf`, the
+review count, batch.json).
 
 **Training.** A logistic regression fitted by Newton's method with an L2
 term, page-disjoint holdout, Brier score and reliability reported.
 
 ```sh
-.venv/bin/python scripts/harvest_word_conf.py data/unlv/bus.3B --pages 60 --config configs/neural.toml --out data/wordconf_en.npz
-.venv/bin/python scripts/train_wordconf.py data/wordconf_*.npz --out data/wordconf.npz
+.venv/bin/python scripts/harvest_word_conf.py data/unlv/bus.3B --pages 60 --config configs/neural.toml --out data/wordconf_v2_en.npz
+.venv/bin/python scripts/harvest_word_conf.py data/unlv/legal.3B --pages 60 --doc-type legal --config configs/neural.toml --out data/wordconf_v2_legal.npz
+.venv/bin/python scripts/train_wordconf.py data/wordconf_v2_en.npz data/wordconf_v2_legal.npz --out data/wordconf_v2.npz   # live copy: data/wordconf.npz
 ```
 
 ### Line-choice judge — `decode/linechoice.py`

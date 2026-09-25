@@ -39,6 +39,26 @@ from harvest_lines import word_spans  # noqa: E402
 from harvest_truth import line_records  # noqa: E402
 
 
+def word_refs(ln) -> tuple[str, list]:
+    """``line_records`` with every character of a word given a box: a
+    character without its own glyph record (a string the sequence scorer
+    injected, a re-read split) takes its word's box.  Without this such a
+    word got no span from ``word_spans``, fell into the uncovered set and
+    was labelled WRONG whatever it said -- all 538 injected words of the
+    2026-09-10 harvest, so the fitted calibrator put every injected word at
+    p ~ 0 (found 2026-09-25 on the MVA '94 page: 'Intelligent',
+    'Reproduction', 'document' right and shown at 0%)."""
+    text, refs = line_records(ln)
+    words = [w for w in ln.get("words", []) for _ in (w["text"] + " ")]
+    out = []
+    for i, r in enumerate(refs):
+        if r is None and text[i] != " " and i < len(words):
+            w = words[i]
+            r = (w["box"], None, None, w)
+        out.append(r)
+    return text, out
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("root", type=Path)
@@ -66,7 +86,7 @@ def main():
             continue
         lines = [ln for ln in page.meta["layout"].get("lines", [])
                  if ln.get("words") and not ln.get("graphic_suspect")]
-        recs = [line_records(ln) for ln in lines]
+        recs = [word_refs(ln) for ln in lines]
         out_lines = [normalize(t) for t, _ in recs]
         kept = wrong = 0
         for oi, ti in match_lines(out_lines, truth_lines):
