@@ -100,7 +100,10 @@ class NoisyChannelCorrect(Stage):
         "max_edits": 3,                  # learned edits undone per word
         "min_count": 2,                  # an edit must have been seen this often
         "prior_weight": 1.0,
-        "min_gain": 0.0,                 # nats the best candidate must gain over the word
+        "min_gain": -1.0,                # nats the best candidate must gain over the word; over
+                                         # eight sets 0 -> -1 took the corrections 812 -> 899 with
+                                         # wrong 1 -> 2 ('C)vertime' -> 'Overtime' sits at -0.81);
+                                         # -2 doubles the wrong ones (2026-09-25)
         "margin": 1.0,                   # nats it must beat the runner-up by
         "seq_tau": 4.0,                  # nats the image may prefer the original by
         "beam": 400,                     # partial rewrites kept between edit rounds
