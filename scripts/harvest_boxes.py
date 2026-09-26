@@ -36,7 +36,7 @@ from PIL import Image
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 import mlws_ocr.cleanup  # noqa: E402,F401
 from mlws_ocr.core.artifacts import Page  # noqa: E402
-from mlws_ocr.glyph.strip import normalize_strip  # noqa: E402
+from mlws_ocr.glyph.strip import gray_contrast, normalize_strip  # noqa: E402
 
 sys.path.insert(0, str(Path(__file__).parent))
 from eval_pages import load_pipeline, run_stages  # noqa: E402
@@ -44,12 +44,17 @@ from eval_pages import load_pipeline, run_stages  # noqa: E402
 MAX_COLS = 1800
 
 
-def binarize(gray: np.ndarray, pipeline) -> np.ndarray:
+def cleaned(gray: np.ndarray, pipeline) -> Page:
     """The profile's illumination + binarize + despeckle stages, no deskew
-    (a deskew would move the truth boxes)."""
+    (a deskew would move the truth boxes): the page's flattened grey image
+    and its binary."""
     page = Page(gray=gray, dpi=300.0, meta={})
     cleanup = [(s, i, p) for s, i, p in pipeline if s in ("illumination", "binarize", "despeckle")]
-    return run_stages(page, cleanup).binary
+    return run_stages(page, cleanup)
+
+
+def binarize(gray: np.ndarray, pipeline) -> np.ndarray:
+    return cleaned(gray, pipeline).binary
 
 
 def baseline_xheight(ink: np.ndarray) -> tuple[float, float] | None:
@@ -84,7 +89,11 @@ def baseline_xheight(ink: np.ndarray) -> tuple[float, float] | None:
     return bl, xh
 
 
-def cut(binary: np.ndarray, box, scale: float):
+def cut(binary: np.ndarray, box, scale: float, gray: np.ndarray | None = None):
+    """(win, x-height[, grey twin]) of one truth box: the binary strip as a bool
+    window, and with ``gray`` the same crop cut from the flattened grey page,
+    contrast-normalised (glyph/strip.py gray_contrast) and placed with the same
+    baseline and x-height, as ink (1 = ink) in [0, 1]."""
     x0, y0, x1, y1 = (int(round(v * scale)) for v in box)
     H, W = binary.shape
     x0, x1 = max(0, x0), min(W, x1)
@@ -98,14 +107,19 @@ def cut(binary: np.ndarray, box, scale: float):
     bl, xh = est
     m = int(round(0.6 * xh))
     ya, yb = max(0, y0 - m), min(H, y1 + m)
-    gray = 1.0 - binary[ya:yb, x0:x1].astype(np.float32)
-    strip, _ = normalize_strip(gray, xh, (y0 + bl) - ya)
+    src = 1.0 - binary[ya:yb, x0:x1].astype(np.float32)
+    strip, _ = normalize_strip(src, xh, (y0 + bl) - ya)
     if strip.shape[1] < 4 or strip.shape[1] > MAX_COLS:
         return None
     win = strip < 0.5
     if not win.any():
         return None
-    return win, xh
+    if gray is None:
+        return win, xh
+    gstrip, _ = normalize_strip(gray_contrast(gray[ya:yb, x0:x1]), xh, (y0 + bl) - ya)
+    if gstrip.shape != strip.shape:
+        return None
+    return win, xh, 1.0 - gstrip
 
 
 def sroie_pages(root: Path):
@@ -158,6 +172,7 @@ def main():
     ap.add_argument("--cord", type=Path, help="CORD v2 unpacked by fetch_cord.py")
     ap.add_argument("--eval-dir", type=Path, required=True, help="the evaluation split to exclude (stems)")
     ap.add_argument("--out", required=True)
+    ap.add_argument("--out-gray", default="", help="also write every strip as a GREY twin (one byte of ink per pixel)")
     ap.add_argument("--scale", type=float, default=1.0, help="upscale the page before cutting (FUNSD wants 2)")
     ap.add_argument("--config", default="configs/neural.toml")
     ap.add_argument("--pages", type=int, default=0, help="stop after this many pages (0 = all)")
@@ -166,7 +181,7 @@ def main():
     pipeline = load_pipeline(args.config)
     src = (sroie_pages(args.sroie) if args.sroie else cord_pages(args.cord) if args.cord
            else funsd_pages(args.funsd))
-    strips, widths, labels, pages, xhs = [], [], [], [], []
+    strips, widths, labels, pages, xhs, grays = [], [], [], [], [], []
     n_pages = 0
     for img, items in src:
         if img.stem in excluded:
@@ -176,19 +191,22 @@ def main():
             if args.scale != 1.0:
                 g = g.resize((round(g.width * args.scale), round(g.height * args.scale)), Image.LANCZOS)
             gray = np.asarray(g, dtype=np.float32) / 255.0
-        binary = binarize(gray, pipeline)
+        cpage = cleaned(gray, pipeline)
+        binary = cpage.binary
         kept = 0
         for box, text in items:
-            r = cut(binary, box, args.scale)
+            r = cut(binary, box, args.scale, gray=cpage.gray if args.out_gray else None)
             if r is None:
                 continue
-            win, xh = r
+            win, xh = r[0], r[1]
             # a multi-line entity box (FUNSD groups an address block as one entity)
             # normalizes to a narrow strip for its label: fewer than 5 strip columns
             # a character is not one line of text, nor is more than 30
             if not 5.0 <= win.shape[1] / max(len(text), 1) <= 30.0:
                 continue
             strips.append(np.packbits(win, axis=1)); widths.append(win.shape[1])
+            if args.out_gray:
+                grays.append(np.round(r[2] * 255).astype(np.uint8))
             labels.append(text); pages.append(img.name); xhs.append(float(xh)); kept += 1
         n_pages += 1
         print(f"  [{n_pages}] {img.name}: +{kept} of {len(items)} boxes (total {len(labels)})", flush=True)
@@ -201,6 +219,10 @@ def main():
     np.savez_compressed(args.out, pixels=pix, offsets=offs, labels=np.array(labels),
                         decoded=np.array([""] * len(labels)), pages=np.array(pages),
                         x_heights=np.array(xhs, np.float32))
+    if args.out_gray:
+        np.savez_compressed(args.out_gray, pixels=np.concatenate(grays, axis=1) if grays else np.zeros((32, 0), np.uint8),
+                            offsets=offs, labels=np.array(labels), decoded=np.array([""] * len(labels)),
+                            pages=np.array(pages), x_heights=np.array(xhs, np.float32), gray=np.array(True))
     print(f"saved {len(labels)} box lines from {n_pages} pages -> {args.out} "
           f"(median x-height {np.median(xhs):.1f} px)" if xhs else "saved nothing")
 
