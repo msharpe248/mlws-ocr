@@ -194,8 +194,17 @@ def make_handler(wb: Workbench):
                 return self._error(f"not a directory: {d}")
             dirs = sorted(c.name for c in p.iterdir() if c.is_dir() and not c.name.startswith("."))
             files = sorted(c.name for c in p.iterdir() if c.suffix.lower() in IMAGE_EXT)
+
+            def n_images(sub: Path) -> int:
+                # images directly inside a subfolder, so the dialog can say where
+                # the pages are (the sets keep them two or three folders down)
+                try:
+                    return sum(1 for c in sub.iterdir() if c.suffix.lower() in IMAGE_EXT)
+                except OSError:
+                    return 0
             return self._json({"dir": str(p.resolve()), "parent": str(p.resolve().parent),
-                               "dirs": dirs, "files": files[:2000]})
+                               "dirs": dirs, "files": files[:2000],
+                               "dir_images": {x: n_images(p / x) for x in dirs}})
 
         def _page(self, k: int):
             sess = self._sess()

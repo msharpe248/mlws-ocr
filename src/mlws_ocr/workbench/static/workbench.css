@@ -113,3 +113,6 @@ dialog .dlghead { display: flex; justify-content: space-between; align-items: ce
 .hside .hpage { margin: 0; }
 .hscan.full { opacity: 1; }
 .hmark { position: absolute; border: 2px solid #c53030; background: rgba(197,48,48,.12); border-radius: 2px; pointer-events: none; }
+#browserList li .count { color: var(--muted); }
+#browserList li.note { color: var(--muted); font-style: italic; cursor: default; }
+#browserList li.note:hover { background: none; }

@@ -94,7 +94,13 @@ async function browse(dir) {
   $("browserDir").textContent = d.dir;
   const list = $("browserList"); list.innerHTML = "";
   list.append(el("li", { class: "dir", onclick: () => browse(d.parent) }, ".."));
-  for (const x of d.dirs) list.append(el("li", { class: "dir", onclick: () => browse(d.dir + "/" + x) }, x));
+  for (const x of d.dirs) {
+    const n = (d.dir_images || {})[x];
+    list.append(el("li", { class: "dir", onclick: () => browse(d.dir + "/" + x) }, x,
+      n ? el("span", { class: "count" }, ` — ${n} image${n === 1 ? "" : "s"}`) : null));
+  }
+  if (!d.files.length) list.append(el("li", { class: "note" },
+    d.dirs.length ? "No images in this folder itself — open a subfolder." : "No images here."));
   for (const x of d.files) list.append(el("li", { onclick: () => { $("path").value = d.dir + "/" + x; $("browser").close(); openPath($("path").value); } }, x));
   if (!$("browser").open) $("browser").showModal();
 }
