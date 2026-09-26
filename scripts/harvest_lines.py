@@ -139,6 +139,8 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("root", type=Path)
     ap.add_argument("--pages", type=int, default=170)
+    ap.add_argument("--offset", type=int, default=0,
+                    help="skip this many of the shuffled pages first (split one folder across processes)")
     ap.add_argument("--out", default="data/lines_en.npz")
     ap.add_argument("--doc-type", default="letter")
     ap.add_argument("--line-out", default="",
@@ -179,7 +181,7 @@ def main():
     G = []   # grey twins of L's strips (--line-out-gray)
     H = {"strips": [], "widths": [], "labels": [], "decoded": [], "pages": [], "xhs": [], "graphic": []}
     stats = {"lines": 0, "words": 0, "wrong": 0, "whole_lines": 0, "hard_lines": 0, "hard_graphic": 0}
-    for n, (tif, gt) in enumerate(pairs[: args.pages], 1):
+    for n, (tif, gt) in enumerate(pairs[args.offset: args.offset + args.pages], 1):
         truth_lines = [normalize(l) for l in gt.read_text(errors="ignore").splitlines()]
         truth_lines = [l for l in truth_lines if l]
         gray, dpi = load_gray(tif)
