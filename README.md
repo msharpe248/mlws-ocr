@@ -28,26 +28,33 @@ are in `docs/DESIGN.md` §8.
 
 | set | what it is | classic | neural | legacy Tesseract | Tesseract LSTM |
 |---|---|---|---|---|---|
-| dev-8 | UNLV business letters, tuning set | 95.2 / 89.4 | **97.3 / 94.6** | 95.0 / 91.7 | 95.5 / 93.1 |
-| broad-30 | UNLV business letters, the headline set | 91.9 / 82.5 | 95.3 / 91.6 | 95.5 / 91.7 | **96.0 / 92.7** |
-| legal-8 | UNLV legal pleadings (typewriter) | 91.7 / 81.2 | **94.5 / 90.7** | 90.4 / 88.7 | 90.3 / 86.9 |
-| modern | born-digital PDFs and templated business letters | 91.6 / 83.5 | **94.0 / 90.2** | 75.4 / 70.8 | 74.2 / 66.6 |
-| business | invoices, payslips, receipts, statements, purchase orders | 95.3 / 86.1 | **97.6 / 95.0** | 70.7 / 68.0 | 70.7 / 68.6 |
-| news-8 | UNLV newspapers (the layout rules were tuned here) | 92.7 / 82.4 | 95.3 / 91.7 | 96.3 / 93.1 | **96.7 / 94.8** |
-| mag-8 | UNLV magazines (the layout rules were tuned here) | 65.3 / 41.5 | 80.6 / 72.2 | **87.3 / 84.7** | 87.8 / 84.4 |
-| sroie | real scanned receipts, ICDAR 2019 (reader-only decoding: 70.5 / 42.4) | 47.3 / 10.1 | **68.3** / 39.7 | 56.2 / 29.4 | 64.0 / **40.3** |
-| funsd | real scanned forms, FUNSD, at 2x | 36.0 / 12.3 | 57.8 / 33.6 | 54.8 / 32.0 | **66.4 / 47.2** |
-| legal reports | real typescript and printed office pages, Library of Congress | | **85.5 / 69.9** | | 78.8 / 66.3 |
-| cord | photographed receipts, CORD, cut to the receipt | | 37.7 / 8.0 | | **46.7 / 21.1** |
+| dev-8 | UNLV business letters, tuning set | 95.2 / 89.4 | **97.7 / 95.0** | 95.0 / 91.7 | 95.5 / 93.1 |
+| broad-30 | UNLV business letters, the headline set | 91.9 / 82.5 | 95.7 / 92.3 | 95.5 / 91.7 | **96.0 / 92.7** |
+| legal-8 | UNLV legal pleadings (typewriter) | 91.7 / 81.2 | **94.0 / 90.4** | 90.4 / 88.7 | 90.3 / 86.9 |
+| modern | born-digital PDFs and templated business letters | 91.6 / 83.5 | **94.2 / 90.8** | 75.4 / 70.8 | 74.2 / 66.6 |
+| business | invoices, payslips, receipts, statements, purchase orders | 95.3 / 86.1 | **98.0 / 96.7** | 70.7 / 68.0 | 70.7 / 68.6 |
+| news-8 | UNLV newspapers (the layout rules were tuned here) | 92.7 / 82.4 | 95.4 / 92.0 | 96.3 / 93.1 | **96.7 / 94.8** |
+| mag-8 | UNLV magazines (the layout rules were tuned here) | 65.3 / 41.5 | 80.6 / 73.1 | **87.3 / 84.7** | 87.8 / 84.4 |
+| sroie | real scanned receipts, ICDAR 2019 | 47.3 / 10.1 | **67.3 / 43.6** | 56.2 / 29.4 | 64.0 / 40.3 |
+| funsd | real scanned forms, FUNSD, at 2x | 36.0 / 12.3 | 63.5 / 41.8 | 54.8 / 32.0 | **66.4 / 47.2** |
+| legal reports | real typescript and printed office pages, Library of Congress | | **87.6 / 74.2** | | 78.8 / 66.3 |
+| cord | photographed receipts, CORD, cut to the receipt | | 46.4 / **21.7** | | **46.7** / 21.1 |
 | blocks | a paragraph handed in alone, no layout (broad-30's text zones) | 94.4 / 85.8 | **98.5** / 96.0 | 98.2 / **96.6** | **98.5 / 96.5** |
 
 **Held-out pages.** The eight-page sets flatter newspapers and magazines:
 on 30 fresh pages of each type, never used for any decision, the neural
-profile reads newspapers at 84.3 / 78.2 and magazines at 67.8 / 60.7 —
-with the per-page segmenter judge, its segmenter for those two types since
-26 September 2026; XY-cut alone read them at 79.7 and 65.9. Letters (93.7),
-legal pages (94.2) and a freshly rendered business set (97.5) hold up.
+profile reads newspapers at 84.8 / 79.5 and magazines at 68.1 / 60.3 (with
+the per-page segmenter judge on those two types since 26 September 2026;
+XY-cut alone read them at 79.7 and 65.9). Letters (93.8), legal pages
+(94.2) and a freshly rendered business set (97.5) hold up.
 `scripts/eval_unlv.py --heldout` draws them.
+
+**The grey-strip reader (26 September 2026).** The line reader now reads
+each line from the flattened grey page, contrast-stretched, instead of
+from the binarised one: binarisation had been erasing faint thermal and
+dot-matrix strokes before the network ever saw them. Photographed
+receipts rose 8.7 characters and 13.7 words, forms 5.7 / 8.2, the Legal
+Reports 2.1 / 4.3, SROIE 3.9 words; legal-8 gave back half a point.
 
 On the tabular business pages Tesseract reads by column and pays the
 edit distance for the order; there, the bag-of-words recall is the

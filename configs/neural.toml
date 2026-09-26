@@ -74,19 +74,22 @@ impl = "hybrid"                # the line reader beside the classic decoder (dec
                                # judge says so (2026-09-13: dev-8 91.9 -> 93.2 word, broad-30 87.5 -> 89.8,
                                # legal-8 84.4 -> 88.5, news-8 88.2 -> 90.2, blocks broad-30 91.1 -> 95.1).
                                # "beam" is the classic decoder alone.
-line_model_path = "data/seq_line_en.npz+data/seq_line_en_2.npz+data/seq_line_en_3.npz"
-                               # = an output ensemble of seq_line_v17a seeds 3, 2 and 1 (2026-09-24): v15e's recipe
-                               # (v13b's + one corrected Library of Congress Legal Reports shard, SROIE lines at weight 5)
-                               # plus the CORD photographed-receipt rows at weight 5; frame posteriors averaged
-                               # (recognize/seq.py SeqEnsemble). Against the v15e ensemble: CORD cropped 33.5/1.4 ->
-                               # 37.7/8.0, FUNSD +1.0 word, broad-30 +0.2, modern +0.3, Legal Reports +0.9; legal-8 -0.4,
-                               # SROIE -2.0 char / -0.5 word. Previous live: seq_line_v15e (seeds 3, 2, 1).
+line_model_path = "data/seq_line_gray_en.npz+data/seq_line_gray_en_2.npz+data/seq_line_gray_en_3.npz"
+                               # = seq_line_gray2 seeds 3, 2, 1 (2026-09-26): each v17a member fine-tuned 8 epochs on GREY
+                               # line strips (grey twins of 24,739 harvested lines + 1,135 Legal Reports lines) plus the
+                               # binary SROIE / Legal Reports / FUNSD line files; read with line_source = "gray". Against
+                               # v17a: CORD cropped 37.7/8.0 -> 46.4/21.7, FUNSD 57.8/33.6 -> 63.5/41.8, Legal Reports
+                               # 85.5/69.9 -> 87.6/74.2, SROIE 68.3/39.7 -> 67.3/43.6, business +0.4/+1.7, broad-30 +0.4/+0.7,
+                               # legal-8 -0.5/-0.3. Previous live: seq_line_v17a (seq_line_en*.npz, binary strips).
+line_source = "gray"           # the reader's strips cut from the flattened grey page, contrast-normalised
+                               # (glyph/strip.py gray_contrast): faint thermal and dot-matrix print survives
 line_mode = "choose"
 line_choose_rule = "calibrated"  # the fitted judge (decode/linechoice.py). Until 2026-09-18 a fall-through in the
                                # choice chain overwrote its decision with the endorsed count; with the judge
                                # deciding: dev-8 93.4 -> 94.5 word, broad-30 90.2 -> 91.0, legal-8 89.1 -> 90.2,
                                # modern 88.8 -> 90.5, business 93.6 -> 95.1; mag-8 -3, blocks -1 char
-line_choice_path = "data/linechoice.npz"  # = linechoice_v17as (2026-09-24): fitted on the v17a ensemble's own line pairs
+line_choice_path = "data/linechoice.npz"  # = linechoice_v17as (2026-09-24), kept for the grey ensemble: a judge refitted
+                               # on its own pairs cost mag-8 4 points (2026-09-26); fitted on the v17a ensemble's own line pairs
                                # (the four UNLV harvests + receipt pairs, page-level feature); 80.3% decision accuracy.
                                # Previous: linechoice_e15s
 line_choice_thresh = 0.5

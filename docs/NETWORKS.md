@@ -17,7 +17,8 @@ judged before it went live. The measurements themselves are in
 | MLP second opinion | `mlp.npz` | 53k params | classic, neural (`recognize.mlp_path`) | `train_mlp.py` | exemplar pool: synthetic renders + real harvests |
 | Character GRU language model | `gru_en.npz` | 258k | classic, neural (`decode.char_lm`) | `train_charlm.py` | public-domain text corpus |
 | Word-strip CRNN scorer | `seq_en.npz` | 285k | neural (`decode.seq_path`) | `train_seq.py` | synthetic word windows + truth-labelled real word strips |
-| Line model (same CRNN) | `seq_line_en.npz` | 285k | neural (`decode.line_model_path`) | `train_seq.py` | the above plus long windows and real whole lines |
+| Line model, grey strips (same CRNN) | `seq_line_gray_en.npz`, `_2`, `_3` | 3 × 285k | neural (`decode.line_model_path`, `decode.line_source = "gray"`) | `train_seq.py` | the binary line model fine-tuned on grey line strips (grey twins of harvested lines) plus binary real lines |
+| Line model, binary strips (previous) | `seq_line_en.npz`, `_2`, `_3` | 3 × 285k | none since 2026-09-26 (v17a) | `train_seq.py` | the above plus long windows and real whole lines |
 | Word-confidence calibrator | `wordconf.npz` | 15 weights | neural (`decode.conf_path`) | `train_wordconf.py` | truth-labelled words with the decoder's evidence |
 | Line-choice judge | `linechoice.npz` | 15 weights | neural (`decode.line_choice_path`) | `train_line_choice.py` | truth-labelled line pairs (classic reading vs line reading) |
 | knn_scc link rule (experimental) | `linkkeep_v1.npz` | 15 weights | none (option `blocks.link_model_path`) | `train_links.py` | knn_scc graph links labelled by UNLV zone truth |
@@ -92,6 +93,7 @@ were trained on the public sources named below and on nothing else.
 | v0.11.0 (2026-09-26) | the same fourteen files, one replaced: the word-confidence calibrator is `wordconf_v2`, refitted after the harvest was found to label every scorer-injected word wrong (v1 put correct words at 0%); text output unchanged. The knn_scc link rule (`linkkeep_v1`) is experimental and not shipped |
 | v0.11.1 (2026-09-26) | the same fourteen files as v0.11.0: this release is workbench fixes |
 | v0.12.0 (2026-09-26) | fifteen files: v0.11.1's fourteen plus the segmenter judge `segjudge.npz` (= `segjudge_v1`), the neural profile's segmenter for newspapers and magazines |
+| v0.13.0 (2026-09-26) | eighteen files: v0.12.0's fifteen plus the grey-strip line reader `seq_line_gray_en.npz`, `_2`, `_3` (= `seq_line_gray2` seeds 3, 2, 1), the neural profile's reader; the v17a files stay for the previous reader |
 
 ## Where the training data comes from
 
@@ -398,6 +400,35 @@ second seed when a set sits at the edge.
 .venv/bin/python scripts/make_external_sets.py --sroie /path/ICDAR-2019-SROIE/data --funsd /path/funsd/dataset --out data/ext
 .venv/bin/python scripts/harvest_boxes.py --sroie /path/ICDAR-2019-SROIE/data --eval-dir data/ext/sroie/eval --out data/linesfull_sroie.npz
 .venv/bin/python scripts/harvest_boxes.py --funsd /path/funsd/dataset --eval-dir data/ext/funsd/eval --out data/linesfull_funsd.npz --scale 2
+```
+
+**The grey-strip reader (live since 2026-09-26).** The reader had always
+read binarised strips; binarisation erased faint thermal and dot-matrix
+strokes before it saw them. The live ensemble reads each line from the
+flattened grey page instead, contrast-stretched per strip
+(`glyph/strip.py gray_contrast`; `decode.line_source = "gray"`). Data:
+`harvest_lines.py --line-out-gray` and `harvest_boxes.py --out-gray` write
+each harvested line twice, as a binary strip and its grey twin (same crop,
+baseline and x-height) — 24,739 lines from every non-evaluation page of
+bus.3B, bus.3A, legal.3B, news.3B, mag.3B, the SROIE and FUNSD harvest
+folders (by line alignment) and CORD (by its truth boxes from the raw
+data), plus 1,135 Legal Reports lines. Training: each v17a member
+fine-tuned 8 epochs on the grey twins (SROIE and CORD at ×5) plus the
+binary `linesfull_sroie`, `linesfull_btp_legal` and `linesfull_funsd`
+files at ×1 (a binary strip is a full-contrast grey one; they carry the
+domains the alignment harvest covers thinly), synthetic `seq_synth_long2`,
+seeds 3, 2, 1 (`seq_line_gray2_s3/_s2/_s1` = `seq_line_gray_en*.npz`); on
+the box's RTX 3080 Ti, 33 minutes for the three in parallel. The line-choice
+judge stays `linechoice_v17as`: one refitted on the grey ensemble's own
+pairs cost mag-8 four points.
+
+```sh
+.venv/bin/python scripts/harvest_lines.py data/unlv/bus.3B --pages 90 --offset 0 --config configs/neural.toml --out /tmp/w.npz --line-out bin_bus0.npz --line-out-gray gray_bus0.npz   # every source, in parts
+.venv/bin/python scripts/harvest_boxes.py --cord data/raw/cord --eval-dir data/ext/cord/eval --out bin_cord_box.npz --out-gray gray_cord_box.npz
+.venv/bin/python scripts/train_seq.py --backend torch --device cuda --init data/seq_line_en.npz --synth data/seq_synth_long2.npz \
+    --real-weight 3 --epochs 8 --batch 32 --seed 3 --lines gray_*.npz data/linesfull_sroie.npz data/linesfull_btp_legal.npz data/linesfull_funsd.npz \
+    --weight gray_sroie*.npz=5 gray_cord*.npz=5 data/linesfull_sroie.npz=1 data/linesfull_btp_legal.npz=1 data/linesfull_funsd.npz=1 --out data/seq_line_gray2_s3.npz
+# and _2 from seq_line_en_2 (seed 2), _3 from seq_line_en_3 (seed 1)
 ```
 
 ### Word-confidence calibrator — `decode/wordconf.py`
