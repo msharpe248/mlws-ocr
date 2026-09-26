@@ -103,13 +103,22 @@ def text_rows(labels: np.ndarray, slices, zone: np.ndarray, min_chars: int = 5) 
             r[0], r[1], r[2], r[3] = min(r[0], x0), min(r[1], y0), max(r[2], x1), max(r[3], y1)
             r[4] = max(r[4], h)
     if rows:
-        R = np.array([[x0 - 4 * h, y0 - 0.5 * h, x1 + 4 * h, y1 + 0.5 * h, h] for x0, y0, x1, y1, h in rows.values()])
+        R = np.array([[x0, y0 - 0.5 * h, x1, y1 + 0.5 * h, h] for x0, y0, x1, y1, h in rows.values()])
+        # how far past the row's ends a component may sit: a WORD (glyphs chained
+        # in twos at least) up to four glyph heights -- "does," before its quote
+        # gap; a lone mark only within one -- a photo's crumbs beside a caption
+        # must not be taken for the caption's punctuation (page 8090: they bridged
+        # a sub-column gutter and the column was read line across line)
+        chained = np.zeros(len(B), bool)
+        chained[idx] = counts[roots] >= 2
         for j in range(len(B)):
             if labs[j] in keep_labs:
                 continue
             x0, y0, x1, y1, h, w = B[j]
             cxj, cyj = (x0 + x1) / 2, (y0 + y1) / 2
-            inside = ((cxj >= R[:, 0]) & (cxj <= R[:, 2]) & (cyj >= R[:, 1]) & (cyj <= R[:, 3])
+            reach = 4.0 if chained[j] else 1.0
+            inside = ((cxj >= R[:, 0] - reach * R[:, 4]) & (cxj <= R[:, 2] + reach * R[:, 4])
+                      & (cyj >= R[:, 1]) & (cyj <= R[:, 3])
                       & (h <= 1.3 * R[:, 4]) & (w <= 4 * R[:, 4]))
             if inside.any():
                 keep_labs.add(labs[j])
