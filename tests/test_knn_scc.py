@@ -116,3 +116,27 @@ def test_join_display_rows_joins_a_headline_row_but_never_over_a_column():
     intruder = [62, 10, 68, 70]
     out = K.join_display_rows(letters + [intruder], boxes, sizes, ref)
     assert len(out) == 4
+
+
+def test_judged_stage_returns_the_chosen_candidates_blocks(tmp_path):
+    """Every candidate must write its own layout: the judge's pick is what
+    comes out, not the last candidate run."""
+    from mlws_ocr.core.artifacts import Page
+    from mlws_ocr.layout import segjudge
+    rng = np.random.default_rng(0)
+    binary = np.zeros((600, 800), bool)
+    for y in range(50, 550, 30):
+        for x in list(range(40, 360, 14)) + list(range(440, 760, 14)):
+            binary[y:y + 12, x:x + 8] = rng.uniform() < 0.9
+    page = Page(gray=(~binary).astype(np.float32), binary=binary, dpi=300.0,
+                meta={"doc_type": "newspaper", "layout": {}})
+    cands = ["xyH", "tree"]
+    ctx_n = 7
+    for pick in cands:
+        w = np.zeros(len(cands) * ctx_n + 4)
+        w[cands.index(pick) * ctx_n] = 10.0          # bias towards `pick`
+        path = tmp_path / f"judge_{pick}.npz"
+        np.savez(path, w=w, cands=np.array(cands), hint=True)
+        out, dbg = segjudge.JudgedBlocks(model_path=str(path)).run(page)
+        alone = segjudge.run_candidate(page, pick)[0].meta["layout"]["blocks"]
+        assert dbg.scalars["chosen"] == pick and out.meta["layout"]["blocks"] == alone

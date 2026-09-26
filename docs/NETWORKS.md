@@ -21,6 +21,7 @@ judged before it went live. The measurements themselves are in
 | Word-confidence calibrator | `wordconf.npz` | 15 weights | neural (`decode.conf_path`) | `train_wordconf.py` | truth-labelled words with the decoder's evidence |
 | Line-choice judge | `linechoice.npz` | 15 weights | neural (`decode.line_choice_path`) | `train_line_choice.py` | truth-labelled line pairs (classic reading vs line reading) |
 | knn_scc link rule (experimental) | `linkkeep_v1.npz` | 15 weights | none (option `blocks.link_model_path`) | `train_links.py` | knn_scc graph links labelled by UNLV zone truth |
+| Segmenter judge | `segjudge.npz` | 32 weights | none yet (option `blocks.impl = "judged"`) | `segmenter_judge.py` | per-page accuracy of four segmenters read end to end on UNLV training-pool pages |
 | Glyph CNN | `cnn.npz` | 30k | none (kept off; `recognize.cnn_path`) | `train_cnn.py` | synthetic renders + truth-labelled real crops |
 
 The classic engine also builds three learned tables that are not networks
@@ -488,6 +489,28 @@ threshold variants (RESEARCH, 2026-09-25); no profile uses it.
 ```sh
 .venv/bin/python scripts/harvest_links.py data/unlv/news.3B --pages 40 --doc-type newspaper --out data/links_news.npz   # and bus, legal, mag
 .venv/bin/python scripts/train_links.py data/links_*.npz --out data/linkkeep_v1.npz
+```
+
+### Segmenter judge — `layout/segjudge.py` (option, not yet the default)
+
+**Purpose.** Pick the block segmenter per page before reading it: XY-cut
+(with or without the document-type hint), knn_scc tight + order, or the
+knn_scc tree. Letters, legal pages and books go straight to XY-cut.
+
+**Data.** Every candidate read end to end (neural engine) on the UNLV
+'train' pool — 40 pages each of bus.3B, legal.3B, news.3B, mag.3B, never
+used by an evaluation or held-out draw — with per-page character accuracy
+as the label; the features are the candidate's layout alone (gutter-spanning
+ink, page-wide ink, block count, fragments) and the page's gutters and hint.
+
+**Training.** Ridge regression (λ = 10) of each candidate's accuracy minus
+the page's mean; per-candidate weights on the page context, shared weights
+on the layout. Held-out (30 pages a type): newspapers 84.3 against
+XY-cut's 79.7, magazines 67.8 against 65.9.
+
+```sh
+.venv/bin/python scripts/eval_unlv.py data/unlv/news.3B --pool train --pages 40 --doc-type newspaper --blocks xycut --dump DIR/dump_xyH_news > DIR/xyH_news.txt   # every candidate x type
+.venv/bin/python scripts/segmenter_judge.py test --runs DIR --heldout-runs DIR2 --cands xyH,xyN,tight,tree --lam 10 --out data/segjudge_v1.npz
 ```
 
 ### Glyph CNN — `recognize/cnn.py` (trained, kept off)
