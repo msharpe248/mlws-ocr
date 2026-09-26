@@ -304,7 +304,9 @@ function renderParams(s, k) {
       const i = f.elements[p], d = s.defaults[p];
       if (typeof d === "boolean") params[p] = i.checked;
       else if (typeof d === "number") params[p] = i.value === "" ? d : Number(i.value);
-      else if (d == null) params[p] = i.value === "" ? null : (isNaN(Number(i.value)) ? i.value : Number(i.value));
+      // an "auto" (None) default takes JSON when it parses -- a number, true/false,
+      // a list such as knn_scc's levels [1.5,1.2,1,0.8] -- else the text (a path)
+      else if (d == null) { if (i.value === "") params[p] = null; else { try { params[p] = JSON.parse(i.value); } catch { params[p] = i.value; } } }
       else { try { params[p] = typeof d === "object" ? JSON.parse(i.value) : i.value; } catch { params[p] = i.value; } }
     }
     try { await api(`/api/stage/${k}`, { params }); await poll(true); } catch (err) { status(err.message, true); }
