@@ -88,6 +88,7 @@ were trained on the public sources named below and on nothing else.
 | v0.8.0 (2026-09-23) | twelve files: the line reader is a three-seed ensemble (`seq_line_en.npz`, `seq_line_en_2.npz`, `seq_line_en_3.npz` = `seq_line_v15e` seeds 3, 2, 1) and the judge `linechoice_e15s` fitted on it; the rest unchanged |
 | v0.9.0 (2026-09-24) | twelve files: the ensemble members are now `seq_line_v17a` seeds 3, 2, 1 (the v15e recipe plus the CORD photographed-receipt rows) and the judge `linechoice_v17as`; the rest unchanged |
 | v0.10.0 (2026-09-25) | fourteen files: the twelve of v0.9.0 plus the word corrector's learned confusion tables (`confusions_classic.json`, on in the classic profile; `confusions_neural.json`, for the option elsewhere) — not networks, but models of each engine's errors learned from non-evaluation pages |
+| v0.11.0 (2026-09-26) | the same fourteen files, one replaced: the word-confidence calibrator is `wordconf_v2`, refitted after the harvest was found to label every scorer-injected word wrong (v1 put correct words at 0%); text output unchanged. The knn_scc link rule (`linkkeep_v1`) is experimental and not shipped |
 
 ## Where the training data comes from
 
