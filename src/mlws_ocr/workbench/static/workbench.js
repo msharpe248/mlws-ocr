@@ -285,6 +285,27 @@ function renderHead(s, k) {
     await api(`/api/stage/${k}`, { impl: e.target.value }); S.imgName = null; await poll(true); } });
   for (const c of s.choices) sel.append(el("option", { value: c, ...(c === s.impl ? { selected: "" } : {}) }, c));
   h.append(el("label", {}, "Algorithm ", sel));
+  if (s.slot === "blocks") {
+    // one-click segmenters (docs/papers/knn-scc-beyond-1995): each preset sets the
+    // algorithm and every knn_scc option the presets touch, so no setting lingers
+    const knnReset = { k_total: null, prune_mode: "hybrid", prune_factor: 1.5, order: "topleft", levels: null,
+                       split_at_gutter: false, gutter_trim: false, local_gutter_300dpi: null, join_display: false };
+    const presets = {
+      "judged — per page (default)": { impl: "judged" },
+      "XY-cut": { impl: "xycut" },
+      "knn_scc, 1995 settings": { impl: "knn_scc", params: knnReset },
+      "knn_scc, tight + order": { impl: "knn_scc", params: { ...knnReset, prune_mode: "global", prune_factor: 0.8, order: "xycut" } },
+      "knn_scc, tree": { impl: "knn_scc", params: { ...knnReset, prune_mode: "global", levels: [1.5, 1.2, 1.0, 0.8], split_at_gutter: true,
+                                                    gutter_trim: true, local_gutter_300dpi: 16, order: "xycut" } },
+    };
+    const ps = el("select", { title: "segmenter presets", onchange: async (e) => {
+      const pr = presets[e.target.value]; if (!pr) return;
+      await api(`/api/stage/${k}`, { impl: pr.impl, ...(pr.params ? { params: pr.params } : {}) });
+      S.imgName = null; await poll(true); } });
+    ps.append(el("option", { value: "" }, "choose a preset…"));
+    for (const name of Object.keys(presets)) ps.append(el("option", { value: name }, name));
+    h.append(el("label", {}, "Preset ", ps));
+  }
   h.append(el("div", { class: "row" },
     el("button", { onclick: async () => { await api("/api/run", { from: k }); await poll(true); } }, "Re-run from here")));
   if (s.error) h.append(el("div", { class: "err" }, s.error));

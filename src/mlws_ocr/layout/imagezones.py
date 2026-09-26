@@ -34,6 +34,94 @@ from ..core.registry import register
 from ..core.stage import DebugBundle, Stage
 
 
+def text_rows(labels: np.ndarray, slices, zone: np.ndarray, min_chars: int = 5) -> np.ndarray:
+    """The pixels of glyph-sized components that chain into TEXT ROWS and
+    touch a zone: each glyph linked to its nearest right neighbour when the
+    two sit on one line (centres within 0.4 glyph heights), are of similar
+    height (within 1.8x) and close (gap under 2.5 glyph heights); a chain of
+    at least min_chars glyphs is a line of text.  A photo's dither and a
+    drawing's strokes do not chain this way; a caption beside the photo, or
+    a column the density window reached into, does."""
+    from scipy.spatial import cKDTree
+    boxes, labs = [], []
+    for lab, sl in enumerate(slices, start=1):
+        if sl is None:
+            continue
+        h, w = sl[0].stop - sl[0].start, sl[1].stop - sl[1].start
+        boxes.append((sl[1].start, sl[0].start, sl[1].stop, sl[0].stop, h, w)); labs.append(lab)
+    if not boxes:
+        return np.zeros_like(zone)
+    B = np.array(boxes, float)
+    hs = B[:, 4]
+    tall = hs[(hs >= 8) & (B[:, 5] <= 3 * hs)]
+    if len(tall) < 20:
+        return np.zeros_like(zone)
+    gh = float(np.median(tall))
+    glyph = (hs >= 0.4 * gh) & (hs <= 3.0 * gh) & (B[:, 5] <= 3.0 * hs)
+    idx = np.flatnonzero(glyph)
+    if len(idx) < min_chars:
+        return np.zeros_like(zone)
+    cx = (B[idx, 0] + B[idx, 2]) / 2; cy = (B[idx, 1] + B[idx, 3]) / 2
+    tree = cKDTree(np.column_stack([cx, cy]))
+    parent = np.arange(len(idx))
+
+    def find(i):
+        while parent[i] != i:
+            parent[i] = parent[parent[i]]; i = parent[i]
+        return i
+    k = min(8, len(idx))
+    _, nb = tree.query(np.column_stack([cx, cy]), k=k)
+    for i in range(len(idx)):
+        hi = hs[idx[i]]
+        best, bgap = -1, None
+        for j in np.atleast_1d(nb[i])[1:]:
+            if j >= len(idx) or cx[j] <= cx[i]:
+                continue
+            hj = hs[idx[j]]
+            if abs(cy[j] - cy[i]) > 0.4 * max(hi, hj) or max(hi, hj) > 1.8 * min(hi, hj):
+                continue
+            gap = B[idx[j], 0] - B[idx[i], 2]
+            if gap > 2.5 * max(hi, hj):   # a word space with its punctuation
+                continue
+            if bgap is None or gap < bgap:
+                best, bgap = j, gap
+        if best >= 0:
+            parent[find(i)] = find(best)
+    roots = np.array([find(i) for i in range(len(idx))])
+    counts = np.bincount(roots, minlength=len(idx))
+    keep_labs = {labs[idx[i]] for i in range(len(idx)) if counts[roots[i]] >= min_chars}
+    # the row's small marks -- i-dots, commas, apostrophes, periods -- never
+    # chain, and a short word at the start or end of a line ("does," before a
+    # comma-and-quote gap) chains too short; any component no taller than the
+    # row's type whose centre lies in a text row's band (its glyph boxes,
+    # half a glyph height taller, four glyph heights wider) belongs to it
+    rows: dict[int, list] = {}
+    for i in range(len(idx)):
+        if counts[roots[i]] >= min_chars:
+            x0, y0, x1, y1, h, _ = B[idx[i]]
+            r = rows.setdefault(int(roots[i]), [x0, y0, x1, y1, h])
+            r[0], r[1], r[2], r[3] = min(r[0], x0), min(r[1], y0), max(r[2], x1), max(r[3], y1)
+            r[4] = max(r[4], h)
+    if rows:
+        R = np.array([[x0 - 4 * h, y0 - 0.5 * h, x1 + 4 * h, y1 + 0.5 * h, h] for x0, y0, x1, y1, h in rows.values()])
+        for j in range(len(B)):
+            if labs[j] in keep_labs:
+                continue
+            x0, y0, x1, y1, h, w = B[j]
+            cxj, cyj = (x0 + x1) / 2, (y0 + y1) / 2
+            inside = ((cxj >= R[:, 0]) & (cxj <= R[:, 2]) & (cyj >= R[:, 1]) & (cyj <= R[:, 3])
+                      & (h <= 1.3 * R[:, 4]) & (w <= 4 * R[:, 4]))
+            if inside.any():
+                keep_labs.add(labs[j])
+    out = np.zeros_like(zone)
+    for lab in keep_labs:
+        sl = slices[lab - 1]
+        m = labels[sl] == lab
+        if (m & zone[sl]).any():
+            out[sl] |= m
+    return out
+
+
 @register
 class DensityImageZones(Stage):
     slot = "imagezones"
@@ -69,6 +157,12 @@ class DensityImageZones(Stage):
         "absorb_gap_300dpi": 12,  # "touching" tolerance -- scraps sit
                                   # near, not on, their parent art
                                   # (captions stand farther off)
+        "protect_text_rows": False,  # give back glyph-sized components that
+                                  # chain into text rows (2026-09-26 option:
+                                  # magazine captions and columns beside
+                                  # photos were swallowed by the density
+                                  # window and the inside-the-box rule)
+        "row_min_chars": 5,       # a text row: at least this many glyphs
     }
 
     def run(self, page: Page) -> tuple[Page, DebugBundle]:
@@ -187,6 +281,8 @@ class DensityImageZones(Stage):
                             and y0 >= zy0 - pad and y1 <= zy1 + pad):
                         zone[sl] |= labels[sl] == lab
                         break
+        if p["protect_text_rows"] and n and zone.any():
+            zone = zone & ~text_rows(labels, slices, zone, int(p["row_min_chars"]))
         text_only = b & ~zone
 
         out = page.evolve(binary=text_only)
