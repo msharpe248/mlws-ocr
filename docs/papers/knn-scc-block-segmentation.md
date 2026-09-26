@@ -522,6 +522,10 @@ arrows, dotted leaders) bridge blocks at the default (§5.10). And the
 method inherits upstream component quality: touching or fragmented
 characters shift centroids and sizes.
 
+A follow-on paper, [*Beyond the 1995 Specification*](https://msharpe248.github.io/mlws-ocr/docs/papers/knn-scc-beyond-1995.html), takes up
+these next steps — a reading order, gutter evidence and a tree of strong
+components — with tuned, trained and held-out measurements.
+
 ## 7. Conclusion
 
 A thirty-year-old idea, tested at last. Directional k-NN graphs with

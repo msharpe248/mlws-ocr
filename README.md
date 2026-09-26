@@ -267,6 +267,11 @@ way?" by looking.
 - A paper on the directional k-NN + SCC block-segmentation algorithm
   ([rendered](https://msharpe248.github.io/mlws-ocr/docs/papers/knn-scc-block-segmentation.html),
   [markdown](docs/papers/knn-scc-block-segmentation.md)).
+- Its follow-on, taking the method beyond the 1995 specification: XY-cut
+  reading order, gutter evidence and a tree of strong components, with
+  tuned, trained and held-out measurements
+  ([rendered](https://msharpe248.github.io/mlws-ocr/docs/papers/knn-scc-beyond-1995.html),
+  [markdown](docs/papers/knn-scc-beyond-1995.md)).
 
 ## Where the work stands
 
