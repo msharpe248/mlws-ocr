@@ -190,6 +190,9 @@ def main():
                     help="draw only from pages no knn_scc decision has seen "
                          "(eval_layout.heldout_pairs: not an evaluation, tuning "
                          "or link-training page)")
+    ap.add_argument("--pool", choices=["tune", "train", "heldout"], default=None,
+                    help="draw from one of the three disjoint non-evaluation pools "
+                         "(eval_layout.pool_pairs)")
     ap.add_argument("--zone-order", action="store_true",
                     help="reorder output words by the ground truth's .uzn "
                          "zones before scoring (ISRI practice: measures "
@@ -205,6 +208,9 @@ def main():
     if args.heldout:
         from eval_layout import heldout_pairs
         pairs = heldout_pairs(args.root)
+    if args.pool:
+        from eval_layout import pool_pairs
+        pairs = pool_pairs(args.root, args.pool)
     if not pairs:
         sys.exit(f"no image/ground-truth pairs under {args.root}")
     random.Random(args.seed).shuffle(pairs)

@@ -50,6 +50,29 @@ from harvest_glyphs import eval_pages_set  # noqa: E402
 UPSTREAM = ("magnify", "deskew", "illumination", "binarize", "despeckle", "imagezones", "rulings")
 
 
+def pool_pairs(root: Path, pool: str) -> list:
+    """The non-evaluation pages of a UNLV set, in three disjoint pools: 'tune'
+    (the 30 pages --tune draws, seed 7), 'train' (the 40 link-model training
+    pages, seed 11 over the rest) and 'heldout' (everything else)."""
+    excluded = eval_pages_set(root)
+    pool_all = [(t, g) for t, g in find_pairs(root)
+                if t.with_suffix(".uzn").exists() and t.name not in excluded]
+    tune = list(pool_all)
+    random.Random(7).shuffle(tune)
+    tune = tune[:30]
+    tune_names = {t.name for t, _ in tune}
+    rest = [(t, g) for t, g in pool_all if t.name not in tune_names]
+    train = list(rest)
+    random.Random(11).shuffle(train)
+    train = train[:40]
+    train_names = {t.name for t, _ in train}
+    if pool == "tune":
+        return tune
+    if pool == "train":
+        return train
+    return [(t, g) for t, g in rest if t.name not in train_names]
+
+
 def heldout_pairs(root: Path) -> list:
     """Pages no knn_scc decision has seen: not an evaluation draw, not one of
     the 30 tuning pages (--tune, seed 7), not one of the 40 link-model

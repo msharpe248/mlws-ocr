@@ -343,6 +343,63 @@ def level_groups(masks, scc, boxes, gutters, gutter_frac=0.3,
     return out
 
 
+def join_display_rows(blocks: list[list[int]], boxes: np.ndarray, sizes: np.ndarray,
+                      ref: float, big: float = 2.0, gap: float = 3.0) -> list[list[int]]:
+    """Headline-aware blocks (2026-09-26 option): a tight cut breaks a display
+    headline into letter and word blocks, and an XY-cut order can then read a
+    two-line headline down its letter columns.  A block is DISPLAY when its
+    components' median size is at least `big` x the page's glyph size and it
+    is one line tall (no taller than 1.6 x that median); display blocks that
+    share a row (vertical overlap >= half the lower one) and sit within
+    `gap` x the row's type size of each other join into one line block --
+    unless the joined box would overlap any other block."""
+    if len(blocks) < 2:
+        return blocks
+    cx = (boxes[:, 0] + boxes[:, 2]) / 2
+    cy = (boxes[:, 1] + boxes[:, 3]) / 2
+    disp, typ = [], []
+    for b in blocks:
+        m = (cx >= b[0]) & (cx <= b[2]) & (cy >= b[1]) & (cy <= b[3]) & (sizes >= 0.5 * ref)
+        med = float(np.median(sizes[m])) if m.any() else 0.0   # specks and dots excluded
+        disp.append(med >= big * ref and (b[3] - b[1]) <= 1.6 * med)
+        typ.append(med)
+    idx = [i for i, d in enumerate(disp) if d]
+    parent = {i: i for i in idx}
+
+    def find(i):
+        while parent[i] != i:
+            parent[i] = parent[parent[i]]
+            i = parent[i]
+        return i
+    for a_ in idx:
+        for b_ in idx:
+            if b_ <= a_:
+                continue
+            A, B = blocks[a_], blocks[b_]
+            ov = min(A[3], B[3]) - max(A[1], B[1])
+            if ov < 0.5 * min(A[3] - A[1], B[3] - B[1]):
+                continue
+            hgap = max(A[0], B[0]) - min(A[2], B[2])
+            if hgap <= gap * max(typ[a_], typ[b_]):
+                parent[find(a_)] = find(b_)
+    rows: dict[int, list[int]] = {}
+    for i in idx:
+        rows.setdefault(find(i), []).append(i)
+    out, used = [], set()
+    for members in rows.values():
+        if len(members) < 2:
+            continue
+        u = [min(blocks[i][0] for i in members), min(blocks[i][1] for i in members),
+             max(blocks[i][2] for i in members), max(blocks[i][3] for i in members)]
+        clash = any(j not in members and u[0] < blocks[j][2] and blocks[j][0] < u[2]
+                    and u[1] < blocks[j][3] and blocks[j][1] < u[3] for j in range(len(blocks)))
+        if clash:
+            continue
+        out.append(u)
+        used.update(members)
+    return out + [b for i, b in enumerate(blocks) if i not in used]
+
+
 def order_xycut(blocks: list[list[int]], prefer: str = "v") -> list[list[int]]:
     """Reading order by recursive XY-cut over finished blocks (Nagy & Seth
     1984; used for reading order by Meunier 2005): at each level cut at the
@@ -477,6 +534,8 @@ class KnnSccBlocks(Stage):
                                    # empty vertical run this wide (local_gutter)
         "link_model_path": None,   # a learned keep rule (P(same zone))
         "link_keep_p": 0.5,
+        "join_display": False,     # join a row of display-size blocks (a
+                                   # fragmented headline) into one line block
         "size_ref": "all",         # the hybrid's "large": "all" components'
                                    # median (as measured) or "glyph"
         "length_norm": False,      # prune on distance / pair size
@@ -713,6 +772,8 @@ def segment(binary: np.ndarray, p: dict) -> dict:
     # Image blocks (dropped-big components) rejoin the segmentation:
     # merged among THEMSELVES only -- merging them with text blocks is
     # the measured photo-weld hazard -- then interleaved in reading order.
+    if p.get("join_display"):
+        merged = join_display_rows(merged, boxes, sizes, ref)
     image_blocks = merge_overlapping(image_boxes)
     merged.extend([list(b) for b in image_blocks])
     if p.get("order", "topleft") in ("xycut", "xycut_h"):

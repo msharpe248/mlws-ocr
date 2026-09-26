@@ -100,3 +100,19 @@ def test_link_features_one_row_per_link():
     edges, lengths = K.directional_edges(centers, 3)
     X = K.link_features(edges, lengths, centers, boxes, sizes, 20.0, np.zeros(len(edges), bool))
     assert X.shape == (len(edges), len(K.LINK_FEATURES)) and np.isfinite(X).all()
+
+
+def test_join_display_rows_joins_a_headline_row_but_never_over_a_column():
+    ref = 20.0
+    # a headline of three 80-px letters, then a body column of 20-px glyphs below
+    letters = [[0, 0, 60, 80], [70, 0, 130, 80], [140, 0, 200, 80]]
+    body = [[x, y, x + 15, y + 20] for y in range(120, 400, 40) for x in range(0, 200, 18)]
+    boxes = np.array(letters + body, float)
+    sizes = np.maximum(boxes[:, 2] - boxes[:, 0], boxes[:, 3] - boxes[:, 1])
+    column = [0, 120, 200, 400]
+    out = K.join_display_rows(letters + [column], boxes, sizes, ref)
+    assert [0, 0, 200, 80] in out and column in out and len(out) == 2
+    # a block reaching up between the letters would be overlapped: no join
+    intruder = [62, 10, 68, 70]
+    out = K.join_display_rows(letters + [intruder], boxes, sizes, ref)
+    assert len(out) == 4
