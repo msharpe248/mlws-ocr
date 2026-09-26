@@ -71,7 +71,8 @@ def edit_distance(a: str, b: str) -> int:
 
 def parse_overrides(items: list[str] | None) -> dict[str, dict]:
     """Turn ["recognize.model_path=x.npz", "decode.pin_bonus=2"] into
-    {slot: {key: value}}; values parse as int/float/bool when they can.
+    {slot: {key: value}}; values parse as int/float/bool when they can,
+    and 'a/b/c' of numbers as a list.
     Lets an evaluation try a variant model or parameter WITHOUT touching
     the live configuration (variant-file discipline)."""
     out: dict[str, dict] = {}
@@ -81,6 +82,8 @@ def parse_overrides(items: list[str] | None) -> dict[str, dict]:
         val: object = raw
         if raw.lower() in ("true", "false"):
             val = raw.lower() == "true"
+        elif "/" in raw and all(x.replace(".", "", 1).isdigit() for x in raw.split("/")):
+            val = [float(x) for x in raw.split("/")]   # a list, e.g. blocks.levels=3/2/1.5
         else:
             for cast in (int, float):
                 try:

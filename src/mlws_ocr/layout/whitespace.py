@@ -71,6 +71,86 @@ def _overlap_frac(a, b) -> float:
     return inter / max((a[2] - a[0]) * (a[3] - a[1]), 1)
 
 
+def find_gutters(b: np.ndarray, s: float, min_gutter_w_300dpi: float = 16,
+                 min_gutter_h_frac: float = 0.28, limit: int = 30,
+                 trim: bool = False):
+    """The page's column gutters: tall maximal empty rectangles among the
+    RLSA-smeared line segments, with ink hugging both sides, near-coincident
+    ones merged.  Returns (gutters, obstacles, margin); margin is None on a
+    blank page.  s = dpi / 300.  Shared by this segmenter and knn_scc's
+    gutter fences."""
+    H, W = b.shape
+    # RLSA-style horizontal smearing first (Wong, Casey & Wahl 1982):
+    # obstacles must be LINE SEGMENTS, not glyphs -- a headline's
+    # individual letters each sit inside one column, so only the
+    # smeared line reveals that it spans several.  Smear length stays
+    # below the gutter width so columns never bridge.
+    L = max(4, int(min_gutter_w_300dpi * s * 0.8))
+    smeared = ndimage.binary_closing(
+        b, structure=np.ones((1, L), bool))
+    labels, n = ndimage.label(smeared)
+    boxes = []
+    for sl in ndimage.find_objects(labels):
+        boxes.append([sl[1].start, sl[0].start, sl[1].stop, sl[0].stop])
+    if not boxes:
+        return [], np.zeros((0, 4), int), None
+    obstacles = np.array(boxes)
+    margin = _trim(b, [0, 0, W, H])
+
+    rects = maximal_rectangles(
+        obstacles, [margin[0], margin[1], margin[2], margin[3]],
+        min_w=min_gutter_w_300dpi * s,
+        min_h=min_gutter_h_frac * (margin[3] - margin[1]), limit=limit)
+
+    def side_rows(g, side) -> np.ndarray:
+        """The rows of the gutter with ink hugging one side."""
+        band = 4 * min_gutter_w_300dpi * s
+        if side == "left":
+            near = obstacles[(obstacles[:, 2] > g[0] - band)
+                             & (obstacles[:, 2] <= g[0] + 2)]
+        else:
+            near = obstacles[(obstacles[:, 0] < g[2] + band)
+                             & (obstacles[:, 0] >= g[2] - 2)]
+        ys = np.zeros(H, bool)
+        for bx in near:
+            ys[max(bx[1], g[1]):min(bx[3], g[3])] = True
+        return ys
+
+    def side_support(g, side) -> float:
+        """Fraction of the gutter's height with ink hugging one side."""
+        return float(side_rows(g, side).sum()) / max(g[3] - g[1], 1)
+
+    if trim:
+        # A gutter is only as tall as the columns beside it: an empty
+        # rectangle running on down an empty lower page past columns that
+        # end halfway dilutes its side support (knn_scc's use, 2026-09-25;
+        # the whitespace segmenter keeps the untrimmed rule).
+        trimmed = []
+        for r in rects:
+            both = np.flatnonzero(side_rows(r, "left") | side_rows(r, "right"))
+            if len(both):
+                trimmed.append([r[0], int(both[0]), r[2], int(both[-1]) + 1])
+        rects = trimmed
+
+    candidates = sorted(
+        (r for r in rects
+         if r[3] - r[1] >= min_gutter_h_frac * (margin[3] - margin[1])
+         and side_support(r, "left") >= 0.30
+         and side_support(r, "right") >= 0.30),
+        key=lambda r: r[0])
+    # Merge gutters whose centers nearly coincide.
+    gutters = []
+    for g in candidates:
+        cx = (g[0] + g[2]) / 2
+        if gutters and (cx - (gutters[-1][0] + gutters[-1][2]) / 2
+                        < 3 * min_gutter_w_300dpi * s):
+            gutters[-1] = [min(gutters[-1][0], g[0]), min(gutters[-1][1], g[1]),
+                           max(gutters[-1][2], g[2]), max(gutters[-1][3], g[3])]
+        else:
+            gutters.append(list(g))
+    return gutters, obstacles, margin
+
+
 @register
 class WhitespaceBlocks(Stage):
     slot = "blocks"
@@ -93,61 +173,12 @@ class WhitespaceBlocks(Stage):
         b = page.binary
         H, W = b.shape
 
-        # RLSA-style horizontal smearing first (Wong, Casey & Wahl 1982):
-        # obstacles must be LINE SEGMENTS, not glyphs -- a headline's
-        # individual letters each sit inside one column, so only the
-        # smeared line reveals that it spans several.  Smear length stays
-        # below the gutter width so columns never bridge.
-        L = max(4, int(p["min_gutter_w_300dpi"] * s * 0.8))
-        smeared = ndimage.binary_closing(
-            b, structure=np.ones((1, L), bool))
-        labels, n = ndimage.label(smeared)
-        boxes = []
-        for sl in ndimage.find_objects(labels):
-            boxes.append([sl[1].start, sl[0].start, sl[1].stop, sl[0].stop])
-        if not boxes:
+        gutters, obstacles, margin = find_gutters(
+            b, s, p["min_gutter_w_300dpi"], p["min_gutter_h_frac"])
+        if margin is None:
             out = page.evolve()
             out.meta.setdefault("layout", {})["blocks"] = []
             return out, DebugBundle(scalars={"n_blocks": 0})
-        obstacles = np.array(boxes)
-        margin = _trim(b, [0, 0, W, H])
-
-        rects = maximal_rectangles(
-            obstacles, [margin[0], margin[1], margin[2], margin[3]],
-            min_w=p["min_gutter_w_300dpi"] * s,
-            min_h=p["min_gutter_h_frac"] * (margin[3] - margin[1]))
-
-        def side_support(g, side) -> float:
-            """Fraction of the gutter's height with ink hugging one side."""
-            band = 4 * p["min_gutter_w_300dpi"] * s
-            if side == "left":
-                near = obstacles[(obstacles[:, 2] > g[0] - band)
-                                 & (obstacles[:, 2] <= g[0] + 2)]
-            else:
-                near = obstacles[(obstacles[:, 0] < g[2] + band)
-                                 & (obstacles[:, 0] >= g[2] - 2)]
-            if len(near) == 0:
-                return 0.0
-            ys = np.zeros(H, bool)
-            for bx in near:
-                ys[max(bx[1], g[1]):min(bx[3], g[3])] = True
-            return float(ys.sum()) / max(g[3] - g[1], 1)
-
-        candidates = sorted(
-            (r for r in rects
-             if r[3] - r[1] >= p["min_gutter_h_frac"] * (margin[3] - margin[1])
-             and side_support(r, "left") >= 0.30
-             and side_support(r, "right") >= 0.30),
-            key=lambda r: r[0])
-        # Merge gutters whose centers nearly coincide.
-        gutters = []
-        for g in candidates:
-            cx = (g[0] + g[2]) / 2
-            if gutters and cx - (gutters[-1][0] + gutters[-1][2]) / 2                     < 3 * p["min_gutter_w_300dpi"] * s:
-                gutters[-1] = [min(gutters[-1][0], g[0]), min(gutters[-1][1], g[1]),
-                               max(gutters[-1][2], g[2]), max(gutters[-1][3], g[3])]
-            else:
-                gutters.append(list(g))
 
         # Column edges from gutter centers.  Spanning segments (wider than
         # span_frac of the text width) become band-closing blocks BEFORE

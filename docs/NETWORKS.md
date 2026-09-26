@@ -20,6 +20,7 @@ judged before it went live. The measurements themselves are in
 | Line model (same CRNN) | `seq_line_en.npz` | 285k | neural (`decode.line_model_path`) | `train_seq.py` | the above plus long windows and real whole lines |
 | Word-confidence calibrator | `wordconf.npz` | 15 weights | neural (`decode.conf_path`) | `train_wordconf.py` | truth-labelled words with the decoder's evidence |
 | Line-choice judge | `linechoice.npz` | 15 weights | neural (`decode.line_choice_path`) | `train_line_choice.py` | truth-labelled line pairs (classic reading vs line reading) |
+| knn_scc link rule (experimental) | `linkkeep_v1.npz` | 15 weights | none (option `blocks.link_model_path`) | `train_links.py` | knn_scc graph links labelled by UNLV zone truth |
 | Glyph CNN | `cnn.npz` | 30k | none (kept off; `recognize.cnn_path`) | `train_cnn.py` | synthetic renders + truth-labelled real crops |
 
 The classic engine also builds three learned tables that are not networks
@@ -461,6 +462,31 @@ pairs, with the page-level feature added that day (the share of the
 page's classic lines with no endorsed word); real receipts 66.0 / 35.9 →
 71.0 / 41.1 and the typewriter set +0.7 word (RESEARCH). A judge file
 fitted before a feature was added loads with that feature at zero weight.
+
+### knn_scc link rule — `layout/knn_scc.py` `link_features` (experimental, off)
+
+**Purpose.** P(both ends of a link lie in the same zone) for each link of
+the knn_scc graph, to replace the hand-set pruning rules (1.5 × mean, the
+hybrid rule) with a fitted one; strong connectivity still clusters.
+
+**Data.** `harvest_links.py` builds the graph at the 1995 settings on
+UNLV pages no evaluation, tuning (eval_layout.py --tune, seed 7) or
+held-out draw uses — 40 pages each of bus.3B, legal.3B, news.3B,
+mag.3B — and labels each link by the .uzn zones: same zone 1, different 0,
+skipped when an end lies in no zone. Same-zone links sampled (8,000 a
+page), cross-zone links all kept: 1,373,111 links, 12.1% cross-zone.
+
+**Training.** The calibrator's logistic fit (decode/wordconf.py),
+page-disjoint holdout: accuracy 91.7%, AUC 0.920; at p ≥ 0.5 it cuts 54%
+of cross-zone links and loses 1.6% of same-zone ones. Heaviest weights:
+length over the page's mean link (−), length over the line pitch (+),
+crossing a gutter (−). Measured end to end it did not beat the
+threshold variants (RESEARCH, 2026-09-25); no profile uses it.
+
+```sh
+.venv/bin/python scripts/harvest_links.py data/unlv/news.3B --pages 40 --doc-type newspaper --out data/links_news.npz   # and bus, legal, mag
+.venv/bin/python scripts/train_links.py data/links_*.npz --out data/linkkeep_v1.npz
+```
 
 ### Glyph CNN — `recognize/cnn.py` (trained, kept off)
 
