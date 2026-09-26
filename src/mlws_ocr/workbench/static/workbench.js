@@ -140,8 +140,10 @@ async function poll(force) {
   const cfg = "configs/" + st.config.split("/").pop();
   if ([...$("config").options].some((o) => o.value === cfg) && S.shownConfig !== cfg) { $("config").value = cfg; S.shownConfig = cfg; }
   renderPhases();
-  if (S.sel == null) { S.sel = defaultStage(); }
-  if (S.sel === RESULT) await showResult(); else await showStage(S.sel, false);
+  // a newly opened page (S.sel reset): select a stage the way a click does, so the
+  // canvas is shown again even if the result tab was open when the page was loaded
+  if (S.sel == null) await selectStage(defaultStage());
+  else if (S.sel === RESULT) await showResult(); else await showStage(S.sel, false);
   await refreshText();
 }
 
@@ -263,7 +265,7 @@ async function showStage(k, userAction) {
     img.src = `/api/image/${k}/${want}.png?scale=${S.imgScale}&t=${s.ms}`;
     await img.decode().catch(() => null);
     S.img = img; S.imgKey = key;
-    if (fitNext) { fit(); fitNext = false; }
+    if (fitNext) fitNext = !fit();
   }
   draw();
 }
@@ -522,13 +524,21 @@ function setupCanvas() {
   });
 }
 
+// Fit the page to the canvas.  Returns false (and changes nothing) while the
+// canvas has no size -- hidden behind the result tab -- because a fit to a
+// 0-pixel canvas is a zoom of 0, and the next zoom or pan turns that into
+// NaN: the page vanished, then sat stuck in the corner (2026-09-26).
 function fit() {
-  if (!S.st || !S.st.shape) return;
+  if (!S.st || !S.st.shape) return false;
   const [h, w] = S.st.shape, cw = canvas.clientWidth, ch = canvas.clientHeight;
+  if (!(cw > 0 && ch > 0 && w > 0 && h > 0)) return false;
   const z = Math.min(cw / w, ch / h) * 0.96;
   S.view = { z, x: (cw - w * z) / 2, y: (ch - h * z) / 2 };
+  return true;
 }
+const viewOk = () => S.view && S.view.z > 0 && isFinite(S.view.z) && isFinite(S.view.x) && isFinite(S.view.y);
 function zoomAt(sx, sy, f) {
+  if (!viewOk() && !fit()) return;
   const v = S.view, px = (sx - v.x) / v.z, py = (sy - v.y) / v.z;
   v.z = Math.max(0.02, Math.min(8, v.z * f)); v.x = sx - px * v.z; v.y = sy - py * v.z; draw();
 }
@@ -647,6 +657,7 @@ function draw() {
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   ctx.clearRect(0, 0, cw, ch);
   if (!S.st || !S.st.open) return;
+  if (fitNext || !viewOk()) { if (fit()) fitNext = false; else return; }
   const v = S.view, s = S.st.stages[S.sel];
   ctx.save(); ctx.translate(v.x, v.y); ctx.scale(v.z, v.z);
   if (S.img && S.img.complete && S.img.naturalWidth) {
