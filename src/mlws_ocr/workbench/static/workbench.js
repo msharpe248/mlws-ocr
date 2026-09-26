@@ -195,7 +195,9 @@ async function showResult() {
     el("button", { class: S.resultMode === "text" ? "on" : "", onclick: () => { S.resultMode = "text"; showResult(); } }, "Text"),
     el("button", { class: S.resultMode === "hocr" ? "on" : "", onclick: () => { S.resultMode = "hocr"; showResult(); } }, "hOCR"),
     el("button", { class: S.resultMode === "render" ? "on" : "", onclick: () => { S.resultMode = "render"; showResult(); } }, "Rendered"));
-  tb.append(seg, el("span", { class: "sep" }),
+  // the render-only checkboxes are null in the other modes: the DOM's own append
+  // would print each null as the text "null", so they are filtered out
+  tb.append(...[seg, el("span", { class: "sep" }),
     S.resultMode === "render" ? el("label", {}, el("input", { type: "checkbox", ...(S.renderScan ? { checked: "" } : {}),
       onchange: (e) => { S.renderScan = e.target.checked; showResult(); } }), "scan underneath") : null,
     S.resultMode === "render" ? el("label", {}, el("input", { type: "checkbox", ...(S.renderBoxes !== false ? { checked: "" } : {}),
@@ -204,7 +206,7 @@ async function showResult() {
       onchange: (e) => { S.renderSide = e.target.checked; showResult(); } }), "side by side") : null,
     el("button", { onclick: async () => { await navigator.clipboard.writeText(S.resultMode === "text" ? R.text : R.hocr); status("copied"); } }, "Copy"),
     el("button", { onclick: () => { window.location = "/api/export/" + (S.resultMode === "text" ? "text" : "hocr"); } },
-      S.resultMode === "text" ? "Download .txt" : "Download .hocr"));
+      S.resultMode === "text" ? "Download .txt" : "Download .hocr")].filter((x) => x != null));
   // side panel: a summary of the page
   $("stageHead").innerHTML = ""; $("tools").innerHTML = ""; $("params").innerHTML = "";
   $("stageHead").append(el("h2", {}, "Result"), el("div", {}, S.resultMode === "text"
