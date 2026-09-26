@@ -34,6 +34,7 @@ MODELS = {
     "linechoice.npz": "logistic judge between the classic and the reader's line = linechoice_v17as (train_line_choice.py; fitted on the three-seed ensemble's own pairs, page-level feature, receipt pairs)",
     "wordconf.npz": "logistic word-confidence calibrator, P(correct) per word in the hOCR = wordconf_v2 (train_wordconf.py; refitted 2026-09-25 on a harvest that labels scorer-injected words correctly)",
     "confusions_classic.json": "the classic engine's learned OCR confusions for the word corrector (harvest_confusions.py; 480 non-evaluation pages)",
+    "segjudge.npz": "segmenter judge = segjudge_v1: per newspaper/magazine page, XY-cut or knn_scc chosen from layout evidence (segmenter_judge.py; ridge over 160 UNLV training-pool pages)",
     "confusions_neural.json": "the neural engine's learned OCR confusions for the word corrector (harvest_confusions.py; 480 non-evaluation pages)",
 }
 

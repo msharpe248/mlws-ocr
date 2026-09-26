@@ -54,7 +54,9 @@ impl = "morphological"
 impl = "grid"
 
 [stage.blocks]
-impl = "xycut"
+impl = "judged"                # newspapers and magazines: XY-cut or knn_scc chosen per page by a judge
+                               # (layout/segjudge.py; held-out news 79.7 -> 84.3, magazines 65.9 -> 67.8,
+                               # 2026-09-26); every other page XY-cut exactly as before
 
 [stage.lines]
 impl = "profile"

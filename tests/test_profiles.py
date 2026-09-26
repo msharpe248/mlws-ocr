@@ -58,6 +58,11 @@ def test_neural_shares_the_stage_list_with_classic():
     assert [s for s, _ in neural_list] == [s for s, _ in classic_list]
     for (slot, impl_n), (_, impl_c) in zip(neural_list, classic_list):
         if impl_n != impl_c:
+            if slot == "blocks":
+                # the segmenter judge (owner's decision, 2026-09-26): newspapers and
+                # magazines only; every other page keeps classic's XY-cut unchanged
+                assert impl_n == "judged" and impl_c == "xycut", (impl_n, impl_c)
+                continue
             assert slot == "decode", slot
             assert issubclass(registry.get(slot, impl_n), BeamDecode), impl_n
     neural, classic = _specs("neural.toml"), _specs("classic.toml")
@@ -65,7 +70,7 @@ def test_neural_shares_the_stage_list_with_classic():
         if spec.params != classic.get(key, classic.get(("decode", "beam"))).params:
             # the word corrector: on in classic, an option (off) in neural -- the owner's
             # decision of 2026-09-25; the neural profile carries its own confusion table
-            assert key[1] in ("recognize", "decode", "correct"), key
+            assert key[1] in ("recognize", "decode", "correct", "blocks"), key
 
 
 @pytest.mark.parametrize("name", ["classic.toml", "pure.toml", "neural.toml"])

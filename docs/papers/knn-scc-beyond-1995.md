@@ -2,7 +2,7 @@
 
 **Michael Sharpe** — a follow-on study in the mlws-ocr project (2026).
 
-*Figures are in the [HTML edition](https://msharpe248.github.io/mlws-ocr/docs/papers/knn-scc-beyond-1995.html); this text refers to them by number. The first paper is [Block Segmentation by Directional k-Nearest-Neighbor Graphs and Strongly Connected Components](https://msharpe248.github.io/mlws-ocr/docs/papers/knn-scc-block-segmentation.html).*
+*Revised 26 September 2026: the claim that the improved variants beat the incumbent on fresh newspaper pages rested on 20 pages; on 70 fresh pages no single segmenter wins, and a per-page judge does (§4.4). Figures are in the [HTML edition](https://msharpe248.github.io/mlws-ocr/docs/papers/knn-scc-beyond-1995.html); this text refers to them by number. The first paper is [Block Segmentation by Directional k-Nearest-Neighbor Graphs and Strongly Connected Components](https://msharpe248.github.io/mlws-ocr/docs/papers/knn-scc-block-segmentation.html).*
 
 ## In brief
 
@@ -34,11 +34,16 @@ What it found:
   thresholds nest into a tree. Choosing, region by region, the coarsest
   level with no column gutter inside it — and cutting along a gutter the
   graph cannot separate — reaches 95% on the newspaper set.
-- **On fresh pages the improved method beats the incumbent where the
-  incumbent was tuned.** On 20 newspaper pages no decision had seen, the
-  incumbent's specially tuned newspaper rules read 79% of characters; the
-  two improved variants read 82% and 85%. On fresh letters all three are
-  level; on legal pages the incumbent keeps a lead of 1–2 points.
+- **On fresh newspaper pages no single segmenter wins — a per-page
+  judge does.** The first 20 fresh pages favoured the improved variants
+  (82% and 85% against the incumbent's 79%); 40 more favoured the
+  incumbent by up to 8 points. Newspaper pages differ so much that small
+  samples point either way. A judge that picks the segmenter for each
+  page from its layout alone reads fresh newspaper pages at 84% against
+  the incumbent's 80%, and fresh magazines at 68% against 66% (§4.4); it
+  is now the default for newspapers and magazines. On fresh letters all
+  methods are level; on legal pages the incumbent keeps a lead of 1–2
+  points.
 - **Several ideas did not pay:** a learned rule for which links to keep,
   gutter "fences" on their own, and a size-normalised link length. They
   are reported with their numbers.
@@ -61,10 +66,14 @@ Settings were chosen on tuning pages, the rule trained on separate pages,
 and finalists confirmed on held-out pages. On the UNLV evaluation sets
 the tighter cut with XY-cut order lifts newspapers from 45.4% to 87.2%
 character accuracy and magazines from 31.2% to 79.0%; the tree reaches
-94.6% and 79.9%. On held-out newspaper pages both beat the tuned
-incumbent (81.9% and 84.9% against 78.8%, whose newspaper rules were
-tuned on the evaluation set), at parity on letters and 1.3–2.3 points
-behind on legal pages. The learned rule, fences alone and scale-free
+94.6% and 79.9%. On fresh newspaper pages the ranking depends on the
+sample — 20 held-out pages favoured both variants over the incumbent
+(81.9% and 84.9% against 78.8%), 40 others the incumbent (87.6% against
+83.6% and 79.2%) — so a per-page judge over layout evidence alone was
+fitted instead: on 30 held-out pages per type it reads newspapers at 84.3%
+against the incumbent's 79.7% and magazines at 67.8% against 65.9%. All
+methods are at parity on fresh letters; on legal pages the incumbent
+keeps 1.3–2.3 points. The learned rule, fences alone and scale-free
 lengths did not improve on the simpler variants.
 
 ## 1. Where the first paper left off
@@ -262,8 +271,10 @@ Twenty pages per document kind that no decision had seen:
 
 - **The incumbent's newspaper rules do not generalise.** XY-cut's 95.8%
   on news-8 falls to 78.8% on fresh newspaper pages: its newspaper rules
-  were tuned on those same eight pages (September 2026). On fresh pages both improved
-  variants beat it — the tree by 6.1 points, *tight + order* by 3.1.
+  were tuned on those same eight pages (September 2026). On these 20
+  fresh pages both improved variants beat it — the tree by 6.1 points,
+  *tight + order* by 3.1 — but a larger sample does not bear out a
+  general win (§4.4).
 - **One apparent win disappears.** XY-cut ordering on its own lifted the
   30-letter set to 96.3%, a point above the incumbent; on fresh letters
   it is 0.6 below the 1995 method. The gain was particular to that set.
@@ -271,6 +282,48 @@ Twenty pages per document kind that no decision had seen:
   tuned at 0.2–0.5 column welds a page on the tuning pages and showed
   1.4–1.8 on news-8; only end-to-end runs, confirmed on fresh pages,
   settle a choice.
+
+### 4.4 A larger sample, and a judge
+
+Newspaper pages vary more than any other kind. Measured on more fresh
+pages — a 40-page pool used
+before only to train the learned link rule, and the held-out pool
+widened to 30 (the 20 above among them) — the ranking of the segmenters
+changes with the sample:
+
+| Newspapers, character accuracy | 40 more fresh pages | 30 held-out pages | All 70 |
+|---|---|---|---|
+| XY-cut, tuned | **87.6** | 79.7 | **84.2** |
+| Tight + order | 83.6 | 81.0 | 82.5 |
+| Tree | 79.2 | **82.4** | 80.6 |
+
+On magazines the three sit within 1.2 points over 70 pages (XY-cut 65.3,
+*tight + order* 64.7, tree 64.2). So neither improved variant is a better
+segmenter than the tuned XY-cut *on average*; what the tables show is that
+each wins on different pages — the best of the three, page by page, would
+read the 30 held-out newspaper pages at 87.3%.
+
+That is a job for a judge. A follow-up (`layout/segjudge.py`) segments each
+newspaper or magazine page with XY-cut (with and without its rules), *tight
++ order* and the tree — about a second in all — and picks one before any
+reading, from layout evidence alone: how much ink sits in blocks that span
+a column gutter (the column-merge signature), in page-wide blocks, how many
+blocks and fragments there are, with weights per candidate on the page's
+gutters and document-type hint. It is a ridge regression trained on the
+40-page pools of four document kinds (every candidate read end to end),
+and it was measured on the 30 held-out pages per kind:
+
+| | Judge | XY-cut, tuned | Best per page |
+|---|---|---|---|
+| Newspapers, held-out | **84.3 / 78.2** | 79.7 / 73.5 | 87.3 |
+| Magazines, held-out | **67.8 / 60.7** | 65.9 / 58.4 | 68.8 |
+| News-8 | 95.3 / 91.7 | 95.8 / 93.2 | — |
+| Magazines-8 | 80.6 / 72.2 | 77.4 / 68.7 | — |
+
+On letters and legal pages the judge lost to XY-cut in both pools, so it
+does not decide those: they keep XY-cut. Since 26 September 2026 the judge
+is the neural profile's segmenter for newspapers and magazines; every
+other page is read exactly as before.
 
 ## 5. Limitations
 
@@ -290,10 +343,11 @@ incumbent separates them only by its legal-document rules.
 **Letters lose a little on dev-8** under both improved variants (1.0–1.5
 points), not seen on the fresh letters, where all methods are level.
 
-**One setting does not yet serve every kind of page.** *Tight + order*
-is the steadier all-rounder; the tree is better on newspapers and a
-little worse on magazines and legal pages. Neither is the implementation
-default; both are one option away.
+**No single setting serves every page.** Over 70 fresh newspaper pages
+neither variant beats the tuned XY-cut on average; each wins on different
+pages. The per-page judge (§4.4) recovers about half of the gap to the
+best choice per page (84.3% against 87.3%); a better judge, or one that
+also reads the page's first lines, could close more.
 
 ## 6. Conclusion
 
@@ -303,9 +357,10 @@ Tested properly — tuned on one set of pages, trained on another,
 confirmed on a third — it does better than that. Two modest changes, a
 tighter cut and an XY-cut reading order, make it usable on every kind of
 page measured; a tree of strong components, which follows from the
-method's own central property, makes it the best segmenter measured on
-fresh newspaper pages, beating a classical method tuned specifically for
-them. The strong-connectivity criterion was never the weak point: what
+method's own central property, wins on a different share of newspaper
+pages from the classical method — and a judge choosing between them per
+page reads fresh newspapers and magazines better than either alone, now
+the default. The strong-connectivity criterion was never the weak point: what
 the 1995 specification lacked was a reading order and a way to let the
 evidence of white space choose the level of the layout, region by region.
 

@@ -177,8 +177,9 @@ def main():
     ap.add_argument("--seed", type=int, default=1)
     ap.add_argument("--doc-type", default=None,
                     help="layout hint passed to the pipeline")
-    ap.add_argument("--blocks", default="xycut",
-                    help="blocks implementation to use (xycut | whitespace)")
+    ap.add_argument("--blocks", default=None,
+                    help="blocks implementation to use instead of the profile's "
+                         "(xycut | whitespace | knn_scc | judged); default: the profile's")
     ap.add_argument("--by-kind", action="store_true",
                     help="also report a mean per document kind, the kind being the "
                          "page stem up to its first '-' (the modern and business sets "
@@ -201,7 +202,7 @@ def main():
     add_pipeline_args(ap)
     args = ap.parse_args()
     overrides = parse_overrides(args.set)
-    pipeline = [(slot, args.blocks if slot == "blocks" else impl, params)
+    pipeline = [(slot, args.blocks if slot == "blocks" and args.blocks else impl, params)
                 for slot, impl, params in load_pipeline(args.config)]
 
     pairs = list(find_pairs(args.root))

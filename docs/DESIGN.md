@@ -548,13 +548,16 @@ points behind, the difference being word recall, 98.3 against 91.2).
 
 **New domains (2026-09-12).** The UNLV magazine and newspaper sets
 (`data/unlv/mag.3B`, `news.3B`; eight pages each, seed 1, `--doc-type`
-magazine / newspaper) are measured but not tuned on and not harvested
+magazine / newspaper) are not harvested, but XY-cut's newspaper and
+magazine rules were tuned on them (2026-09-12), so the held-out row is the
+fairer measure
 (char / word; zone-ordered scoring in brackets removes reading order):
 
 | profile | news-8 | mag-8 |
 |---|---|---|
 | classic | 92.7 / 82.4 | 65.3 / 41.5 |
-| neural | 95.8 / 93.2 (recall 96.4, precision 95.3) | 77.4 / 68.7 (92.2 / 86.7) |
+| neural | 95.3 / 91.7 with the segmenter judge (XY-cut alone 95.8 / 93.2) | 80.6 / 72.2 with the judge (XY-cut alone 77.4 / 68.7) |
+| neural, 30 held-out pages | 84.3 / 78.2 (XY-cut alone 79.7 / 73.5) | 67.8 / 60.7 (65.9 / 58.4) |
 | legacy Tesseract | 96.3 / 93.1 (97.5 / 94.4) | 87.3 / 84.7 (95.9 / 90.5) |
 | Tesseract LSTM | 96.7 / 94.8 (98.6 / 95.7) | 87.8 / 84.4 (97.4 / 90.5) |
 

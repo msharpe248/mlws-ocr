@@ -140,3 +140,20 @@ def test_judged_stage_returns_the_chosen_candidates_blocks(tmp_path):
         out, dbg = segjudge.JudgedBlocks(model_path=str(path)).run(page)
         alone = segjudge.run_candidate(page, pick)[0].meta["layout"]["blocks"]
         assert dbg.scalars["chosen"] == pick and out.meta["layout"]["blocks"] == alone
+
+
+def test_judged_stage_is_xycut_on_pages_it_does_not_judge():
+    from mlws_ocr.core.artifacts import Page
+    from mlws_ocr.core.registry import get
+    from mlws_ocr.layout import segjudge  # noqa: F401  (registers "judged")
+    rng = np.random.default_rng(1)
+    binary = np.zeros((500, 700), bool)
+    for y in range(40, 460, 28):
+        for x in range(40, 660, 13):
+            binary[y:y + 11, x:x + 7] = rng.uniform() < 0.85
+    for doc_type in ("letter", "legal", None):
+        meta = {"layout": {}} | ({"doc_type": doc_type} if doc_type else {})
+        page = Page(gray=(~binary).astype(np.float32), binary=binary, dpi=300.0, meta=meta)
+        judged = get("blocks", "judged")(model_path="/nonexistent").run(page)[0].meta["layout"]["blocks"]
+        page2 = Page(gray=(~binary).astype(np.float32), binary=binary, dpi=300.0, meta=dict(meta, layout={}))
+        assert judged == get("blocks", "xycut")().run(page2)[0].meta["layout"]["blocks"]

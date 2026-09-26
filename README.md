@@ -33,13 +33,21 @@ are in `docs/DESIGN.md` §8.
 | legal-8 | UNLV legal pleadings (typewriter) | 91.7 / 81.2 | **94.5 / 90.7** | 90.4 / 88.7 | 90.3 / 86.9 |
 | modern | born-digital PDFs and templated business letters | 91.6 / 83.5 | **94.0 / 90.2** | 75.4 / 70.8 | 74.2 / 66.6 |
 | business | invoices, payslips, receipts, statements, purchase orders | 95.3 / 86.1 | **97.6 / 95.0** | 70.7 / 68.0 | 70.7 / 68.6 |
-| news-8 | UNLV newspapers (measured, not tuned) | 92.7 / 82.4 | 95.8 / 93.2 | 96.3 / 93.1 | **96.7 / 94.8** |
-| mag-8 | UNLV magazines (measured, not tuned) | 65.3 / 41.5 | 77.4 / 68.7 | **87.3 / 84.7** | 87.8 / 84.4 |
+| news-8 | UNLV newspapers (the layout rules were tuned here) | 92.7 / 82.4 | 95.3 / 91.7 | 96.3 / 93.1 | **96.7 / 94.8** |
+| mag-8 | UNLV magazines (the layout rules were tuned here) | 65.3 / 41.5 | 80.6 / 72.2 | **87.3 / 84.7** | 87.8 / 84.4 |
 | sroie | real scanned receipts, ICDAR 2019 (reader-only decoding: 70.5 / 42.4) | 47.3 / 10.1 | **68.3** / 39.7 | 56.2 / 29.4 | 64.0 / **40.3** |
 | funsd | real scanned forms, FUNSD, at 2x | 36.0 / 12.3 | 57.8 / 33.6 | 54.8 / 32.0 | **66.4 / 47.2** |
 | legal reports | real typescript and printed office pages, Library of Congress | | **85.5 / 69.9** | | 78.8 / 66.3 |
 | cord | photographed receipts, CORD, cut to the receipt | | 37.7 / 8.0 | | **46.7 / 21.1** |
 | blocks | a paragraph handed in alone, no layout (broad-30's text zones) | 94.4 / 85.8 | **98.5** / 96.0 | 98.2 / **96.6** | **98.5 / 96.5** |
+
+**Held-out pages.** The eight-page sets flatter newspapers and magazines:
+on 30 fresh pages of each type, never used for any decision, the neural
+profile reads newspapers at 84.3 / 78.2 and magazines at 67.8 / 60.7 —
+with the per-page segmenter judge, its segmenter for those two types since
+26 September 2026; XY-cut alone read them at 79.7 and 65.9. Letters (93.7),
+legal pages (94.2) and a freshly rendered business set (97.5) hold up.
+`scripts/eval_unlv.py --heldout` draws them.
 
 On the tabular business pages Tesseract reads by column and pays the
 edit distance for the order; there, the bag-of-words recall is the

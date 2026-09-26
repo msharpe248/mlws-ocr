@@ -13,8 +13,10 @@ in blocks that span a column gutter (the column-merge signature), in
 page-wide blocks, how many blocks and fragments -- with per-candidate
 weights on the page's gutters and document-type hint
 (scripts/segmenter_judge.py; trained on the UNLV 'train' pool, confirmed
-on the 'heldout' pool).  Letters, legal pages and books, where the judge
-measured a loss on both pools, go straight to XY-cut.
+on the 'heldout' pool).  Only newspapers and magazines (by the document-
+type hint) are judged: on letters and legal pages the judge measured a
+loss on both pools, and receipts, forms and business pages -- read with no
+hint -- were never in its training, so every other page keeps XY-cut.
 """
 from __future__ import annotations
 
@@ -107,21 +109,35 @@ class JudgedBlocks(Stage):
     impl = "judged"
     defaults = {
         "model_path": "data/segjudge.npz",
-        "single_column_types": "letter,legal,book",   # straight to XY-cut
+        "judge_types": "newspaper,magazine",   # the judge decides these; every
+                                               # other page (letters, legal pages,
+                                               # books, and pages with no hint --
+                                               # receipts, forms, business) keeps
+                                               # XY-cut, where the judge was not
+                                               # trained or measured a loss
     }
 
     def run(self, page: Page) -> tuple[Page, DebugBundle]:
         if page.binary is None:
             raise ValueError("blocks requires a binarized page")
         doc_type = page.meta.get("doc_type")
-        if doc_type in [t for t in self.params["single_column_types"].split(",") if t]:
+        if doc_type not in [t for t in self.params["judge_types"].split(",") if t]:
             out, dbg = run_candidate(page, "xyH")
-            dbg.scalars["chosen"] = "xyH (single-column type)"
+            dbg.scalars["chosen"] = "xyH (not a judged type)"
             return out, dbg
         path = self.params["model_path"]
         if path not in _MODELS:
-            d = np.load(path, allow_pickle=False)
-            _MODELS[path] = (d["w"], [str(c) for c in d["cands"]])
+            try:
+                d = np.load(path, allow_pickle=False)
+                _MODELS[path] = (d["w"], [str(c) for c in d["cands"]])
+            except OSError:
+                _MODELS[path] = None
+        if _MODELS[path] is None:
+            # no judge file (models older than v0.11.2): the page reads as before
+            out, dbg = run_candidate(page, "xyH")
+            dbg.scalars["chosen"] = "xyH (no judge model)"
+            dbg.notes.append(f"{path} not found: fetch the models (scripts/fetch_models.py)")
+            return out, dbg
         w, cands = _MODELS[path]
         gut = page_gutters_for(page)
         ctx = page_context(page.binary, gut, doc_type)
