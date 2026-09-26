@@ -145,6 +145,9 @@ def main():
                     help="also save every matched line WHOLE (its strip and its truth "
                          "line, when every truth word of the line aligned) to this npz: "
                          "real full-line windows for a line reader, up to --max-line-cols")
+    ap.add_argument("--line-out-gray", default="",
+                    help="also save every --line-out line as a GREY strip (the flattened grey page, "
+                         "contrast-normalised; one byte of ink per pixel), for a grey-trained reader")
     ap.add_argument("--max-line-cols", type=int, default=1800)
     ap.add_argument("--hard-out", default="",
                     help="also save the HARD lines whole: lines the decoder flagged as graphics or "
@@ -173,6 +176,7 @@ def main():
     random.Random(11).shuffle(pairs)
     strips, widths, labels, decoded, pages, xhs = [], [], [], [], [], []
     L = {"strips": [], "widths": [], "labels": [], "decoded": [], "pages": [], "xhs": []}
+    G = []   # grey twins of L's strips (--line-out-gray)
     H = {"strips": [], "widths": [], "labels": [], "decoded": [], "pages": [], "xhs": [], "graphic": []}
     stats = {"lines": 0, "words": 0, "wrong": 0, "whole_lines": 0, "hard_lines": 0, "hard_graphic": 0}
     for n, (tif, gt) in enumerate(pairs[: args.pages], 1):
@@ -230,10 +234,16 @@ def main():
                 if 4 <= strip.shape[1] <= args.max_line_cols:
                     win = strip < 0.5
                     if win.any():
-                        L["strips"].append(np.packbits(win, axis=1)); L["widths"].append(strip.shape[1])
-                        L["labels"].append(truth_lines[ti]); L["decoded"].append(" ".join(g for _, _, _, g in spans))
-                        L["pages"].append(tif.name); L["xhs"].append(float(xh))
-                        stats["whole_lines"] += 1
+                        gs = None
+                        if args.line_out_gray:
+                            gs, _, _, _ = line_strip(b, ln, xh, gray=page.gray)
+                        if gs is None or gs.shape[1] == strip.shape[1]:   # both twins or neither
+                            if gs is not None:
+                                G.append(np.round((1.0 - gs) * 255).astype(np.uint8))
+                            L["strips"].append(np.packbits(win, axis=1)); L["widths"].append(strip.shape[1])
+                            L["labels"].append(truth_lines[ti]); L["decoded"].append(" ".join(g for _, _, _, g in spans))
+                            L["pages"].append(tif.name); L["xhs"].append(float(xh))
+                            stats["whole_lines"] += 1
             for k, (wx0, wx1, t_word, g_word) in enumerate(spans):
                 left = x0 if k == 0 else (edges[k - 1][1] + wx0) // 2
                 right = x1 if k == len(spans) - 1 else (wx1 + edges[k + 1][0]) // 2
@@ -272,6 +282,12 @@ def main():
                             decoded=np.array(L["decoded"]), pages=np.array(L["pages"]),
                             x_heights=np.array(L["xhs"], np.float32))
         print(f"saved {len(L['labels'])} whole lines -> {args.line_out}")
+        if args.line_out_gray:
+            gpix = np.concatenate(G, axis=1) if G else np.zeros((32, 0), np.uint8)
+            np.savez_compressed(args.line_out_gray, pixels=gpix, offsets=offs, labels=np.array(L["labels"]),
+                                decoded=np.array(L["decoded"]), pages=np.array(L["pages"]),
+                                x_heights=np.array(L["xhs"], np.float32), gray=np.array(True))
+            print(f"saved the same {len(G)} lines as grey strips -> {args.line_out_gray}")
     if args.hard_out:
         unp = [np.unpackbits(pk, axis=1)[:, :w] for pk, w in zip(H["strips"], H["widths"])]
         pix = (np.packbits(np.concatenate(unp, axis=1), axis=1) if unp else np.zeros((32, 0), np.uint8))

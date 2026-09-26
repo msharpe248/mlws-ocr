@@ -43,7 +43,8 @@ class Windows:
 
     def __init__(self, path, kind: str):
         d = np.load(path, allow_pickle=False)
-        self.pixels = d["pixels"]                 # (32, ceil(total/8)) bytes
+        self.pixels = d["pixels"]                 # (32, ceil(total/8)) bytes, or (32, total) grey
+        self.gray = "gray" in d.files             # grey strips: one byte of ink (0..255) per pixel
         self.offsets = d["offsets"]
         self.labels = [str(l) for l in d["labels"]]
         self.kind = kind
@@ -56,6 +57,8 @@ class Windows:
 
     def strip(self, i: int) -> np.ndarray:
         c0, c1 = int(self.offsets[i]), int(self.offsets[i + 1])
+        if self.gray:
+            return self.pixels[:, c0:c1].astype(np.float32) / 255.0
         b0, b1 = c0 // 8, (c1 + 7) // 8
         bits = np.unpackbits(self.pixels[:, b0:b1], axis=1)
         return bits[:, c0 - b0 * 8: c0 - b0 * 8 + (c1 - c0)].astype(np.float32)

@@ -66,6 +66,9 @@ class HybridDecode(BeamDecode):
     defaults = {
         **BeamDecode.defaults,
         "line_model_path": "",     # the line reader's weights; "" = the seq_path scorer
+        "line_source": "binary",   # the reader's strips: "binary" (as trained) or "gray" --
+                                   # the flattened grey page, contrast-normalised, for a
+                                   # reader trained on grey strips (2026-09-26 pilot)
         "line_mode": "choose",     # off | pure | choose
         "line_max_cols": 512,      # chunk a longer strip at its widest gaps
         "line_beam": 8,
@@ -158,7 +161,8 @@ class HybridDecode(BeamDecode):
                         and self._unendorsed(ln.get("words", [])):
                     ln["words"] = []; n_dropped += 1
                 continue
-            read = self._read_line(page.binary, ln, model, word_bonus, p, min_conf=0.0 if graphic else None)
+            read = self._read_line(page.binary, ln, model, word_bonus, p, min_conf=0.0 if graphic else None,
+                                   gray=page.gray if p.get("line_source") == "gray" else None)
             if read is None:
                 if xh_floor and not graphic and ln["x_height"] < xh_floor \
                         and self._unendorsed(ln.get("words", [])):
@@ -351,11 +355,13 @@ class HybridDecode(BeamDecode):
         format vouches for."""
         return bool(words) and not any(w.get("in_lexicon") or w.get("numeric_format") for w in words)
 
-    def _read_line(self, binary, ln, model, word_bonus, p, min_conf=None):
-        strip, scale, x0, _ = line_strip(binary, ln, ln["x_height"])
+    def _read_line(self, binary, ln, model, word_bonus, p, min_conf=None, gray=None):
+        strip, scale, x0, _ = line_strip(binary, ln, ln["x_height"], gray=gray)
         if strip.shape[1] < 8:
             return None
-        ink = (strip < 0.5).astype(np.float32)
+        # binary strips reach the reader thresholded, as it was trained; grey
+        # strips (line_source = "gray") as continuous ink, for a grey-trained reader
+        ink = (1.0 - strip).astype(np.float32) if gray is not None else (strip < 0.5).astype(np.float32)
         spans = _chunk_columns(ink.sum(axis=0), p["line_max_cols"])
         emitted: list[tuple[str, int, float]] = []
         posts = []

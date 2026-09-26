@@ -50,18 +50,37 @@ def normalize_strip(gray: np.ndarray, x_height: float, baseline: float,
     return out, scale
 
 
+def gray_contrast(crop: np.ndarray, min_span: float = 0.2) -> np.ndarray:
+    """A grey crop (1 = paper) stretched so its paper is 1 and its ink 0:
+    paper = the 90th percentile, ink = the 2nd; the span never under
+    min_span, so a strip that is nearly all paper is not stretched into
+    noise.  Faint thermal print reaches the reader at full contrast."""
+    crop = np.asarray(crop, np.float32)
+    if crop.size == 0:
+        return crop
+    hi = float(np.percentile(crop, 90))
+    lo = min(float(np.percentile(crop, 2)), hi - min_span)
+    return np.clip((crop - lo) / max(hi - lo, 1e-6), 0.0, 1.0)
+
+
 def line_strip(binary: np.ndarray, ln: dict, x_height: float,
-               margin_frac: float = 0.6) -> tuple[np.ndarray, float, int, int]:
+               margin_frac: float = 0.6, gray: np.ndarray | None = None
+               ) -> tuple[np.ndarray, float, int, int]:
     """The strip of one recognized line: its box widened vertically by
     ``margin_frac`` x-heights so ascenders and descenders that poke past
     the line box survive, normalized to the fixed frame.  Returns (strip,
     scale, x0, y_top): a page column x maps to strip column (x - x0) *
     scale.  Shared by the line harvest and the decoder, so training strips
-    and decoded strips are cut the same way."""
+    and decoded strips are cut the same way.  With ``gray`` (the page's
+    flattened grey image, same frame) the strip is cut from the grey page
+    instead, contrast-normalised by gray_contrast (2026-09-26 option)."""
     x0, y0, x1, y1 = (int(v) for v in ln["box"])
     baseline = float(ln["baseline"])
     m = int(round(margin_frac * x_height))
     ya, yb = max(0, y0 - m), min(binary.shape[0], y1 + m)
-    gray = 1.0 - binary[ya:yb, x0:x1].astype(np.float32)
-    strip, scale = normalize_strip(gray, x_height, baseline - ya)
+    if gray is not None:
+        src = gray_contrast(gray[ya:yb, x0:x1])
+    else:
+        src = 1.0 - binary[ya:yb, x0:x1].astype(np.float32)
+    strip, scale = normalize_strip(src, x_height, baseline - ya)
     return strip, scale, x0, ya
