@@ -17,7 +17,7 @@ judged before it went live. The measurements themselves are in
 | MLP second opinion | `mlp.npz` | 53k params | classic, neural (`recognize.mlp_path`) | `train_mlp.py` | exemplar pool: synthetic renders + real harvests |
 | Character GRU language model | `gru_en.npz` | 258k | classic, neural (`decode.char_lm`) | `train_charlm.py` | public-domain text corpus |
 | Word-strip CRNN scorer | `seq_en.npz` | 285k | neural (`decode.seq_path`) | `train_seq.py` | synthetic word windows + truth-labelled real word strips |
-| Line model, grey strips (same CRNN) | `seq_line_gray7_en.npz`, `_2`, `_3` | 3 × 285k | neural (`decode.line_model_path`, `decode.line_source = "gray"`) | `train_seq.py` | the v0.13.0 grey reader fine-tuned with SROIE and FUNSD box-cut training lines and more Legal Reports lines, held to its predecessor by L2-SP and distillation; EMA weights |
+| Line model, grey strips (same CRNN) | `seq_line_gray9_en.npz`, `_2`, `_3` | 3 × 287k | neural (`decode.line_model_path`, `decode.line_source = "gray"`) | `train_seq.py` | v0.14.0's reader (the v0.13.0 grey reader fine-tuned with SROIE and FUNSD box-cut training lines and more Legal Reports lines, held to its predecessor by L2-SP and distillation; EMA) with 8 more classes and a symbol-bearing synthetic set |
 | Line model, grey strips (v0.13.0) | `seq_line_gray_en.npz`, `_2`, `_3` | 3 × 285k | none since v0.14.0 (the teacher of the above) | `train_seq.py` | the binary line model fine-tuned on grey line strips (grey twins of harvested lines) plus binary real lines |
 | Line model, binary strips (previous) | `seq_line_en.npz`, `_2`, `_3` | 3 × 285k | none since 2026-09-26 (v17a) | `train_seq.py` | the above plus long windows and real whole lines |
 | Word-confidence calibrator | `wordconf.npz` | 15 weights | neural (`decode.conf_path`) | `train_wordconf.py` | truth-labelled words with the decoder's evidence |
@@ -95,6 +95,7 @@ were trained on the public sources named below and on nothing else.
 | v0.11.1 (2026-09-26) | the same fourteen files as v0.11.0: this release is workbench fixes |
 | v0.12.0 (2026-09-26) | fifteen files: v0.11.1's fourteen plus the segmenter judge `segjudge.npz` (= `segjudge_v1`), the neural profile's segmenter for newspapers and magazines |
 | v0.13.0 (2026-09-26) | eighteen files: v0.12.0's fifteen plus the grey-strip line reader `seq_line_gray_en.npz`, `_2`, `_3` (= `seq_line_gray2` seeds 3, 2, 1), the neural profile's reader; the v17a files stay for the previous reader |
+| v0.15.0 (2026-09-27) | twenty-four files: v0.14.x's twenty-one plus the reader `seq_line_gray9_en.npz`, `_2`, `_3` (= `seq_line_gray9`, EMA), the v0.14.0 reader with the alphabet widened by ``* = + @ [ ] _ ` ``; v0.14.0's reader stays (its teacher) |
 | v0.14.0 (2026-09-27) | twenty-one files: v0.13.0's eighteen plus the reader `seq_line_gray7_en.npz`, `_2`, `_3` (= `seq_line_gray7` seeds 3, 2, 1, EMA weights), the neural profile's reader; the v0.13.0 grey reader stays (it is the new one's teacher and the way back) |
 
 ## Where the training data comes from
@@ -472,6 +473,27 @@ output's case repair (`correct.case_repair`) mends the non-words.
     --weight gray_sroie[0-9].npz=5 gray_cord_box.npz=10 gray_sroie_box.npz=2 gray_btp7_*.npz=3 data/linesfull_btp_legal.npz=2 \
     --out data/seq_line_gray7_s3.npz        # ships data/seq_line_gray7_s3_ema.npz as seq_line_gray7_en.npz
 # and _s2 (seed 2) from seq_line_gray2_s2, _s1 (seed 1) from seq_line_gray2_s1
+```
+
+**v0.15.0: eight more characters** (`seq_line_gray9`). The reader could not
+write ``* = + @ [ ] _ ` ``: truth lines holding them had taught it to write '?'
+(about 0.4% of letter words, and magazines' brackets and backticks). Each
+v0.14.0 member was widened by name (`SeqNet.with_classes`: every weight kept,
+the new output rows fresh and rare) with ``MLWS_EXTRA_CLASSES='*=+@[]_`'`` set
+for the training run only -- the model file carries its class list, so
+reading needs no setting -- and trained 3 more epochs on v0.14.0's data plus
+`seq_synth_sym1` (40,000 windows whose numeric tokens include the symbols in
+the shapes documents use: bullets, '3 * 5', 'x = 12', '+1', '[8]', '[sic]',
+fill-in rules, the typewriter's opening quote), distilled from itself with
+the teacher widened the same way and lines that need a new class left out
+of the distillation, L2-SP 1e-4, EMA 0.999.
+
+```sh
+MLWS_EXTRA_CLASSES='*=+@[]_`' .venv/bin/python scripts/make_seq_data.py --out data/seq_synth_sym1.npz --n 40000 --seed 93 --words 4 10 --take 3 7
+MLWS_EXTRA_CLASSES='*=+@[]_`' .venv/bin/python scripts/train_seq.py --backend torch --device cuda --init data/seq_line_gray7_en.npz \
+    --l2sp 1e-4 --distill 1.0 --distill-skip sroie_box funsd_box --ema 0.999 --synth data/seq_synth_long2.npz data/seq_synth_sym1.npz \
+    --real-weight 3 --epochs 3 --batch 32 --seed 3 --lines <v0.14.0's line files> --weight <v0.14.0's weights> \
+    --out data/seq_line_gray9_s3.npz      # ships the _ema weights as seq_line_gray9_en.npz; _2, _3 likewise
 ```
 
 ### Word-confidence calibrator — `decode/wordconf.py`

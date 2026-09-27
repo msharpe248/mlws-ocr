@@ -31,21 +31,21 @@ scoreboard and its history are in `docs/DESIGN.md` §8.
 
 | set | what it is | classic | neural | legacy Tesseract | Tesseract LSTM |
 |---|---|---|---|---|---|
-| dev-8 | UNLV business letters, tuning set | 95.2 / 89.4 | **97.7 / 95.1** | 95.0 / 91.7 | 95.5 / 93.1 |
-| broad-30 | UNLV business letters, the headline set | 91.9 / 82.3 | 95.6 / 92.0 | 95.5 / 91.7 | **96.0 / 92.7** |
-| legal-8 | UNLV legal pleadings (typewriter) | 91.7 / 81.3 | **94.1 / 90.5** | 90.4 / 88.7 | 90.3 / 86.9 |
+| dev-8 | UNLV business letters, tuning set | 95.2 / 89.4 | **97.7 / 95.4** | 95.0 / 91.7 | 95.5 / 93.1 |
+| broad-30 | UNLV business letters, the headline set | 91.9 / 82.3 | 95.8 / **93.0** | 95.5 / 91.7 | **96.0** / 92.7 |
+| legal-8 | UNLV legal pleadings (typewriter) | 91.7 / 81.3 | **93.9 / 90.3** | 90.4 / 88.7 | 90.3 / 86.9 |
 | modern | born-digital PDFs and templated business letters | 91.6 / 83.5 | **94.2 / 90.7** | 75.4 / 70.8 | 74.2 / 66.6 |
-| business | invoices, payslips, receipts, statements, purchase orders | 95.3 / 86.1 | **97.9 / 96.6** | 70.7 / 68.0 | 70.7 / 68.6 |
-| news-8 | UNLV newspapers (the layout rules were tuned here) | 92.6 / 82.3 | 95.5 / 92.2 | 96.3 / 93.1 | **96.7 / 94.8** |
+| business | invoices, payslips, receipts, statements, purchase orders | 95.3 / 86.1 | **98.0 / 96.8** | 70.7 / 68.0 | 70.7 / 68.6 |
+| news-8 | UNLV newspapers (the layout rules were tuned here) | 92.6 / 82.3 | 95.4 / 92.4 | 96.3 / 93.1 | **96.7 / 94.8** |
 | mag-8 | UNLV magazines (the layout rules were tuned here) | 64.6 / 43.8 | 81.4 / 74.8 | 87.3 / **84.7** | **87.8** / 84.4 |
 | newspapers, held out | 30 UNLV newspaper pages no decision has used | 73.9 / 60.5 | 84.6 / 79.2 | 87.1 / 82.4 | **87.7 / 84.2** |
-| magazines, held out | 30 UNLV magazine pages no decision has used | 67.6 / 49.2 | **82.1** / 73.4 | 77.9 / 71.3 | 78.5 / **73.6** |
-| letters, held out | 30 UNLV business letters no decision has used | 90.7 / 83.1 | **93.7 / 90.8** | 92.4 / 88.8 | 93.1 / 90.6 |
-| sroie | real scanned receipts, ICDAR 2019 | 48.0 / 13.6 | **78.6 / 60.2** | 56.2 / 29.4 | 64.0 / 40.3 |
-| funsd | real scanned forms, FUNSD, at 2x | 37.4 / 12.7 | 66.0 / 43.9 | 54.8 / 32.0 | **66.4 / 47.2** |
-| legal reports | real typescript and printed office pages, Library of Congress | 70.5 / 47.3 | **87.6 / 73.8** | 57.5 / 42.8 | 78.8 / 66.3 |
-| cord | photographed receipts, CORD, cut to the receipt | 30.7 / – | **53.2 / 30.3** | 42.1 / 19.5 | 46.7 / 21.1 |
-| blocks | a paragraph handed in alone, no layout (broad-30's text zones) | 94.4 / 85.8 | **98.5** / 96.0 | 98.2 / **96.6** | **98.5 / 96.5** |
+| magazines, held out | 30 UNLV magazine pages no decision has used | 67.6 / 49.2 | **82.1** / 73.2 | 77.9 / 71.3 | 78.5 / **73.6** |
+| letters, held out | 30 UNLV business letters no decision has used | 90.7 / 83.1 | **93.9 / 91.1** | 92.4 / 88.8 | 93.1 / 90.6 |
+| sroie | real scanned receipts, ICDAR 2019 | 48.0 / 13.6 | **79.5 / 62.4** | 56.2 / 29.4 | 64.0 / 40.3 |
+| funsd | real scanned forms, FUNSD, at 2x | 37.4 / 12.7 | 65.8 / 44.2 | 54.8 / 32.0 | **66.4 / 47.2** |
+| legal reports | real typescript and printed office pages, Library of Congress | 70.5 / 47.3 | **87.5 / 73.7** | 57.5 / 42.8 | 78.8 / 66.3 |
+| cord | photographed receipts, CORD, cut to the receipt | 30.7 / – | **53.5 / 31.1** | 42.1 / 19.5 | 46.7 / 21.1 |
+| blocks | a paragraph handed in alone, no layout (broad-30's text zones) | 94.4 / 85.8 | **98.6 / 97.2** | 98.2 / 96.6 | 98.5 / 96.5 |
 
 **Held-out pages.** The eight-page sets flatter newspapers and magazines:
 on 30 fresh pages of each type, never used for any decision, the neural
@@ -58,6 +58,15 @@ rotated three straight photo-heavy pages by 5 degrees). Letters (93.7), legal pa
 on the same held-out pages: newspapers 87.7 / 84.2, magazines 78.5 / 73.6,
 letters 93.1 / 90.6 (neural 93.7 / 90.8).
 `scripts/eval_unlv.py --heldout` draws them.
+
+**Reading a paragraph (27 September 2026).** Handed a paragraph with no
+layout to find, the engine now reads more of its words right than either
+Tesseract engine (98.6 / 97.2 against 98.5 / 96.5). Error typing against
+Tesseract's LSTM found four fixes: a rule that re-joins letter-spaced
+display type had been joining '3 x 5' into '3x5'; a sentence-case pass had
+lowercased capitalised words the reader read right ('President', 'Board');
+the dictionary lacked contractions ('we'll', 'you'll'), so an apostrophe
+lost to 'well' and 'were'; and the reader could not write * = + @ [ ] _ `.
 
 **Receipts (27 September 2026).** The line reader has now also trained on
 the annotated lines of SROIE's training receipts and FUNSD's training forms,

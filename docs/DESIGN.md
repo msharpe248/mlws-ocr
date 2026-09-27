@@ -572,10 +572,12 @@ by column blocks and pays the edit distance for the order:
 | profile | business | blocks dev-8 (pooled) | blocks legal-8 | blocks broad-30 |
 |---|---|---|---|---|
 | classic | 95.3 / 86.1 (89.3 / 90.3) | 98.6 / 94.7 | 94.2 / 87.0 | 94.4 / 85.8 |
-| neural | 98.0 / 96.7 (v17a 97.6 / 95.0) | 99.2 / 97.6 (v17a) | 96.9 / 95.8 (v17a) | 98.5 / 96.0 (grey reader, unchanged) |
+| neural | 98.0 / 96.8 (v0.15.0; v17a 97.6 / 95.0) | **99.4 / 98.6** (v0.15.0; v17a 99.2 / 97.6) | 96.9 / 95.9 (v0.15.0; v17a 96.9 / 95.8) | **98.6 / 97.2** (v0.15.0; 98.5 / 96.0 before) |
 | legacy Tesseract | 70.7 / 68.0 (97.5 / 97.8) | 98.9 / 97.2 | 96.7 / 95.3 | 98.2 / 96.6 |
 | Tesseract LSTM | 70.7 / 68.6 (98.0 / 98.6) | 99.4 / 98.5 | 97.1 / 96.0 | 98.5 / 96.5 |
 
+Since v0.15.0 (2026-09-27) the neural row leads both Tesseract engines on the dev-8 and broad-30 blocks in
+words and is level or ahead in characters; on the typewriter blocks it trails the LSTM by 0.2 / 0.1.
 The block columns are the recognition gap with layout taken out (neural
 read with `doc_type = "block"`, the caller's word that the input is one
 block; classic without it): the neural row is the line reader (§6.6)

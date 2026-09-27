@@ -77,6 +77,9 @@ impl = "overlap"
 impl = "prototypes"
 
 [stage.decode]
+lm_contractions = true         # the lexicon endorses stem + clitic (we'll, you'll, we're, I'm): it lacked them, and
+                               # the decoder dropped the apostrophe for 'well', 'were' (blocks 96.0 -> 96.1 word;
+                               # mag-8 +0.2, broad-30, news-8, held-out news and letters +0.1 word; none down)
 sentence_case_seq_veto = true  # the sentence-case pass no longer lowercases a word the reader read with its
                                # capital ('President', 'Board', 'October' mid-sentence): blocks 95.9 -> 96.0
                                # word (case errors 15 -> 10), news-8 and held-out letters +0.1, the rest level
@@ -89,7 +92,12 @@ impl = "hybrid"                # the line reader beside the classic decoder (dec
                                # judge says so (2026-09-13: dev-8 91.9 -> 93.2 word, broad-30 87.5 -> 89.8,
                                # legal-8 84.4 -> 88.5, news-8 88.2 -> 90.2, blocks broad-30 91.1 -> 95.1).
                                # "beam" is the classic decoder alone.
-line_model_path = "data/seq_line_gray7_en.npz+data/seq_line_gray7_en_2.npz+data/seq_line_gray7_en_3.npz"
+line_model_path = "data/seq_line_gray9_en.npz+data/seq_line_gray9_en_2.npz+data/seq_line_gray9_en_3.npz"
+                               # = seq_line_gray9 (2026-09-27, v0.15.0): each v0.14.0 member below with the alphabet
+                               # widened by * = + @ [ ] _ ` (output rows kept by name), 3 more epochs on its data plus a
+                               # symbol-bearing synthetic set, distilled from itself (lines needing a new class not
+                               # distilled), L2-SP 1e-4, EMA: SROIE 78.6/60.2 -> 79.5/62.4, dev-8 +0.3 word, blocks
+                               # (with the join fix) 96.1 -> 97.2 word; legal-8 -0.2, mag-8 -0.2 word. v0.14.0's reader:
                                # = seq_line_gray7 seeds 3, 2, 1, EMA weights (2026-09-27, v0.14.0): each member below
                                # fine-tuned 4 more epochs with grey SROIE (30,323) and FUNSD (6,598) box-cut training lines
                                # added, grey Legal Reports lines from all 600 harvest pages (x3), CORD x10; L2-SP (1e-4)
@@ -125,6 +133,8 @@ line_keep_superset = true      # the reader's text = the classic text minus char
 line_drop_declined = 0.5       # a line the reader declines whose classic words carry no endorsement and whose x-height is under half the page median is dropped (dashed rules and specks; receipts +0.4, forms +0.7, Legal Reports +0.8 word; 2026-09-22)
                                # endorsed -> keep classic ('TAX 8.25%' vs 'TAX 8.25'; 2026-09-17: receipts
                                # 91.3 -> 92.3 word, dev-8 +0.1, the rest identical)
+line_join_spaced_alpha = true  # ...runs of LETTERS only: '3 x 5' (0.9 x-height gaps) had been joined into '3x5',
+                               # 21 times on broad-30's zones (blocks +1.0 word, broad-30 page 92.0 -> 93.0 word)
 line_join_spaced = true        # letter-spaced display type read as single letters is re-joined into
                                # lexicon words (2026-09-14: broad-30 89.7 -> 90.2 word; other sets flat)
 qty_at_repair = true           # a receipt quantity line "2 e 2.72" -> "2 @ 2.72" by its shape (2026-09-16:

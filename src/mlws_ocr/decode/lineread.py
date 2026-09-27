@@ -118,6 +118,7 @@ class HybridDecode(BeamDecode):
                                      # DELETED (a strict subsequence) and every classic word is
                                      # endorsed, keep the classic line: the reader cannot have seen
                                      # less ink than the classic decoder did ('TAX 8.25%' -> 'TAX 8.25')
+        "line_join_spaced_alpha": False,  # ...only runs of letters (a digit makes it data)
         "line_join_spaced": False, # letter-spaced display type ('F O U R') read as single
                                    # letters is re-joined: a run of three or more one-
                                    # character tokens is segmented into lexicon words
@@ -233,7 +234,7 @@ class HybridDecode(BeamDecode):
         if p["line_join_spaced"]:
             for ln in layout["lines"]:
                 if ln.get("words"):
-                    ln["words"] = self._join_spaced(ln["words"], endorsed)
+                    ln["words"] = self._join_spaced(ln["words"], endorsed, p["line_join_spaced_alpha"])
         debug.scalars.update(self._shape_repairs(layout, p))  # again: the reader's lines replaced the classic ones
         # the calibrator, if any, has run on the classic words only; a line
         # read carries the reader's own confidence as p_correct
@@ -302,15 +303,18 @@ class HybridDecode(BeamDecode):
         return all(ch in it for ch in a)
 
     @staticmethod
-    def _join_spaced(words, endorsed):
+    def _join_spaced(words, endorsed, alpha_only=False):
         """Runs of three or more single-character alphanumeric tokens are
-        letter-spaced type.  The run's letters are segmented into the
+        letter-spaced type.  With ``alpha_only`` a run must be letters: a run
+        holding a digit is data, not display type ('3 x 5' had been joined
+        into '3x5', 21 times on broad-30's zones; 2026-09-27).  The run's letters are segmented into the
         fewest lexicon-endorsed words by dynamic programming; when no such
         segmentation exists the run becomes one token."""
         out, i = [], 0
         while i < len(words):
             j = i
-            while j < len(words) and len(words[j]["text"]) == 1 and words[j]["text"].isalnum():
+            while j < len(words) and len(words[j]["text"]) == 1 and (
+                    words[j]["text"].isalpha() if alpha_only else words[j]["text"].isalnum()):
                 j += 1
             if j - i < 3:
                 out.append(words[i]); i += 1
