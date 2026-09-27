@@ -48,6 +48,7 @@ protect_text_rows = true       # glyph chains inside a picture zone go back to t
 
 [stage.rulings]
 impl = "morphological"
+dash_gap_300dpi = 12           # dashed and fax-broken rules too (form lines; 2026-09-26, RESEARCH)
 
 [stage.tables]
 impl = "grid"
@@ -65,6 +66,7 @@ impl = "overlap"
 impl = "prototypes"
 
 [stage.decode]
+anchor_min_frac = 0.4          # underline-dash rows do not set the lowercase anchor (2026-09-26, RESEARCH)
 impl = "beam"
 digit_kern_join = true         # shape repairs shared with the neural profile (decode/formats.py), 2026-09-17:
 digit_kern_gap = 0.75          # the kerning gap in x-heights (2026-09-17: 0.5 missed a '1' 0.7 x-heights from its digits;

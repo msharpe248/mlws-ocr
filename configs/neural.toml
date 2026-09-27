@@ -52,6 +52,9 @@ protect_text_rows = true       # glyph chains (and their punctuation) inside a p
 
 [stage.rulings]
 impl = "morphological"
+dash_gap_300dpi = 12           # dashed and fax-broken rules too (form fill-in lines and underlines):
+                               # FUNSD +1.4 char, CORD +1.1 / +2.9 word, SROIE +3.1 word, the rest level
+                               # (2026-09-26)
 
 [stage.tables]
 impl = "grid"
@@ -71,6 +74,9 @@ impl = "overlap"
 impl = "prototypes"
 
 [stage.decode]
+anchor_min_frac = 0.4          # rows of underline dashes no longer set the page's lowercase anchor (a
+                               # form's caps lines had taken a 3.6 px x-height and been deleted as slivers):
+                               # CORD +7.0 / +9.2, FUNSD +1.2 / +1.1, the rest within 0.2 (2026-09-26)
 impl = "hybrid"                # the line reader beside the classic decoder (decode/lineread.py,
                                # 2026-09-13): every line is also read end to end and a line the
                                # classic decoder read differently takes the reading when the fitted

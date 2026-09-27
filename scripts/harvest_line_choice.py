@@ -41,6 +41,9 @@ def main():
     ap.add_argument("--doc-type", default="letter")
     ap.add_argument("--offset", type=int, default=0)
     ap.add_argument("--no-guard", action="store_true")
+    ap.add_argument("--pool", choices=["tune", "train", "heldout"], default=None,
+                    help="draw only from one of eval_layout's disjoint page pools (UNLV sets): "
+                         "'train' keeps the held-out scoreboards clean")
     ap.add_argument("--graphic", action="store_true",
                     help="harvest the GRAPHIC-FLAGGED lines instead: the reading against dropping "
                          "the line (label = the reading is closer to its truth line than nothing; "
@@ -53,6 +56,10 @@ def main():
     assert any(impl == "hybrid" for _, impl, _ in pipeline), "needs a profile with the hybrid decoder"
     excluded = set() if args.no_guard else eval_pages_set(args.root)
     pairs = [(t, g) for t, g in find_pairs(args.root) if t.name not in excluded]
+    if args.pool:
+        from eval_layout import pool_pairs
+        allowed = {t.name for t, _ in pool_pairs(args.root, args.pool)}
+        pairs = [(t, g) for t, g in pairs if t.name in allowed]
     random.Random(11).shuffle(pairs)
     X, y, pages, ctexts, rtexts, truths = [], [], [], [], [], []
     for n, (tif, gt) in enumerate(pairs[args.offset: args.offset + args.pages], 1):
