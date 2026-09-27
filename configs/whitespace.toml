@@ -13,6 +13,9 @@ min_dpi = 200                  # a page declared below 200 dpi is resampled to 3
 
 [stage.deskew]
 impl = "projection"
+text_ink = "limit"   # an estimate at the search limit is re-made from glyph-sized ink, and left at 0 if it
+                     # lands there again: a photograph had rotated straight magazine pages 5 degrees
+                     # (held-out magazines neural 77.1/65.3 -> 82.1/73.4, classic 65.4 -> 67.6; 2026-09-27)
 max_angle = 5.0
 
 [stage.illumination]
