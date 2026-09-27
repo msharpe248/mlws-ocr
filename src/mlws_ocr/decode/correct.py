@@ -42,6 +42,53 @@ from ..core.artifacts import Page
 from ..core.registry import register
 from ..core.stage import DebugBundle, Stage
 
+_TWINS = set("cosuvwxz")        # capital and small differ only in size (beam.CASE_TWINS)
+
+
+def case_repair(core: str, line_caps: bool, lm) -> str | None:
+    """A word's case made consistent where only the reader's size judgement
+    could have broken it (2026-09-27): a receipt-trained reader leans to
+    capitals, so a sans-serif 'dog' comes out 'DOg' and 'long' 'Iong'.
+
+    1. I/l: in a word the lexicon does not endorse, a capital I among small
+       letters becomes l, and a small l among capitals becomes I, when the
+       result is endorsed ('Iong' -> 'long', 'FILe' untouched);
+    2. case twins: in a word of mixed case, the letters whose capital and
+       small forms differ only in size (c o s u v w x z) follow the word --
+       small in a Title or small word, capital in an ALL-CAPS one (or on a
+       caps line) -- if the lexicon knows the word ('DOg' -> 'Dog').  Other
+       letters are left, so 'McDonald', 'iPhone' and 'PhD' stand.
+    Returns the repaired core, or None."""
+    letters = [c for c in core if c.isalpha()]
+    if len(letters) < 3:
+        return None
+    new = list(core)
+    if not lm.endorsed(core):
+        up = sum(c.isupper() for c in letters)
+        caps_word = up >= 0.7 * len(letters)
+        for i, c in enumerate(core):
+            if c == "I" and not caps_word and i + 1 < len(core) and core[i + 1].islower():
+                new[i] = "l"
+            elif c == "l" and caps_word:
+                new[i] = "I"
+        cand = "".join(new)
+        if cand == core or not lm.endorsed(cand):
+            new = list(core)
+    word = "".join(new)
+    lw = [c for c in word if c.isalpha()]
+    if not lm.endorsed(word) or all(c.islower() for c in lw) or all(c.isupper() for c in lw) or \
+            (lw[0].isupper() and all(c.islower() for c in lw[1:])):
+        return word if word != core else None
+    rest_upper = sum(c.isupper() for c in lw[1:])
+    to_upper = line_caps and rest_upper >= 0.5 * (len(lw) - 1)
+    first = next(i for i, c in enumerate(word) if c.isalpha())
+    for i, c in enumerate(word):
+        if i > first and c.lower() in _TWINS:
+            new[i] = c.upper() if to_upper else c.lower()
+    word = "".join(new)
+    return word if word != core else None
+
+
 _SPLIT = re.compile(r"^([\"'(\[{]*)(.*?)([\"'.,;:!?)\]}]*)$", re.S)
 
 
@@ -93,6 +140,8 @@ class NoisyChannelCorrect(Stage):
     impl = "noisy_channel"
     defaults = {
         "enabled": True,                 # the profiles that carry it switched off set false
+        "case_repair": False,            # the I/l and case-twin pass (case_repair()); runs even
+                                         # with enabled = false
         "confusions_path": "data/confusions_neural.json",  # scripts/harvest_confusions.py
         "lang_model": "data/lang_en.npz",
         "seq_path": "data/seq_en.npz",   # the pixel check ("" = off)
@@ -115,9 +164,32 @@ class NoisyChannelCorrect(Stage):
     def run(self, page: Page) -> tuple[Page, DebugBundle]:
         p = self.params
         out = page.evolve()
-        if not p["enabled"]:
+        if not p["enabled"] and not p["case_repair"]:
             return out, DebugBundle(notes=["switched off (enabled = false)"])
         layout = out.meta.get("layout")
+        if p["case_repair"] and layout:
+            import copy
+            from ..lang.model import CorpusModel
+            layout = copy.deepcopy(layout)
+            out.meta["layout"] = layout
+            lm = _cached(("lm", p["lang_model"]), lambda: CorpusModel.load(p["lang_model"]))
+            n_case, case_notes = 0, []
+            for ln in layout.get("lines", []):
+                ws = [w for w in ln.get("words", []) if sum(c.isalpha() for c in w.get("text", "")) >= 2]
+                caps = sum(all(not c.islower() for c in w["text"]) for w in ws)
+                line_caps = bool(ws) and caps >= 0.6 * len(ws)
+                for w in ln.get("words", []):
+                    lead, core, trail = _SPLIT.match(w.get("text", "")).groups()
+                    fixed = case_repair(core, line_caps, lm)
+                    if fixed:
+                        old = w["text"]
+                        w["text"] = lead + fixed + trail
+                        w.setdefault("corrected_from", old)
+                        n_case += 1
+                        if len(case_notes) < 40:
+                            case_notes.append(f"case: {old} -> {w['text']}")
+            if not p["enabled"]:
+                return out, DebugBundle(scalars={"case_repaired": n_case}, notes=case_notes)
         if not layout or not Path(p["confusions_path"]).is_file():
             return out, DebugBundle(notes=["no layout or no confusion table; nothing corrected"])
         import copy

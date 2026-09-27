@@ -37,3 +37,19 @@ def test_corrects_split_glyphs_and_leaves_words_alone(tmp_path):
     assert out.meta["layout"]["lines"][0]["words"][0]["corrected_from"] == "Eu1ployee:"
     assert dbg.scalars["corrected"] == 2
     assert "corrected_from" not in page.meta["layout"]["lines"][0]["words"][0], "input page mutated"
+
+
+def test_case_repair_fixes_size_twins_and_I_l_but_not_real_mixed_case():
+    from pathlib import Path
+    import pytest
+    if not Path("data/lang_en.npz").exists():
+        pytest.skip("needs data/lang_en.npz")
+    from mlws_ocr.decode.correct import case_repair
+    from mlws_ocr.lang.model import CorpusModel
+    lm = CorpusModel.load("data/lang_en.npz")
+    assert case_repair("DOg", False, lm) == "Dog"
+    assert case_repair("Iong", False, lm) == "long"
+    assert case_repair("cOst", False, lm) == "cost"
+    assert case_repair("SOUp", False, lm) == "Soup"
+    for word in ("McDonald", "iPhone", "PhD", "IBM", "How", "TOTAL", "Invoice"):
+        assert case_repair(word, False, lm) is None, word
