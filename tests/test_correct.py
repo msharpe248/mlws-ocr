@@ -51,5 +51,5 @@ def test_case_repair_fixes_size_twins_and_I_l_but_not_real_mixed_case():
     assert case_repair("Iong", False, lm) == "long"
     assert case_repair("cOst", False, lm) == "cost"
     assert case_repair("SOUp", False, lm) == "Soup"
-    for word in ("McDonald", "iPhone", "PhD", "IBM", "How", "TOTAL", "Invoice"):
+    for word in ("McDonald", "McCarthy", "MacCormac", "iPhone", "PhD", "IBM", "How", "TOTAL", "Invoice"):
         assert case_repair(word, False, lm) is None, word

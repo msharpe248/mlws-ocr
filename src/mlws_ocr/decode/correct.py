@@ -42,6 +42,7 @@ from ..core.artifacts import Page
 from ..core.registry import register
 from ..core.stage import DebugBundle, Stage
 
+_NAME_PREFIX = re.compile(r"^(Mc|Mac|O')[A-Z]")   # McCarthy, MacCormac, O'Connor: the capital is the name's
 _TWINS = set("cosuvwxz")        # capital and small differ only in size (beam.CASE_TWINS)
 
 
@@ -57,10 +58,11 @@ def case_repair(core: str, line_caps: bool, lm) -> str | None:
        small forms differ only in size (c o s u v w x z) follow the word --
        small in a Title or small word, capital in an ALL-CAPS one (or on a
        caps line) -- if the lexicon knows the word ('DOg' -> 'Dog').  Other
-       letters are left, so 'McDonald', 'iPhone' and 'PhD' stand.
+       letters are left, so 'iPhone' and 'PhD' stand, and a name's prefix
+       (Mc, Mac, O') keeps the capital after it ('McCarthy').
     Returns the repaired core, or None."""
     letters = [c for c in core if c.isalpha()]
-    if len(letters) < 3:
+    if len(letters) < 3 or _NAME_PREFIX.match(core):
         return None
     new = list(core)
     if not lm.endorsed(core):
