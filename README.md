@@ -23,8 +23,11 @@ that did not work.
 Character / word accuracy on real scanned pages, September 2026. Legacy
 Tesseract (`--oem 0`) is the reference, measured with the same scripts on
 the same pages; the LSTM column is Tesseract 5.5.3 with its default English
-model; bold marks the row's leader. The full scoreboard and its history
-are in `docs/DESIGN.md` §8.
+model; bold marks the row's leader. The held-out rows are pages no tuning,
+training or evaluation decision has used (`eval_unlv.py --heldout`,
+`eval_tesseract.py --heldout`). Classic's CORD word score is below zero (it
+inserts more words than a camera receipt holds) and is left out. The full
+scoreboard and its history are in `docs/DESIGN.md` §8.
 
 | set | what it is | classic | neural | legacy Tesseract | Tesseract LSTM |
 |---|---|---|---|---|---|
@@ -34,11 +37,14 @@ are in `docs/DESIGN.md` §8.
 | modern | born-digital PDFs and templated business letters | 91.6 / 83.5 | **94.2 / 90.7** | 75.4 / 70.8 | 74.2 / 66.6 |
 | business | invoices, payslips, receipts, statements, purchase orders | 95.3 / 86.1 | **97.9 / 96.6** | 70.7 / 68.0 | 70.7 / 68.6 |
 | news-8 | UNLV newspapers (the layout rules were tuned here) | 92.6 / 82.3 | 95.5 / 92.2 | 96.3 / 93.1 | **96.7 / 94.8** |
-| mag-8 | UNLV magazines (the layout rules were tuned here) | 64.6 / 43.8 | 81.4 / 74.8 | **87.3 / 84.7** | 87.8 / 84.4 |
+| mag-8 | UNLV magazines (the layout rules were tuned here) | 64.6 / 43.8 | 81.4 / 74.8 | 87.3 / **84.7** | **87.8** / 84.4 |
+| newspapers, held out | 30 UNLV newspaper pages no decision has used | 73.9 / 60.5 | 84.6 / 79.2 | 87.1 / 82.4 | **87.7 / 84.2** |
+| magazines, held out | 30 UNLV magazine pages no decision has used | 67.6 / 49.2 | **82.1** / 73.4 | 77.9 / 71.3 | 78.5 / **73.6** |
+| letters, held out | 30 UNLV business letters no decision has used | 90.7 / 83.1 | **93.7 / 90.8** | 92.4 / 88.8 | 93.1 / 90.6 |
 | sroie | real scanned receipts, ICDAR 2019 | 48.0 / 13.6 | **78.6 / 60.2** | 56.2 / 29.4 | 64.0 / 40.3 |
 | funsd | real scanned forms, FUNSD, at 2x | 37.4 / 12.7 | 66.0 / 43.9 | 54.8 / 32.0 | **66.4 / 47.2** |
-| legal reports | real typescript and printed office pages, Library of Congress | | **87.6 / 73.8** | | 78.8 / 66.3 |
-| cord | photographed receipts, CORD, cut to the receipt | | **53.2 / 30.3** | | 46.7 / 21.1 |
+| legal reports | real typescript and printed office pages, Library of Congress | 70.5 / 47.3 | **87.6 / 73.8** | 57.5 / 42.8 | 78.8 / 66.3 |
+| cord | photographed receipts, CORD, cut to the receipt | 30.7 / – | **53.2 / 30.3** | 42.1 / 19.5 | 46.7 / 21.1 |
 | blocks | a paragraph handed in alone, no layout (broad-30's text zones) | 94.4 / 85.8 | **98.5** / 96.0 | 98.2 / **96.6** | **98.5 / 96.5** |
 
 **Held-out pages.** The eight-page sets flatter newspapers and magazines:
@@ -47,7 +53,7 @@ profile reads newspapers at 84.6 / 79.2 and magazines at 82.1 / 73.4 (with
 the per-page segmenter judge on those two types since 26 September 2026;
 XY-cut alone read them at 79.7 and 65.9; magazines 68.1 before text-row protection
 and 77.1 before deskew stopped trusting an estimate at its search limit, which had
-rotated three straight photo-heavy pages by 5 degrees). Letters (93.8), legal pages
+rotated three straight photo-heavy pages by 5 degrees). Letters (93.7), legal pages
 (94.2) and a freshly rendered business set (97.5) hold up. Tesseract LSTM
 on the same held-out pages: newspapers 87.7 / 84.2, magazines 78.5 / 73.6,
 letters 93.1 / 90.6 (neural 93.7 / 90.8).
