@@ -38,14 +38,16 @@ are in `docs/DESIGN.md` §8.
 | sroie | real scanned receipts, ICDAR 2019 | 48.0 / 13.6 | **78.6 / 60.2** | 56.2 / 29.4 | 64.0 / 40.3 |
 | funsd | real scanned forms, FUNSD, at 2x | 37.4 / 12.7 | 66.0 / 43.9 | 54.8 / 32.0 | **66.4 / 47.2** |
 | legal reports | real typescript and printed office pages, Library of Congress | | **87.6 / 73.8** | | 78.8 / 66.3 |
-| cord | photographed receipts, CORD, cut to the receipt | | **51.8 / 29.3** | | 46.7 / 21.1 |
+| cord | photographed receipts, CORD, cut to the receipt | | **53.2 / 30.3** | | 46.7 / 21.1 |
 | blocks | a paragraph handed in alone, no layout (broad-30's text zones) | 94.4 / 85.8 | **98.5** / 96.0 | 98.2 / **96.6** | **98.5 / 96.5** |
 
 **Held-out pages.** The eight-page sets flatter newspapers and magazines:
 on 30 fresh pages of each type, never used for any decision, the neural
-profile reads newspapers at 84.6 / 79.2 and magazines at 77.1 / 65.3 (with
+profile reads newspapers at 84.6 / 79.2 and magazines at 82.1 / 73.4 (with
 the per-page segmenter judge on those two types since 26 September 2026;
-XY-cut alone read them at 79.7 and 65.9; magazines 68.1 before text-row protection). Letters (93.8), legal pages
+XY-cut alone read them at 79.7 and 65.9; magazines 68.1 before text-row protection
+and 77.1 before deskew stopped trusting an estimate at its search limit, which had
+rotated three straight photo-heavy pages by 5 degrees). Letters (93.8), legal pages
 (94.2) and a freshly rendered business set (97.5) hold up. Tesseract LSTM
 on the same held-out pages: newspapers 87.7 / 84.2, magazines 78.5 / 73.6,
 letters 93.1 / 90.6 (neural 93.7 / 90.8).
