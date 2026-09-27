@@ -30,11 +30,17 @@ def main():
                     "eng.traineddata carries both engines -- "
                     "https://github.com/tesseract-ocr/tessdata/raw/main/"
                     "eng.traineddata -- Homebrew's is LSTM-only)")
+    ap.add_argument("--heldout", action="store_true",
+                    help="draw from eval_layout's held-out pages, as eval_unlv.py --heldout")
     ap.add_argument("--by-kind", action="store_true",
                     help="also report a mean per document kind (page stem up to its first '-')")
     args = ap.parse_args()
 
     pairs = list(find_pairs(args.root))
+    if args.heldout:
+        # the same pages eval_unlv.py --heldout draws for the same seed
+        from eval_layout import heldout_pairs
+        pairs = heldout_pairs(args.root)
     random.Random(args.seed).shuffle(pairs)
     cers, wers, recalls, precisions, kinds = [], [], [], [], []
     for tif, gt in pairs[: args.pages]:
