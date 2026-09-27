@@ -146,6 +146,12 @@ def main():
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--device", default="auto")
     ap.add_argument("--init", default="", help="start from these weights (fine-tune)")
+    ap.add_argument("--l2sp", type=float, default=0.0,
+                    help="torch only: add l2sp * ||w - w_init||^2 to the loss, pulling a fine-tune back "
+                         "towards its starting weights instead of towards zero (L2-SP: X. Li, Y. Grandvalet "
+                         "& F. Davoine, 'Explicit inductive bias for transfer learning with convolutional "
+                         "networks', ICML 2018) -- a new domain is learned while what the init read well "
+                         "is kept; needs --init")
     args = ap.parse_args()
     rng = np.random.default_rng(args.seed)
 
@@ -202,6 +208,11 @@ def main():
         module = SeqNetTorch.from_numpy(net).to(device)
         opt = torch.optim.Adam(module.parameters(), lr=args.lr, weight_decay=1e-4)
         ctc = torch.nn.CTCLoss(blank=0, zero_infinity=True)
+        anchor = None
+        if args.l2sp > 0:
+            assert args.init, "--l2sp needs --init"
+            anchor = [q.detach().clone() for q in module.parameters()]
+            print(f"L2-SP towards {args.init}, lambda {args.l2sp}")
         print(f"torch on {device}")
 
         def scorer(strips):
@@ -223,6 +234,8 @@ def main():
             loss = ctc(lp.permute(1, 0, 2).log_softmax(2).cpu() if device.type == "mps"
                        else lp.permute(1, 0, 2),
                        targets, torch.from_numpy(lengths), tlen)
+            if anchor is not None:
+                loss = loss + args.l2sp * sum(((q - a) ** 2).sum() for q, a in zip(module.parameters(), anchor))
             opt.zero_grad(); loss.backward()
             torch.nn.utils.clip_grad_norm_(module.parameters(), 1.0)
             opt.step()
