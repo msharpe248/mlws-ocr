@@ -30,6 +30,8 @@ min_area_300dpi = 5
 
 [stage.imagezones]
 impl = "density"
+protect_text_rows = true       # glyph chains inside a picture zone go back to the text (2026-09-26): held-out magazines
+                               # neural 68.1 -> 77.2 char, classic 59.0 -> 65.3; FUNSD +1; letters and legal identical
 
 [stage.rulings]
 impl = "morphological"

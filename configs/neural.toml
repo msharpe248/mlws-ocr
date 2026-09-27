@@ -46,6 +46,9 @@ min_area_300dpi = 5
 
 [stage.imagezones]
 impl = "density"
+protect_text_rows = true       # glyph chains (and their punctuation) inside a picture zone go back to the text
+                               # (2026-09-26): magazine captions and photo-side columns were swallowed; held-out
+                               # magazines 68.1 -> 77.2 char, mag-8 80.6 -> 81.3, FUNSD 63.5 -> 64.5, the rest within 0.1
 
 [stage.rulings]
 impl = "morphological"
