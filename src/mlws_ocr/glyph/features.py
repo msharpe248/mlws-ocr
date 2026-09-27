@@ -177,9 +177,30 @@ def _skeleton_stats(mask: np.ndarray) -> tuple[int, int]:
     return endpoints, junctions
 
 
+_MEMO: dict = {}
+_MEMO_LIMIT = 50000
+
+
 def extract_features(glyph: np.ndarray) -> np.ndarray:
-    """Compute the feature vector for one glyph crop (see module docstring)."""
+    """Compute the feature vector for one glyph crop (see module docstring).
+
+    Memoised by the crop's ink mask, the only input the features read: on a
+    letter page 1,491 of 3,736 calls repeated an earlier crop exactly (the
+    confidence chopper and the outline channel revisit pieces; 2026-09-27),
+    so a repeat returns a copy of the stored vector -- the same result."""
     mask = np.asarray(glyph) < 0.5
+    key = (mask.shape, np.packbits(mask).tobytes())
+    hit = _MEMO.get(key)
+    if hit is not None:
+        return hit.copy()
+    vec = _features_of_mask(mask)
+    if len(_MEMO) >= _MEMO_LIMIT:
+        _MEMO.clear()
+    _MEMO[key] = vec
+    return vec.copy()
+
+
+def _features_of_mask(mask: np.ndarray) -> np.ndarray:
     # crop BEFORE the stroke normalizer: its target width is a fraction of
     # the glyph's size, and the deslant's padding was inflating that size
     # for italics only (a 28-px italic 'e' dilated to 3.8x its ink and
