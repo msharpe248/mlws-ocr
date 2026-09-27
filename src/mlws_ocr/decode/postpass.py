@@ -303,6 +303,13 @@ def _sentence_case_pass(layout, lm, p) -> int:
     corpus-frequent word mid-sentence -- unless a neighbor is also
     capitalized (proper-noun runs: "San Antonio", "USAA Investment").
 
+    With ``sentence_case_seq_veto`` a word the sequence scorer read
+    exactly as decoded, case and all (``seq_agree``), is never flipped:
+    the scorer sees the whole word's letter heights, where this pass
+    assumes pixels are silent -- on broad-30's zones it had turned the
+    reader's 'President', 'Board', 'October' and 'Wayne State' lowercase
+    (2026-09-27).
+
     Up-flips are DOCUMENT-CALIBRATED: they apply only when the
     document's own sentence starts with pixel-UNambiguous first
     letters are predominantly capitalized (an all-lowercase document
@@ -354,9 +361,12 @@ def _sentence_case_pass(layout, lm, p) -> int:
             lo += t[0].islower()
     caps_style = up >= 3 and up >= 3 * max(lo, 1)
 
+    veto = bool(p.get("sentence_case_seq_veto"))
     for i, (w, blk, _) in enumerate(seq):
         t = w["text"]
         if not t or not t[0].isalpha() or t[0].lower() not in _CASE_AMBIG:
+            continue
+        if veto and w.get("seq_agree"):
             continue
         nxt = seq[i + 1] if i + 1 < len(seq) else None
         prev = seq[i - 1] if i > 0 else None

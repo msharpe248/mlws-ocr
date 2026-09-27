@@ -77,6 +77,9 @@ impl = "overlap"
 impl = "prototypes"
 
 [stage.decode]
+sentence_case_seq_veto = true  # the sentence-case pass no longer lowercases a word the reader read with its
+                               # capital ('President', 'Board', 'October' mid-sentence): blocks 95.9 -> 96.0
+                               # word (case errors 15 -> 10), news-8 and held-out letters +0.1, the rest level
 anchor_min_frac = 0.4          # rows of underline dashes no longer set the page's lowercase anchor (a
                                # form's caps lines had taken a 3.6 px x-height and been deleted as slivers):
                                # CORD +7.0 / +9.2, FUNSD +1.2 / +1.1, the rest within 0.2 (2026-09-26)

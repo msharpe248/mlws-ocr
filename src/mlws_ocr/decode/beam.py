@@ -204,6 +204,9 @@ class BeamDecode(SeqTerms, Stage):
                                    # 90.2 (classic); modern +0.3 / +1.0; dev-8
                                    # +0.1 / +0.9; broad-30 flat / +0.1
         "line_case_ratio": 1.25,   # ...with lowercase only: upper above this x x-height
+        "sentence_case_seq_veto": False,  # the sentence-case pass leaves a word the
+                                   # scorer read exactly (case and all) alone
+                                   # (postpass._sentence_case_pass, 2026-09-27)
         "seq_case": False,         # when the scorer's own reading equals the
                                    # chosen word up to case, take the scorer's
                                    # case: it sees the whole word's relative

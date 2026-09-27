@@ -293,7 +293,11 @@ class SeqTerms:
             return found, 0
         scorer = self._seq_scorer
         before = max(range(len(found)), key=lambda i: found[i][2])
-        found = list(found)
+        # each variant gets its own meta: variants of one word can share a
+        # dict, and the per-variant flags below (seq_agree first) would then
+        # all read the last variant's value ('3x5' marked agreeing with a
+        # scorer that read '3', 2026-09-27)
+        found = [(text, dict(meta), score) for text, meta, score in found]
         texts = [text for text, _, _ in found]
         from mlws_ocr.recognize.ctc import greedy_decode
         greedy = greedy_decode(logp, scorer.classes).strip()

@@ -164,6 +164,7 @@ def cmd_score(args):
     cers, wers, recalls, precisions, nchars = [], [], [], [], []
     err_chars = err_words = tot_chars = tot_words = 0
     failed = 0
+    dump = open(args.dump, "w") if args.dump else None
     for name, blocks in record.items():
         if not blocks:
             continue
@@ -189,6 +190,8 @@ def cmd_score(args):
             except Exception as e:  # noqa: BLE001
                 print(f"  {name} {b['box']}: ERROR {e}")
                 failed += 1; got = ""
+            if dump is not None:
+                dump.write(json.dumps({"page": name, "box": b["box"], "truth": truth, "got": got}) + "\n")
             tw, gw = Counter(truth.lower().split()), Counter(got.lower().split())
             ov = sum((tw & gw).values())
             ec, ew = edit_distance(got, truth), edit_distance_words(got.split(), truth.split())
@@ -281,6 +284,7 @@ def main():
     sub.choices["score"].add_argument("--oem", default="0")
     sub.choices["score"].add_argument("--margin-in", type=float, default=0.1, help="crop margin in inches")
     sub.choices["score"].add_argument("--quiet", action="store_true")
+    sub.choices["score"].add_argument("--dump", default=None, help="write each block's truth and output as JSON lines, for error analysis")
     sub.choices["score"].add_argument("--doc-type", default="block",
                                       help="layout hint for our reader ('block' = the input is one block; '' = none)")
     args = ap.parse_args()
