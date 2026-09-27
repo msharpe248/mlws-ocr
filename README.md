@@ -28,26 +28,39 @@ are in `docs/DESIGN.md` §8.
 
 | set | what it is | classic | neural | legacy Tesseract | Tesseract LSTM |
 |---|---|---|---|---|---|
-| dev-8 | UNLV business letters, tuning set | 95.2 / 89.4 | **97.7 / 95.0** | 95.0 / 91.7 | 95.5 / 93.1 |
-| broad-30 | UNLV business letters, the headline set | 91.9 / 82.3 | 95.7 / 92.1 | 95.5 / 91.7 | **96.0 / 92.7** |
-| legal-8 | UNLV legal pleadings (typewriter) | 91.7 / 81.3 | **94.0 / 90.6** | 90.4 / 88.7 | 90.3 / 86.9 |
-| modern | born-digital PDFs and templated business letters | 91.6 / 83.5 | **94.2 / 90.8** | 75.4 / 70.8 | 74.2 / 66.6 |
-| business | invoices, payslips, receipts, statements, purchase orders | 95.3 / 86.1 | **98.0 / 96.7** | 70.7 / 68.0 | 70.7 / 68.6 |
-| news-8 | UNLV newspapers (the layout rules were tuned here) | 92.6 / 82.3 | 95.3 / 91.9 | 96.3 / 93.1 | **96.7 / 94.8** |
-| mag-8 | UNLV magazines (the layout rules were tuned here) | 64.6 / 43.8 | 81.4 / 75.2 | **87.3 / 84.7** | 87.8 / 84.4 |
-| sroie | real scanned receipts, ICDAR 2019 | 48.0 / 13.6 | **68.2 / 47.6** | 56.2 / 29.4 | 64.0 / 40.3 |
-| funsd | real scanned forms, FUNSD, at 2x | 37.4 / 12.7 | 66.1 / 44.0 | 54.8 / 32.0 | **66.4 / 47.2** |
-| legal reports | real typescript and printed office pages, Library of Congress | | **87.6 / 74.1** | | 78.8 / 66.3 |
-| cord | photographed receipts, CORD, cut to the receipt | | **52.4 / 30.6** | | 46.7 / 21.1 |
+| dev-8 | UNLV business letters, tuning set | 95.2 / 89.4 | **97.7 / 95.1** | 95.0 / 91.7 | 95.5 / 93.1 |
+| broad-30 | UNLV business letters, the headline set | 91.9 / 82.3 | 95.6 / 92.0 | 95.5 / 91.7 | **96.0 / 92.7** |
+| legal-8 | UNLV legal pleadings (typewriter) | 91.7 / 81.3 | **94.1 / 90.5** | 90.4 / 88.7 | 90.3 / 86.9 |
+| modern | born-digital PDFs and templated business letters | 91.6 / 83.5 | **94.2 / 90.7** | 75.4 / 70.8 | 74.2 / 66.6 |
+| business | invoices, payslips, receipts, statements, purchase orders | 95.3 / 86.1 | **97.9 / 96.6** | 70.7 / 68.0 | 70.7 / 68.6 |
+| news-8 | UNLV newspapers (the layout rules were tuned here) | 92.6 / 82.3 | 95.5 / 92.2 | 96.3 / 93.1 | **96.7 / 94.8** |
+| mag-8 | UNLV magazines (the layout rules were tuned here) | 64.6 / 43.8 | 81.4 / 74.8 | **87.3 / 84.7** | 87.8 / 84.4 |
+| sroie | real scanned receipts, ICDAR 2019 | 48.0 / 13.6 | **78.6 / 60.2** | 56.2 / 29.4 | 64.0 / 40.3 |
+| funsd | real scanned forms, FUNSD, at 2x | 37.4 / 12.7 | 66.0 / 43.9 | 54.8 / 32.0 | **66.4 / 47.2** |
+| legal reports | real typescript and printed office pages, Library of Congress | | **87.6 / 73.8** | | 78.8 / 66.3 |
+| cord | photographed receipts, CORD, cut to the receipt | | **51.8 / 29.3** | | 46.7 / 21.1 |
 | blocks | a paragraph handed in alone, no layout (broad-30's text zones) | 94.4 / 85.8 | **98.5** / 96.0 | 98.2 / **96.6** | **98.5 / 96.5** |
 
 **Held-out pages.** The eight-page sets flatter newspapers and magazines:
 on 30 fresh pages of each type, never used for any decision, the neural
-profile reads newspapers at 84.7 / 79.4 and magazines at 77.1 / 65.2 (with
+profile reads newspapers at 84.6 / 79.2 and magazines at 77.1 / 65.3 (with
 the per-page segmenter judge on those two types since 26 September 2026;
 XY-cut alone read them at 79.7 and 65.9; magazines 68.1 before text-row protection). Letters (93.8), legal pages
-(94.2) and a freshly rendered business set (97.5) hold up.
+(94.2) and a freshly rendered business set (97.5) hold up. Tesseract LSTM
+on the same held-out pages: newspapers 87.7 / 84.2, magazines 78.5 / 73.6,
+letters 93.1 / 90.6 (neural 93.7 / 90.8).
 `scripts/eval_unlv.py --heldout` draws them.
+
+**Receipts (27 September 2026).** The line reader has now also trained on
+the annotated lines of SROIE's training receipts and FUNSD's training forms,
+and on twice the typewritten Legal Reports lines. To keep it from
+forgetting how it read everything else, it was held to the previous reader
+while it learned: its weights by L2-SP, and its character-by-character
+readings by Learning without Forgetting (distillation from the previous
+reader), and the running average of its weights is what ships. SROIE went
+68.2 / 47.6 -> 78.6 / 60.2; nothing outside receipts dropped more than
+0.4 word. The capitals the receipts taught still show on clean sans-serif
+text, so a case-repair pass mends 'Iong' and 'DOg'.
 
 **Magazines and forms (26 September 2026).** Three fixes found by looking
 at the worst pages. The picture-zone stage had swallowed magazine captions

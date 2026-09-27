@@ -83,8 +83,16 @@ impl = "hybrid"                # the line reader beside the classic decoder (dec
                                # judge says so (2026-09-13: dev-8 91.9 -> 93.2 word, broad-30 87.5 -> 89.8,
                                # legal-8 84.4 -> 88.5, news-8 88.2 -> 90.2, blocks broad-30 91.1 -> 95.1).
                                # "beam" is the classic decoder alone.
-line_model_path = "data/seq_line_gray_en.npz+data/seq_line_gray_en_2.npz+data/seq_line_gray_en_3.npz"
-                               # = seq_line_gray2 seeds 3, 2, 1 (2026-09-26): each v17a member fine-tuned 8 epochs on GREY
+line_model_path = "data/seq_line_gray7_en.npz+data/seq_line_gray7_en_2.npz+data/seq_line_gray7_en_3.npz"
+                               # = seq_line_gray7 seeds 3, 2, 1, EMA weights (2026-09-27, v0.14.0): each member below
+                               # fine-tuned 4 more epochs with grey SROIE (30,323) and FUNSD (6,598) box-cut training lines
+                               # added, grey Legal Reports lines from all 600 harvest pages (x3), CORD x10; L2-SP (1e-4)
+                               # towards the member it started from and Learning without Forgetting (KL from it, T 2, on
+                               # every line but the new box-cut ones); the EMA (0.999) of the weights is what ships.
+                               # Against it, with case repair: SROIE 68.2/47.6 -> 78.6/60.2, CORD 52.4/30.6 -> 51.8/29.3,
+                               # Legal Reports 87.6/74.1 -> 87.6/73.8, nothing else down more than 0.4 word (RESEARCH).
+                               # Previous (v0.13.0): seq_line_gray_en*.npz =
+                               # seq_line_gray2 seeds 3, 2, 1 (2026-09-26): each v17a member fine-tuned 8 epochs on GREY
                                # line strips (grey twins of 24,739 harvested lines + 1,135 Legal Reports lines) plus the
                                # binary SROIE / Legal Reports / FUNSD line files; read with line_source = "gray". Against
                                # v17a: CORD cropped 37.7/8.0 -> 46.4/21.7, FUNSD 57.8/33.6 -> 63.5/41.8, Legal Reports
@@ -150,6 +158,9 @@ review_below = 0.8
 impl = "noisy_channel"   # OPTIONAL: a learned OCR-aware dictionary pass over the unknown words
 enabled = false          # (decode/correct.py); switch on here, in the workbench, or with --set correct.enabled=true
 confusions_path = "data/confusions_neural.json"
+case_repair = true      # I/l and case-twin repair runs even with the corrector off (decode/correct.py
+                        # case_repair; 2026-09-27): the receipt-trained reader leans to capitals ('Iong', 'DOg');
+                        # CORD +0.3/+0.5, FUNSD +0.2 word, the rest level or +0.1
 
 [stage.output]
 impl = "text"

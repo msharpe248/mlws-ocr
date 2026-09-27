@@ -20,8 +20,12 @@ sys.path.insert(0, str(ROOT / "scripts"))
 # (profile, severity) -> (char acc, word acc) at adoption; tolerance 0.5 point
 EXPECTED = {
     ("classic", 0): (98.7, 93.2), ("classic", 1): (98.9, 94.7), ("classic", 2): (98.9, 95.6),
-    ("neural", 0): (100.0, 100.0), ("neural", 1): (100.0, 100.0), ("neural", 2): (99.8, 99.0),
+    ("neural", 0): (100.0, 100.0), ("neural", 1): (99.7, 99.0), ("neural", 2): (99.9, 99.5),
 }
+# neural sev1 100.0/100.0 -> 99.7/99.0 with the v0.14.0 reader (2026-09-27, the owner's decision): trained
+# on SROIE's capitals-heavy receipts it reads a clean Verdana 'how long' as 'How Ion' -- l and I, h and H
+# differ in Verdana by height alone. Case repair (correct.case_repair) mends 'Iong' and 'DOg' but not a
+# slip into another real word. RESEARCH 2026-09-27.
 TOL = 0.5
 
 

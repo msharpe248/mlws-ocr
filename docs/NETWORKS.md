@@ -17,7 +17,8 @@ judged before it went live. The measurements themselves are in
 | MLP second opinion | `mlp.npz` | 53k params | classic, neural (`recognize.mlp_path`) | `train_mlp.py` | exemplar pool: synthetic renders + real harvests |
 | Character GRU language model | `gru_en.npz` | 258k | classic, neural (`decode.char_lm`) | `train_charlm.py` | public-domain text corpus |
 | Word-strip CRNN scorer | `seq_en.npz` | 285k | neural (`decode.seq_path`) | `train_seq.py` | synthetic word windows + truth-labelled real word strips |
-| Line model, grey strips (same CRNN) | `seq_line_gray_en.npz`, `_2`, `_3` | 3 × 285k | neural (`decode.line_model_path`, `decode.line_source = "gray"`) | `train_seq.py` | the binary line model fine-tuned on grey line strips (grey twins of harvested lines) plus binary real lines |
+| Line model, grey strips (same CRNN) | `seq_line_gray7_en.npz`, `_2`, `_3` | 3 × 285k | neural (`decode.line_model_path`, `decode.line_source = "gray"`) | `train_seq.py` | the v0.13.0 grey reader fine-tuned with SROIE and FUNSD box-cut training lines and more Legal Reports lines, held to its predecessor by L2-SP and distillation; EMA weights |
+| Line model, grey strips (v0.13.0) | `seq_line_gray_en.npz`, `_2`, `_3` | 3 × 285k | none since v0.14.0 (the teacher of the above) | `train_seq.py` | the binary line model fine-tuned on grey line strips (grey twins of harvested lines) plus binary real lines |
 | Line model, binary strips (previous) | `seq_line_en.npz`, `_2`, `_3` | 3 × 285k | none since 2026-09-26 (v17a) | `train_seq.py` | the above plus long windows and real whole lines |
 | Word-confidence calibrator | `wordconf.npz` | 15 weights | neural (`decode.conf_path`) | `train_wordconf.py` | truth-labelled words with the decoder's evidence |
 | Line-choice judge | `linechoice.npz` | 15 weights | neural (`decode.line_choice_path`) | `train_line_choice.py` | truth-labelled line pairs (classic reading vs line reading) |
@@ -94,6 +95,7 @@ were trained on the public sources named below and on nothing else.
 | v0.11.1 (2026-09-26) | the same fourteen files as v0.11.0: this release is workbench fixes |
 | v0.12.0 (2026-09-26) | fifteen files: v0.11.1's fourteen plus the segmenter judge `segjudge.npz` (= `segjudge_v1`), the neural profile's segmenter for newspapers and magazines |
 | v0.13.0 (2026-09-26) | eighteen files: v0.12.0's fifteen plus the grey-strip line reader `seq_line_gray_en.npz`, `_2`, `_3` (= `seq_line_gray2` seeds 3, 2, 1), the neural profile's reader; the v17a files stay for the previous reader |
+| v0.14.0 (2026-09-27) | twenty-one files: v0.13.0's eighteen plus the reader `seq_line_gray7_en.npz`, `_2`, `_3` (= `seq_line_gray7` seeds 3, 2, 1, EMA weights), the neural profile's reader; the v0.13.0 grey reader stays (it is the new one's teacher and the way back) |
 
 ## Where the training data comes from
 
@@ -429,6 +431,47 @@ pairs cost mag-8 four points.
     --real-weight 3 --epochs 8 --batch 32 --seed 3 --lines gray_*.npz data/linesfull_sroie.npz data/linesfull_btp_legal.npz data/linesfull_funsd.npz \
     --weight gray_sroie*.npz=5 gray_cord*.npz=5 data/linesfull_sroie.npz=1 data/linesfull_btp_legal.npz=1 data/linesfull_funsd.npz=1 --out data/seq_line_gray2_s3.npz
 # and _2 from seq_line_en_2 (seed 2), _3 from seq_line_en_3 (seed 1)
+```
+
+**v0.14.0: receipts added without losing the rest** (`seq_line_gray7`).
+Each v0.13.0 member (`seq_line_gray2_s3/_s2/_s1`) fine-tuned 4 more epochs
+on ai01 (about 1.5 hours for the three) with three additions:
+
+- **new lines**: grey strips cut from the annotated word boxes of SROIE's
+  566 training receipts (30,323 lines, x2) and FUNSD's training forms
+  (6,598), `harvest_boxes.py --out-gray`; the grey Legal Reports harvest
+  re-run over all 600 harvest pages (2,150 lines, x3, replacing the
+  300-page files); CORD's box lines at x10 so they keep their share;
+- **L2-SP** (`--l2sp 1e-4`): a pull back towards the starting weights;
+- **Learning without Forgetting** (`--distill 1.0`, T = 2): on every line
+  except the new SROIE and FUNSD box lines, the KL divergence from the
+  starting network's per-frame character distribution, so the reader keeps
+  its old behaviour where it is not being taught;
+- the exponential moving average of the weights (`--ema 0.999`) ships, not
+  the best epoch: the best-epoch weights read SROIE 1.9 points better and
+  held-out business letters 0.6 worse.
+
+The route there (RESEARCH 2026-09-26/27): a plain fine-tune from v17a with
+the SROIE lines (v4) gained SROIE 12.7 points and lost up to 1.7 elsewhere;
+averaging weights or ensembling with v2 traded along the same line; L2-SP
+alone (v5) kept letters and modern but not CORD or Legal Reports; data
+shares (v6) and distillation with the fuller typescript data (v7) closed
+the rest to at most 0.4 word outside receipts. The capitals the receipts
+teach still show on clean Verdana (the regression test's 'How Ion'); the
+output's case repair (`correct.case_repair`) mends the non-words.
+
+```sh
+.venv/bin/python scripts/harvest_boxes.py --sroie data/raw/sroie/data --eval-dir data/ext/sroie/eval --out bin_sroie_box.npz --out-gray gray_sroie_box.npz
+.venv/bin/python scripts/harvest_boxes.py --funsd data/raw/funsd/dataset --eval-dir data/ext/funsd/eval --scale 2 --out bin_funsd_box.npz --out-gray gray_funsd_box.npz
+.venv/bin/python scripts/harvest_lines.py data/ext/btp_legal/harvest --pages 50 --offset 0 --no-guard --config configs/neural.toml \
+    --set decode.line_model_path=data/seq_line_gray_en.npz+data/seq_line_gray_en_2.npz+data/seq_line_gray_en_3.npz \
+    --out /tmp/w.npz --line-out bin_btp7_00.npz --line-out-gray gray_btp7_00.npz            # offsets 0..550 in 12 parts
+.venv/bin/python scripts/train_seq.py --backend torch --device cuda --init data/seq_line_gray2_s3.npz \
+    --l2sp 1e-4 --distill 1.0 --distill-skip sroie_box funsd_box --ema 0.999 --synth data/seq_synth_long2.npz \
+    --real-weight 3 --epochs 4 --batch 32 --seed 3 --lines <v0.13.0's grey files but its btp ones> gray_btp7_*.npz data/linesfull_btp_legal.npz \
+    --weight gray_sroie[0-9].npz=5 gray_cord_box.npz=10 gray_sroie_box.npz=2 gray_btp7_*.npz=3 data/linesfull_btp_legal.npz=2 \
+    --out data/seq_line_gray7_s3.npz        # ships data/seq_line_gray7_s3_ema.npz as seq_line_gray7_en.npz
+# and _s2 (seed 2) from seq_line_gray2_s2, _s1 (seed 1) from seq_line_gray2_s1
 ```
 
 ### Word-confidence calibrator — `decode/wordconf.py`
