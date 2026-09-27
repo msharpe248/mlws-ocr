@@ -46,6 +46,64 @@ def open_with_line(b: np.ndarray, length: int, axis: int) -> np.ndarray:
     return out
 
 
+def dashed_rules(b: np.ndarray, length: int, dpi: float, gap_300: float,
+                 thick_300: float, min_cover: float = 0.7) -> np.ndarray:
+    """Dashed and dotted horizontal rules: the ink of horizontal runs at
+    least ``length`` long once gaps up to ``gap_300`` px (at 300 dpi) are
+    closed, restricted to pixels whose vertical run through that closed-up
+    mask is at most ``thick_300`` px.  Closing a text row joins its letters
+    into a band as tall as the x-height, so the thickness test leaves text
+    alone; an underline -- solid, dashed, or broken by a fax -- is a band a
+    few px tall.  Form dropout by the same means as solid rules
+    (morphological line finding, cf. Yu & Jain, PAMI 1996) with a gap
+    tolerance, the usual remedy for broken and dashed lines."""
+    s = dpi / 300.0
+    g = max(2, int(round(gap_300 * s)))
+    t = max(2, int(round(thick_300 * s)))
+    closed = ndimage.binary_closing(b, structure=np.ones((1, g + 1), bool))
+    cand = open_with_line(closed, length, 1)
+    # vertical run length through each candidate pixel
+    lab, n = ndimage.label(cand, structure=np.array([[0, 1, 0], [0, 1, 0], [0, 1, 0]], bool))
+    if not n:
+        return cand
+    runs = ndimage.sum_labels(np.ones_like(lab), lab, index=np.arange(1, n + 1))
+    thin = np.zeros(n + 1, bool)
+    thin[1:] = runs <= t
+    keep = thin[lab] & cand
+    # the thin part must itself still be a long run
+    runs_h = open_with_line(ndimage.binary_closing(keep, structure=np.ones((1, g + 1), bool)),
+                            length, 1)
+    # ...with open space on one side: closing also bridges the flat tops and
+    # bottoms of spaced capitals ('P R I C E') into thin long runs, but a
+    # letter's top edge has the letter body just below it and its bottom
+    # edge the body just above; an underline has text above and white
+    # below (or a rule of its own, white on both sides)
+    lab2, n2 = ndimage.label(runs_h, structure=np.ones((3, 3), bool))
+    out = np.zeros_like(b, dtype=bool)
+    if not n2:
+        return out
+    # the ink pieces of a dashed rule are short components of their own (a
+    # dash, or a dash touching a descender); the bottoms of a line of dense
+    # newspaper type close into the same thin run over white, but its ink
+    # belongs to letters as tall as the type
+    cc, _ = ndimage.label(b, structure=np.ones((3, 3), bool))
+    hts = np.array([0] + [sl[0].stop - sl[0].start for sl in ndimage.find_objects(cc)])
+    short_ink = b & (hts[cc] <= 2 * t)
+    H = b.shape[0]
+    for i, sl in enumerate(ndimage.find_objects(lab2), 1):
+        y0, y1 = sl[0].start, sl[0].stop
+        xs = np.unique(np.nonzero(lab2[sl] == i)[1]) + sl[1].start
+        # ink in the band 2..2t px under the run, per column
+        below = b[min(y1 + 1, H):min(y1 + 2 * t, H), xs].any(0).mean() if y1 + 1 < H else 0.0
+        span = np.arange(sl[1].start, sl[1].stop)
+        cover = b[y0:y1, span].any(0).mean()
+        mine = lab2[sl] == i
+        short = (short_ink[sl] & mine).sum() / max((b[sl] & mine).sum(), 1)
+        if below < 0.25 and cover >= min_cover and short >= 0.5:
+            out[sl] |= lab2[sl] == i
+    return out & b
+
+
 @register
 class MorphologicalRulings(Stage):
     slot = "rulings"
@@ -64,6 +122,13 @@ class MorphologicalRulings(Stage):
                                     # overall: legal-8 -0.5 char (restored
                                     # stubs along pleading rules decode as
                                     # junk), broad-30 -0.2 word. RESEARCH.
+        "dash_gap_300dpi": 0,    # > 0: also find DASHED and dotted horizontal
+                                 # rules (form underlines, fax-broken rules):
+                                 # gaps up to this many px (at 300 dpi) are
+                                 # bridged before the long-run test, and only
+                                 # thin runs are kept -- a closed-up word row
+                                 # is x-height thick, a rule a few px.  0 = off
+        "dash_max_thick_300dpi": 5,
     }
 
     def run(self, page: Page) -> tuple[Page, DebugBundle]:
@@ -85,6 +150,9 @@ class MorphologicalRulings(Stage):
         else:
             horiz = open_with_line(b, L, 1)
             vert = open_with_line(b, L, 0)
+        if self.params["dash_gap_300dpi"] > 0:
+            horiz = horiz | dashed_rules(b, L, page.dpi, self.params["dash_gap_300dpi"],
+                                         self.params["dash_max_thick_300dpi"])
         rules = horiz | vert
         grow = self.params["remove_grow"]
         band = ndimage.binary_dilation(rules, iterations=grow)

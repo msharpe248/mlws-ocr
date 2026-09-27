@@ -400,6 +400,16 @@ class BeamDecode(SeqTerms, Stage):
         "word_penalty": 2.5,     # per extra word, so frequent short words
                                  # don't shred every uncertain gap
         "max_gap_variants": 8,
+        "anchor_min_frac": 0.0,  # a line votes in the page's lowercase
+                                 # anchor only if its low ascent mode is at
+                                 # least this fraction of the page's median
+                                 # line ascent: on a form, rows of dotted-
+                                 # underline dashes are 'bimodal' at 2-4 px
+                                 # and outvoted the text (FUNSD 82253058:
+                                 # anchor 3.6 px under 13 px lowercase, so
+                                 # every caps line took 3.6, fell under the
+                                 # output's sliver rule and was deleted);
+                                 # 0 = every bimodal line votes
         "graphic_distance_factor": 1.7,  # a line whose median top-1
                                          # distance exceeds this multiple of
                                          # the page median is likely a logo
@@ -542,7 +552,7 @@ class BeamDecode(SeqTerms, Stage):
         # body text whose median glyph is a plain x-height letter, so the
         # page median is a sound lowercase anchor even though individual
         # caps lines are inflated.
-        line_asc = []
+        line_asc, line_med = [], []
         for ln in layout["lines"]:
             gs = [g for g in ln.get("groups", []) if "candidates" in g]
             if len(gs) >= 3:
@@ -551,6 +561,10 @@ class BeamDecode(SeqTerms, Stage):
                                 else g["box"][3] - g["box"][1] for g in gs], dtype=float)
                 asc = asc[asc > 0.3 * asc.max()] if len(asc) else asc
                 line_asc.append(self._low_mode(asc))
+                line_med.append(float(np.median(asc)))
+        if p["anchor_min_frac"] > 0 and line_med:
+            floor = p["anchor_min_frac"] * float(np.median(line_med))
+            line_asc = [a for a in line_asc if a is not None and a >= floor]
         page_x = self._page_x_height(line_asc)
 
         n_reject = n_lm_override = n_joins = 0

@@ -84,3 +84,28 @@ def test_knn_scc_recovers_the_fixture_blocks_exactly(font_path, params):
     assert len(detected) == len(gt["blocks"])
     for g in gt["blocks"]:
         assert max(iou(g, d) for d in detected) > 0.99
+
+
+def test_dashed_rules_take_a_dashed_underline_not_the_letters_above():
+    from mlws_ocr.layout.rulings import dashed_rules
+    b = np.zeros((120, 700), bool)
+    # a row of flat-topped capitals: 30 px tall, 14 px apart
+    for x in range(20, 660, 34):
+        b[20:50, x:x + 20] = True
+        b[22:48, x + 3:x + 17] = False          # hollow: strokes only
+    # a dashed underline 4 px under them: 10 on, 4 off, 3 px thick
+    for x in range(20, 660, 14):
+        b[54:57, x:x + 10] = True
+    got = dashed_rules(b, 150, 300.0, 12, 5)
+    assert got[54:57].sum() >= 0.9 * b[54:57].sum()
+    assert not got[:52].any()                    # the letters' tops and bottoms stay
+
+
+def test_dashed_rules_off_by_default():
+    from mlws_ocr.layout.rulings import MorphologicalRulings
+    b = np.zeros((60, 700), bool)
+    for x in range(20, 660, 14):
+        b[30:33, x:x + 10] = True
+    page = Page(gray=(~b).astype(np.float32), binary=b, dpi=300.0, meta={})
+    assert MorphologicalRulings().run(page)[0].binary.sum() == b.sum()
+    assert MorphologicalRulings(dash_gap_300dpi=12).run(page)[0].binary.sum() == 0
