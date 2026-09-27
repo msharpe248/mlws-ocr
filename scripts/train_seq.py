@@ -48,6 +48,7 @@ class Windows:
         self.offsets = d["offsets"]
         self.labels = [str(l) for l in d["labels"]]
         self.kind = kind
+        self.path = str(path)
         self.pages = [str(p) for p in d["pages"]] if "pages" in d else [""] * len(self.labels)
         if kind == "real":
             self.hard = np.array([len(str(a)) != len(b) for a, b in zip(d["decoded"], self.labels)])
@@ -152,6 +153,15 @@ def main():
                          "& F. Davoine, 'Explicit inductive bias for transfer learning with convolutional "
                          "networks', ICML 2018) -- a new domain is learned while what the init read well "
                          "is kept; needs --init")
+    ap.add_argument("--distill", type=float, default=0.0,
+                    help="torch only: Learning without Forgetting (Z. Li & D. Hoiem, ECCV 2016) -- add this "
+                         "weight x the KL divergence from the --init network's per-frame character "
+                         "distribution (temperature --distill-temp) to the student's, so the fine-tune keeps "
+                         "the init's BEHAVIOUR (case, l/I, typescript) on every line it is not meant to change")
+    ap.add_argument("--distill-temp", type=float, default=2.0)
+    ap.add_argument("--distill-skip", nargs="*", default=[],
+                    help="substrings of line-file paths whose lines are NOT distilled: the domain being "
+                         "taught, where the init's readings are what is to change (e.g. sroie_box funsd_box)")
     args = ap.parse_args()
     rng = np.random.default_rng(args.seed)
 
@@ -223,7 +233,16 @@ def main():
                 lp = module(x, torch.from_numpy(lengths)).cpu().numpy()
             return [lp[k, :lengths[k]] for k in range(len(strips))]
 
-        def train_step(X, lengths, labels, lr):
+        teacher = None
+        if args.distill > 0:
+            assert args.init, "--distill needs --init"
+            teacher = SeqNetTorch.from_numpy(SeqNet.load(args.init)).to(device).eval()
+            for q in teacher.parameters():
+                q.requires_grad_(False)
+            print(f"distilling from {args.init}: weight {args.distill}, T {args.distill_temp}, "
+                  f"skipping {args.distill_skip}")
+
+        def train_step(X, lengths, labels, lr, keep=None):
             module.train()
             for g in opt.param_groups:
                 g["lr"] = lr
@@ -234,6 +253,16 @@ def main():
             loss = ctc(lp.permute(1, 0, 2).log_softmax(2).cpu() if device.type == "mps"
                        else lp.permute(1, 0, 2),
                        targets, torch.from_numpy(lengths), tlen)
+            if teacher is not None and keep is not None and keep.any():
+                T = args.distill_temp
+                with torch.no_grad():
+                    lt = teacher(x, torch.from_numpy(lengths))
+                pt = torch.softmax(lt.log_softmax(2) / T, 2)
+                ls_ = torch.log_softmax(lp.log_softmax(2) / T, 2)
+                kl = (pt * (torch.log(pt.clamp_min(1e-8)) - ls_)).sum(2)          # (N, T)
+                frames = torch.arange(kl.shape[1], device=kl.device)[None, :] < torch.from_numpy(lengths).to(kl.device)[:, None]
+                frames = frames & torch.from_numpy(keep).to(kl.device)[:, None]
+                loss = loss + args.distill * T * T * (kl * frames).sum() / frames.sum().clamp_min(1)
             if anchor is not None:
                 loss = loss + args.l2sp * sum(((q - a) ** 2).sum() for q, a in zip(module.parameters(), anchor))
             opt.zero_grad(); loss.backward()
@@ -272,7 +301,7 @@ def main():
         def scorer(strips):
             return net.log_probs(strips)
 
-        def train_step(X, lengths, labels, lr):
+        def train_step(X, lengths, labels, lr, keep=None):
             loss, grads = net.loss_and_grads(X.astype(net.dtype), lengths, labels)
             net.adam_step(grads, lr)
             return loss
@@ -287,7 +316,9 @@ def main():
         losses, t_ep = [], time.time()
         for k, b in enumerate(batches):
             X, lengths, labels = collate(b, net)
-            losses.append(train_step(X, lengths, labels, lr))
+            keep = (np.array([not any(sk in ds.path for sk in args.distill_skip) for ds, _ in b])
+                    if args.distill > 0 else None)
+            losses.append(train_step(X, lengths, labels, lr, keep))
             ema_update()
             if args.smoke and (k + 1) % 10 == 0:
                 print(f"  step {k + 1}/{len(batches)}  loss {np.mean(losses[-10:]):.3f}  "
