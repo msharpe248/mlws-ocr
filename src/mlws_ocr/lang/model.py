@@ -61,6 +61,9 @@ class CharBigram:
         return sum(self.score(a, b) for a, b in zip(seq, seq[1:]))
 
 
+CLITICS = ("ll", "re", "ve", "d", "m", "s")
+
+
 class CorpusModel:
     """Trigram char model + frequency-weighted lexicon from a real corpus.
 
@@ -92,9 +95,32 @@ class CorpusModel:
             return self._floor
         return float(self.trigram[i, j, k])
 
+    contractions = False   # set per decode (decode.lm_contractions)
+
     def frequency(self, word: str) -> float:
-        """log unigram probability; a large negative floor if unseen."""
-        return self.word_logf.get(word.lower(), -18.0)
+        """log unigram probability; a large negative floor if unseen.
+
+        With ``contractions`` an unseen word that is a known stem plus an
+        English clitic ('ll 're 've 'd 'm 's, and n't) takes the stem's
+        frequency less two nats: the corpus lexicon lacks "we'll",
+        "you'll", "we're", "I'm", "they've" while "well" and "were" are
+        frequent, so the decoder dropped the apostrophe for a dictionary
+        word ("We'll" -> "Well", 2026-09-27)."""
+        w = word.lower()
+        f = self.word_logf.get(w)
+        if f is not None:
+            return f
+        if self.contractions and "'" in w:
+            if w.endswith("n't") and len(w) > 4:
+                stem = w[:-3]
+            else:
+                stem, _, clitic = w.rpartition("'")
+                if clitic not in CLITICS:
+                    return -18.0
+            fs = self.word_logf.get(stem)
+            if fs is not None and "'" not in stem:
+                return fs - 2.0
+        return -18.0
 
     def endorsed(self, word: str) -> bool:
         """Is this a word the lexicon vouches for as a split part?

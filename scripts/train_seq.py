@@ -233,10 +233,17 @@ def main():
                 lp = module(x, torch.from_numpy(lengths)).cpu().numpy()
             return [lp[k, :lengths[k]] for k in range(len(strips))]
 
-        teacher = None
+        teacher, teacher_chars = None, set()
         if args.distill > 0:
             assert args.init, "--distill needs --init"
-            teacher = SeqNetTorch.from_numpy(SeqNet.load(args.init)).to(device).eval()
+            t_net = SeqNet.load(args.init)
+            teacher_chars = set(t_net.classes)
+            if t_net.classes != classes:
+                # a widened alphabet: the teacher keeps its rows by name, the new
+                # classes enter rare, and a line that NEEDS a new class is not
+                # distilled (the teacher can only say '?' there)
+                t_net = t_net.with_classes(classes, seed=args.seed)
+            teacher = SeqNetTorch.from_numpy(t_net).to(device).eval()
             for q in teacher.parameters():
                 q.requires_grad_(False)
             print(f"distilling from {args.init}: weight {args.distill}, T {args.distill_temp}, "
@@ -316,7 +323,8 @@ def main():
         losses, t_ep = [], time.time()
         for k, b in enumerate(batches):
             X, lengths, labels = collate(b, net)
-            keep = (np.array([not any(sk in ds.path for sk in args.distill_skip) for ds, _ in b])
+            keep = (np.array([not any(sk in ds.path for sk in args.distill_skip)
+                              and set(ds.labels[i]) <= teacher_chars for ds, i in b])
                     if args.distill > 0 else None)
             losses.append(train_step(X, lengths, labels, lr, keep))
             ema_update()

@@ -322,7 +322,10 @@ def numeric_token(rng: np.random.Generator) -> str:
     ``decode/formats.py`` endorses, so the model has seen digits in the
     contexts real documents put them in."""
     d = lambda n: "".join(str(rng.integers(0, 10)) for _ in range(n))  # noqa: E731
-    kind = rng.integers(0, 10 if "@" in CHARSET else 8)
+    syms = [c for c in "*=+[_`" if c in CHARSET]    # extra classes (MLWS_EXTRA_CLASSES)
+    kind = rng.integers(0, (10 if "@" in CHARSET else 8) + len(syms))
+    if kind >= (10 if "@" in CHARSET else 8):
+        return str(symbol_token(rng, syms[int(kind) - (10 if "@" in CHARSET else 8)], d))
     if kind >= 8:
         # only when '@' is a class (MLWS_EXTRA_CLASSES): the receipt's
         # '2 @ 2.72' and an address 'name@example.com'
@@ -345,6 +348,27 @@ def numeric_token(rng: np.random.Generator) -> str:
     if kind == 6:
         return f"{d(rng.integers(1, 4))}.{d(2)}"
     return d(rng.integers(1, 7))
+
+
+def symbol_token(rng: np.random.Generator, sym: str, d) -> str:
+    """A token carrying one of the rarer symbols, in the shapes documents
+    use it (2026-09-27, when they became reader classes): bullets and
+    footnote stars, equations and ratings, phone and plus signs, brackets
+    and citations, fill-in rules, and the typewriter's opening quote."""
+    w = "".join(string.ascii_lowercase[rng.integers(0, 26)] for _ in range(rng.integers(2, 7)))
+    if sym == "*":
+        return rng.choice([f"*{w}", f"{w}*", "*", f"{d(1)} * {d(1)}", "***"])
+    if sym == "=":
+        return rng.choice([f"{w} = {d(rng.integers(1, 4))}", "=", f"{d(1)}={d(2)}", "===="])
+    if sym == "+":
+        return rng.choice([f"+{d(1)}", f"{d(2)}+", f"{d(1)} + {d(1)}", f"{w}+"])
+    if sym == "[":
+        return rng.choice([f"[{d(rng.integers(1, 3))}]", f"[{w}]", "[sic]", f"[{w}"]) if "]" in CHARSET else f"[{w}"
+    if sym == "_":
+        return rng.choice(["_" * int(rng.integers(3, 12)), f"{w}_{w}", f"{d(2)}_"])
+    if sym == "`":
+        return rng.choice([f"``{w}", f"`{w}'", "``"])
+    return sym
 
 
 def sample_words(rng: np.random.Generator, words, probs, n: int,

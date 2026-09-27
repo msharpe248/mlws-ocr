@@ -204,6 +204,8 @@ class BeamDecode(SeqTerms, Stage):
                                    # 90.2 (classic); modern +0.3 / +1.0; dev-8
                                    # +0.1 / +0.9; broad-30 flat / +0.1
         "line_case_ratio": 1.25,   # ...with lowercase only: upper above this x x-height
+        "lm_contractions": False,  # the lexicon endorses stem + clitic ('ll 're 've
+                                   # 'd 'm 's n't) when the stem is a word (lang/model.py)
         "sentence_case_seq_veto": False,  # the sentence-case pass leaves a word the
                                    # scorer read exactly (case and all) alone
                                    # (postpass._sentence_case_pass, 2026-09-27)
@@ -531,6 +533,9 @@ class BeamDecode(SeqTerms, Stage):
             lm = GruLM(self._load_gru(str(gru_path)), lm)
         self._seq_scorer = (self._load_seq(p["seq_path"], p["seq_backend"])
                             if p["seq_path"] else None)
+        corpus = lm if isinstance(lm, CorpusModel) else getattr(lm, "_lex", None)
+        if isinstance(corpus, CorpusModel):
+            corpus.contractions = bool(p["lm_contractions"])
         self._lm_endorsed = lm.endorsed
         self._lm = lm
         self._doc_words = (self._collect_doc_words(layout, lm, p)
