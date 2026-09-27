@@ -24,6 +24,24 @@ def _profile_variance(ink: np.ndarray, angle: float) -> float:
     return float(rotated.sum(axis=1).var())
 
 
+def text_sized(ink: np.ndarray, max_frac: float) -> np.ndarray:
+    """The ink of components no taller than ``max_frac`` of the mask's height
+    and no wider than ten times their height: glyphs and words, not photos
+    or rules -- the objects Baird's skew estimator votes with (H. S. Baird,
+    "The skew angle of printed documents", SPSE 1987).  Falls back to all
+    the ink when too little is left to estimate from."""
+    lab, n = ndimage.label(ink > 0)
+    if not n:
+        return ink
+    keep = np.zeros(n + 1, bool)
+    lim = max_frac * ink.shape[0]
+    for i, sl in enumerate(ndimage.find_objects(lab), 1):
+        h, w = sl[0].stop - sl[0].start, sl[1].stop - sl[1].start
+        keep[i] = h <= lim and w <= 10 * h
+    out = keep[lab].astype(np.float32)
+    return out if out.sum() >= 0.05 * ink.sum() else ink
+
+
 class _InkProjector:
     """The same profile variance without rotating any image: rotate the
     ink pixels' COORDINATES and histogram their row (Postl 1986, projection
@@ -61,6 +79,15 @@ class ProjectionDeskew(Stage):
         "coarse_step": 0.5,    # degrees, first pass
         "fine_step": 0.05,     # degrees, refinement around the coarse winner
         "working_width": 1200, # px; the search runs on a downsampled mask
+        "text_ink": False,     # estimate from glyph-sized components only: a photograph's
+                               # dark mass can own the profile's variance and win at the
+                               # search limit (magazine 8049: a straight page estimated
+                               # -5.0 deg and rotated into its own text lines, 2026-09-27).
+                               # "limit": only re-estimate so when the estimate lands on
+                               # the search limit -- the sign that it has no real peak --
+                               # and leave the page unrotated if it lands there again
+        "text_max_frac": 0.025,  # a component taller than this share of the page height
+                                 # (a photo, a rule, a display letter) is left out
         "angle_deg": None,     # a manual correction (degrees, + = counter-clockwise) that
                                # replaces the estimate; the estimate is still computed and
                                # reported. None = use the estimate. Set by the workbench.
@@ -74,17 +101,22 @@ class ProjectionDeskew(Stage):
         scale = min(1.0, p["working_width"] / gray.shape[1])
         small = ndimage.zoom(gray, scale, order=1) if scale < 1.0 else gray
         ink = (small < threshold_otsu(small)).astype(np.float32)
-
-        proj = _InkProjector(ink)
-        coarse = np.arange(-p["max_angle"], p["max_angle"] + 1e-9, p["coarse_step"])
-        coarse_scores = [proj.variance(a) for a in coarse]
-        best = coarse[int(np.argmax(coarse_scores))]
-
-        fine = np.arange(max(best - p["coarse_step"], -p["max_angle"]),
-                         min(best + p["coarse_step"], p["max_angle"]) + 1e-9,
-                         p["fine_step"])   # the refinement stays inside max_angle
-        fine_scores = [proj.variance(a) for a in fine]
-        estimate = float(fine[int(np.argmax(fine_scores))])
+        mode = p["text_ink"]
+        if mode is True or mode == "always":
+            ink = text_sized(ink, float(p["text_max_frac"]))
+        estimate, coarse, coarse_scores = self._search(ink, p)
+        refit = False
+        at_limit = lambda a: abs(a) >= p["max_angle"] - p["fine_step"] / 2   # noqa: E731
+        no_peak = False
+        if mode == "limit" and at_limit(estimate):
+            estimate, coarse, coarse_scores = self._search(text_sized(ink, float(p["text_max_frac"])), p)
+            refit = True
+            if at_limit(estimate):
+                # still no peak inside the search: photo texture (dotted fabric, halftone
+                # grain) survives the size filter on some pages (magazine 8023, 8058, both
+                # straight). A scan skewed past the limit is rarer than a fooled estimate,
+                # so the page is left as it is.
+                estimate, no_peak = 0.0, True
         correction = estimate if p["angle_deg"] is None else float(p["angle_deg"])
 
         corrected = ndimage.rotate(gray, correction, reshape=False, order=1,
@@ -102,9 +134,23 @@ class ProjectionDeskew(Stage):
             },
             scalars={"correction_deg": round(correction, 3),
                      "estimated_skew_deg": round(-estimate, 3),
-                     "manual": p["angle_deg"] is not None},
+                     "manual": p["angle_deg"] is not None,
+                     **({"text_refit": True} if refit else {}),
+                     **({"no_peak": True} if no_peak else {})},
         )
         return out, debug
+
+    @staticmethod
+    def _search(ink, p):
+        proj = _InkProjector(ink)
+        coarse = np.arange(-p["max_angle"], p["max_angle"] + 1e-9, p["coarse_step"])
+        coarse_scores = [proj.variance(a) for a in coarse]
+        best = coarse[int(np.argmax(coarse_scores))]
+        fine = np.arange(max(best - p["coarse_step"], -p["max_angle"]),
+                         min(best + p["coarse_step"], p["max_angle"]) + 1e-9,
+                         p["fine_step"])   # the refinement stays inside max_angle
+        fine_scores = [proj.variance(a) for a in fine]
+        return float(fine[int(np.argmax(fine_scores))]), coarse, coarse_scores
 
 
 @register

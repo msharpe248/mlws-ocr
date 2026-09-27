@@ -30,3 +30,32 @@ def test_hough_manual_angle_on_an_empty_page():
     page = Page(gray=np.ones((200, 300), np.float32), dpi=300.0)
     out, dbg = HoughDeskew(angle_deg=1.5).run(page)
     assert out.meta["corrections"]["deskew_deg"] == pytest.approx(1.5) and dbg.scalars["manual"]
+
+
+def test_text_sized_drops_photo_sized_components():
+    import numpy as np
+    from mlws_ocr.cleanup.deskew import text_sized
+    ink = np.zeros((400, 400), np.float32)
+    for y in range(20, 90, 14):                            # five lines of glyphs
+        for x in range(10, 390, 12):
+            ink[y:y + 10, x:x + 8] = 1
+    ink[100:300, 100:300] = 1                              # a photograph
+    ink[380:384, 0:400] = 1                                # a rule, too wide for its height
+    out = text_sized(ink, 0.025)
+    assert out[48:58, 22:30].all() and not out[100:300, 100:300].any() and not out[380:384].any()
+
+
+def test_limit_mode_leaves_a_page_with_no_real_peak_unrotated():
+    import numpy as np
+    from mlws_ocr.cleanup.deskew import ProjectionDeskew
+    from mlws_ocr.core.artifacts import Page
+    gray = np.ones((800, 800), np.float32)
+    ys = np.arange(800)
+    for x in range(800):                                   # one broad band sloping at 5 degrees
+        y0 = int(300 + x * np.tan(np.deg2rad(5)))
+        gray[y0:y0 + 120, x] = 0.0
+    page = Page(gray=gray, dpi=300.0)
+    plain = ProjectionDeskew().run(page)[1].scalars
+    limit = ProjectionDeskew(text_ink="limit").run(page)[1].scalars
+    assert abs(plain["correction_deg"]) >= 4.9
+    assert limit["correction_deg"] == 0.0 and limit.get("no_peak")

@@ -306,6 +306,24 @@ function renderHead(s, k) {
     for (const name of Object.keys(presets)) ps.append(el("option", { value: name }, name));
     h.append(el("label", {}, "Preset ", ps));
   }
+  if (s.slot === "decode") {
+    // one-click line readers (docs/NETWORKS.md): set on BOTH decode passes (before and after
+    // adapt), later pass first, so the last request re-runs from the first pass
+    const gray = (n) => [`data/seq_line_${n}.npz`, `data/seq_line_${n}_2.npz`, `data/seq_line_${n}_3.npz`].join("+");
+    const readers = {
+      "v0.14.0 reader, grey (default)": { line_model_path: gray("gray7_en"), line_source: "gray" },
+      "v0.13.0 reader, grey": { line_model_path: gray("gray_en"), line_source: "gray" },
+      "v0.12.0 reader, binary": { line_model_path: gray("en"), line_source: "binary" },
+    };
+    const rs = el("select", { title: "line reader presets", onchange: async (e) => {
+      const params = readers[e.target.value]; if (!params) return;
+      const idx = S.st.stages.filter((t) => t.slot === "decode").map((t) => t.index).sort((a, b) => b - a);
+      for (const i of idx) await api(`/api/stage/${i}`, { params });
+      S.imgName = null; await poll(true); } });
+    rs.append(el("option", { value: "" }, "choose a reader…"));
+    for (const name of Object.keys(readers)) rs.append(el("option", { value: name }, name));
+    h.append(el("label", {}, "Reader ", rs));
+  }
   h.append(el("div", { class: "row" },
     el("button", { onclick: async () => { await api("/api/run", { from: k }); await poll(true); } }, "Re-run from here")));
   if (s.error) h.append(el("div", { class: "err" }, s.error));
