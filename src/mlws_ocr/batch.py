@@ -7,7 +7,8 @@ once -- the service's arrangement (``service.py``), used here for files.
 Inputs are image files, directories of them (not recursive unless
 ``--recursive``), and PDFs (every page, or ``--pdf-pages``). Each page
 writes ``<out>/<name>.txt`` and ``<name>.hocr`` (``<name>`` = the file stem,
-plus ``_p<N>`` for a PDF page), and a ``batch.json`` summary lists every
+plus ``_p<N>`` for a PDF page) -- with ``<name>.tables.html`` and
+``<name>.tables.json`` when the page has tables -- and a ``batch.json`` summary lists every
 page with its time, word count and mean word confidence.
 """
 from __future__ import annotations
@@ -51,6 +52,9 @@ def _read_one(path: str, pdf_page: int, name: str, out_dir: str, doc_type: str |
     out = Path(out_dir)
     (out / f"{name}.txt").write_text(res["text"])
     (out / f"{name}.hocr").write_text(res["hocr"])
+    if res.get("tables"):
+        (out / f"{name}.tables.html").write_text(res["tables_html"])
+        (out / f"{name}.tables.json").write_text(json.dumps(res["tables"], indent=1))
     conf = [w["p_correct"] for w in res["words"] if w.get("p_correct") is not None]
     return {"input": path, "pdf_page": pdf_page, "name": name, "words": len(res["words"]),
             "mean_p_correct": round(sum(conf) / len(conf), 3) if conf else None,

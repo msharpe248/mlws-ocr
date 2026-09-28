@@ -4,7 +4,9 @@
 
     POST /ocr            image bytes (PNG/TIFF/JPEG) or a PDF (?page=N) ->
                          {"text", "hocr", "words": [{text, box, p_correct}],
-                          "summary": {...}, "ms"}
+                          "tables": [{box, n_rows, n_cols, source, cells: [{row,
+                          col, rowspan, colspan, box, text, tables?}]}],
+                          "tables_html", "summary": {...}, "ms"}
     GET  /health         {"ok": true, "config", "workers"}
 
 Same standard-library server as the inspector (no framework dependency);
@@ -80,7 +82,8 @@ def read_gray(gray, dpi, doc_type: str | None = None, t0: float | None = None) -
              for ln in page.meta.get("layout", {}).get("lines", [])
              for w in ln.get("words", [])]
     return {"text": page.meta.get("text", ""), "hocr": page.meta.get("hocr", ""),
-            "words": words, "summary": summary,
+            "words": words, "tables": page.meta.get("tables", []),
+            "tables_html": page.meta.get("tables_html", ""), "summary": summary,
             "ms": round(1000 * (time.perf_counter() - t0))}
 
 

@@ -170,7 +170,7 @@ class XYCutBlocks(Stage):
             return [b for b in found if b[2] - b[0] >= p["min_block_px"]
                     and b[3] - b[1] >= p["min_block_px"]]
 
-        if doc_type == "block":
+        if doc_type in ("block", "table"):
             # The caller says the input IS one block (a paragraph or a table
             # handed in on its own).  A cropped paragraph read its lines out
             # of order when a whitespace river let a column cut split a few

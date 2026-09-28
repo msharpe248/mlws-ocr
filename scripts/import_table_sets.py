@@ -12,7 +12,11 @@ column header, and the words of the table with their boxes.  The structure
 becomes a grid (every row box crossed with every column box), a spanning
 cell merges the grid cells it covers, and each word joins the cell holding
 its centre.  Written per table: <name>.png (grey) and <name>.table.html,
-the same format scripts/make_table_set.py writes.
+the same format scripts/make_table_set.py writes.  The crops are rendered
+at 72 dpi (PDF points; a line of 8-pt text is 8 px tall) and the PNG says
+so: read them with the magnify stage's min_dpi on
+(--set magnify.min_dpi=150 --set magnify.max_scale=4.2), or the engine
+reads them as 300-dpi pages and recognises nothing.
 """
 from __future__ import annotations
 
@@ -92,7 +96,7 @@ def fintabnet(src: Path, names: list[str], out: Path) -> None:
         wj = src / "words" / f"{name}_words.json"
         if not (xml.exists() and img.exists() and wj.exists()):
             continue
-        Image.open(img).convert("L").save(out / f"{name}.png")
+        Image.open(img).convert("L").save(out / f"{name}.png", dpi=(72, 72))
         (out / f"{name}.table.html").write_text(table_html(boxes(xml), json.loads(wj.read_text())))
         n += 1
     print(f"{n} FinTabNet.c tables -> {out}")

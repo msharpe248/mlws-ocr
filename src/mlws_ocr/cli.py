@@ -27,9 +27,10 @@ def main(argv=None) -> int:
     p_run.add_argument("--pdf-page", type=int, default=0,
                        help="page number for PDF inputs (0-based)")
     p_run.add_argument("--doc-type", default=None,
-                       choices=["letter", "book", "legal", "form", "newspaper", "magazine", "block"],
+                       choices=["letter", "book", "legal", "form", "newspaper", "magazine", "block", "table"],
                        help="optional layout hint (never required); 'block' says the image "
-                            "is one block of text -- a paragraph or a table handed in alone")
+                            "is one block of text -- a paragraph or a table handed in alone; "
+                            "'table' that it is one table")
 
     p_b = sub.add_parser("batch", help="read many pages at once, one per worker process")
     p_b.add_argument("config", help="TOML run config (engine profile)")

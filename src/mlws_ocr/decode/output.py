@@ -11,6 +11,8 @@ from ..core.registry import register
 from ..core.stage import DebugBundle, Stage
 from .formats import numeric_endorsed
 from ..layout.rows import row_groups, rows_text
+from ..layout.wstables import whitespace_table
+from .tableio import table_records, tables_html
 
 _RE_DASHRUN = re.compile(r"-{3,}")
 
@@ -56,6 +58,12 @@ class TextOutput(Stage):
         "line_number_min": 6,            # this many short numerics in one
                                          # narrow x band, mostly ascending,
                                          # are a line-number column
+        "ws_table_doc_types": "",        # doc types whose page IS one table, read by
+                                         # whitespace when no ruled table was found
+                                         # (layout/wstables.py; "table" = a table
+                                         # image handed in alone; 2026-09-28)
+        "ws_phrase_gap": 0.8,            # ...words closer than this many line heights
+                                         # are one cell's phrase
         "drop_facing_page": False,       # the facing page's column caught at the scan's
                                          # edge is left out (_facing_page_lines)
         "facing_edge_frac": 0.012,       # a line within this share of the width of the edge
@@ -292,10 +300,26 @@ class TextOutput(Stage):
                 grid[r][c] = (grid[r][c] + " " + text).strip()
             tables_text.append(grid)
 
+        ws_types = [t for t in self.params["ws_table_doc_types"].split(",") if t]
+        if not layout.get("tables") and doc_type in ws_types:
+            words = [w for ln in layout["lines"] for w in ln.get("words", [])]
+            t = whitespace_table(words, self.params["ws_phrase_gap"])
+            if t is not None:
+                layout.setdefault("tables", []).append(t)
+                grid = [["" for _ in range(t["n_cols"])] for _ in range(t["n_rows"])]
+                for c in t["cells"]:
+                    grid[c["row"]][c["col"]] = c["text"]
+                tables_text.append(grid)
+
         out = page.evolve()
         out.meta["text"] = full
         out.meta["hocr"] = hocr_document(layout, page)
         out.meta["tables_text"] = tables_text
+        # the tables as data (JSON records, nested tables inside their
+        # cells) and as HTML with rowspan / colspan
+        recs = table_records(layout, tables_text)
+        out.meta["tables"] = recs
+        out.meta["tables_html"] = tables_html(recs)
         out.meta["suppressed_lines"] = suppressed
         confs = [w["confidence"] for l in layout["lines"]
                  for w in l.get("words", [])]
@@ -418,20 +442,45 @@ def hocr_document(layout: dict, page) -> str:
     for bi in range(len(blocks) + 1):
         for ti in table_at.get(bi, []):
             tl = [ln for ln in lines if in_table.get(id(ln)) == ti]
+            cells = tables[ti]["cells"]
+            # a line inside one cell goes there whole; a line crossing cell
+            # borders (a whitespace table's row, a ruled row whose line the
+            # lines stage did not split) is split by its words' centres
+            per_cell: dict[int, list] = {}
+            spill = []
+            for ln in tl:
+                home = next((k for k, c in enumerate(cells) if inside(ln, c["box"])
+                             and ln["box"][0] >= c["box"][0] - 4 and ln["box"][2] <= c["box"][2] + 4), None)
+                if home is not None:
+                    per_cell.setdefault(home, []).append(ln)
+                    continue
+                parts: dict[int, list] = {}
+                for wd in ln["words"]:
+                    k = next((k for k, c in enumerate(cells) if inside(wd, c["box"])), None)
+                    if k is None:
+                        spill.append(wd)
+                    else:
+                        parts.setdefault(k, []).append(wd)
+                for k, wds in parts.items():
+                    per_cell.setdefault(k, []).append(dict(ln, words=wds, box=union([{"box": w["box"]} for w in wds])))
             out.append(f'<table class="ocr_table" id="table_1_{ti + 1}" title="bbox {bb(table_boxes[ti])}"><tbody>')
             rows: dict[int, list] = {}
-            for c in tables[ti]["cells"]:
-                rows.setdefault(c["row"], []).append(c)
+            for k, c in enumerate(cells):
+                rows.setdefault(c["row"], []).append((k, c))
             for r in sorted(rows):
                 out.append("<tr>")
-                for c in sorted(rows[r], key=lambda c: c["col"]):
-                    out.append(f'<td title="bbox {bb(c["box"])}">')
-                    for ln in tl:
-                        if inside(ln, c["box"]):
-                            emit_line(ln)
+                for k, c in sorted(rows[r], key=lambda kc: kc[1]["col"]):
+                    span = (f' rowspan="{c["rowspan"]}"' if c.get("rowspan", 1) > 1 else "") + \
+                           (f' colspan="{c["colspan"]}"' if c.get("colspan", 1) > 1 else "")
+                    out.append(f'<td{span} title="bbox {bb(c["box"])}">')
+                    for ln in sorted(per_cell.get(k, []), key=lambda l: l["box"][1]):
+                        emit_line(ln)
                     out.append("</td>")
                 out.append("</tr>")
             out.append("</tbody></table>")
+            if spill:          # words in no cell: kept, after the table
+                sl = {"box": union([{"box": w["box"]} for w in spill]), "words": spill}
+                emit_area(sl["box"], [sl])
         if bi < len(blocks) and by_block.get(bi):
             emit_area(blocks[bi], by_block[bi])
     if orphans:

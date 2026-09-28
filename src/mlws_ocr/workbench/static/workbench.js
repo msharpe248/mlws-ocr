@@ -200,7 +200,8 @@ async function showResult() {
   const seg = el("span", { class: "seg" },
     el("button", { class: S.resultMode === "text" ? "on" : "", onclick: () => { S.resultMode = "text"; showResult(); } }, "Text"),
     el("button", { class: S.resultMode === "hocr" ? "on" : "", onclick: () => { S.resultMode = "hocr"; showResult(); } }, "hOCR"),
-    el("button", { class: S.resultMode === "render" ? "on" : "", onclick: () => { S.resultMode = "render"; showResult(); } }, "Rendered"));
+    el("button", { class: S.resultMode === "render" ? "on" : "", onclick: () => { S.resultMode = "render"; showResult(); } }, "Rendered"),
+    el("button", { class: S.resultMode === "tables" ? "on" : "", onclick: () => { S.resultMode = "tables"; showResult(); } }, "Tables"));
   // the render-only checkboxes are null in the other modes: the DOM's own append
   // would print each null as the text "null", so they are filtered out
   tb.append(...[seg, el("span", { class: "sep" }),
@@ -210,13 +211,15 @@ async function showResult() {
       onchange: (e) => { S.renderBoxes = e.target.checked; showResult(); } }), "structure") : null,
     S.resultMode === "render" ? el("label", {}, el("input", { type: "checkbox", ...(S.renderSide ? { checked: "" } : {}),
       onchange: (e) => { S.renderSide = e.target.checked; showResult(); } }), "side by side") : null,
-    el("button", { onclick: async () => { await navigator.clipboard.writeText(S.resultMode === "text" ? R.text : R.hocr); status("copied"); } }, "Copy"),
-    el("button", { onclick: () => { window.location = "/api/export/" + (S.resultMode === "text" ? "text" : "hocr"); } },
-      S.resultMode === "text" ? "Download .txt" : "Download .hocr")].filter((x) => x != null));
+    el("button", { onclick: async () => { await navigator.clipboard.writeText(S.resultMode === "text" ? R.text : S.resultMode === "tables" ? R.tables_html : R.hocr); status("copied"); } }, "Copy"),
+    el("button", { onclick: () => { window.location = "/api/export/" + (S.resultMode === "text" ? "text" : S.resultMode === "tables" ? "tables" : "hocr"); } },
+      S.resultMode === "text" ? "Download .txt" : S.resultMode === "tables" ? "Download tables .html" : "Download .hocr")].filter((x) => x != null));
   // side panel: a summary of the page
   $("stageHead").innerHTML = ""; $("tools").innerHTML = ""; $("params").innerHTML = "";
   $("stageHead").append(el("h2", {}, "Result"), el("div", {}, S.resultMode === "text"
     ? "The page's text, as the output stage wrote it (reading order, table rows aligned)."
+    : S.resultMode === "tables"
+    ? "The page's tables as structure: rows, columns and spanned cells (rowspan / colspan), a table found inside another's cell shown inside it. Ruled tables come from the rules; a table defined by whitespace alone is read when the page is declared a table."
     : S.resultMode === "hocr"
     ? "hOCR: the page's structure — blocks in reading order, lines, words with boxes and confidence, tables, images, rulings."
     : "The page redrawn from the hOCR file alone: every word at its box, blocks numbered in reading order, tables, images and rulings. Red words are low-confidence, green ones were corrected; hover for the confidence."
@@ -229,7 +232,15 @@ async function showResult() {
                         ["corrected by the dictionary pass", sm.corrected_words], ["corrected by hand", sm.edited_words]])
     t.append(el("tr", {}, el("td", {}, k), el("td", {}, v == null ? "—" : String(v))));
   $("scalars").innerHTML = ""; $("scalars").append(t);
-  $("resultRender").hidden = S.resultMode !== "render"; pre.hidden = S.resultMode === "render";
+  $("resultRender").hidden = S.resultMode !== "render" && S.resultMode !== "tables";
+  pre.hidden = S.resultMode === "render" || S.resultMode === "tables";
+  if (S.resultMode === "tables") {
+    const box = $("resultRender"); box.innerHTML = "";
+    const v = el("div", { class: "tablesView" });
+    // the server's HTML: its cell text is escaped (decode/tableio.py)
+    v.innerHTML = R.tables_html || "<p>No tables found on this page.</p>";
+    box.append(v); return;
+  }
   if (S.resultMode === "text") { pre.className = ""; pre.textContent = R.text; return; }
   if (S.resultMode === "render") { renderHocr(R.hocr); return; }
   pre.className = "hocr"; pre.innerHTML = "";

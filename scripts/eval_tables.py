@@ -215,6 +215,7 @@ def main():
     ap.add_argument("root", type=Path)
     ap.add_argument("--pages", type=int, default=20)
     ap.add_argument("--seed", type=int, default=1)
+    ap.add_argument("--doc-type", default=None, help="layout hint for every page ('table': each image is one table)")
     ap.add_argument("--dump", type=Path, default=None, help="write each page's predicted table HTML here")
     add_pipeline_args(ap)
     args = ap.parse_args()
@@ -229,7 +230,8 @@ def main():
         stem = tp.name[: -len(".table.html")]
         img = tp.with_name(stem + ".png")
         gray, dpi = load_gray(img)
-        page = run_stages(Page(gray=gray, dpi=dpi or 300.0, meta={}), pipeline, overrides)
+        page = run_stages(Page(gray=gray, dpi=dpi or 300.0,
+                                    meta={"doc_type": args.doc_type} if args.doc_type else {}), pipeline, overrides)
         pred = engine_table_html(page)
         truth = tp.read_text()
         s, st = teds(pred, truth), teds(pred, truth, structure_only=True)

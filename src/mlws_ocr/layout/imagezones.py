@@ -34,6 +34,28 @@ from ..core.registry import register
 from ..core.stage import DebugBundle, Stage
 
 
+def is_grid(comp: np.ndarray, scale: float, min_frac: float, max_fill: float = 0.30) -> bool:
+    """Is a component a ruled grid?  The share of its pixels lying on
+    horizontal or vertical runs at least 150 px (at 300 dpi) or a third of
+    its extent long, a run allowed to step one pixel across (a thin rule
+    left a fraction of a degree off square by deskew steps a row every
+    ~200 px: 35% of a payroll form's grid on unbroken runs, 81% with the
+    step allowed, measured).  A table's frame and rules are nearly all such
+    runs, and it fills little of its box; a photograph, a drawing or a logo
+    is neither (a solid block is all runs, hence the fill limit)."""
+    from .rulings import open_with_line
+    h, w = comp.shape
+    ink = comp.sum()
+    if ink == 0 or ink / comp.size >= max_fill:
+        return False
+    t = max(1, int(round(scale)))
+    L_h = int(max(20, min(150 * scale, w / 3)))
+    L_v = int(max(20, min(150 * scale, h / 3)))
+    on = open_with_line(ndimage.binary_dilation(comp, np.ones((2 * t + 1, 1), bool)), L_h, 1) \
+        | open_with_line(ndimage.binary_dilation(comp, np.ones((1, 2 * t + 1), bool)), L_v, 0)
+    return float((on & comp).sum()) / float(ink) >= min_frac
+
+
 def text_rows(labels: np.ndarray, slices, zone: np.ndarray, min_chars: int = 5) -> np.ndarray:
     """The pixels of glyph-sized components that chain into TEXT ROWS and
     touch a zone: each glyph linked to its nearest right neighbour when the
@@ -172,6 +194,12 @@ class DensityImageZones(Stage):
                                   # photos were swallowed by the density
                                   # window and the inside-the-box rule)
         "row_min_chars": 5,       # a text row: at least this many glyphs
+        "keep_grids": False,      # a giant component whose ink lies mostly on long
+                                  # straight horizontal and vertical runs is a RULED
+                                  # TABLE, not line art: left to the rulings stage
+                                  # (2026-09-28: a payroll form's grid was taken for a
+                                  # picture, 47.7% of the page's ink, and no table found)
+        "grid_run_frac": 0.6,     # ...at least this share of its pixels on such runs
     }
 
     def run(self, page: Page) -> tuple[Page, DebugBundle]:
@@ -204,6 +232,8 @@ class DensityImageZones(Stage):
                 w = sl[1].stop - sl[1].start
                 dims.append(max(h, w))
                 if max(h, w) > p["max_aspect"] * max(1, min(h, w)):
+                    continue
+                if p["keep_grids"] and is_grid(labels[sl] == lab, scale, p["grid_run_frac"], p["min_blob_fill"]):
                     continue
                 if h * w >= p["min_blob_frac"] * page_area \
                         and areas[lab] / (h * w) >= p["min_blob_fill"]:

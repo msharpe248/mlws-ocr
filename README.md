@@ -158,7 +158,7 @@ python3 -m venv .venv && .venv/bin/pip install -e ".[dev]"
 ```
 
 `--doc-type` is an optional layout hint (`letter`, `legal`, `book`,
-`form`, `newspaper`, `magazine`, `block`); the engine never requires it.
+`form`, `newspaper`, `magazine`, `block`, `table`); the engine never requires it.
 Every run writes `text.txt` and `page.hocr` — hOCR with the page's
 structure (blocks in reading order, lines, words with boxes and a
 calibrated probability each, tables, image zones, rulings) — beside the
@@ -169,6 +169,21 @@ reads about N pages at once (`scripts/service_load.py` is its load test).
 UNLV letters take 185 s on one worker and 29 s on thirteen (33 pages a
 minute on a 14-core laptop), with text, hOCR and a `batch.json` summary
 per run.
+
+**Tables.** A page's tables come out as structure, not only as text:
+`tables.json` (each table's rows, columns and cells with rowspan, colspan,
+box and text; a table inside another's cell nested under that cell),
+`tables.html` (the same as `<table>` markup) and `ocr_table` in the hOCR.
+Ruled tables are found from their rules; payroll forms, statements and
+other ruled grids with spanned headers want two options,
+`--set imagezones.keep_grids=true --set tables.spans=true` (a ruled grid
+is otherwise taken for a picture, and every cell is 1 × 1). A table set
+by whitespace alone -- a financial statement, an earnings block -- is
+read when the image is one table: `--doc-type table --set
+output.ws_table_doc_types=table`. Measured by TEDS against HTML truth
+(`scripts/eval_tables.py`): generated payroll forms 0.003 → 0.668, real
+annual-report tables (FinTabNet) 0.032 → 0.698. All three are options,
+off by default, while their effect on other pages is measured.
 
 Training the sequence models is faster with the optional extra
 (`pip install -e ".[train]"`, torch on the machine's own GPU); the numpy
@@ -195,7 +210,8 @@ session and re-applied on every re-run:
 - **post-processing** — the learned-dictionary pass's corrections, each
   clickable on the page, and its on/off switch.
 
-The last tab is the **result**: the extracted text, the hOCR source, or
+The last tab is the **result**: the extracted text, the hOCR source, the
+tables (rows, columns and spanned cells), or
 the page **rendered from the hOCR file alone** — every word at its box,
 blocks numbered in reading order, tables, images and rulings, low-
 confidence words in red and corrected ones in green, optionally over a

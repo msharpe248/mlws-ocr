@@ -97,6 +97,10 @@ dialog .dlghead { display: flex; justify-content: space-between; align-items: ce
 #tools .corr s { color: var(--bad); } #tools .corr b { color: var(--ok); }
 
 #resultRender { padding: 16px; background: #8a8a86; min-height: 100%; }
+.tablesView { background: #fff; color: #111; padding: 12px; overflow: auto; }
+.tablesView table { border-collapse: collapse; margin: 0 0 16px; font: 12px Helvetica, Arial, sans-serif; }
+.tablesView td { border: 1px solid #999; padding: 2px 6px; vertical-align: top; }
+.tablesView td table { margin: 4px 0; }
 .hpage { position: relative; margin: 0 auto; background: #fff; box-shadow: 0 1px 6px rgba(0,0,0,.35); overflow: hidden; color: #111; }
 .hscan { position: absolute; inset: 0; width: 100%; height: 100%; opacity: .28; pointer-events: none; }
 .hword { position: absolute; white-space: nowrap; transform-origin: 0 50%; font-family: Helvetica, Arial, sans-serif; cursor: default; }

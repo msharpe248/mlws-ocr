@@ -19,7 +19,7 @@ Standard library only, like the run inspector (``inspector/server.py``): a
     GET  /api/layout/<k>         the layout after stage k (blocks, lines, words, ...) + text
     POST /api/save  {path}       the session file (.mlws.json)
     POST /api/load  {path}
-    GET  /api/export/<kind>      text | hocr | json | png | toml, as a download
+    GET  /api/export/<kind>      text | hocr | tables | json | png | toml, as a download
     (the read-only run inspector stays at `mlws-ocr inspect`)
 """
 from __future__ import annotations
@@ -258,6 +258,7 @@ def make_handler(wb: Workbench):
             conf = [c for c in conf if c is not None]
             return self._json({
                 "ready": True, "text": final.meta.get("text", ""), "hocr": final.meta.get("hocr", ""),
+                "tables_html": final.meta.get("tables_html", ""),
                 "summary": {"words": len(words), "lines": sum(1 for ln in final.meta.get("layout", {}).get("lines", [])
                                                                if ln.get("words")),
                             "mean_confidence": round(sum(conf) / len(conf), 3) if conf else None,
@@ -285,6 +286,9 @@ def make_handler(wb: Workbench):
             if kind == "hocr":
                 return self._send(200, (final.meta.get("hocr") or "").encode(), "text/html; charset=utf-8",
                                   {"Content-Disposition": f'attachment; filename="{stem}.hocr"'})
+            if kind == "tables":
+                return self._send(200, (final.meta.get("tables_html") or "").encode(), "text/html; charset=utf-8",
+                                  {"Content-Disposition": f'attachment; filename="{stem}.tables.html"'})
             if kind == "json":
                 body = json.dumps(_jsonable({"dpi": final.dpi, "meta": final.meta}), indent=1, default=str).encode()
                 return self._send(200, body, "application/json",
