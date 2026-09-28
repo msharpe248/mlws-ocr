@@ -102,6 +102,8 @@ dialog .dlghead { display: flex; justify-content: space-between; align-items: ce
 .tablesView td { border: 1px solid #999; padding: 2px 6px; vertical-align: top; }
 .tablesView td table { margin: 4px 0; }
 .tablesView td.span { background: rgba(15,159,176,.10); }
+.tablesView td.check-ok { box-shadow: inset 3px 0 0 #1b8a4b; }
+.tablesView td.check-fail { background: rgba(197,48,48,.16); box-shadow: inset 3px 0 0 #c53030; }
 .tablesView td.on, .tcell.on { background: rgba(36,99,235,.28) !important; outline: 2px solid #2463eb; }
 .tbar { background: #fff; color: #111; padding: 8px 12px; margin-bottom: 12px; border-radius: 4px; }
 .tswitches { display: flex; flex-wrap: wrap; gap: 6px 16px; }

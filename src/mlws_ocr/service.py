@@ -83,7 +83,8 @@ def read_gray(gray, dpi, doc_type: str | None = None, t0: float | None = None) -
              for w in ln.get("words", [])]
     return {"text": page.meta.get("text", ""), "hocr": page.meta.get("hocr", ""),
             "words": words, "tables": page.meta.get("tables", []),
-            "tables_html": page.meta.get("tables_html", ""), "summary": summary,
+            "tables_html": page.meta.get("tables_html", ""), "tables_csv": page.meta.get("tables_csv", ""),
+            "summary": summary,
             "ms": round(1000 * (time.perf_counter() - t0))}
 
 

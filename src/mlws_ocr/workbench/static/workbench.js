@@ -213,7 +213,8 @@ async function showResult() {
       onchange: (e) => { S.renderSide = e.target.checked; showResult(); } }), "side by side") : null,
     el("button", { onclick: async () => { await navigator.clipboard.writeText(S.resultMode === "text" ? R.text : S.resultMode === "tables" ? R.tables_html : R.hocr); status("copied"); } }, "Copy"),
     el("button", { onclick: () => { window.location = "/api/export/" + (S.resultMode === "text" ? "text" : S.resultMode === "tables" ? "tables" : "hocr"); } },
-      S.resultMode === "text" ? "Download .txt" : S.resultMode === "tables" ? "Download tables .html" : "Download .hocr")].filter((x) => x != null));
+      S.resultMode === "text" ? "Download .txt" : S.resultMode === "tables" ? "Download tables .html" : "Download .hocr"),
+    S.resultMode === "tables" ? el("button", { onclick: () => { window.location = "/api/export/tables_csv"; } }, "Download .csv") : null].filter((x) => x != null));
   // side panel: a summary of the page
   $("stageHead").innerHTML = ""; $("tools").innerHTML = ""; $("params").innerHTML = "";
   $("stageHead").append(el("h2", {}, "Result"), el("div", {}, S.resultMode === "text"
@@ -422,6 +423,10 @@ const TABLE_SWITCHES = [
     title: "keep rules too short for the length test when both their ends meet a rule (dividers under a spanned header)" },
   { slot: "tables", key: "spans", on: true, off: false, label: "Spanned cells",
     title: "merge neighbouring cells whose shared border carries no rule (rowspan / colspan)" },
+  { slot: "output", key: "fix_figure_columns", on: true, off: false, label: "Figure columns",
+    title: "in a column of figures, a misread cell ('S 25', 'l2O.50') is repaired when the repair is a figure" },
+  { slot: "output", key: "check_arithmetic", on: true, off: false, label: "Check arithmetic",
+    title: "check each table's figures against the relations it keeps (quantity x price = amount, totals): green checked, red probably misread" },
   { slot: "output", key: "ws_detect", on: true, off: false, label: "Find tables on the page",
     title: "find tables set by whitespace or ruled only between rows, anywhere on the page" },
   { slot: "output", key: "ws_table_doc_types", on: "*", off: "", label: "The page is one table",
@@ -499,6 +504,8 @@ function renderTables(R) {
                                 title: `row ${c.row + 1}, column ${c.col + 1}${(c.rowspan || 1) > 1 || (c.colspan || 1) > 1 ? `, spans ${c.rowspan || 1} × ${c.colspan || 1}` : ""}` },
                         c.text || "");
           if ((c.rowspan || 1) > 1 || (c.colspan || 1) > 1) td.classList.add("span");
+          if (c.check) { td.classList.add("check-" + c.check); td.title += c.check === "fail" ? " — breaks the table's arithmetic: probably misread" : " — checked by the table's arithmetic"; }
+          if (c.read_as) td.title += ` — read as '${c.read_as}'`;
           for (const n of c.tables || []) td.append(build(n));
           pairs.push([td, place(c)]);
           tr.append(td);

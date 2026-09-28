@@ -8,7 +8,7 @@ Inputs are image files, directories of them (not recursive unless
 ``--recursive``), and PDFs (every page, or ``--pdf-pages``). Each page
 writes ``<out>/<name>.txt`` and ``<name>.hocr`` (``<name>`` = the file stem,
 plus ``_p<N>`` for a PDF page) -- with ``<name>.tables.html`` and
-``<name>.tables.json`` when the page has tables -- and a ``batch.json`` summary lists every
+``<name>.tables.json`` and ``<name>.tables.csv`` when the page has tables -- and a ``batch.json`` summary lists every
 page with its time, word count and mean word confidence.
 """
 from __future__ import annotations
@@ -55,6 +55,7 @@ def _read_one(path: str, pdf_page: int, name: str, out_dir: str, doc_type: str |
     if res.get("tables"):
         (out / f"{name}.tables.html").write_text(res["tables_html"])
         (out / f"{name}.tables.json").write_text(json.dumps(res["tables"], indent=1))
+        (out / f"{name}.tables.csv").write_text(res.get("tables_csv", ""))
     conf = [w["p_correct"] for w in res["words"] if w.get("p_correct") is not None]
     return {"input": path, "pdf_page": pdf_page, "name": name, "words": len(res["words"]),
             "mean_p_correct": round(sum(conf) / len(conf), 3) if conf else None,

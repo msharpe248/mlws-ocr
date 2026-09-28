@@ -47,6 +47,7 @@ def _persist_page(page: Page, into: Path) -> None:
     if page.meta.get("tables"):
         (into / "tables.html").write_text(page.meta["tables_html"])
         (into / "tables.json").write_text(json.dumps(page.meta["tables"], indent=1))
+        (into / "tables.csv").write_text(page.meta.get("tables_csv", ""))
 
 
 def _persist_debug(debug: DebugBundle, params: dict, duration_ms: float,

@@ -144,3 +144,50 @@ def test_rule_regions_stack_of_shared_extent():
     stack = [[100, y, 1500, y + 3] for y in (400, 470, 540, 610)]
     stray = [[100, 900, 600, 903], [800, 1200, 1500, 1203]]
     assert rule_regions(stack + stray, tol=30) == [[100, 400, 1500, 613]]
+
+
+def test_figure_columns_repair_signs_only_in_figure_columns():
+    from mlws_ocr.decode.cellfix import fix_figure_columns
+    cells = [{"row": 0, "col": 0, "text": "Item"}, {"row": 0, "col": 1, "text": "Amount"}]
+    for r, (a, b) in enumerate([("Salaries", "S 1,200"), ("Rent", "$ 950"), ("Supplies", "l2O.50"),
+                                ("Other", "85"), ("Total", "$ 2,355.50")], 1):
+        cells += [{"row": r, "col": 0, "text": a}, {"row": r, "col": 1, "text": b}]
+    recs = [{"cells": cells}]
+    assert fix_figure_columns(recs) == 2
+    got = {c["text"] for c in cells}
+    assert {"$ 1,200", "120.50", "Salaries", "Supplies"} <= got      # labels untouched
+
+
+def test_header_cells_and_csv():
+    from mlws_ocr.decode.tableio import table_records, tables_csv, tables_html
+    t = {"box": [0, 0, 100, 90], "n_rows": 3, "n_cols": 2, "cells": [
+        {"row": 0, "col": 0, "box": [0, 0, 50, 30], "text": "Item"},
+        {"row": 0, "col": 1, "box": [50, 0, 100, 30], "text": "Amount"},
+        {"row": 1, "col": 0, "box": [0, 30, 50, 60], "text": "Rent"},
+        {"row": 1, "col": 1, "box": [50, 30, 100, 60], "text": "950.00"},
+        {"row": 2, "col": 0, "colspan": 2, "box": [0, 60, 100, 90], "text": "Total, paid"}]}
+    recs = table_records({"tables": [t]}, [])
+    assert "<th>Item</th><th>Amount</th>" in tables_html(recs)
+    assert tables_csv(recs) == '# Table 1\nItem,Amount\nRent,950.00\n"Total, paid",\n'
+
+
+def test_arithmetic_checks_flag_the_broken_row():
+    from mlws_ocr.decode.arith import check_table
+    rows = [("Item", "Qty", "Price", "Amount"), ("Paper", "4", "3.00", "12.00"), ("Toner", "2", "44.25", "88.50"),
+            ("Tape", "7", "116.21", "813.47"), ("Boxes", "71", "116.21", "813.47"), ("Total", "", "", "1,727.44")]
+    cells = [{"row": r, "col": c, "text": t} for r, row in enumerate(rows) for c, t in enumerate(row)]
+    rec = {"cells": cells, "header_rows": 1}
+    checks = check_table(rec)
+    prod = {ch["row"]: ch["ok"] for ch in checks if ch["kind"] == "product"}
+    assert prod == {1: True, 2: True, 3: True, 4: False}          # 71 x 116.21 is not 813.47
+    assert [ch["ok"] for ch in checks if ch["kind"] == "sum"] == [True]
+    assert next(c for c in cells if c["text"] == "71")["check"] == "fail"
+
+
+def test_split_word_at_cell_borders():
+    from mlws_ocr.decode.tableio import split_at_cells
+    cells = [{"box": [i * 100, 0, i * 100 + 100, 50]} for i in range(7)]
+    chars = [{"box": [30 + 100 * i, 10, 70 + 100 * i, 40]} for i in range(7)]
+    got = split_at_cells({"text": "MTWTFSS", "box": [30, 10, 670, 40], "chars": chars}, cells)
+    assert [w["text"] for w in got] == list("MTWTFSS")
+    assert [w["text"] for w in split_at_cells({"text": "Roofer", "box": [110, 10, 190, 40]}, cells)] == ["Roofer"]

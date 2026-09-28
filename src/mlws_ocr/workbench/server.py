@@ -19,7 +19,7 @@ Standard library only, like the run inspector (``inspector/server.py``): a
     GET  /api/layout/<k>         the layout after stage k (blocks, lines, words, ...) + text
     POST /api/save  {path}       the session file (.mlws.json)
     POST /api/load  {path}
-    GET  /api/export/<kind>      text | hocr | tables | json | png | toml, as a download
+    GET  /api/export/<kind>      text | hocr | tables | tables_csv | json | png | toml, as a download
     (the read-only run inspector stays at `mlws-ocr inspect`)
 """
 from __future__ import annotations
@@ -287,6 +287,9 @@ def make_handler(wb: Workbench):
             if kind == "hocr":
                 return self._send(200, (final.meta.get("hocr") or "").encode(), "text/html; charset=utf-8",
                                   {"Content-Disposition": f'attachment; filename="{stem}.hocr"'})
+            if kind == "tables_csv":
+                return self._send(200, (final.meta.get("tables_csv") or "").encode(), "text/csv; charset=utf-8",
+                                  {"Content-Disposition": f'attachment; filename="{stem}.tables.csv"'})
             if kind == "tables":
                 return self._send(200, (final.meta.get("tables_html") or "").encode(), "text/html; charset=utf-8",
                                   {"Content-Disposition": f'attachment; filename="{stem}.tables.html"'})

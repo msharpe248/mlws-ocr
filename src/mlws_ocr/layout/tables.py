@@ -105,6 +105,24 @@ def span_cells(rows, cols, hs, vs, tol, cover) -> list[dict]:
     return cells
 
 
+def open_side_levels(rows, cols, hs, vs, min_run):
+    """Levels for the open sides of a table: when at least two row rules run
+    on past the outermost column rule by ``min_run`` px, their median end is
+    one more column boundary (the table's side is left open, the rules' ends
+    bound its first or last column); likewise for column rules past the
+    outermost row rule."""
+    def extend(levels, segs, lo_i, hi_i):
+        left = [s[lo_i] for s in segs if s[lo_i] < levels[0] - min_run]
+        right = [s[hi_i] for s in segs if s[hi_i] > levels[-1] + min_run]
+        out = list(levels)
+        if len(left) >= 2:
+            out = [float(np.median(left))] + out
+        if len(right) >= 2:
+            out = out + [float(np.median(right))]
+        return out
+    return extend(rows, vs, 1, 3), extend(cols, hs, 0, 2)
+
+
 @register
 class GridTables(Stage):
     slot = "tables"
@@ -118,6 +136,12 @@ class GridTables(Stage):
                                  # columns, a name cell spanning two sub-rows
                                  # (cells then carry rowspan / colspan; 2026-09-28)
         "border_cover": 0.6,     # ...a border is ruled when rules cover this share
+        "open_sides": False,     # a table open at a side (no outer vertical rule: its
+                                 # row rules run on past the last column rule) gets
+                                 # the column the rules' ends bound; the same for rows.
+                                 # A payroll form open at left and right lost its
+                                 # name and net-pay columns (2026-09-28)
+        "open_min_300dpi": 60,   # ...rules must run on this far (px at 300 dpi)
     }
 
     def run(self, page: Page) -> tuple[Page, DebugBundle]:
@@ -155,6 +179,8 @@ class GridTables(Stage):
             cols = cluster_levels([(r[0] + r[2]) / 2 for r in vs], ltol)
             if len(rows) < 2 or len(cols) < 2:
                 continue    # a lone separator, not a table
+            if self.params["open_sides"]:
+                rows, cols = open_side_levels(rows, cols, hs, vs, self.params["open_min_300dpi"] * s)
             cells = []
             if self.params["spans"]:
                 cells = span_cells(rows, cols, hs, vs, ltol, self.params["border_cover"])

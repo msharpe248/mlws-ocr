@@ -17,7 +17,9 @@ scripts/eval_tables.py scores it directly.
 """
 from __future__ import annotations
 
+import csv
 import html
+import io
 
 
 def _inside(inner, outer, slack: int = 4) -> bool:
@@ -51,7 +53,26 @@ def table_records(layout: dict, tables_text: list[list[list[str]]]) -> list[dict
         else:
             top.append(r)
     top.sort(key=lambda r: (r["box"][1], r["box"][0]))
+    for r in recs:
+        mark_header(r)
     return top
+
+
+def mark_header(rec: dict) -> int:
+    """Mark the header rows: those above the first row holding a figure
+    after its first column (a table of amounts, hours, rates), at most
+    three; a table with no such row, or with one at its top, gets none.
+    Header cells carry ``header: True`` and are written as <th>."""
+    from .cellfix import is_figure
+    rows = sorted({c["row"] for c in rec["cells"]})
+    first = next((r for r in rows if any(c["row"] == r and c["col"] > 0 and c.get("text")
+                                         and is_figure(c["text"]) for c in rec["cells"])), None)
+    n = first if first is not None and 1 <= first <= 3 else 0
+    for c in rec["cells"]:
+        if c["row"] < n:
+            c["header"] = True
+    rec["header_rows"] = n
+    return n
 
 
 def table_html(rec: dict) -> str:
@@ -65,7 +86,9 @@ def table_html(rec: dict) -> str:
             span = (f' rowspan="{c["rowspan"]}"' if c["rowspan"] > 1 else "") + \
                    (f' colspan="{c["colspan"]}"' if c["colspan"] > 1 else "")
             inner = html.escape(c["text"]) + "".join(table_html(n) for n in c.get("tables", []))
-            tds.append(f"<td{span}>{inner}</td>")
+            tag = "th" if c.get("header") else "td"
+            chk = f' class="check-{c["check"]}"' if c.get("check") else ""
+            tds.append(f"<{tag}{span}{chk}>{inner}</{tag}>")
         out.append("<tr>" + "".join(tds) + "</tr>")
     out.append("</table>")
     return "\n".join(out)
@@ -74,3 +97,71 @@ def table_html(rec: dict) -> str:
 def tables_html(recs: list[dict]) -> str:
     """Every table of the page, in reading order (top to bottom)."""
     return "\n".join(table_html(r) for r in recs)
+
+
+def _flat(recs: list[dict], out: list[tuple[str, dict]], prefix: str = "") -> None:
+    for i, r in enumerate(recs, 1):
+        name = f"{prefix}{i}"
+        out.append((name, r))
+        for c in r["cells"]:
+            if c.get("tables"):
+                _flat(c["tables"], out, f"{name}.")
+
+
+def table_csv(rec: dict) -> str:
+    """One table as CSV: a spanned cell's text in its top-left slot, the
+    other slots it covers empty; a nested table's text is not repeated
+    here (it is a table of its own in tables_csv)."""
+    grid = [["" for _ in range(rec["n_cols"])] for _ in range(rec["n_rows"])]
+    for c in rec["cells"]:
+        if c["row"] < rec["n_rows"] and c["col"] < rec["n_cols"]:
+            grid[c["row"]][c["col"]] = c.get("text", "")
+    buf = io.StringIO()
+    csv.writer(buf, lineterminator="\n").writerows(grid)
+    return buf.getvalue()
+
+
+def tables_csv(recs: list[dict]) -> str:
+    """Every table of the page as CSV, each under a '# Table N' line (a
+    nested table 'N.M'), separated by a blank line."""
+    flat: list[tuple[str, dict]] = []
+    _flat(recs, flat)
+    return "\n".join(f"# Table {name}\n" + table_csv(r) for name, r in flat)
+
+
+def split_at_cells(word: dict, cells: list[dict], min_frac: float = 0.25) -> list[dict]:
+    """A word lying across the borders of several cells of one row, split
+    at those borders: 'MTWThFSaSu' read as one word over seven day columns
+    (the rules between them were removed before reading, so nothing kept
+    the letters apart).  Characters go by their own boxes when the word
+    carries them ("chars", one per character), else by an even share of the
+    word's width.  A word mostly inside one cell (at least 1 - min_frac of
+    it) is returned whole."""
+    x0, y0, x1, y1 = word["box"]
+    cy = (y0 + y1) / 2
+    w = max(1, x1 - x0)
+    half_char = 0.5 * w / max(1, len(word["text"]))
+    row = sorted((c for c in cells if c["box"][1] <= cy < c["box"][3]
+                  and min(x1, c["box"][2]) - max(x0, c["box"][0]) >= half_char),
+                 key=lambda c: c["box"][0])
+    if len(row) < 2 or max(min(x1, c["box"][2]) - max(x0, c["box"][0]) for c in row) >= (1 - min_frac) * w:
+        return [word]
+    text = word["text"]
+    chars = word.get("chars") or []
+    if len(chars) == len(text) and all(ch and ch.get("box") for ch in chars):
+        xs = [(ch["box"][0] + ch["box"][2]) / 2 for ch in chars]
+    else:
+        xs = [x0 + (k + 0.5) * w / max(1, len(text)) for k in range(len(text))]
+    parts: dict[int, list[int]] = {}
+    for k, x in enumerate(xs):
+        j = next((j for j, c in enumerate(row) if c["box"][0] <= x < c["box"][2]), None)
+        if j is None:
+            j = min(range(len(row)), key=lambda j: abs((row[j]["box"][0] + row[j]["box"][2]) / 2 - x))
+        parts.setdefault(j, []).append(k)
+    out = []
+    for j, ks in sorted(parts.items()):
+        t = "".join(text[k] for k in ks).strip()
+        if t:
+            b = row[j]["box"]
+            out.append(dict(word, text=t, box=[max(x0, b[0]), y0, min(x1, b[2]), y1]))
+    return out or [word]

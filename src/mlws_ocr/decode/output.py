@@ -12,7 +12,9 @@ from ..core.stage import DebugBundle, Stage
 from .formats import numeric_endorsed
 from ..layout.rows import row_groups, rows_text
 from ..layout.wstables import page_tables, whitespace_table
-from .tableio import table_records, tables_html
+from .arith import check_tables
+from .cellfix import fix_figure_columns
+from .tableio import split_at_cells, table_records, tables_csv, tables_html
 
 _RE_DASHRUN = re.compile(r"-{3,}")
 
@@ -67,6 +69,18 @@ class TextOutput(Stage):
                                          # are one cell's phrase
         "ws_cross_frac": 0.15,           # ...a column gap survives when at most this
                                          # share of the rows cross it
+        "split_words_at_cells": False,   # a word crossing ruled cell borders (letters the
+                                         # reader joined once the rules between them were
+                                         # removed: 'MTWThFSaSu' over seven day columns)
+                                         # is split at the borders, at its character boxes
+                                         # or in proportion to its width (tableio)
+        "fix_figure_columns": False,     # a column of figures is read as figures: a
+                                         # misread cell ('S 25', 'l,2O0') repaired when
+                                         # the repair has a figure's shape (decode/cellfix;
+                                         # the table output only, not the page text)
+        "check_arithmetic": False,       # check each table's figures against the relations
+                                         # it keeps (a x b = c across a row, a total's sum):
+                                         # cells marked check ok / fail (decode/arith.py)
         "ws_detect": False,              # find whitespace tables ON the page (runs of
                                          # text rows sharing columns, outside the ruled
                                          # tables; wstables.find_tables); 2026-09-28
@@ -292,7 +306,8 @@ class TextOutput(Stage):
             grid = [["" for _ in range(t["n_cols"])] for _ in range(t["n_rows"])]
             entries = []
             for ln in layout["lines"]:
-                for w in ln.get("words", []):
+                for w0 in ln.get("words", []):
+                  for w in (split_at_cells(w0, t["cells"]) if self.params["split_words_at_cells"] else [w0]):
                     cx = (w["box"][0] + w["box"][2]) / 2
                     cy = (w["box"][1] + w["box"][3]) / 2
                     for cell in t["cells"]:
@@ -343,14 +358,19 @@ class TextOutput(Stage):
         # the tables as data (JSON records, nested tables inside their
         # cells) and as HTML with rowspan / colspan
         recs = table_records(layout, tables_text)
+        n_fixed = fix_figure_columns(recs) if self.params["fix_figure_columns"] else 0
+        kept, failed = check_tables(recs) if self.params["check_arithmetic"] else (0, 0)
         out.meta["tables"] = recs
         out.meta["tables_html"] = tables_html(recs)
+        out.meta["tables_csv"] = tables_csv(recs)
         out.meta["suppressed_lines"] = suppressed
         confs = [w["confidence"] for l in layout["lines"]
                  for w in l.get("words", [])]
         debug = DebugBundle(
             scalars={"chars": len(full),
                      "n_tables": len(tables_text),
+                     "figure_cells_fixed": n_fixed,
+                     "checks_kept": kept, "checks_failed": failed,
                      "suppressed_lines": len(suppressed),
                      "mean_word_confidence": round(sum(confs) / len(confs), 3) if confs else 0,
                      # calibrated probabilities, when the decoder's conf_path is set
