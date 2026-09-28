@@ -47,7 +47,7 @@ plan stands (TEDS, neural-table; RESEARCH has every row):
 11. ✅ **Table correction in the workbench** (2026-09-28) -- add or remove a column or row
     separator, merge or split cells, correct a cell's text, re-export;
     corrections as data, surviving re-runs, like the other edits.
-12. **Paper: tables from rules and one small network** -- exact nested
+12. ✅ **Paper: tables from rules and one small network** (working draft, `docs/papers/tables-from-rules`, 2026-09-28) -- exact nested
     truth from one table model; page-level detection, open-sided and nested
     grids; arithmetic checks as a confidence signal (a failed check holds a
     real misread 12 times in 13); a self-trained network that loses as the
