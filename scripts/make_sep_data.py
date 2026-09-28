@@ -18,6 +18,7 @@ two columns crosses theirs), at least 2 px wide, at most a cap.
 
     scripts/make_sep_data.py synth --n 6000 --out data/sep_synth.npz
     scripts/make_sep_data.py fintabnet --src data/raw/fintabnet/trainsample --out data/sep_fin.npz
+    scripts/make_sep_data.py cord --src data/raw/cord/parquet --n 900 --out data/sep_cord.npz
 """
 from __future__ import annotations
 
@@ -188,6 +189,63 @@ def fintabnet(src: Path, limit: int) -> list:
     return out
 
 
+# --------------------------------------------------------------- CORD
+def cord(src: Path, limit: int) -> list:
+    """CORD v2 TRAINING and validation receipts (the test split is
+    evaluation): each receipt's line items cut out (their union + a small
+    margin, so nothing in the crop is unlabelled), row separators between
+    consecutive items, column separators between the item fields (name,
+    count, unit price, price) where the items agree on them.  Photos at their
+    own scale: CORD's text runs about as tall as 10-pt type at 300 dpi."""
+    import io as _io
+    import json
+    import pyarrow.parquet as pq
+    fields = ["nm", "cnt", "unitprice", "price"]
+    out = []
+    for f in sorted(src.glob("*.parquet")):
+        if "test" in f.name:
+            continue
+        t = pq.read_table(f)
+        for k in range(t.num_rows):
+            if len(out) >= limit:
+                return out
+            gt = json.loads(t.column("ground_truth")[k].as_py())
+            items: dict[int, dict[str, list]] = {}
+            for ln in gt.get("valid_line", []):
+                cat = ln.get("category", "")
+                if cat.startswith("menu.") and cat.split(".", 1)[1] in fields:
+                    items.setdefault(ln["group_id"], {}).setdefault(cat.split(".", 1)[1], []).extend(ln["words"])
+            if len(items) < 3:
+                continue
+            q = lambda w: (min(w["quad"]["x1"], w["quad"]["x4"]), min(w["quad"]["y1"], w["quad"]["y2"]),  # noqa: E731
+                           max(w["quad"]["x2"], w["quad"]["x3"]), max(w["quad"]["y3"], w["quad"]["y4"]))
+            boxes = {g: {fl: [q(w) for w in ws] for fl, ws in it.items()} for g, it in items.items()}
+            ib = {g: [min(b[0] for bs in d.values() for b in bs), min(b[1] for bs in d.values() for b in bs),
+                      max(b[2] for bs in d.values() for b in bs), max(b[3] for bs in d.values() for b in bs)]
+                  for g, d in boxes.items()}
+            order = sorted(ib, key=lambda g: ib[g][1])
+            X0 = min(b[0] for b in ib.values()); Y0 = min(b[1] for b in ib.values())
+            X1 = max(b[2] for b in ib.values()); Y1 = max(b[3] for b in ib.values())
+            m = int(0.02 * (X1 - X0)) + 6
+            im = Image.open(_io.BytesIO(t.column("image")[k].as_py()["bytes"])).convert("L")
+            box = (max(0, X0 - m), max(0, Y0 - m), min(im.width, X1 + m), min(im.height, Y1 + m))
+            G = np.asarray(im.crop(box), np.float32) / 255.0
+            yb = [(ib[a][3] + ib[b][1]) / 2 - box[1] for a, b in zip(order, order[1:]) if ib[b][1] > ib[a][3] - 4]
+            # a field boundary: between the right edge of one field and the left of the next, over the items
+            spans = {fl: (np.median([min(b[0] for b in d[fl]) for d in boxes.values() if fl in d]),
+                          np.median([max(b[2] for b in d[fl]) for d in boxes.values() if fl in d]))
+                     for fl in fields if sum(fl in d for d in boxes.values()) >= 2}
+            cols = sorted(spans.values())
+            xb = [(a[1] + b[0]) / 2 - box[0] for a, b in zip(cols, cols[1:]) if b[0] > a[1]]
+            ink = G < min(0.55, float(np.percentile(G, 20)) + 0.15)
+            lc = sep_labels(ink, xb, 1, [], cap=80)
+            lr = sep_labels(ink, yb, 0, [], cap=20)
+            out.append(shrink(1.0 - G, lc, lr, SCALE))
+            if len(out) % 200 == 0:
+                print(f"  {len(out)} CORD receipts", flush=True)
+    return out
+
+
 def save(items: list, path: Path) -> None:
     X = np.empty(len(items), object); C = np.empty(len(items), object); R = np.empty(len(items), object)
     for i, (x, c, r) in enumerate(items):
@@ -198,13 +256,14 @@ def save(items: list, path: Path) -> None:
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("source", choices=["synth", "fintabnet"])
+    ap.add_argument("source", choices=["synth", "fintabnet", "cord"])
     ap.add_argument("--n", type=int, default=6000)
     ap.add_argument("--seed", type=int, default=1)
     ap.add_argument("--src", type=Path)
     ap.add_argument("--out", type=Path, required=True)
     a = ap.parse_args()
-    save(synth(a.n, a.seed) if a.source == "synth" else fintabnet(a.src, a.n), a.out)
+    items = synth(a.n, a.seed) if a.source == "synth" else fintabnet(a.src, a.n) if a.source == "fintabnet" else cord(a.src, a.n)
+    save(items, a.out)
 
 
 if __name__ == "__main__":
