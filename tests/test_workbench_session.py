@@ -107,3 +107,21 @@ def test_block_and_word_edits_survive_reruns(crop, tmp_path):
     assert t.stages[ko].edits == s.stages[ko].edits and t.stages[kb].edits == s.stages[kb].edits
     assert not t.image_changed
     assert "[stage.deskew]" in s.profile_toml()
+
+
+def test_a_later_change_while_an_earlier_rerun_is_midway(crop):
+    """Two table switches in quick succession: a re-run from the picture-zone
+    stage is still running when the output stage's parameter changes.  The
+    second run must start where results stop, not at the output stage with
+    no page before it (it crashed on _snapshot(None), the stage left
+    'running')."""
+    s = Session(crop, ROOT / "configs/neural.toml", doc_type="letter")
+    s.run_from(0)
+    k_zone = next(k for k, t in enumerate(s.stages) if t.slot == "imagezones")
+    k_out = next(k for k, t in enumerate(s.stages) if t.slot == "output")
+    s.set_params(k_zone, {"keep_grids": True})
+    s.run_from(k_zone, block=False)
+    s.set_params(k_out, {"ws_table_doc_types": "*"})
+    s.run_from(k_out, block=False)
+    s.wait(300)
+    assert all(t.status == "done" for t in s.stages), [(t.slot, t.status, t.error) for t in s.stages]

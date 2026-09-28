@@ -162,6 +162,10 @@ class Session:
         with self._lock:
             self._generation += 1
             gen = self._generation
+            # start where results stop: a run this one supersedes may not have
+            # reached stage k (two changes in quick succession -- a table switch
+            # on the picture zones, then one on the output stage)
+            k = next((j for j in range(k) if self.stages[j].page is None), k)
             self._invalidate(k)
         if block:
             self._run(k, gen)
