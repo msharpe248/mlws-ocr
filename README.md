@@ -42,7 +42,7 @@ scoreboard and its history are in `docs/DESIGN.md` §8.
 | magazines, held out | 30 UNLV magazine pages no decision has used | 68.3 / 50.7 | **83.7 / 75.6** | 77.9 / 71.3 | 78.5 / 73.6 |
 | letters, held out | 30 UNLV business letters no decision has used | 90.7 / 83.1 | **93.9 / 91.1** | 92.4 / 88.8 | 93.1 / 90.6 |
 | sroie | real scanned receipts, ICDAR 2019 | 48.0 / 13.6 | **79.5 / 62.4** | 56.2 / 29.4 | 64.0 / 40.3 |
-| funsd | real scanned forms, FUNSD, at 2x | 37.4 / 12.7 | 65.8 / 44.2 | 54.8 / 32.0 | **66.4 / 47.2** |
+| funsd | real scanned forms, FUNSD, at 2x | 37.4 / 12.7 | 65.9 / 44.3 | 54.8 / 32.0 | **66.4 / 47.2** |
 | legal reports | real typescript and printed office pages, Library of Congress | 70.5 / 47.3 | **87.5 / 73.7** | 57.5 / 42.8 | 78.8 / 66.3 |
 | cord | photographed receipts, CORD, cut to the receipt | 30.7 / – | **53.5 / 31.1** | 42.1 / 19.5 | 46.7 / 21.1 |
 | blocks | a paragraph handed in alone, no layout (broad-30's text zones) | 94.4 / 85.8 | **98.6 / 97.2** | 98.2 / 96.6 | 98.5 / 96.5 |

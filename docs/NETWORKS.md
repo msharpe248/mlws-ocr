@@ -97,6 +97,7 @@ were trained on the public sources named below and on nothing else.
 | v0.12.0 (2026-09-26) | fifteen files: v0.11.1's fourteen plus the segmenter judge `segjudge.npz` (= `segjudge_v1`), the neural profile's segmenter for newspapers and magazines |
 | v0.13.0 (2026-09-26) | eighteen files: v0.12.0's fifteen plus the grey-strip line reader `seq_line_gray_en.npz`, `_2`, `_3` (= `seq_line_gray2` seeds 3, 2, 1), the neural profile's reader; the v17a files stay for the previous reader |
 | v0.15.0 (2026-09-27) | twenty-four files: v0.14.x's twenty-one plus the reader `seq_line_gray9_en.npz`, `_2`, `_3` (= `seq_line_gray9`, EMA), the v0.14.0 reader with the alphabet widened by ``* = + @ [ ] _ ` ``; v0.14.0's reader stays (its teacher) |
+| v0.16.0 (2026-09-28) | twenty-six files: v0.15.0's twenty-four plus the table separator networks `sepnet_v2.npz` (the neural-table profile's row evidence) and `sepnet_v1.npz` (its predecessor) |
 | v0.14.0 (2026-09-27) | twenty-one files: v0.13.0's eighteen plus the reader `seq_line_gray7_en.npz`, `_2`, `_3` (= `seq_line_gray7` seeds 3, 2, 1, EMA weights), the neural profile's reader; the v0.13.0 grey reader stays (it is the new one's teacher and the way back) |
 
 ## Where the training data comes from
