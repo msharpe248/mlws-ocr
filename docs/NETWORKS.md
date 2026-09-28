@@ -25,6 +25,7 @@ judged before it went live. The measurements themselves are in
 | knn_scc link rule (experimental) | `linkkeep_v1.npz` | 15 weights | none (option `blocks.link_model_path`) | `train_links.py` | knn_scc graph links labelled by UNLV zone truth |
 | Segmenter judge | `segjudge.npz` | 32 weights | none yet (option `blocks.impl = "judged"`) | `segmenter_judge.py` | per-page accuracy of four segmenters read end to end on UNLV training-pool pages |
 | Glyph CNN | `cnn.npz` | 30k | none (kept off; `recognize.cnn_path`) | `train_cnn.py` | synthetic renders + truth-labelled real crops |
+| Table separator network | `sepnet_v1.npz` | 43k | none (not adopted; option `output.table_net_path`) | `train_sepnet.py` | 6,000 tables drawn by `factory/tablegen.py` with pixel-exact separators + 6,492 FinTabNet.c training tables |
 
 The classic engine also builds three learned tables that are not networks
 but come from the same data: the condensed nearest-prototype pool
@@ -627,6 +628,44 @@ CPU.
 ```sh
 .venv/bin/python scripts/harvest_truth.py data/unlv/bus.3B --pages 120 --out data/truth_en.npz
 .venv/bin/python scripts/train_cnn.py data/cnn.npz --epochs 12
+```
+
+### Table separator network — `layout/sepnet.py` (trained, not adopted)
+
+**Purpose.** The split half of split-and-merge table structure recognition
+(Tensmeyer et al., ICDAR 2019): for every x of a table region the
+probability that a column separator runs there, for every y a row
+separator. Four 3×3 convolutions (dilations 1, 2, 4, 8; 16/32/32/32
+channels) over the region's ink at a quarter of 300 dpi, then projection
+pooling (mean and max down each column, across each row) and two 1-D
+heads. `sepnet.grid_table` builds a table from the separators and the
+words (a header phrase over several columns spans them).
+
+**Data and training.** `make_sep_data.py`: tables drawn by
+`factory/tablegen.py` (2–8 columns of text, numbers, money, dates, codes;
+spanned headers; all five rule styles; gaps tight to wide; several faces;
+print-and-scan degradation) and FinTabNet.c TRAINING tables (its test
+split is evaluation), labelled by the whitespace band around each
+boundary (rule pixels and spanning cells out of the projection).
+`train_sepnet.py` (torch; the numpy forward is the reference and
+`tests/test_sepnet.py` holds the two equal): masked BCE on 448-px
+windows, separators weighted 2, Adam 1e-3 cosine, 12 epochs, 67 s an
+epoch on the RTX 3080 Ti (ai01).
+
+**Measured (v1, 2026-09-28).** Held-out separator F1: rows 0.915, columns
+0.73. As table structure it loses to the word-alignment rules: FinTabNet
+tuning / held-out TEDS 0.508 / 0.499 against 0.700 / 0.818 (rows from the
+network, columns from the rules 0.670 / 0.754); CORD receipts 0.22 against
+0.31. It places rows well (often the exact count where the rules split a
+wrapped cell) but over-splits columns at the gaps inside a cell (a '$'
+set apart from its amount, dot leaders), and a grid of separators has none
+of the rules' row repairs (wrapped cells, two-line items). Not adopted;
+the file stays for the next version.
+
+```sh
+.venv/bin/python scripts/make_sep_data.py synth --n 2000 --seed 1 --out data/sep_synth_1.npz   # and seeds 2, 3
+.venv/bin/python scripts/make_sep_data.py fintabnet --src data/raw/fintabnet/trainsample --n 6500 --out data/sep_fin.npz
+.venv/bin/python scripts/train_sepnet.py --data data/sep_synth_1.npz data/sep_synth_2.npz data/sep_synth_3.npz data/sep_fin.npz --out data/sepnet_v1.npz --epochs 12 --device cuda
 ```
 
 ## Rebuilding everything from scratch
