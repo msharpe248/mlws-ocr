@@ -59,11 +59,14 @@ class TextOutput(Stage):
                                          # narrow x band, mostly ascending,
                                          # are a line-number column
         "ws_table_doc_types": "",        # doc types whose page IS one table, read by
-                                         # whitespace when no ruled table was found
+                                         # whitespace when no ruled table was found;
+                                         # "*" = every page
                                          # (layout/wstables.py; "table" = a table
                                          # image handed in alone; 2026-09-28)
         "ws_phrase_gap": 0.8,            # ...words closer than this many line heights
                                          # are one cell's phrase
+        "ws_cross_frac": 0.15,           # ...a column gap survives when at most this
+                                         # share of the rows cross it
         "drop_facing_page": False,       # the facing page's column caught at the scan's
                                          # edge is left out (_facing_page_lines)
         "facing_edge_frac": 0.012,       # a line within this share of the width of the edge
@@ -301,17 +304,20 @@ class TextOutput(Stage):
             tables_text.append(grid)
 
         ws_types = [t for t in self.params["ws_table_doc_types"].split(",") if t]
-        if not layout.get("tables") and doc_type in ws_types:
+        if not layout.get("tables") and ("*" in ws_types or doc_type in ws_types):
             words = [w for ln in layout["lines"] for w in ln.get("words", [])]
-            t = whitespace_table(words, self.params["ws_phrase_gap"])
+            t = whitespace_table(words, self.params["ws_phrase_gap"],
+                                 cross_frac=self.params["ws_cross_frac"])
             if t is not None:
-                layout.setdefault("tables", []).append(t)
+                # a new layout dict: the incoming page's stays as its stage left it
+                layout = dict(layout, tables=[t])
                 grid = [["" for _ in range(t["n_cols"])] for _ in range(t["n_rows"])]
                 for c in t["cells"]:
                     grid[c["row"]][c["col"]] = c["text"]
                 tables_text.append(grid)
 
         out = page.evolve()
+        out.meta["layout"] = layout
         out.meta["text"] = full
         out.meta["hocr"] = hocr_document(layout, page)
         out.meta["tables_text"] = tables_text

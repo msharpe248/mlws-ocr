@@ -182,7 +182,7 @@ by whitespace alone -- a financial statement, an earnings block -- is
 read when the image is one table: `--doc-type table --set
 output.ws_table_doc_types=table`. Measured by TEDS against HTML truth
 (`scripts/eval_tables.py`): generated payroll forms 0.003 → 0.668, real
-annual-report tables (FinTabNet) 0.032 → 0.698. All three are options,
+annual-report tables (FinTabNet) 0.032 → 0.738. All three are options,
 off by default, while their effect on other pages is measured.
 
 Training the sequence models is faster with the optional extra
@@ -218,6 +218,17 @@ confidence words in red and corrected ones in green, optionally over a
 faint copy of the scan or side by side with it (hovering a word marks
 its box on the scan). It shows at a glance what the file carries and
 what the page lost (a line never read, a headline taken for a picture).
+
+**Tables** get their own view in the result tab: each table beside the scan
+cropped to it (above it, for a wide table), rows, columns and spanned
+cells tinted, a nested table inside its cell; hover a cell on either side
+to see its partner. Three switches above it turn the table options on
+and off and re-run the page -- ruled grids kept from the picture zones,
+spanned cells, a whitespace table -- and the tables stage lists what it
+found. On the page view, ruled tables are drawn solid, whitespace ones
+dashed, each labelled with its size.
+
+![The Tables view: an annual-report table read by whitespace, beside the scan; hovering a cell marks it on both sides](docs/img/workbench_tables.png)
 
 Sessions save to a `.mlws.json` file (image, profile, every choice and
 correction) and reload; the page exports as text, hOCR, page JSON, the

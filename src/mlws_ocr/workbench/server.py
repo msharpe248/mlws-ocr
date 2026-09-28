@@ -259,6 +259,7 @@ def make_handler(wb: Workbench):
             return self._json({
                 "ready": True, "text": final.meta.get("text", ""), "hocr": final.meta.get("hocr", ""),
                 "tables_html": final.meta.get("tables_html", ""),
+                "tables": final.meta.get("tables", []),
                 "summary": {"words": len(words), "lines": sum(1 for ln in final.meta.get("layout", {}).get("lines", [])
                                                                if ln.get("words")),
                             "mean_confidence": round(sum(conf) / len(conf), 3) if conf else None,

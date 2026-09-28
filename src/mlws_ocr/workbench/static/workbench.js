@@ -219,7 +219,7 @@ async function showResult() {
   $("stageHead").append(el("h2", {}, "Result"), el("div", {}, S.resultMode === "text"
     ? "The page's text, as the output stage wrote it (reading order, table rows aligned)."
     : S.resultMode === "tables"
-    ? "The page's tables as structure: rows, columns and spanned cells (rowspan / colspan), a table found inside another's cell shown inside it. Ruled tables come from the rules; a table defined by whitespace alone is read when the page is declared a table."
+    ? "The page's tables as structure: rows, columns and spanned cells (rowspan / colspan, tinted), a table found inside another's cell shown inside it — each beside the scan, cropped to the table; hover a cell on either side to see its partner. The switches above turn the three table options on and off and re-run the page."
     : S.resultMode === "hocr"
     ? "hOCR: the page's structure — blocks in reading order, lines, words with boxes and confidence, tables, images, rulings."
     : "The page redrawn from the hOCR file alone: every word at its box, blocks numbered in reading order, tables, images and rulings. Red words are low-confidence, green ones were corrected; hover for the confidence."
@@ -234,13 +234,7 @@ async function showResult() {
   $("scalars").innerHTML = ""; $("scalars").append(t);
   $("resultRender").hidden = S.resultMode !== "render" && S.resultMode !== "tables";
   pre.hidden = S.resultMode === "render" || S.resultMode === "tables";
-  if (S.resultMode === "tables") {
-    const box = $("resultRender"); box.innerHTML = "";
-    const v = el("div", { class: "tablesView" });
-    // the server's HTML: its cell text is escaped (decode/tableio.py)
-    v.innerHTML = R.tables_html || "<p>No tables found on this page.</p>";
-    box.append(v); return;
-  }
+  if (S.resultMode === "tables") { renderTables(R); return; }
   if (S.resultMode === "text") { pre.className = ""; pre.textContent = R.text; return; }
   if (S.resultMode === "render") { renderHocr(R.hocr); return; }
   pre.className = "hocr"; pre.innerHTML = "";
@@ -413,7 +407,111 @@ function renderTools(s, k) {
   if (s.slot === "blocks") return boxTools(t, s, k, "blocks");
   if (s.slot === "lines") return boxTools(t, s, k, "lines");
   if (s.slot === "correct") return correctTools(t, s, k);
+  if (s.slot === "tables") return tableTools(t, s, k);
   if (READ.has(s.slot)) return wordTools(t, s, k);
+}
+
+// ------------------------------------------------------------------ tables
+// The three table options, one click each: they live on three stages
+// (imagezones.keep_grids, tables.spans, output.ws_table_doc_types), so a switch
+// sets its stage's parameter and the page re-runs from there.
+const TABLE_SWITCHES = [
+  { slot: "imagezones", key: "keep_grids", on: true, off: false, label: "Ruled grids are tables",
+    title: "a large ruled grid is kept for the rulings and tables stages instead of being taken for a picture" },
+  { slot: "tables", key: "spans", on: true, off: false, label: "Spanned cells",
+    title: "merge neighbouring cells whose shared border carries no rule (rowspan / colspan)" },
+  { slot: "output", key: "ws_table_doc_types", on: "*", off: "", label: "Whitespace table",
+    title: "no ruled table found: read the page as one table from how its words line up" },
+];
+function switchState(sw) {
+  const st = S.st.stages.find((t) => t.slot === sw.slot);
+  if (!st) return null;
+  const v = sw.key in st.params ? st.params[sw.key] : st.defaults[sw.key];
+  return sw.on === "*" ? String(v || "").split(",").includes("*") : !!v;
+}
+function tableSwitches() {
+  const box = el("div", { class: "tswitches" });
+  for (const sw of TABLE_SWITCHES) {
+    const st = S.st.stages.find((t) => t.slot === sw.slot), on = switchState(sw);
+    const cb = el("input", { type: "checkbox", ...(on ? { checked: "" } : {}), ...(st ? {} : { disabled: "" }),
+      onchange: async (e) => {
+        await api(`/api/stage/${st.index}`, { params: { [sw.key]: e.target.checked ? sw.on : sw.off } });
+        status(`${sw.slot}.${sw.key} = ${JSON.stringify(e.target.checked ? sw.on : sw.off)}; re-running`);
+        S.resultKey = null; await poll(true); } });
+    box.append(el("label", { title: st ? sw.title : `this profile has no ${sw.slot} stage` }, cb, sw.label));
+  }
+  return box;
+}
+const cellCount = (t) => (t.cells || []).length;
+const spanCount = (t) => (t.cells || []).filter((c) => (c.rowspan || 1) > 1 || (c.colspan || 1) > 1).length;
+function tableCaption(t, i) {
+  const sp = spanCount(t);
+  return `Table ${i + 1}: ${t.n_rows} rows × ${t.n_cols} columns, ${t.source === "whitespace" ? "by whitespace" : "ruled"}` +
+    `, ${cellCount(t)} cells${sp ? `, ${sp} spanned` : ""}`;
+}
+function tableTools(t, s, k) {
+  t.append(el("div", { class: "hint" }, "Table options (each re-runs the page from its stage):"), tableSwitches());
+  const tabs = (S.layout && S.layout.tables) || [];
+  if (!tabs.length) { t.append(el("div", { class: "empty" }, "No ruled table on this page at this stage.")); return; }
+  tabs.forEach((tb, i) => t.append(el("div", { class: "corr", title: "show it", onclick: () => { centerOn(tb.box); draw(); } }, tableCaption(tb, i))));
+  $("hint").textContent = "Tinted cells span several rows or columns. The Result tab's Tables view shows each table beside the scan.";
+}
+function renderTables(R) {
+  const host = $("resultRender"); host.innerHTML = "";
+  host.append(el("div", { class: "tbar" }, tableSwitches()));
+  const tabs = R.tables || [];
+  if (!tabs.length) {
+    host.append(el("div", { class: "tablesView" }, el("p", {},
+      "No tables on this page. A ruled table needs its rules found (try 'Ruled grids are tables'); a table set by whitespace alone is read when 'Whitespace table' is on.")));
+    return;
+  }
+  const m = /class="ocr_page"[^>]*title="bbox (\d+) (\d+) (\d+) (\d+)/.exec(R.hocr || "");
+  const W = m ? +m[3] : S.st.shape[1], H = m ? +m[4] : S.st.shape[0];
+  const last = S.st.stages.length - 1;
+  tabs.forEach((t, i) => {
+    // the scan cropped to the table, its cells over it; hover a cell on either side
+    const pad = 12, rx = Math.max(0, t.box[0] - pad), ry = Math.max(0, t.box[1] - pad);
+    const rw = Math.min(W, t.box[2] + pad) - rx, rh = Math.min(H, t.box[3] + pad) - ry;
+    // a wide table (a statement, a payroll register) gets the scan above it at full
+    // width; a tall one sits beside it
+    const wide = rw > 2.2 * rh;
+    const avail = Math.max(280, wide ? host.clientWidth - 40 : (host.clientWidth - 56) / 2), sc = Math.min(1.5, avail / rw);
+    const scan = el("div", { class: "tscan", style: `width:${rw * sc}px;height:${rh * sc}px` },
+      el("img", { src: `/api/image/${last}/gray.png?scale=${Math.min(1, 2400 / W)}`,
+                  style: `left:${-rx * sc}px;top:${-ry * sc}px;width:${W * sc}px;height:${H * sc}px` }));
+    const pairs = [];
+    const place = (c) => {
+      const d = el("div", { class: "tcell" + ((c.rowspan || 1) > 1 || (c.colspan || 1) > 1 ? " span" : ""),
+        style: `left:${(c.box[0] - rx) * sc}px;top:${(c.box[1] - ry) * sc}px;width:${(c.box[2] - c.box[0]) * sc}px;height:${(c.box[3] - c.box[1]) * sc}px` });
+      scan.append(d); return d;
+    };
+    const build = (rec) => {
+      const tab = el("table"), rows = {};
+      for (const c of rec.cells) (rows[c.row] = rows[c.row] || []).push(c);
+      for (const r of Object.keys(rows).map(Number).sort((a, b) => a - b)) {
+        const tr = el("tr");
+        for (const c of rows[r].sort((a, b) => a.col - b.col)) {
+          const td = el("td", { ...((c.rowspan || 1) > 1 ? { rowspan: c.rowspan } : {}), ...((c.colspan || 1) > 1 ? { colspan: c.colspan } : {}),
+                                title: `row ${c.row + 1}, column ${c.col + 1}${(c.rowspan || 1) > 1 || (c.colspan || 1) > 1 ? `, spans ${c.rowspan || 1} × ${c.colspan || 1}` : ""}` },
+                        c.text || "");
+          if ((c.rowspan || 1) > 1 || (c.colspan || 1) > 1) td.classList.add("span");
+          for (const n of c.tables || []) td.append(build(n));
+          pairs.push([td, place(c)]);
+          tr.append(td);
+        }
+        tab.append(tr);
+      }
+      return tab;
+    };
+    const tab = build(t);
+    for (const [td, d] of pairs) {
+      const on = (x) => () => { td.classList.toggle("on", x); d.classList.toggle("on", x); };
+      td.addEventListener("mouseenter", on(true)); td.addEventListener("mouseleave", on(false));
+      d.addEventListener("mouseenter", on(true)); d.addEventListener("mouseleave", on(false));
+    }
+    host.append(el("h3", { class: "tcap" }, tableCaption(t, i)),
+                el("div", { class: "tside" + (wide ? " stack" : "") }, scan, el("div", { class: "tablesView" }, tab)));
+  });
 }
 
 function deskewTools(t, s, k) {
@@ -727,7 +825,17 @@ function draw() {
   if (L && s && s.status === "done" && S.tool !== "horizon") {
     if (S.layers.zones) for (const b of L.image_zones || []) rect(b, "#8e44ad", lw, [6 / v.z, 4 / v.z]);
     if (S.layers.rules) for (const r of [...(L.rules_h || []), ...(L.rules_v || [])]) if (Array.isArray(r) && r.length === 4) rect(r, "#c53030", lw);
-    if (S.layers.tables) for (const t of L.tables || []) for (const c of t.cells || []) rect(c.box, "#0f9fb0", lw * 0.8);
+    if (S.layers.tables) (L.tables || []).forEach((t, i) => {
+      // whitespace tables dashed; a spanned cell tinted; the table's frame and size labelled
+      const dash = t.source === "whitespace" ? [4 / v.z, 3 / v.z] : null;
+      for (const c of t.cells || []) {
+        if ((c.rowspan || 1) > 1 || (c.colspan || 1) > 1) {
+          ctx.fillStyle = "rgba(15,159,176,.13)"; ctx.fillRect(c.box[0], c.box[1], c.box[2] - c.box[0], c.box[3] - c.box[1]);
+        }
+        rect(c.box, "#0f9fb0", lw * 0.8, dash);
+      }
+      if (t.box) { rect(t.box, "#0b7285", lw * 2, dash); label(t.box, `T${i + 1}  ${t.n_rows} × ${t.n_cols}`, "#0b7285"); }
+    });
     const D = S.draft;
     if (D && D.kind === "blocks") drawItems(D, "#2463eb", lw, true);
     else if (S.layers.blocks) (L.blocks || []).forEach((b, i) => { rect(b, "#2463eb", lw); label(b, i + 1, "#2463eb"); });

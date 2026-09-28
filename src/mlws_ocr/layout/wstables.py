@@ -16,10 +16,13 @@ detection", SPIE DR&R 2000: columns as the gaps every row agrees on):
    become one row).
 3. PHRASES: within a row, words closer than ``phrase_gap`` line heights are
    one phrase ('Net cash provided by operating activities'); a lone
-   currency sign joins the amount to its right, however far ('$    25').
+   currency sign joins the amount to its right, however far ('$    25');
+   a column of nothing but single characters (signs misread 's', 'o') is
+   joined to the column at its right (_merge_sign_columns).
 4. COLUMNS: the x-extents of the phrases of every row with two or more
-   phrases, merged where they overlap -- a column is the span of text the
-   rows agree on, a gap between columns is whitespace no such row crosses.
+   phrases -- a column is the span of text the rows agree on, a gap
+   between columns whitespace at most 15% of those rows cross (a gap
+   every row must respect was fused by one long label; _columns).
    Above the first body row, a header cell wrapped over several lines is
    joined back into one (_merge_header_wraps); below it, a text cell
    wrapped over several lines is joined the same way (_merge_body_wraps).
@@ -183,8 +186,97 @@ def _merge_body_wraps(rows, cols, line_h, first_body) -> list[list[dict]]:
     return out
 
 
+def _columns(rows, multi, cross_frac: float = 0.0) -> list[list[float]]:
+    """Columns: the x-ranges the multi-phrase rows' phrases cover.  With
+    ``cross_frac`` 0 a gap must be crossed by no such row (every row agrees
+    on it); above 0, a gap survives when at most that share of the rows
+    cross it -- one long label or a stray header phrase no longer fuses two
+    columns for the whole table (the alignment-over-agreement idea of the
+    Tabula / pdfplumber text strategy, A. Nurminen, 'Algorithmic extraction
+    of data in tables in PDF documents', Tampere, 2013)."""
+    ivs = sorted((p["box"][0], p["box"][2]) for i in multi for p in rows[i])
+    if cross_frac <= 0:
+        cols: list[list[float]] = []
+        for a, b in ivs:
+            if cols and a <= cols[-1][1]:
+                cols[-1][1] = max(cols[-1][1], b)
+            else:
+                cols.append([a, b])
+        return cols
+    x0 = int(min(a for a, _ in ivs)); x1 = int(max(b for _, b in ivs)) + 1
+    cover = np.zeros(x1 - x0 + 1, np.int32)
+    for i in multi:
+        row = np.zeros_like(cover, dtype=bool)
+        for p in rows[i]:
+            row[int(p["box"][0]) - x0:int(p["box"][2]) - x0 + 1] = True
+        cover += row
+    allow = int(cross_frac * len(multi))
+    on = cover > allow
+    cols = []
+    k = 0
+    while k < len(on):
+        if on[k]:
+            j = k
+            while j + 1 < len(on) and on[j + 1]:
+                j += 1
+            cols.append([float(k + x0), float(j + x0)])
+            k = j + 1
+        else:
+            k += 1
+    return cols
+
+
+def _moved(p, col) -> dict:
+    return {"text": p["text"], "box": [col[0], p["box"][1], col[0] + 1, p["box"][3]]}
+
+
+def _merge_sign_columns(rows, cols):
+    """A column holding nothing but single characters, none a digit (a
+    column of item numbers 1, 2, 3 is a column), is the currency signs
+    of the amounts to its right, set flush left in their column ('$  25'),
+    read as '$', 's', 'S', 'o' -- or not read at all where the reader fused
+    sign and digits ('es' for '$ 25').  Its phrases join the next phrase of
+    their row when that phrase is in the next column (an amount the reader
+    missed must not pull the sign across a column); the joined-by-content
+    rule in _phrases catches only a sign read as one before an amount read
+    as digits."""
+    members: dict[int, list] = {}
+    for r, ph in enumerate(rows):
+        for j, p in enumerate(ph):
+            members.setdefault(_col_of(p, cols), []).append((r, j))
+    lone = lambda t: len(t.strip()) == 1 and not t.strip().isdigit()  # noqa: E731
+    sign = {c for c, m in members.items() if c < len(cols) - 1
+            and all(lone(rows[r][j]["text"]) for r, j in m)}
+    if not sign:
+        return rows, False
+    out = []
+    for ph in rows:
+        new: list[dict] = []
+        carry = None
+        for p in ph:
+            if carry is not None:
+                c, sp = carry
+                carry = None
+                if _col_of(p, cols) == c + 1:
+                    p = {"text": sp["text"] + " " + p["text"],
+                         "box": [sp["box"][0], min(sp["box"][1], p["box"][1]),
+                                 p["box"][2], max(sp["box"][3], p["box"][3])]}
+                else:           # its amount was not read: the sign alone, in the amount's column
+                    new.append(_moved(sp, cols[c + 1]))
+            c = _col_of(p, cols)
+            if c in sign and lone(p["text"]):
+                carry = (c, p)
+                continue
+            new.append(p)
+        if carry is not None:
+            new.append(_moved(carry[1], cols[carry[0] + 1]))
+        out.append(new)
+    return out, True
+
+
 def whitespace_table(words: list[dict], phrase_gap: float = 0.8,
-                     header_wraps: bool = True, body_wraps: bool = True) -> dict | None:
+                     header_wraps: bool = True, body_wraps: bool = True,
+                     sign_columns: bool = True, cross_frac: float = 0.15) -> dict | None:
     """One table from the words of a region: ``{"box", "n_rows", "n_cols",
     "cells": [{row, col, rowspan, colspan, box, text}], "source":
     "whitespace"}``, or None when no row has two phrases (or only one does
@@ -200,13 +292,14 @@ def whitespace_table(words: list[dict], phrase_gap: float = 0.8,
     multi = [i for i, r in enumerate(rows) if len(r) >= 2]
     if not multi or (len(multi) < 2 and len(rows) < 3):
         return None
-    ivs = sorted((p["box"][0], p["box"][2]) for i in multi for p in rows[i])
-    cols: list[list[float]] = []
-    for a, b in ivs:
-        if cols and a <= cols[-1][1]:
-            cols[-1][1] = max(cols[-1][1], b)
-        else:
-            cols.append([a, b])
+    cols = _columns(rows, multi, cross_frac)
+    if sign_columns:
+        rows, merged = _merge_sign_columns(rows, cols)
+        if merged:
+            multi = [i for i, r in enumerate(rows) if len(r) >= 2]
+            if not multi:
+                return None
+            cols = _columns(rows, multi, cross_frac)
     if len(cols) < 2:
         return None
     if body_wraps:
