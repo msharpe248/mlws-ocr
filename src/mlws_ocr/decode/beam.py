@@ -568,6 +568,11 @@ class BeamDecode(SeqTerms, Stage):
                 asc = np.array([(bl - g["box"][1]) if bl is not None
                                 else g["box"][3] - g["box"][1] for g in gs], dtype=float)
                 asc = asc[asc > 0.3 * asc.max()] if len(asc) else asc
+                if not len(asc) or asc.max() <= 0:
+                    # glyphs all at or below the baseline: a line of type a few
+                    # pixels tall (a 72-dpi table read unmagnified) gives no
+                    # height -- the median of nothing warned and returned NaN
+                    continue
                 line_asc.append(self._low_mode(asc))
                 line_med.append(float(np.median(asc)))
         if p["anchor_min_frac"] > 0 and line_med:
