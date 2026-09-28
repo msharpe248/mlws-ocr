@@ -7,6 +7,7 @@
 #   imagezones.keep_grids   a large ruled grid is a table, not a picture
 #   rulings.short_in_grid   rules too short for the length test that end on rules
 #   magnify.max_scale 4.2   a 72-dpi table crop is brought up to 300 dpi
+#   output.table_net_path   the self-trained separator network joins wrapped rows
 # Measured (docs/RESEARCH.md): payroll forms 0.717 TEDS, paystubs 0.793,
 # invoices 0.711, timesheets 0.604, receipts 0.624; on text, dev-8 and
 # legal-8 unchanged, SROIE -0.1 / -0.3, FUNSD +0.4 / -0.1.
@@ -207,6 +208,7 @@ impl = "text"
 align_pair_min_rows = 2        # a text pair may form from two aligned rows (a table needs three) and takes the
                                # unpartnered one-line blocks on its columns' left edges; the higher-starting
                                # column reads first (2026-09-17: payslips 84.6 -> 89.3 word, orders 86.7 -> 92.3)
+table_net_path = "data/sepnet_v1.npz"  # table profile: the separator network as row evidence (wrapped rows joined)
 split_words_at_cells = true    # table output only (2026-09-28): a word across ruled cell borders split at them
 fix_figure_columns = true      # ...a misread cell in a column of figures repaired to a figure ('S 25' -> '$ 25')
 check_arithmetic = true        # ...each table's figures checked against the relations it keeps (cells ok / fail)

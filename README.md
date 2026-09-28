@@ -64,11 +64,11 @@ the options off, every set scores between 0.00 and 0.03.
 |---|---|---|---|---|---|
 | payroll forms | generated ruled payroll forms: spanned headers, two-row records, open sides; software, typewriter and hand-lettered entries (20 pages) | 0.600 / 0.854 * | **0.717 / 0.896** | no table output | no table output |
 | paystubs | generated: earnings and deductions nested in the stub, in five rule styles from full grid to whitespace (20 pages) | – | 0.793 / 0.854 | no table output | no table output |
-| invoices | generated: line items with spanned totals, five rule styles (20 pages) | – | 0.711 / 0.771 | no table output | no table output |
-| timesheets | generated: two-level spanned headers, five rule styles (20 pages) | – | 0.604 / 0.711 | no table output | no table output |
+| invoices | generated: line items with spanned totals, five rule styles (20 pages) | – | 0.748 / 0.800 | no table output | no table output |
+| timesheets | generated: two-level spanned headers, five rule styles (20 pages) | – | 0.615 / 0.720 | no table output | no table output |
 | receipts | generated: thermal-roll receipts, whitespace or a header rule (20 pages) | – | 0.624 / 0.651 | no table output | no table output |
-| real receipts | CORD photographed receipts, their line items as the table (30 receipts) | – | 0.308 / 0.430 | no table output | no table output |
-| annual-report tables | real financial tables, FinTabNet.c, ruled by whitespace (60 tables) | 0.607 / 0.781 | **0.740 / 0.851** | no table output | no table output |
+| real receipts | CORD photographed receipts, their line items as the table (30 receipts) | – | 0.316 / 0.456 | no table output | no table output |
+| annual-report tables | real financial tables, FinTabNet.c, ruled by whitespace (60 tables) | 0.607 / 0.781 | **0.761 / 0.876** | no table output | no table output |
 
 \* measured before the open-sides and short-rule options; – not measured.
 
@@ -208,7 +208,8 @@ and checks each table's arithmetic (quantity × price = amount, totals),
 marking the cells a failed check points at. None of this changes the
 page's text. For table documents, `configs/neural-table.toml` adds the
 options that do: a large ruled grid kept from the picture zones, short
-dividers under spanned headers, and low-dpi crops magnified. A table
+dividers under spanned headers, low-dpi crops magnified, and a
+self-trained separator network that joins a table's wrapped rows. A table
 image on its own reads best with `--doc-type table`. Measured by TEDS
 against HTML truth (`scripts/eval_tables.py`), table by table in the
 comparison above.

@@ -186,3 +186,75 @@ def grid_table(box, xs: list[float], ys: list[float], words: list[dict]) -> dict
                               "box": [int(xb[c]), int(yb[r]), int(xb[c + 1]), int(yb[r + 1])], "text": ""})
     cells.sort(key=lambda x: (x["row"], x["col"]))
     return {"box": [int(v) for v in box], "n_rows": nr, "n_cols": nc, "cells": cells, "source": "sepnet"}
+
+
+def _merge_axis(t: dict, groups: list[int], axis: str) -> dict:
+    """Merge a table's columns (axis 'col') or rows ('row'): ``groups[k]`` is
+    the new index of old column/row k.  Cells falling together join their
+    text in reading order; spans are recomputed."""
+    span = "colspan" if axis == "col" else "rowspan"
+    merged: dict[tuple, dict] = {}
+    for c in sorted(t["cells"], key=lambda c: (c["row"], c["col"])):
+        a, b = c[axis], c[axis] + c.get(span, 1) - 1
+        na, nb = groups[a], groups[b]
+        key = (c["row"] if axis == "col" else na, na if axis == "col" else c["col"])
+        new = dict(c, **{axis: na, span: nb - na + 1})
+        if key in merged:
+            m = merged[key]
+            m["text"] = (m["text"] + " " + new["text"]).strip()
+            m["box"] = [min(m["box"][0], new["box"][0]), min(m["box"][1], new["box"][1]),
+                        max(m["box"][2], new["box"][2]), max(m["box"][3], new["box"][3])]
+            m[span] = max(m[span], nb - m[axis] + 1)
+        else:
+            merged[key] = new
+    out = dict(t, cells=sorted(merged.values(), key=lambda c: (c["row"], c["col"])))
+    out["n_cols" if axis == "col" else "n_rows"] = max(groups) + 1
+    # a cell covered by a neighbour's span after the merge is dropped
+    cover = set()
+    keep = []
+    for c in out["cells"]:
+        slots = {(r, k) for r in range(c["row"], c["row"] + c.get("rowspan", 1))
+                 for k in range(c["col"], c["col"] + c.get("colspan", 1))}
+        if slots & cover:
+            continue
+        cover |= slots
+        keep.append(c)
+    out["cells"] = keep
+    return out
+
+
+def refine_with_separators(t: dict, pcol, prow, col_veto: float = 0.2, row_join: float = 0.2) -> dict:
+    """The separator network as EVIDENCE for a table the word-alignment rules
+    built: a column gap where the network sees no separator anywhere
+    (max probability under ``col_veto``) is a gap inside one column (a '$'
+    apart from its amount, dot leaders) -- the two columns merge; two rows
+    with no row separator between them are one wrapped row -- they merge.
+    ``pcol(x0, x1)`` / ``prow(y0, y1)`` give the network's highest separator
+    probability over a page-pixel range."""
+    def extents(axis):
+        span = "colspan" if axis == "col" else "rowspan"
+        lo_i, hi_i = (0, 2) if axis == "col" else (1, 3)
+        ext: dict[int, list[float]] = {}
+        for c in t["cells"]:
+            if c.get(span, 1) == 1 and c.get("text"):
+                e = ext.setdefault(c[axis], [1e9, -1e9])
+                e[0] = min(e[0], c["box"][lo_i]); e[1] = max(e[1], c["box"][hi_i])
+        return ext
+    for axis, fn, th in (("col", pcol, col_veto), ("row", prow, row_join)):
+        n = t["n_cols"] if axis == "col" else t["n_rows"]
+        ext = extents(axis)
+        groups, g = [0] * n, 0
+        for k in range(1, n):
+            a, b = ext.get(k - 1), ext.get(k)
+            if a and b:
+                lo, hi = min(a[1], b[0]), max(a[1], b[0])
+                if hi - lo < 1:
+                    lo, hi = lo - 1, hi + 1
+                if fn(lo, hi) < th:
+                    groups[k] = g
+                    continue
+            g += 1
+            groups[k] = g
+        if g + 1 < n:
+            t = _merge_axis(t, groups, axis)
+    return t

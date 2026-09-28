@@ -25,7 +25,7 @@ judged before it went live. The measurements themselves are in
 | knn_scc link rule (experimental) | `linkkeep_v1.npz` | 15 weights | none (option `blocks.link_model_path`) | `train_links.py` | knn_scc graph links labelled by UNLV zone truth |
 | Segmenter judge | `segjudge.npz` | 32 weights | none yet (option `blocks.impl = "judged"`) | `segmenter_judge.py` | per-page accuracy of four segmenters read end to end on UNLV training-pool pages |
 | Glyph CNN | `cnn.npz` | 30k | none (kept off; `recognize.cnn_path`) | `train_cnn.py` | synthetic renders + truth-labelled real crops |
-| Table separator network | `sepnet_v1.npz` | 43k | none (not adopted; option `output.table_net_path`) | `train_sepnet.py` | 6,000 tables drawn by `factory/tablegen.py` with pixel-exact separators + 6,492 FinTabNet.c training tables |
+| Table separator network | `sepnet_v1.npz` | 44k | neural-table (`output.table_net_path`, row evidence: wrapped rows joined) | `train_sepnet.py` | 6,000 tables drawn by `factory/tablegen.py` with pixel-exact separators + 6,492 FinTabNet.c training tables |
 
 The classic engine also builds three learned tables that are not networks
 but come from the same data: the condensed nearest-prototype pool
@@ -630,7 +630,7 @@ CPU.
 .venv/bin/python scripts/train_cnn.py data/cnn.npz --epochs 12
 ```
 
-### Table separator network — `layout/sepnet.py` (trained, not adopted)
+### Table separator network — `layout/sepnet.py` (row evidence in neural-table)
 
 **Purpose.** The split half of split-and-merge table structure recognition
 (Tensmeyer et al., ICDAR 2019): for every x of a table region the
@@ -659,8 +659,20 @@ network, columns from the rules 0.670 / 0.754); CORD receipts 0.22 against
 0.31. It places rows well (often the exact count where the rules split a
 wrapped cell) but over-splits columns at the gaps inside a cell (a '$'
 set apart from its amount, dot leaders), and a grid of separators has none
-of the rules' row repairs (wrapped cells, two-line items). Not adopted;
-the file stays for the next version.
+of the rules' row repairs (wrapped cells, two-line items). Not adopted as
+the structure.
+
+**As evidence (adopted in neural-table, 2026-09-28).** Over a table the
+word-alignment rules built, two neighbouring rows with no row separator
+between them (the network's highest probability in the gap under 0.3) are
+one wrapped row and join (`sepnet.refine_with_separators`,
+`output.table_net_mode = "refine"`). Offline: FinTabNet tuning / held-out
+0.700 / 0.821 → 0.717 / 0.851; invoices 0.683 → 0.719, timesheets 0.580 →
+0.589, receipts 0.647 → 0.651, paystubs unchanged, CORD 0.308 → 0.306.
+End to end with neural-table: FinTabNet 0.740 → 0.761, invoices 0.711 →
+0.748, timesheets 0.604 → 0.615, CORD 0.308 → 0.316, the rest unchanged.
+The same test on columns (a gap vetoed when the network sees no
+separator in it) was negative at every threshold (0.1: 0.675 / 0.799).
 
 ```sh
 .venv/bin/python scripts/make_sep_data.py synth --n 2000 --seed 1 --out data/sep_synth_1.npz   # and seeds 2, 3

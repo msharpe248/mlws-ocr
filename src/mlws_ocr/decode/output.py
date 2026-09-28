@@ -81,9 +81,13 @@ class TextOutput(Stage):
         "check_arithmetic": False,       # check each table's figures against the relations
                                          # it keeps (a x b = c across a row, a total's sum):
                                          # cells marked check ok / fail (decode/arith.py)
-        "table_net_path": "",            # a trained separator network (layout/sepnet.py): each
-                                         # whitespace table's rows and columns from it instead
-                                         # of the word-alignment rules; "" = off (2026-09-28)
+        "table_net_path": "",            # a trained separator network (layout/sepnet.py) for the
+                                         # whitespace tables; "" = off (2026-09-28)
+        "table_net_mode": "refine",      # "refine": two rows with no row separator between them
+                                         # are one wrapped row (sepnet.refine_with_separators);
+                                         # "replace": rows and columns from the network alone
+                                         # (measured worse, RESEARCH)
+        "table_net_row_join": 0.3,       # ...refine: rows join below this separator probability
         "ws_detect": False,              # find whitespace tables ON the page (runs of
                                          # text rows sharing columns, outside the ruled
                                          # tables; wstables.find_tables); 2026-09-28
@@ -182,12 +186,12 @@ class TextOutput(Stage):
     _nets: dict = {}
 
     def _net_structure(self, t: dict, page: Page, words: list[dict]) -> dict:
-        """Re-cut a found table with the separator network: the grey page
-        cropped to the table (and a margin), the network's column and row
-        separators, the words placed in the grid they make (sepnet.grid_table).
-        The table stays as found if the page has no grey level or the grid
-        has fewer than two columns."""
-        from ..layout.sepnet import SepNet, grid_table, separators
+        """The separator network over the grey page cropped to a found table
+        (and a margin).  "refine": the rules' table, its wrapped rows joined
+        where the network sees no row separator between them; "replace": the
+        grid the network's own separators make (sepnet.grid_table).  The
+        table stays as found if the page has no grey level."""
+        from ..layout.sepnet import SepNet, grid_table, refine_with_separators, separators
         path = self.params["table_net_path"]
         if page.gray is None:
             return t
@@ -197,6 +201,12 @@ class TextOutput(Stage):
         x0, y0 = max(0, t["box"][0] - m), max(0, t["box"][1] - m)
         x1, y1 = min(W, t["box"][2] + m), min(H, t["box"][3] + m)
         pc, pr, f = net.predict(page.gray[y0:y1, x0:x1], page.dpi or 300.0)
+        if self.params["table_net_mode"] == "refine":
+            def span_max(p, off):
+                return lambda a, b: float(p[max(0, int((a - off) / f)):max(int((a - off) / f) + 1,
+                                                                            int((b - off) / f) + 1)].max()) if len(p) else 1.0
+            return refine_with_separators(t, span_max(pc, x0), span_max(pr, y0), 0.0,
+                                          self.params["table_net_row_join"])
         xs = [x0 + v for v in separators(pc, f)]
         ys = [y0 + v for v in separators(pr, f)]
         nt = grid_table([x0, y0, x1, y1], xs, ys, words)
