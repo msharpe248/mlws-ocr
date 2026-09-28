@@ -2,7 +2,7 @@
 
 **Michael Sharpe** — an empirical study in the mlws-ocr project (2026).
 
-*Draft of 28 September 2026, for the owner's review. Figures are in the [HTML edition](https://msharpe248.github.io/mlws-ocr/docs/papers/diagnose-dont-tune.html); this text refers to them by number.*
+*Working draft, 28 September 2026: kept current as the engine improves. Figures are in the [HTML edition](https://msharpe248.github.io/mlws-ocr/docs/papers/diagnose-dont-tune.html); this text refers to them by number.*
 
 ## In brief
 
