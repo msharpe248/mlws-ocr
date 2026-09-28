@@ -29,11 +29,31 @@ plan stands (TEDS, neural-table; RESEARCH has every row):
    in 13; kept products never.
 7. ✅ **Output and defaults** -- `<th>` header rows, CSV; CORD line items
    as real receipt tables (0.076 → 0.308); the defaults decided.
-8. **A self-trained separator network** (split-and-merge, Tensmeyer et
-   al., ICDAR 2019), trained from scratch on rendered tables and
-   PubTables-1M: next. The rule-based stages leave the most on real
-   photographed receipts (CORD 0.308), two-level headers without rules
-   (timesheets 0.604) and tight key-value tables.
+8. ✅ **A self-trained separator network** (`layout/sepnet.py`, the split
+   model of Tensmeyer et al., ICDAR 2019): as the structure it lost to the
+   rules; as ROW evidence in neural-table it joins wrapped rows (FinTabNet
+   0.740 → 0.761, invoices 0.711 → 0.748, CORD 0.308 → 0.316).
+
+**Then, in this order (the owner, 2026-09-28):**
+
+9. **Harder tables** (now): tight key-value tables (cells a word space
+   apart, 'Omar Patel | Pay Date'); photographed receipts (CORD 0.316, now
+   limited by reading more than structure); detection F1 on PubTables-1M
+   pages; the network's columns (a v2 trained with CORD photos and '$'
+   set apart from its amount).
+10. **Release v0.16.0** -- table structure in neural, the neural-table
+    profile, JSON / HTML / CSV tables, arithmetic checks, the workbench's
+    Tables view, `sepnet_v1.npz` in the models bundle.
+11. **Table correction in the workbench** -- add or remove a column or row
+    separator, merge or split cells, correct a cell's text, re-export;
+    corrections as data, surviving re-runs, like the other edits.
+12. **Paper: tables from rules and one small network** -- exact nested
+    truth from one table model; page-level detection, open-sided and nested
+    grids; arithmetic checks as a confidence signal (a failed check holds a
+    real misread 12 times in 13); a self-trained network that loses as the
+    structure and wins as evidence.
+13. **The earlier items below** (Next): short newspaper columns under a
+    headline, photo junk on magazines, typewriter blocks and FUNSD words.
 
 ## Next (2026-09-28)
 
