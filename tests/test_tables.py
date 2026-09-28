@@ -207,3 +207,21 @@ def test_item_name_on_its_own_line_joins_its_figures():
     got = {(c["row"], c["col"]): c["text"] for c in t["cells"] if c["text"]}
     assert t["n_rows"] == 3
     assert got[1, 0] == "Choco Bun" and got[1, 2] == "22.000"
+
+
+def test_two_level_header_spans_across_and_down():
+    from mlws_ocr.layout.wstables import whitespace_table
+
+    def w(t, x0, y, x1):
+        return {"text": t, "box": [x0, y, x1, y + 30]}
+    words = [w("Day", 0, 0, 70), w("Morning", 300, 0, 440), w("Hours", 700, 0, 800),
+             w("In", 290, 45, 320), w("Out", 420, 45, 470)]
+    for k, (d, a, b, h) in enumerate([("Monday", "9:00", "12:30", "7.50"), ("Tuesday", "8:00", "12:00", "8.00"),
+                                      ("Friday", "7:30", "11:30", "7.00")]):
+        y = 100 + 45 * k
+        words += [w(d, 0, y, 130), w(a, 280, y, 340), w(b, 400, y, 480), w(h, 720, y, 800)]
+    t = whitespace_table(words)
+    got = {(c["row"], c["col"]): (c["rowspan"], c["colspan"], c["text"]) for c in t["cells"]}
+    assert got[0, 0] == (2, 1, "Day") and got[0, 3] == (2, 1, "Hours")      # span down
+    assert got[0, 1] == (1, 2, "Morning")                                     # span across
+    assert got[1, 1][2] == "In" and got[1, 2][2] == "Out"

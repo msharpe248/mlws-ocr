@@ -137,6 +137,8 @@ def _phrases(row: list[dict], gap: float) -> list[dict]:
     return out
 
 
+VIRTUAL = [False, True]  # virtual rules: [body cells span the column rules they break, header cells span
+                         # down where the header rows below are empty] (experiment switches)
 ALIGN_SPLIT = [1.4]      # gap factor over the word space; 0 = off (experiment switch)
 ALIGN_SPLIT_MONO = [0.9]  # ...in monospace type, where a single space may part two cells
 JOIN_FACTOR = [1.5]      # rejoin an unaligned phrase closer than this many word spaces; 0 = off
@@ -289,6 +291,25 @@ def _col_of(p, cols) -> int:
     return int(np.argmax(ov))
 
 
+BODY_BY_FIGURE = [True]   # experiment switch: the body starts at the first row with a figure
+BODY_COLUMNS = [True]     # experiment switch: columns from the body rows
+
+
+def _body_start(rows, first_multi: int) -> int:
+    """Where a table's body starts: the first row, from the first row with
+    two or more phrases, holding a figure after its first phrase -- at most
+    three rows down (a table of words has no figures to say it).  A header
+    of two levels ('Morning' over 'In  Out') is two multi-phrase rows; taking
+    the first of them as the body merged the second into it as a wrapped
+    row and denied the upper one its spanning headers."""
+    if not BODY_BY_FIGURE[0]:
+        return first_multi
+    for r in range(first_multi, min(len(rows), first_multi + 4)):
+        if len(rows[r]) >= 2 and any(any(ch.isdigit() for ch in p["text"]) for p in rows[r][1:]):
+            return r
+    return first_multi
+
+
 def _merge_label_rows(rows, cols, first_body) -> list[list[dict]]:
     """An item set on two lines -- its name on one, its count and price on the
     next (a receipt's '1001-Choco Bun' / '22.000  x1  22.000') -- made two
@@ -301,10 +322,12 @@ def _merge_label_rows(rows, cols, first_body) -> list[list[dict]]:
     while r < len(rows):
         row = rows[r]
         nxt = rows[r + 1] if r + 1 < len(rows) else None
-        if (nxt and row and all(_col_of(p, cols) == 0 for p in row)
-                and not TOTAL_RE.search(" ".join(p["text"] for p in row))
-                and all(_col_of(p, cols) != 0 for p in nxt)
-                and any(_numeric(p["text"]) for p in nxt)):
+        if (nxt and row and not TOTAL_RE.search(" ".join(p["text"] for p in row))
+                and any(_numeric(p["text"]) for p in nxt)
+                and ((all(_col_of(p, cols) == 0 for p in row) and all(_col_of(p, cols) != 0 for p in nxt))
+                     # or, where the columns are not yet known (found from the figure
+                     # rows alone): the name line lies wholly left of the figures below
+                     or (len(row) == 1 and max(p["box"][2] for p in row) < min(p["box"][0] for p in nxt)))):
             out.append(row + nxt)
             r += 2
             continue
@@ -508,7 +531,11 @@ def whitespace_table(words: list[dict], phrase_gap: float = 0.8,
     multi = [i for i, r in enumerate(rows) if len(r) >= 2]
     if not multi or (len(multi) < 2 and len(rows) < 3):
         return None
-    cols = _columns(rows, multi, cross_frac)
+    # columns from the BODY rows when there are two or more: a header phrase
+    # spanning sub-columns ('Morning' over 'In  Out') crosses their gap and
+    # merged them
+    body_rows = [i for i in multi if i >= _body_start(rows, multi[0])] if BODY_COLUMNS[0] else multi
+    cols = _columns(rows, body_rows if len(body_rows) >= 2 else multi, cross_frac)
     if word_columns:
         rows, cols = _split_at_word_columns(rows, multi, cross_frac)
         multi = [i for i, r in enumerate(rows) if len(r) >= 2]
@@ -524,12 +551,21 @@ def whitespace_table(words: list[dict], phrase_gap: float = 0.8,
     if len(cols) < 2:
         return None
     if body_wraps:
-        rows = _merge_body_wraps(rows, cols, line_h, multi[0])
+        rows = _merge_body_wraps(rows, cols, line_h, _body_start(rows, multi[0]))
         multi = [i for i, r in enumerate(rows) if len(r) >= 2]
     if label_rows:
-        rows = _merge_label_rows(rows, cols, multi[0])
+        # an item's name line may come before the first figure row (a receipt's
+        # first item): two-line items are joined from just below the first
+        # multi-phrase row, whatever the header
+        n_before = len(rows)
+        rows = _merge_label_rows(rows, cols, min(_body_start(rows, multi[0]), multi[0] + 1))
         multi = [i for i, r in enumerate(rows) if len(r) >= 2]
-    first_body = multi[0]
+        if len(rows) < n_before and BODY_COLUMNS[0]:
+            # joined item rows now carry their names: the columns again, from the body
+            body_rows = [i for i in multi if i >= _body_start(rows, multi[0])]
+            if len(body_rows) >= 2:
+                cols = _columns(rows, body_rows, cross_frac)
+    first_body = _body_start(rows, multi[0])
     centres = [(a + b) / 2 for a, b in cols]
     cells = []
     for r, phrases in enumerate(rows):
@@ -546,6 +582,14 @@ def whitespace_table(words: list[dict], phrase_gap: float = 0.8,
             if r < first_body and not (cols[0][0] <= x0 <= cols[0][1]):
                 c0, c1 = _header_span(x0, x1, cols, bests[k],
                                       {b for j, b in enumerate(bests) if j != k} | set(taken))
+            elif r >= first_body and VIRTUAL[0]:
+                # the virtual column rules this phrase breaks: it spans the columns
+                # on both sides of each (a 'Total' across the label columns)
+                crossed = [j for j in range(len(cols) - 1)
+                           if x0 < cols[j][1] and x1 > cols[j + 1][0]]
+                if crossed and not any(bests[m] in range(min(crossed), max(crossed) + 2)
+                                       for m in range(len(phrases)) if m != k):
+                    c0, c1 = min(crossed), max(crossed) + 1
             clash = [c for c in range(c0, c1 + 1) if c in taken]
             if clash:
                 # two phrases in one column (a gap the column rows closed):
@@ -568,6 +612,18 @@ def whitespace_table(words: list[dict], phrase_gap: float = 0.8,
                               "box": [int(cols[c][0]), int(min(v["box"][1] for v in y)),
                                       int(cols[c][1]), int(max(v["box"][3] for v in y))],
                               "text": ""})
+    if VIRTUAL[1] and first_body >= 2:
+        # the virtual row rules under a header cell: absent where every header
+        # row below it is empty in that column -- the cell spans down ('Day'
+        # beside 'Morning' over 'In | Out'; 'in millions' beside '2013 Quarters')
+        at = {(c["row"], c["col"]): c for c in cells}
+        drop = set()
+        for c in [c for c in cells if c["row"] < first_body - 1 and c["text"] and c["colspan"] == 1]:
+            below = [at.get((q, c["col"])) for q in range(c["row"] + 1, first_body)]
+            if below and all(b is not None and not b["text"] and b["colspan"] == 1 for b in below):
+                c["rowspan"] = first_body - c["row"]
+                drop.update(id(b) for b in below)
+        cells = [c for c in cells if id(c) not in drop]
     cells.sort(key=lambda c: (c["row"], c["col"]))
     xs0 = min(w["box"][0] for w in words); ys0 = min(w["box"][1] for w in words)
     xs1 = max(w["box"][2] for w in words); ys1 = max(w["box"][3] for w in words)
