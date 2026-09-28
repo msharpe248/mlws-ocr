@@ -81,6 +81,9 @@ class TextOutput(Stage):
         "check_arithmetic": False,       # check each table's figures against the relations
                                          # it keeps (a x b = c across a row, a total's sum):
                                          # cells marked check ok / fail (decode/arith.py)
+        "table_net_path": "",            # a trained separator network (layout/sepnet.py): each
+                                         # whitespace table's rows and columns from it instead
+                                         # of the word-alignment rules; "" = off (2026-09-28)
         "ws_detect": False,              # find whitespace tables ON the page (runs of
                                          # text rows sharing columns, outside the ruled
                                          # tables; wstables.find_tables); 2026-09-28
@@ -175,6 +178,29 @@ class TextOutput(Stage):
         # the strip is never most of the page: a receipt or a crop fills the image
         # edge to edge, and its lines touch the border because they are the page
         return out if len(out) <= p["facing_max_share"] * total else set()
+
+    _nets: dict = {}
+
+    def _net_structure(self, t: dict, page: Page, words: list[dict]) -> dict:
+        """Re-cut a found table with the separator network: the grey page
+        cropped to the table (and a margin), the network's column and row
+        separators, the words placed in the grid they make (sepnet.grid_table).
+        The table stays as found if the page has no grey level or the grid
+        has fewer than two columns."""
+        from ..layout.sepnet import SepNet, grid_table, separators
+        path = self.params["table_net_path"]
+        if page.gray is None:
+            return t
+        net = self._nets.get(path) or self._nets.setdefault(path, SepNet(path))
+        m = int(12 * (page.dpi or 300.0) / 300.0)
+        H, W = page.gray.shape
+        x0, y0 = max(0, t["box"][0] - m), max(0, t["box"][1] - m)
+        x1, y1 = min(W, t["box"][2] + m), min(H, t["box"][3] + m)
+        pc, pr, f = net.predict(page.gray[y0:y1, x0:x1], page.dpi or 300.0)
+        xs = [x0 + v for v in separators(pc, f)]
+        ys = [y0 + v for v in separators(pr, f)]
+        nt = grid_table([x0, y0, x1, y1], xs, ys, words)
+        return nt if nt is not None else t
 
     def run(self, page: Page) -> tuple[Page, DebugBundle]:
         layout = page.meta.get("layout", {})
@@ -326,6 +352,8 @@ class TextOutput(Stage):
             words = [w for ln in layout["lines"] for w in ln.get("words", [])]
             t = whitespace_table(words, self.params["ws_phrase_gap"],
                                  cross_frac=self.params["ws_cross_frac"])
+            if t is not None and self.params["table_net_path"]:
+                t = self._net_structure(t, page, words)
             if t is not None:
                 # a new layout dict: the incoming page's stays as its stage left it
                 layout = dict(layout, tables=[t])
@@ -339,6 +367,8 @@ class TextOutput(Stage):
             keep, found = page_tables(words, layout.get("tables", []), layout.get("rules_h", []),
                                       page.dpi or 300.0, self.params["ws_phrase_gap"],
                                       self.params["ws_cross_frac"])
+            if self.params["table_net_path"]:
+                found = [self._net_structure(t, page, words) for t in found]
             if len(keep) < len(layout.get("tables", [])):
                 layout = dict(layout, tables=[layout["tables"][k] for k in keep])
                 tables_text = [tables_text[k] for k in keep]
