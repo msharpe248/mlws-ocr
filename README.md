@@ -49,19 +49,27 @@ scoreboard and its history are in `docs/DESIGN.md` §8.
 
 
 **Tables.** Table structure is scored by TEDS (tree-edit similarity of the
-recognised table to its HTML truth, text included; after the slash,
-TEDS-S, structure alone; 1.0 is perfect), with the table options on
-(`imagezones.keep_grids`, `tables.spans` for the ruled forms; the `table`
-hint and `output.ws_table_doc_types` for whitespace tables; FinTabNet's
-72-dpi crops magnified). Neither Tesseract engine outputs table
-structure -- its text, hOCR and TSV carry no rows, columns or cells -- so
-there is nothing to score. With the options off, both sets score about
-0.00 / 0.03.
+recognised tables to their HTML truth, text included; after the slash,
+TEDS-S, structure alone; 1.0 is perfect), with the table options on (they
+are all off by default while their effect elsewhere is measured):
+ruled grids kept from the picture zones, short grid rules, spanned cells,
+open sides, words split at cell borders, figure columns, and tables found
+on the page (the generated sets, scored page-wide over every table) or the
+`table` hint (FinTabNet's single-table crops, magnified from 72 dpi).
+Neither Tesseract engine outputs table structure -- its text, hOCR and
+TSV carry no rows, columns or cells -- so there is nothing to score. With
+the options off, every set scores between 0.00 and 0.03.
 
 | set | what it is | classic | neural | legacy Tesseract | Tesseract LSTM |
 |---|---|---|---|---|---|
-| payroll forms | generated ruled payroll forms: spanned headers, two-row records; software, typewriter and hand-lettered entries (20 pages) | 0.600 / **0.854** | **0.668 / 0.854** | no table output | no table output |
+| payroll forms | generated ruled payroll forms: spanned headers, two-row records, open sides; software, typewriter and hand-lettered entries (20 pages) | 0.600 / 0.854 * | **0.717 / 0.896** | no table output | no table output |
+| paystubs | generated: earnings and deductions nested in the stub, in five rule styles from full grid to whitespace (20 pages) | – | 0.752 / 0.825 | no table output | no table output |
+| invoices | generated: line items with spanned totals, five rule styles (20 pages) | – | 0.709 / 0.768 | no table output | no table output |
+| timesheets | generated: two-level spanned headers, five rule styles (20 pages) | – | 0.601 / 0.706 | no table output | no table output |
+| receipts | generated: thermal-roll receipts, whitespace or a header rule (20 pages) | – | 0.624 / 0.651 | no table output | no table output |
 | annual-report tables | real financial tables, FinTabNet.c, ruled by whitespace (60 tables) | 0.607 / 0.781 | **0.738 / 0.847** | no table output | no table output |
+
+\* measured before the open-sides and short-rule options; – not measured.
 
 **Held-out pages.** The eight-page sets flatter newspapers and magazines:
 on 30 fresh pages of each type, never used for any decision, the neural
