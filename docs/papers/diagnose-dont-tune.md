@@ -2,7 +2,7 @@
 
 **Michael Sharpe** — an empirical study in the mlws-ocr project (2026).
 
-*Working draft, 28 September 2026: kept current as the engine improves. Figures are in the [HTML edition](https://msharpe248.github.io/mlws-ocr/docs/papers/diagnose-dont-tune.html); this text refers to them by number.*
+*Working draft; figures from mlws-ocr releases v0.13.0 to v0.15.1, kept current as the engine improves. Figures are in the [HTML edition](https://msharpe248.github.io/mlws-ocr/docs/papers/diagnose-dont-tune.html); this text refers to them by number.*
 
 ## In brief
 
@@ -63,7 +63,7 @@ evaluation decision has used. On 30 held-out magazine pages the neural
 profile went from 68.1% / 60.3% (character / word accuracy) to 83.7% /
 75.6% (Tesseract's LSTM engine: 78.5% / 73.6%); on photographed receipts
 from 46.4% / 21.7% to 53.5% / 31.1% (46.7% / 21.1%); on the text blocks
-of 30 business letters from 96.0% to 97.2% of words (96.5%). Two
+of 30 business letters from 95.9% to 97.2% of words (96.5%). Two
 plausible remedies — estimating skew with photographs masked on every
 page, and re-reading picture zones in both polarities — were measured
 and rejected. Every experiment is recorded in the project's research
@@ -75,7 +75,7 @@ The engine studied here, mlws-ocr, is a pipeline of about twenty stages —
 cleanup (magnification, deskew, illumination, binarisation, despeckling),
 layout (picture zones, ruled lines, blocks, lines), recognition (glyph
 prototypes, a self-trained line reader, language models) and output.
-By September 2026 it had been tuned for a month against the usual
+By release v0.13.0 it had been tuned for a month against the usual
 scoreboard: character and word accuracy, in reading order, on fixed sets
 of pages.
 
@@ -108,7 +108,10 @@ FUNSD forms (50), CORD photographed receipts cropped to the receipt
 length, in reading order); **word recall** (the share of truth words that
 appear anywhere in the output, order ignored). The reference engine is
 Tesseract 5.5.3, both its legacy engine and its LSTM engine, on the same
-pages.
+pages. Each result below names the mlws-ocr release that shipped the fix;
+"before" figures are from the release before it, and the final figures
+from v0.15.1. Every release's notes and model files are on the project's
+releases page.
 
 ## 3. Four attribution tools
 
@@ -160,7 +163,7 @@ only if held-out pages confirm it without loss elsewhere.
 
 ### 4.1 A picture detector that swallowed captions
 
-**Symptom** (held-out magazines, 68.1% / 60.3%): whole captions and
+**Symptom** (held-out magazines, 68.1% / 60.3% on v0.13.0): whole captions and
 text columns beside photographs missing from the output. **Cause:** the
 picture-zone detector's density window, and a rule that everything
 inside a solid picture box is picture, took the text set beside and
@@ -169,7 +172,7 @@ at least five of similar height, on one baseline, at letter spacing — are
 given back, together with the punctuation in their row's band (Figure
 1b). A first version gave back photo crumbs beside a caption too, which
 bridged a column gutter on one page (95.5% → 58.1%); crumbs now reach one
-glyph height past a row, chained glyphs four. **Result:** held-out
+glyph height past a row, chained glyphs four. **Result** (released in v0.14.0): held-out
 magazines **77.2% / 65.4%**; the classic engine 59.0% → 65.3%; letters,
 legal pages, business documents and receipts within 0.1.
 
@@ -191,7 +194,7 @@ finder missed, are now found (Figure 2) — gaps bridged along the row,
 then kept only where the run is thin, white beneath (the tops of spaced
 capitals had qualified), mostly inked, and made of short pieces (the
 bottoms of dense newspaper type had qualified: one page 99.9% → 97.1%
-before that test). **Result:** that form 1,189 characters; FUNSD 64.5% →
+before that test). **Result** (released in v0.14.0): that form 1,189 characters; FUNSD 64.5% →
 66.1%; photographed receipts **46.4% / 21.7% → 52.4% / 30.6%**; every
 other set within 0.2.
 
@@ -209,7 +212,7 @@ on the search limit is the sign of no real peak; it is re-made from
 glyph-sized ink only (the components Baird's estimator votes with), and
 if it lands on the limit again the page is left unrotated (Figure 3b).
 Pages whose estimate is inside the limit are processed exactly as
-before. **Result:** held-out magazines **77.1% / 65.3% → 82.1% / 73.4%**,
+before. **Result** (released in v0.14.1): held-out magazines **77.1% / 65.3% → 82.1% / 73.4%**,
 word recall 84% → 92%; classic 65.4% → 67.6%; every other set identical.
 
 <!--FIG:desk_a,desk_b-->
@@ -227,7 +230,7 @@ at least 30% of those edge words unknown to the dictionary, is left out.
 Two guards were measured into it: ungated, receipts lost six points —
 cropped edge to edge, a receipt's own lines touch the border — so the rule
 applies to newspaper and magazine pages only, and never removes more
-than half a page's lines. **Result:** mag-8 **81.4% / 74.8% → 87.2% /
+than half a page's lines. **Result** (released in v0.15.1): mag-8 **81.4% / 74.8% → 87.2% /
 81.3%**, news-8 95.4% → 96.9%, held-out newspapers 84.6% / 79.2% →
 86.7% / 81.6%, held-out magazines 82.1% / 73.2% → **83.7% / 75.6%**;
 receipts and letters identical; the classic engine +1.6 to +2.9 on the
@@ -237,8 +240,8 @@ same sets.
 
 ### 4.5 A paragraph read alone
 
-On the text blocks of 30 letters the engine read 98.5% of characters —
-level with Tesseract's LSTM engine — but 96.0% of words against 96.5%.
+On the text blocks of 30 letters release v0.14.1 read 98.5% of characters —
+level with Tesseract's LSTM engine — but 95.9% of words against 96.5%.
 Error typing (§3.4) listed the difference: ours / LSTM, merges 67 / 42,
 punctuation 34 / 18, case 15 / 1, letters 45 / 47, inserted words 41 / 70
 (ours fewer), out of 6,434 words. Each class had a cause:
@@ -265,7 +268,7 @@ punctuation 34 / 18, case 15 / 1, letters 45 / 47, inserted words 41 / 70
   U R"), which took three single characters for spaced letters. It now
   joins runs of letters only.
 
-**Result:** blocks **96.0% → 97.2%** of words (Tesseract LSTM 96.5%,
+**Result** (released in v0.15.0): blocks **95.9% → 97.2%** of words (Tesseract LSTM 96.5%,
 legacy 96.6%), characters 98.6%; the 30 letters read as whole pages 92.0%
 → **93.0%** of words, ahead of the LSTM engine's 92.7%.
 
@@ -353,5 +356,5 @@ subtle, only unexamined.
 text), `scripts/eval_blocks.py --dump` (blocks for error typing),
 `scripts/eval_unlv.py --heldout` and `scripts/eval_tesseract.py --heldout`
 (the held-out pools). Experiment provenance, with every negative result:
-`docs/RESEARCH.md` (26–28 September 2026). Figures are the pipeline's own
+`docs/RESEARCH.md` (the entries for releases v0.13.0 to v0.15.1). Figures are the pipeline's own
 intermediates.*

@@ -4,7 +4,7 @@
 
 *Figures are in the [HTML edition](https://msharpe248.github.io/mlws-ocr/docs/papers/knn-scc-block-segmentation.html); this text refers to them by number.*
 
-*Revised 28 September 2026: every end-to-end figure in §5.3–§5.5 and §5.7 and the whole of §5.10 were re-measured on the current mlws-ocr engine, with only the `blocks` stage changed as before. The engine around the segmenter has improved since the first measurements (the line reader, deskew, picture zones, the facing page of a spread), so absolute accuracies moved — XY-cut's newspapers from 95.8% to 97.4%, for instance — while the comparisons, and every conclusion drawn from them, stand. Where a figure was not re-measured it is marked with its date.*
+*Revised for release v0.15.1: every end-to-end figure in §5.3–§5.5 and §5.7 and the whole of §5.10 were re-measured on mlws-ocr v0.15.1, with only the `blocks` stage changed as before. The engine around the segmenter has improved since the first measurements (the line reader, deskew, picture zones, the facing page of a spread), so absolute accuracies moved — XY-cut's newspapers from 95.8% to 97.4%, for instance — while the comparisons, and every conclusion drawn from them, stand. Where a figure was not re-measured it is marked with the release it was measured on.*
 
 ## In brief
 
@@ -69,7 +69,7 @@ of the remaining digraph — sets of characters that are *mutually*
 reachable through short links — become layout blocks. On a synthetic
 multi-column fixture the method recovers every ground-truth block at
 IoU 1.00 untuned, and at every threshold tested between 1.2 and 4 times
-the mean link length. In the current mlws-ocr pipeline, replacing the
+the mean link length. In the mlws-ocr pipeline (release v0.15.1), replacing the
 tuned recursive XY-cut segmenter leaves end-to-end OCR accuracy on
 scanned business letters unchanged or better (30 letters: 95.8% character
 and 93.3% word accuracy against 95.8% and 93.0%) with no document-type
@@ -259,7 +259,7 @@ qualify them.
 
 <!--FIG:magazine-->
 
-**End to end, by set (re-measured 28 September 2026).** Each cell is character / word
+**End to end, by set (release v0.15.1).** Each cell is character / word
 accuracy (%) for the whole pipeline with only the `blocks` stage
 changed. XY-cut is the incumbent: recursive XY-cut with rules tuned per
 document type (a letter's column gap is 2.5 times wider than the
@@ -321,8 +321,8 @@ between (69.1%).
 
 The 1995 specification guessed τ = 1.5 × mean. In 2026 the author
 proposed a spread-adaptive threshold, τ = mean + k·σ of the page's link
-lengths. On the first measurements (August 2026, an earlier state of the
-pipeline, 8 business letters) k = 1 gave +0.4 character accuracy over the
+lengths. On the first measurements (August 2026, before the first release,
+8 business letters) k = 1 gave +0.4 character accuracy over the
 fixed ratio (80.2% against 79.8%; k = 1.5 and 2 were slightly worse),
 with the fixture unchanged. Wider testing reversed the decision: on
 photo-heavy newspaper pages every spread-based threshold (mean + kσ, and
@@ -330,10 +330,10 @@ robust MAD variants) collapses the page into a single block, because
 residual photo fragments give the length distribution a heavy tail that
 inflates any spread statistic until nothing is pruned (Figure 5). The
 1995 ratio rule is the domain-robust choice and is the default; the
-spread rule remains an option for clean text. On today's pipeline the
+spread rule remains an option for clean text. On release v0.15.1 the
 two are indistinguishable on letters (mean + 1σ: dev-8 96.4 / 94.3,
 broad-30 95.7 / 93.3, against 96.4 / 94.2 and 95.8 / 93.3 for the ratio
-rule; re-measured 28 September 2026).
+rule; release v0.15.1).
 
 <!--FIG:sigma-->
 
@@ -345,7 +345,7 @@ character accuracy (1.2 × mean: 95.7, 1.5: 96.4, 2.0: 96.4, 3.0: 95.5);
 broad-30 between 93.7 and 96.4% (1.2: 96.4, 1.5: 95.8, 2.0: 96.0, 3.0:
 93.7), both tighter settings above XY-cut's 95.8 on that set; and with the
 hybrid rule off, 1.0 × mean gives 96.2 / 93.4 on broad-30 (dev-8 95.8 /
-93.2). (Re-measured 28 September 2026.) On the synthetic fixture every
+93.2). (Release v0.15.1.) On the synthetic fixture every
 threshold from 1.2 to 4 gives IoU 1.00. This insensitivity is a property of the clustering criterion,
 not luck. Strong connectivity gives the pruning slack on both sides. A
 too-loose threshold leaves stray long edges, but they are *directed*, and
@@ -445,8 +445,8 @@ photo-heavy pages the big-component bias *inverts* rather than vanishing.
 A large residual photo fragment's distant centroid had kept it separate;
 its edges being near everything now merge it into adjacent text — on one
 newspaper page 12 mixed blocks and 54.5% character accuracy, against
-centroid mode's 47 blocks and 77.4% (Figure 8; measured September 2026 on
-the engine of the time, not re-measured). The two distance
+centroid mode's 47 blocks and 77.4% (Figure 8; measured before the first
+release, v0.2.0, and not re-measured). The two distance
 definitions trade biases by domain; centroid mode remains the default.
 
 <!--FIG:edge_a,edge_b-->
@@ -463,7 +463,7 @@ components first (`cc_merge_overlap`). A component dropped for being big
 is not noise but a detected picture, so it returns to the output as an
 *image block*, merged only with other image blocks (merging it with text
 is the measured photo-weld hazard) and placed in reading order.
-Measured (September 2026, on the engine of the time): inside the full
+Measured (before the first release, v0.2.0; not re-measured): inside the full
 pipeline, where despeckling and picture-zone detection already run upstream, the filters are near no-ops on letters,
 and the speck filter is harmful on newspapers (44 blocks → 4): the
 thousands of short speck links had been holding the mean down, and

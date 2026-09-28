@@ -2,7 +2,7 @@
 
 **Michael Sharpe** — a follow-on study in the mlws-ocr project (2026).
 
-*Revised 28 September 2026: every accuracy in §4 (and in this summary and the abstract) re-measured on the current mlws-ocr engine, with only the `blocks` stage changed as before. The engine around the segmenter has improved since (the line reader, deskew, picture zones, the facing page of a spread), so the absolute figures rose — the judge's fresh magazine pages from 67.8% to 83.7% — while the comparisons stand; three statements changed with them and are noted where they fall (legal-8, zone order on magazines, the size of the judge's lead). Revised 26 September 2026: the claim that the improved variants beat the incumbent on fresh newspaper pages rested on 20 pages; on 70 fresh pages no single segmenter wins, and a per-page judge does (§4.4). Figures are in the [HTML edition](https://msharpe248.github.io/mlws-ocr/docs/papers/knn-scc-beyond-1995.html); this text refers to them by number. The first paper is [Block Segmentation by Directional k-Nearest-Neighbor Graphs and Strongly Connected Components](https://msharpe248.github.io/mlws-ocr/docs/papers/knn-scc-block-segmentation.html).*
+*Revised for release v0.15.1: every accuracy in §4 (and in this summary and the abstract) re-measured on mlws-ocr v0.15.1, with only the `blocks` stage changed as before. The engine around the segmenter has improved since (the line reader, deskew, picture zones, the facing page of a spread), so the absolute figures rose — the judge's fresh magazine pages from 67.8% to 83.7% — while the comparisons stand; three statements changed with them and are noted where they fall (legal-8, zone order on magazines, the size of the judge's lead). Revised for release v0.12.0: the claim that the improved variants beat the incumbent on fresh newspaper pages rested on 20 pages; on 70 fresh pages no single segmenter wins, and a per-page judge does (§4.4). Figures are in the [HTML edition](https://msharpe248.github.io/mlws-ocr/docs/papers/knn-scc-beyond-1995.html); this text refers to them by number. The first paper is [Block Segmentation by Directional k-Nearest-Neighbor Graphs and Strongly Connected Components](https://msharpe248.github.io/mlws-ocr/docs/papers/knn-scc-block-segmentation.html).*
 
 ## In brief
 
@@ -82,7 +82,7 @@ The first paper measured the method, at its 1995 settings, against a
 recursive XY-cut segmenter carrying rules tuned per kind of document
 (§5.3 there). On letters the untuned method was level with it; on the
 eight-page newspaper set it read 45.5% of characters against 97.4%, and
-on magazines 29.8% against 82.5% (on the current engine). Its diagnosis was that the newspaper
+on magazines 29.8% against 82.5% (release v0.15.1). Its diagnosis was that the newspaper
 failure was two problems, not one:
 
 1. **The cut is too loose for narrow gutters.** The threshold, 1.5 ×
@@ -213,9 +213,9 @@ check matters: variants were designed while looking at evaluation
 results, and two apparent wins did not survive it (§4.3).
 
 The OCR is the project's neural engine, unchanged; only the `blocks`
-stage differs. Every accuracy in §4 was re-measured on the engine of 28
-September 2026 (the first measurements used the engine of 25–26 September;
-see the revision note). Accuracy is character / word accuracy against the ground
+stage differs. Every accuracy in §4 is from release v0.15.1 (the first
+measurements were made on v0.11.0, and the judge's on v0.12.0; see the
+revision note). Accuracy is character / word accuracy against the ground
 truth in reading order.
 
 ## 4. Results
@@ -247,8 +247,8 @@ against 93.9; level in the first measurement), but not on fresh legal
 pages (§4.2).
 
 The other variants, briefly (character accuracy on dev-8 / broad-30 /
-legal-8 / news-8 / magazines-8; measured 25 September 2026 on the engine
-of that date and not re-measured — none of them is a finalist):
+legal-8 / news-8 / magazines-8; measured on release v0.11.0 and not
+re-measured — none of them is a finalist):
 
 - **Fences + order** 96.4 / 96.3 / 92.2 / 66.2 / 62.5 — helps, but the
   1.5 × mean cut still merges columns wherever no gutter is found.
@@ -278,7 +278,7 @@ Twenty pages per document kind that no decision had seen:
 
 - **The incumbent's newspaper rules do not generalise.** XY-cut's 97.4%
   on news-8 falls to 80.9% on fresh newspaper pages: its newspaper rules
-  were tuned on those same eight pages (September 2026). On these 20
+  were tuned on those same eight pages. On these 20
   fresh pages both improved variants beat it — the tree by 6.1 points,
   *tight + order* by 1.7 — but a larger sample does not bear out a
   general win (§4.4).
@@ -328,15 +328,16 @@ and it was measured on the 30 held-out pages per kind:
 | News-8 | 96.9 / 94.2 | **97.4 / 95.4** | — |
 | Magazines-8 | **87.2 / 81.3** | 82.5 / 77.3 | — |
 
-The judge was fitted on runs made with the engine of 26 September and has
-not been refitted; the table measures that same judge on today's engine.
+The judge was fitted on runs made with release v0.11.1 and shipped in
+v0.12.0; it has not been refitted, and the table measures that same judge
+on v0.15.1.
 Its lead on fresh pages grew with the engine's other fixes (it was 4.6
 points on newspapers and 1.9 on magazines): those fixes removed welded
 columns, a rotated photo page and a facing page's text — failures that
 had hidden the segmenters' differences.
 
 On letters and legal pages the judge lost to XY-cut in both pools, so it
-does not decide those: they keep XY-cut. Since 26 September 2026 the judge
+does not decide those: they keep XY-cut. Since release v0.12.0 the judge
 is the neural profile's segmenter for newspapers and magazines; every
 other page is read exactly as before.
 
@@ -364,7 +365,7 @@ points), not seen on the fresh letters, where all methods are level.
 neither variant beats the tuned XY-cut on average; each wins on different
 pages. The per-page judge (§4.4) recovers about half of the gap between
 the incumbent and the best choice per page on fresh newspapers (86.7%,
-between 83.1% and 90.3%); a better judge, one refitted on today's engine,
+between 83.1% and 90.3%); a better judge, one refitted on v0.15.1,
 or one that also reads the page's first lines, could close more.
 
 ## 6. Conclusion
