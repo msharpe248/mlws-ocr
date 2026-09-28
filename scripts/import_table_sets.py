@@ -3,6 +3,7 @@
 
     scripts/import_table_sets.py fintabnet --src data/raw/fintabnet/FinTabNet.c-Structure \\
         --names data/raw/fintabnet/sample300.txt --out data/tables/fintabnet
+    scripts/import_table_sets.py cord --src data/raw/cord/parquet --out data/tables/cord
 
 FinTabNet.c (B. Smock, R. Pesala & R. Abraham, "Aligning benchmark datasets
 for table structure recognition", ICDAR 2023; from FinTabNet, X. Zheng et
@@ -102,13 +103,68 @@ def fintabnet(src: Path, names: list[str], out: Path) -> None:
     print(f"{n} FinTabNet.c tables -> {out}")
 
 
+CORD_FIELDS = ["nm", "cnt", "unitprice", "price"]
+
+
+def cord(src: Path, out: Path) -> None:
+    """CORD v2 (Park et al., 'CORD: a consolidated receipt dataset for
+    post-OCR parsing', NeurIPS workshop 2019; CC-BY-4.0): photographed shop
+    receipts whose every word is labelled with its field.  A receipt's LINE
+    ITEMS are its table: one row per item (menu.nm, menu.cnt,
+    menu.unitprice, menu.price, grouped by the annotation's group id),
+    the columns the fields this receipt uses, ordered by where they sit
+    across it.  The image is the test photo cut to its annotated rows plus
+    8% (the evalcrop convention of make_external_sets.py): what it measures
+    is reading the table, not finding the paper on the fabric."""
+    import io as _io
+    import pyarrow.parquet as pq
+    out.mkdir(parents=True, exist_ok=True)
+    f = next(src.glob("test-*.parquet"))
+    t = pq.read_table(f)
+    n = 0
+    for k in range(t.num_rows):
+        gt = json.loads(t.column("ground_truth")[k].as_py())
+        lines = gt.get("valid_line", [])
+        items: dict[int, dict[str, list]] = {}
+        for ln in lines:
+            cat = ln.get("category", "")
+            if not cat.startswith("menu.") or cat.split(".", 1)[1] not in CORD_FIELDS:
+                continue
+            items.setdefault(ln["group_id"], {}).setdefault(cat.split(".", 1)[1], []).extend(ln["words"])
+        if len(items) < 2:
+            continue
+        xs: dict[str, list[float]] = {}
+        for it in items.values():
+            for fld, ws in it.items():
+                xs.setdefault(fld, []).append(min(min(w["quad"]["x1"], w["quad"]["x4"]) for w in ws))
+        cols = sorted(xs, key=lambda fld: sum(xs[fld]) / len(xs[fld]))
+        ys = lambda it: min(min(w["quad"]["y1"], w["quad"]["y2"]) for ws in it.values() for w in ws)  # noqa: E731
+        rows = []
+        for it in sorted(items.values(), key=ys):
+            rows.append("<tr>" + "".join(f"<td>{html.escape(' '.join(w['text'] for w in it.get(fld, [])))}</td>"
+                                         for fld in cols) + "</tr>")
+        allw = [w for ln in lines for w in ln["words"]]
+        x0 = min(min(w["quad"]["x1"], w["quad"]["x4"]) for w in allw); x1 = max(max(w["quad"]["x2"], w["quad"]["x3"]) for w in allw)
+        y0 = min(min(w["quad"]["y1"], w["quad"]["y2"]) for w in allw); y1 = max(max(w["quad"]["y3"], w["quad"]["y4"]) for w in allw)
+        m = int(0.08 * (y1 - y0))
+        im = Image.open(_io.BytesIO(t.column("image")[k].as_py()["bytes"])).convert("L")
+        crop = im.crop((max(0, x0 - m), max(0, y0 - m), min(im.width, x1 + m), min(im.height, y1 + m)))
+        name = f"cord_test_{k:04d}"
+        crop.save(out / f"{name}.png")
+        (out / f"{name}.table.html").write_text("<table>\n" + "\n".join(rows) + "\n</table>")
+        n += 1
+    print(f"{n} CORD receipts' line-item tables -> {out}")
+
+
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("source", choices=["fintabnet"])
+    ap.add_argument("source", choices=["fintabnet", "cord"])
     ap.add_argument("--src", type=Path, required=True)
-    ap.add_argument("--names", type=Path, required=True, help="one table name a line")
+    ap.add_argument("--names", type=Path, help="one table name a line (fintabnet)")
     ap.add_argument("--out", type=Path, required=True)
     args = ap.parse_args()
+    if args.source == "cord":
+        return cord(args.src, args.out)
     names = [l.strip() for l in args.names.read_text().splitlines() if l.strip()]
     fintabnet(args.src, names, args.out)
 

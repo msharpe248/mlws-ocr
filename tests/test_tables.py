@@ -191,3 +191,19 @@ def test_split_word_at_cell_borders():
     got = split_at_cells({"text": "MTWTFSS", "box": [30, 10, 670, 40], "chars": chars}, cells)
     assert [w["text"] for w in got] == list("MTWTFSS")
     assert [w["text"] for w in split_at_cells({"text": "Roofer", "box": [110, 10, 190, 40]}, cells)] == ["Roofer"]
+
+
+def test_item_name_on_its_own_line_joins_its_figures():
+    from mlws_ocr.layout.wstables import whitespace_table
+
+    def w(t, x0, y, x1):
+        return {"text": t, "box": [x0, y, x1, y + 30]}
+    words = [w("ITEM", 0, 0, 80), w("QTY", 400, 0, 460), w("PRICE", 600, 0, 700),
+             w("Choco", 0, 50, 100), w("Bun", 110, 50, 170),
+             w("x1", 410, 100, 450), w("22.000", 600, 100, 700),
+             w("Plastic", 0, 150, 120), w("Bag", 130, 150, 190),
+             w("x2", 410, 200, 450), w("1.500", 600, 200, 700)]
+    t = whitespace_table(words)
+    got = {(c["row"], c["col"]): c["text"] for c in t["cells"] if c["text"]}
+    assert t["n_rows"] == 3
+    assert got[1, 0] == "Choco Bun" and got[1, 2] == "22.000"

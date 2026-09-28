@@ -423,6 +423,8 @@ const TABLE_SWITCHES = [
     title: "keep rules too short for the length test when both their ends meet a rule (dividers under a spanned header)" },
   { slot: "tables", key: "spans", on: true, off: false, label: "Spanned cells",
     title: "merge neighbouring cells whose shared border carries no rule (rowspan / colspan)" },
+  { slot: "tables", key: "nested", on: true, off: false, label: "Nested tables",
+    title: "a ruled table inside a ruled frame's cell is a table of its own, nested in the output" },
   { slot: "tables", key: "open_sides", on: true, off: false, label: "Open sides",
     title: "a table with no outer vertical rule gets the columns bounded by where its row rules end" },
   { slot: "output", key: "split_words_at_cells", on: true, off: false, label: "Split words at cells",

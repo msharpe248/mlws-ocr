@@ -123,6 +123,40 @@ def open_side_levels(rows, cols, hs, vs, min_run):
     return extend(rows, vs, 1, 3), extend(cols, hs, 0, 2)
 
 
+def split_nested(hs, vs, tol, inset):
+    """Split one connected set of rules into a frame and the tables nested in
+    its cells.  The frame is the rules that run the whole height (vertical)
+    or width (horizontal) of the set; every other rule must lie INSET in one
+    of the frame's cells -- not reaching its borders by ``inset`` px -- for the
+    split to happen, and each cell's inset rules are split again (tables
+    within tables within tables).  A spanned grid's inner rules meet the cell
+    borders in T-junctions, so it is returned whole: [(hs, vs)]."""
+    if not hs or not vs:
+        return [(hs, vs)]
+    x0 = min(r[0] for r in hs + vs); x1 = max(r[2] for r in hs + vs)
+    y0 = min(r[1] for r in hs + vs); y1 = max(r[3] for r in hs + vs)
+    full_h = [r for r in hs if r[0] <= x0 + tol and r[2] >= x1 - tol]
+    full_v = [r for r in vs if r[1] <= y0 + tol and r[3] >= y1 - tol]
+    rest_h = [r for r in hs if r not in full_h]
+    rest_v = [r for r in vs if r not in full_v]
+    if len(full_h) < 2 or len(full_v) < 2 or not (rest_h or rest_v):
+        return [(hs, vs)]
+    ys = sorted({(r[1] + r[3]) / 2 for r in full_h})
+    xs = sorted({(r[0] + r[2]) / 2 for r in full_v})
+    cells = [(xs[i], ys[j], xs[i + 1], ys[j + 1]) for i in range(len(xs) - 1) for j in range(len(ys) - 1)]
+    inner: dict[int, tuple[list, list]] = {}
+    for kind, r in [("h", r) for r in rest_h] + [("v", r) for r in rest_v]:
+        k = next((k for k, (a, b, c, d) in enumerate(cells)
+                  if r[0] >= a + inset and r[2] <= c - inset and r[1] >= b + inset and r[3] <= d - inset), None)
+        if k is None:
+            return [(hs, vs)]              # a rule meets the frame: one grid with spans
+        inner.setdefault(k, ([], []))[0 if kind == "h" else 1].append(r)
+    out = [(full_h, full_v)]
+    for ih, iv in inner.values():
+        out += split_nested(ih, iv, tol, inset)
+    return out
+
+
 @register
 class GridTables(Stage):
     slot = "tables"
@@ -142,6 +176,11 @@ class GridTables(Stage):
                                  # A payroll form open at left and right lost its
                                  # name and net-pay columns (2026-09-28)
         "open_min_300dpi": 60,   # ...rules must run on this far (px at 300 dpi)
+        "nested": False,         # a ruled table inside a ruled frame's cell, its rules
+                                 # inset from the cell's borders, is a table of its own
+                                 # (nested in the output), not more rows and columns of
+                                 # the frame (split_nested; 2026-09-28)
+        "nested_inset_300dpi": 4,  # ...inset at least this far (px at 300 dpi)
     }
 
     def run(self, page: Page) -> tuple[Page, DebugBundle]:
@@ -172,9 +211,15 @@ class GridTables(Stage):
 
         tables = []
         cell_boxes = []
+        comps = []
         for members in groups.values():
             hs = [rules[i][1] for i in members if rules[i][0] == "h"]
             vs = [rules[i][1] for i in members if rules[i][0] == "v"]
+            if self.params["nested"]:
+                comps += split_nested(hs, vs, tol, max(3, int(self.params["nested_inset_300dpi"] * s)))
+            else:
+                comps.append((hs, vs))
+        for hs, vs in comps:
             rows = cluster_levels([(r[1] + r[3]) / 2 for r in hs], ltol)
             cols = cluster_levels([(r[0] + r[2]) / 2 for r in vs], ltol)
             if len(rows) < 2 or len(cols) < 2:

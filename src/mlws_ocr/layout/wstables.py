@@ -187,6 +187,33 @@ def _col_of(p, cols) -> int:
     return int(np.argmax(ov))
 
 
+def _merge_label_rows(rows, cols, first_body) -> list[list[dict]]:
+    """An item set on two lines -- its name on one, its count and price on the
+    next (a receipt's '1001-Choco Bun' / '22.000  x1  22.000') -- made two
+    rows.  A body row holding only a first-column label, followed by a row
+    with an empty first column and a figure, is that row's label: the two
+    are one row.  A section heading above a line item with a label of its
+    own is left alone, as is a label before another label."""
+    out = list(rows[: first_body])
+    r = first_body
+    while r < len(rows):
+        row = rows[r]
+        nxt = rows[r + 1] if r + 1 < len(rows) else None
+        if (nxt and row and all(_col_of(p, cols) == 0 for p in row)
+                and not TOTAL_RE.search(" ".join(p["text"] for p in row))
+                and all(_col_of(p, cols) != 0 for p in nxt)
+                and any(_numeric(p["text"]) for p in nxt)):
+            out.append(row + nxt)
+            r += 2
+            continue
+        out.append(row)
+        r += 1
+    return out
+
+
+TOTAL_RE = re.compile(r"\b(total|subtotal|tax|cash|change|balance)\b", re.I)
+
+
 def _merge_body_wraps(rows, cols, line_h, first_body) -> list[list[dict]]:
     """Body cells wrapped over several lines ('Membership Interest Purchase
     Agreement by / and between Atmos Energy Holdings, Inc. as / ...', an
@@ -362,7 +389,7 @@ def _merge_sign_columns(rows, cols):
 def whitespace_table(words: list[dict], phrase_gap: float = 0.8,
                      header_wraps: bool = True, body_wraps: bool = True,
                      sign_columns: bool = True, cross_frac: float = 0.15,
-                     word_columns: bool = False) -> dict | None:
+                     word_columns: bool = False, label_rows: bool = True) -> dict | None:
     """One table from the words of a region: ``{"box", "n_rows", "n_cols",
     "cells": [{row, col, rowspan, colspan, box, text}], "source":
     "whitespace"}``, or None when no row has two phrases (or only one does
@@ -396,6 +423,9 @@ def whitespace_table(words: list[dict], phrase_gap: float = 0.8,
         return None
     if body_wraps:
         rows = _merge_body_wraps(rows, cols, line_h, multi[0])
+        multi = [i for i, r in enumerate(rows) if len(r) >= 2]
+    if label_rows:
+        rows = _merge_label_rows(rows, cols, multi[0])
         multi = [i for i, r in enumerate(rows) if len(r) >= 2]
     first_body = multi[0]
     centres = [(a + b) / 2 for a, b in cols]

@@ -51,3 +51,23 @@ def test_engine_reads_the_drawn_grid(font_path):
     got = sorted((c["row"], c["col"], c["rowspan"], c["colspan"]) for c in tabs[0]["cells"])
     want = sorted((c["row"], c["col"], c["rowspan"], c["colspan"]) for c in rec["cells"])
     assert got == want
+
+
+def test_engine_reads_a_table_nested_in_a_ruled_frame(font_path):
+    from mlws_ocr.factory.tablegen import Fonts
+    from mlws_ocr.decode.tableio import table_records, tables_html
+    from eval_tables import teds
+    from PIL import ImageFont
+    f = ImageFont.truetype(str(font_path), 40)
+    fonts = Fonts(f, f, 52)
+    inner = Table([[Cell("Tax"), Cell("12.00")], [Cell("Dues"), Cell("3.50")], [Cell("Total"), Cell("15.50")]], "grid")
+    outer = Table([[Cell("Earnings"), Cell(table=inner)]], "grid", header_rows=0, pad_x=12, pad_y=12)
+    img = Image.new("L", (1200, 600), 255)
+    draw(ImageDraw.Draw(img), outer, 100, 100, fonts)
+    g = np.asarray(img, np.float32) / 255.0
+    page = Page(gray=g, binary=g < 0.5, dpi=300.0)
+    page, _ = registry.get("rulings", "morphological")().run(page)
+    page, _ = registry.get("tables", "grid")(spans=True, nested=True).run(page)
+    tabs = page.meta["layout"]["tables"]
+    got = tables_html(table_records({"tables": tabs}, [[[""] * t["n_cols"] for _ in range(t["n_rows"])] for t in tabs]))
+    assert teds(got, table_html(outer), structure_only=True) == 1.0
