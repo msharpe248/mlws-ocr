@@ -25,7 +25,7 @@ judged before it went live. The measurements themselves are in
 | knn_scc link rule (experimental) | `linkkeep_v1.npz` | 15 weights | none (option `blocks.link_model_path`) | `train_links.py` | knn_scc graph links labelled by UNLV zone truth |
 | Segmenter judge | `segjudge.npz` | 32 weights | none yet (option `blocks.impl = "judged"`) | `segmenter_judge.py` | per-page accuracy of four segmenters read end to end on UNLV training-pool pages |
 | Glyph CNN | `cnn.npz` | 30k | none (kept off; `recognize.cnn_path`) | `train_cnn.py` | synthetic renders + truth-labelled real crops |
-| Table separator network | `sepnet_v1.npz` | 44k | neural-table (`output.table_net_path`, row evidence: wrapped rows joined) | `train_sepnet.py` | 6,000 tables drawn by `factory/tablegen.py` with pixel-exact separators + 6,492 FinTabNet.c training tables |
+| Table separator network | `sepnet_v2.npz` (`sepnet_v1.npz` the previous) | 44k | neural-table (`output.table_net_path`, row evidence: wrapped rows joined) | `train_sepnet.py` | 6,000 tables drawn by `factory/tablegen.py` with pixel-exact separators + 6,492 FinTabNet.c training tables |
 
 The classic engine also builds three learned tables that are not networks
 but come from the same data: the condensed nearest-prototype pool
@@ -671,6 +671,24 @@ one wrapped row and join (`sepnet.refine_with_separators`,
 0.589, receipts 0.647 → 0.651, paystubs unchanged, CORD 0.308 → 0.306.
 End to end with neural-table: FinTabNet 0.740 → 0.761, invoices 0.711 →
 0.748, timesheets 0.604 → 0.615, CORD 0.308 → 0.316, the rest unchanged.
+
+**v2 (2026-09-28, the neural-table profile's since).** v1's recipe plus
+308 CORD training and validation receipts (rows between line items,
+columns between their fields; counted three times), `make_sep_data.py
+cord`. Held-out F1 rows 0.904, columns 0.697 (receipts now in the held-out
+set). As row evidence at v1's threshold it gains on FinTabNet (0.722 /
+0.851 → 0.733 / 0.856) but joins distinct receipt items (CORD 0.305 →
+0.264); at 0.2 it matches or beats v1 everywhere: FinTabNet 0.731 / 0.857,
+invoices 0.729, timesheets 0.586, CORD 0.306. Columns stay weak (the
+column veto at 0.1 still costs FinTabNet 0.011). End to end with neural-table
+(with the alignment rules of the same day): FinTabNet 0.763 / 0.879,
+invoices 0.764, CORD 0.327, timesheets 0.612, paystubs 0.791, receipts
+0.625.
+
+```sh
+.venv/bin/python scripts/make_sep_data.py cord --src data/raw/cord/parquet --n 900 --out data/sep_cord.npz
+.venv/bin/python scripts/train_sepnet.py --data data/sep_synth_1.npz data/sep_synth_2.npz data/sep_synth_3.npz data/sep_fin.npz data/sep_cord.npz data/sep_cord.npz data/sep_cord.npz --out data/sepnet_v2.npz --epochs 12 --device cuda
+```
 The same test on columns (a gap vetoed when the network sees no
 separator in it) was negative at every threshold (0.1: 0.675 / 0.799).
 

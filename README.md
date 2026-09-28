@@ -63,12 +63,12 @@ the options off, every set scores between 0.00 and 0.03.
 | set | what it is | classic | neural | legacy Tesseract | Tesseract LSTM |
 |---|---|---|---|---|---|
 | payroll forms | generated ruled payroll forms: spanned headers, two-row records, open sides; software, typewriter and hand-lettered entries (20 pages) | 0.600 / 0.854 * | **0.717 / 0.896** | no table output | no table output |
-| paystubs | generated: earnings and deductions nested in the stub, in five rule styles from full grid to whitespace (20 pages) | – | 0.793 / 0.854 | no table output | no table output |
-| invoices | generated: line items with spanned totals, five rule styles (20 pages) | – | 0.748 / 0.800 | no table output | no table output |
-| timesheets | generated: two-level spanned headers, five rule styles (20 pages) | – | 0.615 / 0.720 | no table output | no table output |
-| receipts | generated: thermal-roll receipts, whitespace or a header rule (20 pages) | – | 0.624 / 0.651 | no table output | no table output |
-| real receipts | CORD photographed receipts, their line items as the table (30 receipts) | – | 0.316 / 0.456 | no table output | no table output |
-| annual-report tables | real financial tables, FinTabNet.c, ruled by whitespace (60 tables) | 0.607 / 0.781 | **0.761 / 0.876** | no table output | no table output |
+| paystubs | generated: earnings and deductions nested in the stub, in five rule styles from full grid to whitespace (20 pages) | – | 0.791 / 0.859 | no table output | no table output |
+| invoices | generated: line items with spanned totals, five rule styles (20 pages) | – | 0.764 / 0.807 | no table output | no table output |
+| timesheets | generated: two-level spanned headers, five rule styles (20 pages) | – | 0.612 / 0.735 | no table output | no table output |
+| receipts | generated: thermal-roll receipts, whitespace or a header rule (20 pages) | – | 0.625 / 0.651 | no table output | no table output |
+| real receipts | CORD photographed receipts, their line items as the table (30 receipts) | – | 0.327 / 0.440 | no table output | no table output |
+| annual-report tables | real financial tables, FinTabNet.c, ruled by whitespace (60 tables) | 0.607 / 0.781 | **0.763 / 0.879** | no table output | no table output |
 
 \* measured before the open-sides and short-rule options; – not measured.
 

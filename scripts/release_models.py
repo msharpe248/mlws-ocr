@@ -45,7 +45,8 @@ MODELS = {
     "confusions_classic.json": "the classic engine's learned OCR confusions for the word corrector (harvest_confusions.py; 480 non-evaluation pages)",
     "segjudge.npz": "segmenter judge = segjudge_v1: per newspaper/magazine page, XY-cut or knn_scc chosen from layout evidence (segmenter_judge.py; ridge over 160 UNLV training-pool pages)",
     "confusions_neural.json": "the neural engine's learned OCR confusions for the word corrector (harvest_confusions.py; 480 non-evaluation pages)",
-    "sepnet_v1.npz": "table separator network v1, 44k parameters: row and column separator probabilities over a table region; the neural-table profile's row evidence (wrapped rows joined) (train_sepnet.py; 6,000 rendered tables + 6,492 FinTabNet.c training tables)",
+    "sepnet_v1.npz": "table separator network v1, 44k parameters: row and column separator probabilities over a table region (train_sepnet.py; 6,000 rendered tables + 6,492 FinTabNet.c training tables); the previous row evidence",
+    "sepnet_v2.npz": "table separator network v2: v1's recipe plus 308 CORD training receipts' line items (x3); the neural-table profile's row evidence (wrapped rows joined)",
 }
 
 
