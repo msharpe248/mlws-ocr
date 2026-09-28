@@ -11,7 +11,7 @@ from ..core.registry import register
 from ..core.stage import DebugBundle, Stage
 from .formats import numeric_endorsed
 from ..layout.rows import row_groups, rows_text
-from ..layout.wstables import whitespace_table
+from ..layout.wstables import page_tables, whitespace_table
 from .tableio import table_records, tables_html
 
 _RE_DASHRUN = re.compile(r"-{3,}")
@@ -67,6 +67,9 @@ class TextOutput(Stage):
                                          # are one cell's phrase
         "ws_cross_frac": 0.15,           # ...a column gap survives when at most this
                                          # share of the rows cross it
+        "ws_detect": False,              # find whitespace tables ON the page (runs of
+                                         # text rows sharing columns, outside the ruled
+                                         # tables; wstables.find_tables); 2026-09-28
         "drop_facing_page": False,       # the facing page's column caught at the scan's
                                          # edge is left out (_facing_page_lines)
         "facing_edge_frac": 0.012,       # a line within this share of the width of the edge
@@ -315,6 +318,22 @@ class TextOutput(Stage):
                 for c in t["cells"]:
                     grid[c["row"]][c["col"]] = c["text"]
                 tables_text.append(grid)
+
+        if self.params["ws_detect"] and not ("*" in ws_types or doc_type in ws_types):
+            words = [w for ln in layout["lines"] for w in ln.get("words", [])]
+            keep, found = page_tables(words, layout.get("tables", []), layout.get("rules_h", []),
+                                      page.dpi or 300.0, self.params["ws_phrase_gap"],
+                                      self.params["ws_cross_frac"])
+            if len(keep) < len(layout.get("tables", [])):
+                layout = dict(layout, tables=[layout["tables"][k] for k in keep])
+                tables_text = [tables_text[k] for k in keep]
+            for t in found:
+                grid = [["" for _ in range(t["n_cols"])] for _ in range(t["n_rows"])]
+                for c in t["cells"]:
+                    grid[c["row"]][c["col"]] = c["text"]
+                tables_text.append(grid)
+            if found:
+                layout = dict(layout, tables=list(layout.get("tables", [])) + found)
 
         out = page.evolve()
         out.meta["layout"] = layout

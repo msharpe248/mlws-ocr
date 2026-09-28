@@ -104,6 +104,30 @@ def dashed_rules(b: np.ndarray, length: int, dpi: float, gap_300: float,
     return out & b
 
 
+def short_rules(cand: np.ndarray, cross: np.ndarray, axis: int, reach: int) -> np.ndarray:
+    """The candidate runs (along ``axis``: 1 horizontal, 0 vertical) whose two
+    ends each come within ``reach`` px of a crossing rule -- the grid-completing
+    test for rules too short for the length threshold."""
+    if not cand.any() or not cross.any():
+        return np.zeros_like(cand)
+    near = ndimage.binary_dilation(cross, iterations=reach)
+    lab, n = ndimage.label(cand)
+    out = np.zeros_like(cand)
+    for i, sl in enumerate(ndimage.find_objects(lab), 1):
+        if sl is None:
+            continue
+        ys, xs = sl
+        if axis == 1:
+            ends = [(slice(ys.start, ys.stop), slice(xs.start, xs.start + 1)),
+                    (slice(ys.start, ys.stop), slice(xs.stop - 1, xs.stop))]
+        else:
+            ends = [(slice(ys.start, ys.start + 1), slice(xs.start, xs.stop)),
+                    (slice(ys.stop - 1, ys.stop), slice(xs.start, xs.stop))]
+        if all((near[e] & (lab[e] == i)).any() for e in ends):
+            out[sl] |= lab[sl] == i
+    return out
+
+
 @register
 class MorphologicalRulings(Stage):
     slot = "rulings"
@@ -129,6 +153,13 @@ class MorphologicalRulings(Stage):
                                  # thin runs are kept -- a closed-up word row
                                  # is x-height thick, a rule a few px.  0 = off
         "dash_max_thick_300dpi": 5,
+        "short_in_grid_300dpi": 0,  # > 0: also keep rules this long or longer (and
+                                 # shorter than min_len) whose BOTH ends meet a
+                                 # rule -- a table's inner dividers under a
+                                 # spanned header ('In | Out' under 'Morning'),
+                                 # a payroll record's sub-row rules.  A glyph
+                                 # stroke inside a cell meets no rule at both
+                                 # ends.  0 = off (2026-09-28)
     }
 
     def run(self, page: Page) -> tuple[Page, DebugBundle]:
@@ -153,6 +184,14 @@ class MorphologicalRulings(Stage):
         if self.params["dash_gap_300dpi"] > 0:
             horiz = horiz | dashed_rules(b, L, page.dpi, self.params["dash_gap_300dpi"],
                                          self.params["dash_max_thick_300dpi"])
+        Ls = int(self.params["short_in_grid_300dpi"] * page.dpi / 300.0)
+        if 0 < Ls < L:
+            src_h = open_with_line(fat_h, Ls, 1) & bridged if self.params["tolerant"] else open_with_line(b, Ls, 1)
+            src_v = open_with_line(fat_v, Ls, 0) & bridged if self.params["tolerant"] else open_with_line(b, Ls, 0)
+            reach = max(3, int(6 * page.dpi / 300.0))
+            for _ in range(2):          # a short rule may end on another short rule
+                horiz, vert = (horiz | short_rules(src_h & ~horiz, vert, 1, reach),
+                               vert | short_rules(src_v & ~vert, horiz, 0, reach))
         rules = horiz | vert
         grow = self.params["remove_grow"]
         band = ndimage.binary_dilation(rules, iterations=grow)

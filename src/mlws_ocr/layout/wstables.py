@@ -60,6 +60,32 @@ def _rows(words: list[dict], line_h: float) -> list[list[dict]]:
     return [sorted(r, key=lambda w: w["box"][0]) for r in rows]
 
 
+SPACE_UNIT = [None]      # experiment switch: None = word height, "row" = row height, k = k x word space
+
+
+def _gap(rows, phrase_gap) -> float:
+    rh = _row_height(rows)
+    if SPACE_UNIT[0] is None:
+        return phrase_gap * float(np.median([w["box"][3] - w["box"][1] for r in rows for w in r]))
+    if SPACE_UNIT[0] == "row":
+        return phrase_gap * rh
+    gaps = [b["box"][0] - a["box"][2] for r in rows for a, b in zip(r, r[1:])]
+    gaps = [g for g in gaps if 0 < g < rh]
+    if len(gaps) < 3:
+        return phrase_gap * rh
+    return SPACE_UNIT[0] * float(np.median(gaps))
+
+
+def _row_height(rows) -> float:
+    """The type's line height: the median height of the text rows (ascender
+    to descender), the unit of the phrase gap.  The median WORD box is no
+    unit -- a word without ascenders or descenders is x-height tall, so on a
+    page of such words the gap came out below an ordinary space and every
+    word was a phrase of its own ('Northwind | Logistics | Inc.', a title
+    read as a three-column row)."""
+    return float(np.median([max(w["box"][3] for w in r) - min(w["box"][1] for w in r) for r in rows]))
+
+
 _CURRENCY = {"$", "€", "£", "¥", "s", "S", "§"}   # '$' as the reader often has it
 
 
@@ -75,8 +101,9 @@ def _phrases(row: list[dict], gap: float) -> list[dict]:
             p["text"] += " " + w["text"]
             p["box"] = [min(p["box"][0], w["box"][0]), min(p["box"][1], w["box"][1]),
                         max(p["box"][2], w["box"][2]), max(p["box"][3], w["box"][3])]
+            p["words"].append(w)
         else:
-            out.append({"text": w["text"], "box": list(w["box"])})
+            out.append({"text": w["text"], "box": list(w["box"]), "words": [w]})
     return out
 
 
@@ -106,13 +133,24 @@ def _header_span(x0, x1, cols, best, blocked) -> tuple[int, int]:
     return choice
 
 
+def _aligned(p, q) -> bool:
+    """Two phrases set as one cell's lines share their left edge, right edge
+    or centre (left-, right- or centre-aligned text); a spanning header over
+    two sub-columns ('Morning' over 'In  Out') is centred on the gap between
+    them and shares none with either."""
+    tol = max(0.15 * max(p["box"][2] - p["box"][0], q["box"][2] - q["box"][0]),
+              0.5 * (q["box"][3] - q["box"][1]))
+    return (abs(p["box"][0] - q["box"][0]) <= tol or abs(p["box"][2] - q["box"][2]) <= tol
+            or abs((p["box"][0] + p["box"][2]) - (q["box"][0] + q["box"][2])) / 2 <= tol)
+
+
 def _merge_header_wraps(rows: list[list[dict]]) -> list[list[dict]]:
     """Header cells set on two or three lines ('Nonpension / Postretirement
     / Plans', 'Number / of Shares') made a row each, the upper ones mostly
     empty.  Above the first BODY row (one with a number after its first
     phrase), a row each of whose phrases sits over exactly one phrase of the
-    row below, and that phrase under it alone, is a wrapped line: its text
-    joins the cell below."""
+    row below, and that phrase under it alone, aligned with it (left, right
+    or centre: _aligned), is a wrapped line: its text joins the cell below."""
     body = next((r for r, ph in enumerate(rows)
                  if len(ph) >= 2 and any(any(ch.isdigit() for ch in p["text"]) for p in ph[1:])),
                 len(rows))
@@ -123,7 +161,8 @@ def _merge_header_wraps(rows: list[list[dict]]) -> list[list[dict]]:
                   if _overlap(p["box"][0], p["box"][2], q["box"][0], q["box"][2]) > 0] for p in up]
         over = [[i for i, p in enumerate(up)
                  if _overlap(p["box"][0], p["box"][2], q["box"][0], q["box"][2]) > 0] for q in down]
-        if up and all(len(u) == 1 and len(over[u[0]]) == 1 for u in under):
+        if up and all(len(u) == 1 and len(over[u[0]]) == 1 and _aligned(p, down[u[0]])
+                      for p, u in zip(up, under)):
             for p, u in zip(up, under):
                 q = down[u[0]]
                 q["text"] = p["text"] + " " + q["text"]
@@ -226,6 +265,52 @@ def _columns(rows, multi, cross_frac: float = 0.0) -> list[list[float]]:
     return cols
 
 
+def _split_at_word_columns(rows, multi, cross_frac):
+    """Columns from the WORDS the table-like rows agree on, not from their
+    phrases -- the alignment test of the Tabula / pdfplumber text strategy
+    (Nurminen 2013): a word space falls at a different place in every row
+    and other rows' words cover it; a column gap is empty in nearly all of
+    them.  A body phrase whose words fall in two columns is split between
+    them (two cells set a word space apart: 'Omar Patel | Pay Date' in a
+    tight key-value table); header rows (above the first row holding a
+    figure after its first phrase) keep their phrases whole, so a header
+    over several columns still spans them."""
+    words_rows = [[{"box": w["box"]} for p in r for w in p.get("words", [p])] for r in rows]
+    cols = _columns(words_rows, multi, cross_frac)
+    if len(cols) < 2:
+        return rows, _columns(rows, multi, cross_frac)
+    body = next((r for r, ph in enumerate(rows)
+                 if len(ph) >= 2 and any(any(ch.isdigit() for ch in p["text"]) for p in ph[1:])),
+                len(rows))
+    out = []
+    for r, ph in enumerate(rows):
+        if r < body:
+            out.append(ph)
+            continue
+        new = []
+        for p in ph:
+            ws = p.get("words", [])
+            if len(ws) < 2:
+                new.append(p)
+                continue
+            cur = [ws[0]]
+            for w in ws[1:]:
+                if _col_of(w, cols) != _col_of(cur[-1], cols):
+                    new.append(_phrase_of(cur))
+                    cur = [w]
+                else:
+                    cur.append(w)
+            new.append(_phrase_of(cur))
+        out.append(new)
+    return out, cols
+
+
+def _phrase_of(ws) -> dict:
+    return {"text": " ".join(w["text"] for w in ws), "words": list(ws),
+            "box": [min(w["box"][0] for w in ws), min(w["box"][1] for w in ws),
+                    max(w["box"][2] for w in ws), max(w["box"][3] for w in ws)]}
+
+
 def _moved(p, col) -> dict:
     return {"text": p["text"], "box": [col[0], p["box"][1], col[0] + 1, p["box"][3]]}
 
@@ -276,7 +361,8 @@ def _merge_sign_columns(rows, cols):
 
 def whitespace_table(words: list[dict], phrase_gap: float = 0.8,
                      header_wraps: bool = True, body_wraps: bool = True,
-                     sign_columns: bool = True, cross_frac: float = 0.15) -> dict | None:
+                     sign_columns: bool = True, cross_frac: float = 0.15,
+                     word_columns: bool = False) -> dict | None:
     """One table from the words of a region: ``{"box", "n_rows", "n_cols",
     "cells": [{row, col, rowspan, colspan, box, text}], "source":
     "whitespace"}``, or None when no row has two phrases (or only one does
@@ -286,13 +372,19 @@ def whitespace_table(words: list[dict], phrase_gap: float = 0.8,
     if len(words) < 4:
         return None
     line_h = float(np.median([w["box"][3] - w["box"][1] for w in words]))
-    rows = [_phrases(r, phrase_gap * line_h) for r in _rows(words, line_h)]
+    rows_w = _rows(words, line_h)
+    rows = [_phrases(r, _gap(rows_w, phrase_gap)) for r in rows_w]
     if header_wraps:
         rows = _merge_header_wraps(rows)
     multi = [i for i, r in enumerate(rows) if len(r) >= 2]
     if not multi or (len(multi) < 2 and len(rows) < 3):
         return None
     cols = _columns(rows, multi, cross_frac)
+    if word_columns:
+        rows, cols = _split_at_word_columns(rows, multi, cross_frac)
+        multi = [i for i, r in enumerate(rows) if len(r) >= 2]
+        if not multi:
+            return None
     if sign_columns:
         rows, merged = _merge_sign_columns(rows, cols)
         if merged:
@@ -349,3 +441,127 @@ def whitespace_table(words: list[dict], phrase_gap: float = 0.8,
     xs1 = max(w["box"][2] for w in words); ys1 = max(w["box"][3] for w in words)
     return {"box": [int(xs0), int(ys0), int(xs1), int(ys1)], "n_rows": len(rows),
             "n_cols": len(cols), "cells": cells, "source": "whitespace"}
+
+
+def find_tables(words: list[dict], phrase_gap: float = 0.8, cross_frac: float = 0.15,
+                split_pitch: float = 1.6, min_multi: int = 2) -> list[list[dict]]:
+    """The word groups of the whitespace tables on a page (each then read by
+    whitespace_table).  T-Recs' idea at page scale (Kieninger & Dengel, DAS
+    1998): a table is a run of text rows that share columns.
+
+    Text rows are split into phrases at ``phrase_gap`` line heights; a row
+    of two or more phrases is a table-like row, a row of one phrase is text
+    (prose, a title, an address).  A run of consecutive rows holding at
+    least ``min_multi`` table-like rows, whose table-like rows agree on two
+    or more columns (_columns), is a table.  Inside a run a one-phrase row is
+    kept (a section heading, a wrapped cell); the run ends at a vertical gap
+    more than ``split_pitch`` times the run's median row pitch (the space
+    between two tables, or between a table and the text after it).  Leading
+    and trailing one-phrase rows are dropped, except a leading row whose
+    phrase stands over the columns rather than at the left margin -- a
+    spanning header ('2013 Quarters') and not a title."""
+    ws = [dict(w, text=_TRAILING_LEADER.sub("", w["text"])) for w in words
+          if w.get("text") and not _LEADER_WORD.match(w["text"])]
+    if len(ws) < 4:
+        return []
+    line_h = float(np.median([w["box"][3] - w["box"][1] for w in ws]))
+    rows_w = _rows(ws, line_h)
+    rows_p = [_phrases(r, _gap(rows_w, phrase_gap)) for r in rows_w]
+    cy = [float(np.mean([(w["box"][1] + w["box"][3]) / 2 for w in r])) for r in rows_w]
+    multi = [len(p) >= 2 for p in rows_p]
+
+    # runs split at large gaps: the pitch between table-like neighbours sets the scale
+    runs, cur = [], [0]
+    pitch0 = np.median([cy[i + 1] - cy[i] for i in range(len(cy) - 1)]) if len(cy) > 1 else line_h
+    for i in range(1, len(rows_w)):
+        in_run = [cy[j + 1] - cy[j] for j in cur[:-1]]
+        pitch = float(np.median(in_run)) if len(in_run) >= 2 else float(pitch0)
+        if cy[i] - cy[i - 1] > split_pitch * pitch or (not multi[i] and not multi[i - 1]):
+            runs.append(cur)
+            cur = [i]
+        else:
+            cur.append(i)
+    runs.append(cur)
+
+    found = []
+    for run in runs:
+        idx = [i for i in run if multi[i]]
+        if len(idx) < min_multi:
+            continue
+        cols = _columns(rows_p, idx, cross_frac)
+        if len(cols) < 2:
+            continue
+        lo, hi = run.index(idx[0]), run.index(idx[-1])
+        keep = run[lo:hi + 1]
+        if lo > 0:                  # a spanning header just above the first table-like row
+            j = run[lo - 1]
+            p = rows_p[j][0]
+            if p["box"][0] > cols[0][1] and cy[idx[0]] - cy[j] <= 1.3 * (pitch0 or line_h):
+                keep = [j] + keep
+        found.append([w for i in keep for w in rows_w[i]])
+    return found
+
+
+def rule_regions(rules_h: list, tol: float, min_rules: int = 3, max_gap: float = 400) -> list[list[int]]:
+    """Table regions marked by horizontal rules alone: a stack of at least
+    ``min_rules`` rules sharing their left and right ends (within ``tol``),
+    each within ``max_gap`` px of the next -- a table ruled between its rows
+    (a bank statement, an invoice's items), or at its top, under its header
+    and at its bottom (a financial statement, a paystub).  With no vertical
+    rules the grid stage finds nothing there; the words inside are the
+    table's, and its columns come from their alignment.  Returns boxes."""
+    segs = sorted((s for s in rules_h if len(s) == 4), key=lambda s: (s[1] + s[3]) / 2)
+    used = [False] * len(segs)
+    out = []
+    for i, a in enumerate(segs):
+        if used[i]:
+            continue
+        stack = [i]
+        for j in range(i + 1, len(segs)):
+            b, last = segs[j], segs[stack[-1]]
+            if used[j] or abs(b[0] - a[0]) > tol or abs(b[2] - a[2]) > tol:
+                continue
+            if (b[1] + b[3]) / 2 - (last[1] + last[3]) / 2 > max_gap:
+                break
+            stack.append(j)
+        if len(stack) >= min_rules:
+            for k in stack:
+                used[k] = True
+            ss = [segs[k] for k in stack]
+            out.append([min(s[0] for s in ss), min(s[1] for s in ss), max(s[2] for s in ss), max(s[3] for s in ss)])
+    return out
+
+
+def page_tables(words: list[dict], ruled: list[dict], rules_h: list, dpi: float,
+                phrase_gap: float = 0.8, cross_frac: float = 0.15) -> tuple[list[int], list[dict]]:
+    """The whitespace tables of a page beside its ruled ones.  Returns the
+    indices of the ruled tables to keep and the tables found.
+
+    1. A ruled "grid" of one column or one row is a frame or a stack of row
+       rules, not a table: dropped, its words read below.
+    2. Regions marked by horizontal rules alone (rule_regions): each one's
+       words are one table.
+    3. The rest of the page's words outside the ruled tables: find_tables.
+    """
+    keep = [k for k, t in enumerate(ruled) if t["n_rows"] >= 2 and t["n_cols"] >= 2]
+    boxes = [ruled[k]["box"] for k in keep]
+
+    def inside(w, bs):
+        cx, cy = (w["box"][0] + w["box"][2]) / 2, (w["box"][1] + w["box"][3]) / 2
+        return next((k for k, b in enumerate(bs) if b[0] <= cx <= b[2] and b[1] <= cy <= b[3]), None)
+    free = [w for w in words if inside(w, boxes) is None]
+    s = dpi / 300.0
+    regions = [r for r in rule_regions(rules_h, 30 * s, max_gap=400 * s)
+               if not any(r[0] >= b[0] - 5 and r[2] <= b[2] + 5 and r[1] >= b[1] - 5 and r[3] <= b[3] + 5
+                          for b in boxes)]
+    # a region's box runs from its first rule to its last; words just above
+    # a top rule (a header set over the rule) are not in it
+    groups = [[w for w in free if inside(w, [r]) is not None] for r in regions]
+    rest = [w for w in free if inside(w, regions) is None]
+    groups += find_tables(rest, phrase_gap, cross_frac)
+    found = []
+    for g in groups:
+        t = whitespace_table(g, phrase_gap, cross_frac=cross_frac)
+        if t is not None:
+            found.append(t)
+    return keep, found

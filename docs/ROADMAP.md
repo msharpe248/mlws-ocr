@@ -4,6 +4,38 @@ Ranked by measured evidence, not enthusiasm. Every item names the
 observation that motivates it, so a future session can re-check whether
 the motivation still holds before spending the effort.
 
+## Now: tables (from 2026-09-28, the current focus)
+
+The owner's direction: tables are the focus -- payroll forms, paystubs,
+timesheets, statements, invoices, receipts; tables inside tables; tables
+ruled by whitespace alone -- with the structure as output (JSON / HTML /
+hOCR). Where it stands: ruled grids with spans (payroll forms TEDS 0.668),
+whitespace tables when the image is the table (FinTabNet 0.738), the
+workbench's Tables view. The plan, in order:
+
+1. **Measurement first: generated sets with exact nested truth** --
+   `factory/tablegen.py` (a table model: spans, alignment, nested tables,
+   rule styles grid / rows / header / frame / none) and
+   `scripts/table_templates.py` (paystub, invoice, timesheet, receipt),
+   scored page-wide (`eval_tables.py --whole-page`).
+2. **Partly ruled tables** -- rows from rules, columns from whitespace, or
+   the reverse (pdfplumber's per-axis strategies); a header rule only.
+3. **Tables found on a page**, not only when the image is the table (the
+   output stage's aligned-column groups as candidates; PubTables-1M page
+   boxes for detection F1).
+4. **Nested tables in ruled grids**, and the payroll grid's lost columns and
+   short sub-row rules (`rulings.short_in_grid_300dpi`).
+5. **Column typing** -- a column of figures read with a figures alphabet
+   ($ read as S, l as 1, O as 0).
+6. **Arithmetic checks** -- hours x rate = gross, gross - deductions = net,
+   items sum to the total: a failed check flags the misread cell.
+7. **Output** -- header cells as `<th>`, CSV / XLSX per table; CORD line
+   items as real receipt-table truth; the defaults decision (keep_grids,
+   spans, min_dpi) put to the owner with FUNSD and playbills measured.
+8. **A self-trained separator network** (split-and-merge, Tensmeyer et
+   al., ICDAR 2019), trained from scratch on rendered tables and
+   PubTables-1M.
+
 ## Next (2026-09-28)
 
 Where the work stands after v0.15.1. Against Tesseract 5.5's LSTM engine the neural profile leads on letters (tuning and held-out), legal pages, modern and business documents, receipts (SROIE, CORD), Library of Congress typescript, text blocks read alone, and fresh magazine pages; it trails on newspapers (fixed set and held-out), mag-8, FUNSD words and the typewriter blocks. Items, ranked:

@@ -116,3 +116,31 @@ def test_hocr_table_keeps_words_of_lines_crossing_cells():
                       Page(gray=np.ones((40, 320), np.float32), dpi=300.0))
     assert "ocr_table" in h and ">Gross<" in h and ">1,200.00<" in h
     assert h.index(">Gross<") < h.index("</td>") < h.index(">1,200.00<")
+
+
+def _w(t, x0, y, x1, h=30):
+    return {"text": t, "box": [x0, y, x1, y + h]}
+
+
+def test_find_tables_skips_title_and_prose():
+    from mlws_ocr.layout.wstables import find_tables
+    words = [_w("Quarterly", 100, 0, 300), _w("Report", 320, 0, 460)]                     # a title
+    words += [_w(x, 100 + 110 * i, 80, 190 + 110 * i) for i, x in enumerate(
+        "The figures below are unaudited and subject".split())]                           # prose
+    words += [_w(x, 100 + 110 * i, 125, 190 + 110 * i) for i, x in enumerate(
+        "to revision in the next filing period".split())]
+    for k, (a, b, c) in enumerate([("Item", "Qty", "Amount"), ("Paper", "4", "12.00"),
+                                   ("Toner", "1", "88.50"), ("Total", "", "100.50")]):
+        y = 260 + 45 * k
+        words += [_w(a, 100, y, 220)] + ([_w(b, 700, y, 740)] if b else []) + [_w(c, 1000, y, 1120)]
+    groups = find_tables(words)
+    assert len(groups) == 1
+    assert {w["text"] for w in groups[0]} == {"Item", "Qty", "Amount", "Paper", "4", "12.00",
+                                              "Toner", "1", "88.50", "Total", "100.50"}
+
+
+def test_rule_regions_stack_of_shared_extent():
+    from mlws_ocr.layout.wstables import rule_regions
+    stack = [[100, y, 1500, y + 3] for y in (400, 470, 540, 610)]
+    stray = [[100, 900, 600, 903], [800, 1200, 1500, 1203]]
+    assert rule_regions(stack + stray, tol=30) == [[100, 400, 1500, 613]]

@@ -14,7 +14,9 @@ Comput. 1989), exact.
 A set is a directory of <name>.png with <name>.table.html truth
 (scripts/make_table_set.py writes them).  The engine's table is the largest
 of the page's tables, rendered as HTML with its spans; a page with no table
-scores 0.
+scores 0.  With --whole-page, every table the engine found (nested ones in
+their cells) is scored against every truth table: several tables become
+children of one root, so a missed or an invented table costs its nodes.
 
     scripts/eval_tables.py data/tables/payroll_form --pages 20 --config configs/neural.toml
 """
@@ -216,6 +218,9 @@ def main():
     ap.add_argument("--pages", type=int, default=20)
     ap.add_argument("--seed", type=int, default=1)
     ap.add_argument("--doc-type", default=None, help="layout hint for every page ('table': each image is one table)")
+    ap.add_argument("--whole-page", action="store_true",
+                    help="score every table on the page (the output's tables_html, nested tables in their cells) "
+                         "against every truth table, instead of the largest table against one")
     ap.add_argument("--dump", type=Path, default=None, help="write each page's predicted table HTML here")
     add_pipeline_args(ap)
     args = ap.parse_args()
@@ -232,7 +237,7 @@ def main():
         gray, dpi = load_gray(img)
         page = run_stages(Page(gray=gray, dpi=dpi or 300.0,
                                     meta={"doc_type": args.doc_type} if args.doc_type else {}), pipeline, overrides)
-        pred = engine_table_html(page)
+        pred = (page.meta.get("tables_html") or "<table></table>") if args.whole_page else engine_table_html(page)
         truth = tp.read_text()
         s, st = teds(pred, truth), teds(pred, truth, structure_only=True)
         scores.append(s); structs.append(st)

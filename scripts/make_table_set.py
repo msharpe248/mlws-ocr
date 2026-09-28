@@ -252,9 +252,44 @@ def page_text(f: dict) -> str:
     return "\n".join(head + rows) + "\n"
 
 
+def generated(args, rng: random.Random) -> None:
+    """Pages from scripts/table_templates.py: every table's structure is the
+    model it was drawn from, so the truth is exact, nesting included."""
+    from table_templates import TEMPLATES, compose, fonts_for
+    sevs = [int(s) for s in args.severities.split(",")]
+    styles = args.styles.split(",")
+    for i in range(args.n):
+        style = styles[i % len(styles)]
+        if args.template == "receipt" and style not in ("none", "header"):
+            style = "none"                  # thermal receipts are not ruled grids
+        faces = FACES["software"] + (FACES["typewriter"] if args.template in ("receipt", "timesheet") else [])
+        face = find_face(rng.sample(faces, len(faces)))
+        px = rng.choice([34, 38, 42]) if args.template == "receipt" else rng.choice([36, 40, 44])
+        fonts = fonts_for(face, px)
+        blocks = TEMPLATES[args.template](rng, style)
+        if args.template == "receipt":
+            img, truth, text, recs, h = compose(blocks, fonts, width=940, height=3300, margin=50)
+            img = img.crop((0, 0, 940, min(3300, h + 60)))
+        else:
+            img, truth, text, recs, _ = compose(blocks, fonts)
+        sev = sevs[i % len(sevs)]
+        arr = np.asarray(img, np.float32) / 255.0
+        out = degrade(arr, dataclasses.replace(SEVERITIES[sev], seed=args.seed * 1000 + i)) if sev else arr
+        name = f"{args.template}-{style}-{i:03d}"
+        Image.fromarray((np.clip(out, 0, 1) * 255).astype(np.uint8)).save(args.out / f"{name}.png", dpi=(DPI, DPI))
+        (args.out / f"{name}.table.html").write_text(truth)
+        (args.out / f"{name}.txt").write_text(text)
+        (args.out / f"{name}.json").write_text(json.dumps({"tables": recs, "style": style, "face": face.name,
+                                                           "px": px, "severity": sev}, indent=1))
+        print(f"  {name} ({face.name}, {px} px, severity {sev}, {truth.count('<table>')} tables)", flush=True)
+
+
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--template", choices=["payroll_form"], default="payroll_form")
+    ap.add_argument("--template", choices=["payroll_form", "paystub", "invoice", "timesheet", "receipt"],
+                    default="payroll_form")
+    ap.add_argument("--styles", default="grid,rows,header,none",
+                    help="rule styles to cycle through (generated templates): grid, rows, header, frame, none")
     ap.add_argument("--out", type=Path, default=Path("data/tables/payroll_form"))
     ap.add_argument("--n", type=int, default=60)
     ap.add_argument("--seed", type=int, default=1)
@@ -262,6 +297,8 @@ def main():
     args = ap.parse_args()
     args.out.mkdir(parents=True, exist_ok=True)
     rng = random.Random(args.seed)
+    if args.template != "payroll_form":
+        return generated(args, rng)
     rects = field_rects(0)
     blank = blank_page()
     sevs = [int(s) for s in args.severities.split(",")]
