@@ -125,3 +125,26 @@ def test_a_later_change_while_an_earlier_rerun_is_midway(crop):
     s.run_from(k_out, block=False)
     s.wait(300)
     assert all(t.status == "done" for t in s.stages), [(t.slot, t.status, t.error) for t in s.stages]
+
+
+def test_table_edits_on_the_output():
+    from mlws_ocr.core.artifacts import Page as P
+    from mlws_ocr.workbench.edits import apply_tables
+
+    def w(t, x0, y, x1):
+        return {"text": t, "box": [x0, y, x1, y + 20]}
+    words = [w("Item", 0, 0, 60), w("Amount", 200, 0, 280), w("Rent", 0, 40, 60), w("950", 200, 40, 250),
+             w("Tax", 0, 80, 60), w("12", 200, 80, 230)]
+    t = {"box": [0, 0, 300, 110], "n_rows": 3, "n_cols": 1, "source": "whitespace",
+         "cells": [{"row": r, "col": 0, "rowspan": 1, "colspan": 1, "box": [0, y, 300, y + 36],
+                    "text": ""} for r, y in enumerate((0, 36, 72))]}
+    page = P(gray=None, dpi=300.0, meta={"tables": [t], "layout": {"lines": [{"words": words}]}})
+    out = apply_tables(page, [{"op": "table_col", "point": [150, 50], "action": "add"},
+                              {"op": "table_cell", "point": [220, 90], "text": "12.00"}], None)
+    t2 = out.meta["tables"][0]
+    assert t2["n_cols"] == 2
+    got = {(c["row"], c["col"]): c["text"] for c in t2["cells"]}
+    assert got[1, 1] == "950" and got[2, 1] == "12.00" and got[0, 0] == "Item"
+    assert "<td>12.00</td>" in out.meta["tables_html"]
+    out2 = apply_tables(out, [{"op": "table_delete", "point": [10, 10]}], None)
+    assert out2.meta["tables"] == []

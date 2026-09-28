@@ -236,6 +236,9 @@ session and re-applied on every re-run:
   and click the blocks in reading order;
 - **text** — click a word on the page or in the text panel to correct
   it; the text and hOCR are rebuilt;
+- **tables** — add or remove a column or row line, merge cells, type a
+  cell's text, draw a table the page missed or delete one; the tables'
+  JSON, HTML and CSV are rebuilt, the text left as read;
 - **post-processing** — the learned-dictionary pass's corrections, each
   clickable on the page, and its on/off switch.
 

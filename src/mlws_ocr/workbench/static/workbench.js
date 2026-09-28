@@ -409,6 +409,7 @@ function renderTools(s, k) {
   if (s.slot === "lines") return boxTools(t, s, k, "lines");
   if (s.slot === "correct") return correctTools(t, s, k);
   if (s.slot === "tables") return tableTools(t, s, k);
+  if (s.slot === "output") { wordTools(t, s, k); return tableEditTools(t, s, k); }
   if (READ.has(s.slot)) return wordTools(t, s, k);
 }
 
@@ -464,6 +465,43 @@ function tableCaption(t, i) {
   return `Table ${i + 1}: ${t.n_rows} rows × ${t.n_cols} columns, ${t.source === "whitespace" ? "by whitespace" : "ruled"}` +
     `, ${cellCount(t)} cells${sp ? `, ${sp} spanned` : ""}`;
 }
+// Table corrections (edits on the output stage, applied after it runs;
+// workbench/edits.py apply_tables): lines added or removed, cells merged,
+// a cell's text set, a table drawn or deleted.
+const TABLE_TOOLS = [["t_col", "+ column", "click inside a table where a column line should be"],
+  ["t_row", "+ row", "click inside a table where a row line should be"],
+  ["t_rmcol", "− column", "click near a column line to remove it"],
+  ["t_rmrow", "− row", "click near a row line to remove it"],
+  ["t_merge", "Merge", "drag a box over the cells to merge"],
+  ["t_cell", "Cell text", "click a cell to type its text"],
+  ["t_add", "Draw table", "drag a box around a table the page missed"],
+  ["t_del", "Delete table", "click a table to remove it"]];
+function tableEditTools(t, s, k) {
+  const box = el("div", { class: "box" }, el("div", {}, "Correct the tables (the page text is not changed):"));
+  const row = el("div", { class: "row", style: "flex-wrap:wrap;gap:4px" });
+  for (const [id, label, title] of TABLE_TOOLS) row.append(toolButton(id, label, title));
+  box.append(row);
+  const n = s.edits.filter((e) => String(e.op).startsWith("table_")).length;
+  box.append(el("div", {}, n ? `${n} table correction${n > 1 ? "s" : ""}` : "no table corrections yet"));
+  if (n) box.append(el("button", { onclick: () => pushEdits(k, s.edits.filter((e) => !String(e.op).startsWith("table_"))) }, "Clear table corrections"));
+  t.append(box);
+  if (S.tool && S.tool.startsWith("t_")) $("hint").textContent = TABLE_TOOLS.find((x) => x[0] === S.tool)[2];
+}
+function tableEdit(p) {
+  const s = S.st.stages[S.sel], pt = p.map(Math.round);
+  const push = (e) => pushEdits(S.sel, [...s.edits, e]);
+  if (S.tool === "t_col" || S.tool === "t_rmcol") return push({ op: "table_col", point: pt, action: S.tool === "t_col" ? "add" : "remove" });
+  if (S.tool === "t_row" || S.tool === "t_rmrow") return push({ op: "table_row", point: pt, action: S.tool === "t_row" ? "add" : "remove" });
+  if (S.tool === "t_del") return push({ op: "table_delete", point: pt });
+  if (S.tool === "t_cell") {
+    const tabs = (S.layout && S.layout.tables_final) || [];
+    const cell = tabs.flatMap((t) => t.cells).filter((c) => inBox(p, c.box))
+      .sort((a, b) => (a.box[2] - a.box[0]) * (a.box[3] - a.box[1]) - (b.box[2] - b.box[0]) * (b.box[3] - b.box[1]))[0];
+    const text = window.prompt("Cell text", cell ? cell.text || "" : "");
+    if (text !== null) push({ op: "table_cell", point: pt, text });
+  }
+}
+
 function tableTools(t, s, k) {
   t.append(el("div", { class: "hint" }, "Table options (each re-runs the page from its stage):"), tableSwitches());
   const tabs = (S.layout && S.layout.tables) || [];
@@ -756,7 +794,8 @@ function onDown(e) {
   if (S.tool === "erase_at" || S.tool === "restore_at") {
     pushEdits(S.sel, [...s.edits, { op: S.tool, point: p.map(Math.round) }]); return;
   }
-  if (S.tool === "erase" || S.tool === "add") { S.drag = { mode: "rect", a: p, b: p }; return; }
+  if (S.tool === "erase" || S.tool === "add" || S.tool === "t_merge" || S.tool === "t_add") { S.drag = { mode: "rect", a: p, b: p }; return; }
+  if (S.tool && S.tool.startsWith("t_")) { tableEdit(p); return; }
   if (!D) return;
   const hit = D.items.findIndex((it) => inBox(p, it.box));
   if (S.tool === "order") {
@@ -812,6 +851,8 @@ function onUp() {
     if (b[2] - b[0] < 3 || b[3] - b[1] < 3) { draw(); return; }
     const s = S.st.stages[S.sel];
     if (S.tool === "erase") pushEdits(S.sel, [...s.edits, { op: "erase", box: b }]);
+    else if (S.tool === "t_merge") pushEdits(S.sel, [...s.edits, { op: "table_merge", box: b }]);
+    else if (S.tool === "t_add") pushEdits(S.sel, [...s.edits, { op: "table_add", box: b }]);
     else if (S.tool === "add" && S.draft) { S.draft.items.push({ box: b }); S.draft.sel = new Set([S.draft.items.length - 1]); S.draft.dirty = true; showStage(S.sel); }
   } else if (d.mode === "move" || d.mode === "resize") showStage(S.sel);
 }
@@ -842,7 +883,7 @@ function draw() {
   if (L && s && s.status === "done" && S.tool !== "horizon") {
     if (S.layers.zones) for (const b of L.image_zones || []) rect(b, "#8e44ad", lw, [6 / v.z, 4 / v.z]);
     if (S.layers.rules) for (const r of [...(L.rules_h || []), ...(L.rules_v || [])]) if (Array.isArray(r) && r.length === 4) rect(r, "#c53030", lw);
-    if (S.layers.tables) (L.tables || []).forEach((t, i) => {
+    if (S.layers.tables) (L.tables_final || L.tables || []).forEach((t, i) => {
       // whitespace tables dashed; a spanned cell tinted; the table's frame and size labelled
       const dash = t.source === "whitespace" ? [4 / v.z, 3 / v.z] : null;
       for (const c of t.cells || []) {

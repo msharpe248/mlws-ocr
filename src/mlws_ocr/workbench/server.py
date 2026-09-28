@@ -236,6 +236,18 @@ def make_handler(wb: Workbench):
             layout = page.meta.get("layout", {})
             keep = ("blocks", "image_zones", "rules_h", "rules_v", "tables", "fixed_pitch")
             out = {key: layout[key] for key in keep if key in layout}
+            if isinstance(page.meta.get("tables"), list):
+                # the output's final tables (found on the page, corrected by hand), nested flattened
+                flat = []
+
+                def walk(recs):
+                    for r in recs:
+                        flat.append({k: v for k, v in r.items() if k != "cells"} |
+                                    {"cells": [{k: v for k, v in c.items() if k != "tables"} for c in r["cells"]]})
+                        for c in r["cells"]:
+                            walk(c.get("tables", []))
+                walk(page.meta["tables"])
+                out["tables_final"] = flat
             out["lines"] = [{
                 "box": ln.get("box"), "baseline": ln.get("baseline"), "block": ln.get("block"),
                 "x_height": ln.get("x_height"),

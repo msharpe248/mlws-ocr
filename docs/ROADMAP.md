@@ -36,15 +36,15 @@ plan stands (TEDS, neural-table; RESEARCH has every row):
 
 **Then, in this order (the owner, 2026-09-28):**
 
-9. **Harder tables** (now): tight key-value tables (cells a word space
+9. ✅ **Harder tables** (2026-09-28: alignment split / rejoin, separator network v2 with CORD receipts; the monospace question and PubTables-1M detection open): tight key-value tables (cells a word space
    apart, 'Omar Patel | Pay Date'); photographed receipts (CORD 0.316, now
    limited by reading more than structure); detection F1 on PubTables-1M
    pages; the network's columns (a v2 trained with CORD photos and '$'
    set apart from its amount).
-10. **Release v0.16.0** -- table structure in neural, the neural-table
+10. ✅ **Release v0.16.0** (2026-09-28) -- table structure in neural, the neural-table
     profile, JSON / HTML / CSV tables, arithmetic checks, the workbench's
     Tables view, `sepnet_v1.npz` in the models bundle.
-11. **Table correction in the workbench** -- add or remove a column or row
+11. ✅ **Table correction in the workbench** (2026-09-28) -- add or remove a column or row
     separator, merge or split cells, correct a cell's text, re-export;
     corrections as data, surviving re-runs, like the other edits.
 12. **Paper: tables from rules and one small network** -- exact nested
