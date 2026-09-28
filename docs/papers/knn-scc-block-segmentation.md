@@ -4,6 +4,8 @@
 
 *Figures are in the [HTML edition](https://msharpe248.github.io/mlws-ocr/docs/papers/knn-scc-block-segmentation.html); this text refers to them by number.*
 
+*Revised 28 September 2026: every end-to-end figure in §5.3–§5.5 and §5.7 and the whole of §5.10 were re-measured on the current mlws-ocr engine, with only the `blocks` stage changed as before. The engine around the segmenter has improved since the first measurements (the line reader, deskew, picture zones, the facing page of a spread), so absolute accuracies moved — XY-cut's newspapers from 95.8% to 97.4%, for instance — while the comparisons, and every conclusion drawn from them, stand. Where a figure was not re-measured it is marked with its date.*
+
 ## In brief
 
 Before a computer can read a page it has to find the page's parts — the
@@ -29,17 +31,17 @@ What the study found:
 - **On letters it matches the tuned incumbent, untuned.** Swapped into
   the full OCR pipeline in place of the XY-cut segmenter — which carries
   hand-tuned rules for each kind of document — it reads 30 scanned
-  business letters at 95.4% of characters and 92.3% of words, against
-  XY-cut's 95.3% and 91.6%, at its original 1995 settings and with no
+  business letters at 95.8% of characters and 93.3% of words, against
+  XY-cut's 95.8% and 93.0%, at its original 1995 settings and with no
   hint of what kind of document it is looking at. On a synthetic
   three-block page it finds every block exactly, at any threshold tried.
 - **On newspapers and magazines it is not yet usable end to end.** At
   its 1995 settings their narrow gutters are shorter than the page's
   typical link, so the columns merge and text is read straight across
   them: 45% of characters on eight newspaper pages, against XY-cut's
-  96%. A tighter setting does separate the columns, and the blocks it
-  finds then read nearly as well as XY-cut's (90% against 95% on
-  newspapers, 84% against 84% on magazines, with the reading order
+  97%. A tighter setting does separate the columns, and the blocks it
+  finds then read nearly as well as XY-cut's (91% against 95% on
+  newspapers, 85% against 84% on magazines, with the reading order
   supplied from the ground truth). What is missing is a reading order
   for side-by-side blocks (§5.3).
 - **One setting controls how fine the blocks are.** The pruning threshold
@@ -69,12 +71,12 @@ multi-column fixture the method recovers every ground-truth block at
 IoU 1.00 untuned, and at every threshold tested between 1.2 and 4 times
 the mean link length. In the current mlws-ocr pipeline, replacing the
 tuned recursive XY-cut segmenter leaves end-to-end OCR accuracy on
-scanned business letters unchanged or better (30 letters: 95.4% character
-and 92.3% word accuracy against 95.3% and 91.6%) with no document-type
+scanned business letters unchanged or better (30 letters: 95.8% character
+and 93.3% word accuracy against 95.8% and 93.0%) with no document-type
 knowledge. On newspapers and magazines the 1995 cut exceeds their narrow
-gutters and merges columns (news: 45.4% against 95.8%); a tighter cut
-separates them, and its blocks score within 4.5 points of the incumbent's
-in zone order (news 90.3 against 94.8, magazines 84.0 against 84.3), the
+gutters and merges columns (news: 45.5% against 97.4%); a tighter cut
+separates them, and its blocks score within 3.8 points of the incumbent's
+in zone order (news 91.0 against 94.8, magazines 84.6 against 83.5), the
 remaining end-to-end loss being the method's simple reading order. We
 report four refinements, with measurements: a *hybrid* pruning rule that lets
 display-type headlines cohere without welding newspaper columns; a
@@ -257,7 +259,7 @@ qualify them.
 
 <!--FIG:magazine-->
 
-**End to end, by set (September 2026).** Each cell is character / word
+**End to end, by set (re-measured 28 September 2026).** Each cell is character / word
 accuracy (%) for the whole pipeline with only the `blocks` stage
 changed. XY-cut is the incumbent: recursive XY-cut with rules tuned per
 document type (a letter's column gap is 2.5 times wider than the
@@ -267,31 +269,32 @@ pooled-k run at the settings stated and receive no document type.
 
 | Set (pages) | XY-cut, tuned | knn_scc, 1995 settings | knn_scc, pooled-k (k_total 5, 1.8 × mean) | Whitespace |
 |---|---|---|---|---|
-| Letters, dev-8 (8) | 97.3 / 94.6 | 96.3 / 93.9 | 95.4 / 93.2 | 95.2 / 92.9 |
-| Letters, broad-30 (30) | 95.3 / 91.6 | **95.4 / 92.3** | 94.3 / 90.4 | 92.0 / 88.3 |
-| Legal, legal-8 (8) | 94.5 / 90.7 | 92.2 / 88.0 | 93.8 / 89.7 | 91.3 / 86.9 |
-| Newspapers, news-8 (8) | 95.8 / 93.2 | 45.4 / 30.3 | 46.1 / 32.1 | 69.2 / 58.1 |
-| Magazines, mag-8 (8) | 77.4 / 68.7 | 31.2 / 10.2 | 33.7 / 16.3 | 65.8 / 52.7 |
+| Letters, dev-8 (8) | **97.7 / 95.4** | 96.4 / 94.2 | 95.4 / 93.1 | 96.2 / 94.1 |
+| Letters, broad-30 (30) | **95.8** / 93.0 | **95.8 / 93.3** | 94.8 / 91.9 | 91.9 / 88.6 |
+| Legal, legal-8 (8) | **93.9 / 90.3** | 91.2 / 86.4 | **93.9** / 90.0 | 90.7 / 85.7 |
+| Newspapers, news-8 (8) | **97.4 / 95.4** | 45.5 / 30.4 | 47.2 / 34.0 | 69.1 / 58.1 |
+| Magazines, mag-8 (8) | **82.5 / 77.3** | 29.8 / 8.6 | 39.9 / 24.3 | 68.6 / 56.3 |
 
 The table uses the neural engine. The classic engine shows the same
 pattern at lower levels (XY-cut / knn_scc / pooled-k): dev-8 95.2 / 94.7 / 94.0 character
-accuracy, broad-30 91.9 / 91.5 / 91.1, legal-8 91.7 / 85.1 / 90.8, news-8
-92.7 / 41.6 / 42.6, mag-8 65.3 / 26.7 / 32.7.
+accuracy, broad-30 91.9 / 91.5 / 91.1, legal-8 91.7 / 85.0 / 90.7, news-8
+94.2 / 41.6 / 43.7, mag-8 66.8 / 26.4 / 35.2.
 
 **Letters and legal pages.** On letters the untuned method is level with
-the incumbent: ahead on the 30-letter set, 1.0 character point behind on
-dev-8. With reading order taken out of the score (zone order, neural
-engine) the two are closer still — dev-8 96.5 against 97.0, broad-30
-95.7 against 95.5, legal-8 90.7 against 91.2 — so most of the
-remaining gap on dev-8 and legal-8 is the order in which blocks are read
-(§6), not the blocks. Pooled-k is better than the 1995 settings on the
-typewritten legal pages (93.8 against 92.2; one pleading goes from 70.3
-to 77.9) and worse on letters, where its finer blocks multiply the
-reading-order decisions.
+the incumbent: level on the 30-letter set in characters and ahead in
+words, 1.3 character points behind on dev-8. With reading order taken out
+of the score (zone order, neural engine) the two are closer still — dev-8
+96.5 against 97.4, broad-30 95.9 against 95.9, legal-8 90.5 against 90.8 —
+so most of the remaining gap on dev-8 and legal-8 is the order in which
+blocks are read (§6), not the blocks. Pooled-k is better than the 1995
+settings on the typewritten legal pages (93.9 against 91.2, level with
+XY-cut; one pleading goes from 67.8 to 81.0, another from 81.5 to 90.6)
+and worse on letters, where its finer blocks multiply the reading-order
+decisions.
 
 **Newspapers and magazines.** Here, at its 1995 settings, the method
 merges columns. On six of the eight newspaper pages character accuracy
-— which is order-sensitive — falls to 22–41%: a single block spans the
+— which is order-sensitive — falls to 24–42%: a single block spans the
 body columns, so every output line runs across the gutter. The
 cause is geometric. On these 300-dpi clippings the gutters are 30–50 px
 of white space, so a link across one spans about 60 px centre to centre;
@@ -304,15 +307,15 @@ off (it otherwise admits a few long links between display-size
 components, such as a headline letter and a boxed graphic, that bridge
 the gutter), no block spans a gutter on six of the eight pages. Scored
 in zone order, the tighter cut's blocks then read almost as well as the
-incumbent's: newspapers 90.3% character accuracy against XY-cut's 94.8%
-(77.2% at the 1995 settings), magazines 84.0% against 84.3%. End to end,
-however, the same run scores only 53.5% on newspapers and 36.1% on
+incumbent's: newspapers 91.0% character accuracy against XY-cut's 94.8%
+(78.7% at the 1995 settings), magazines 84.6% against 83.5%. End to end,
+however, the same run scores only 54.7% on newspapers and 38.9% on
 magazines, because the columns now come out as many paragraph blocks,
 and a top-left sort of side-by-side paragraphs interleaves the columns.
 On multi-column pages the missing piece is reading order, not
 segmentation. XY-cut gets its order free from its cutting tree and has
 explicit newspaper rules; the whitespace method, with neither, sits in
-between (69.2%).
+between (69.1%).
 
 ### 5.4 The threshold: ratio or spread?
 
@@ -328,20 +331,21 @@ residual photo fragments give the length distribution a heavy tail that
 inflates any spread statistic until nothing is pruned (Figure 5). The
 1995 ratio rule is the domain-robust choice and is the default; the
 spread rule remains an option for clean text. On today's pipeline the
-two are indistinguishable on letters (mean + 1σ: dev-8 96.3 / 93.9,
-broad-30 95.4 / 92.2, against 96.3 / 93.9 and 95.4 / 92.3 for the ratio
-rule).
+two are indistinguishable on letters (mean + 1σ: dev-8 96.4 / 94.3,
+broad-30 95.7 / 93.3, against 96.4 / 94.2 and 95.8 / 93.3 for the ratio
+rule; re-measured 28 September 2026).
 
 <!--FIG:sigma-->
 
 ### 5.5 Why the threshold matters so little
 
 On letters the threshold matters remarkably little. Across a factor of
-2.5, from τ = 1.2 to 3.0 × mean, dev-8 stays between 95.4 and 96.3%
-character accuracy; broad-30 between 93.5 and 95.5% (1.2 × mean: 95.5,
-1.5: 95.4, 2.0: 93.6, 3.0: 93.5); and with the hybrid rule off, 1.0 ×
-mean gives 95.9 / 92.6 on broad-30, the best result on that set of any
-segmenter measured (dev-8 95.6 / 93.4). On the synthetic fixture every
+2.5, from τ = 1.2 to 3.0 × mean, dev-8 stays between 95.5 and 96.4%
+character accuracy (1.2 × mean: 95.7, 1.5: 96.4, 2.0: 96.4, 3.0: 95.5);
+broad-30 between 93.7 and 96.4% (1.2: 96.4, 1.5: 95.8, 2.0: 96.0, 3.0:
+93.7), both tighter settings above XY-cut's 95.8 on that set; and with the
+hybrid rule off, 1.0 × mean gives 96.2 / 93.4 on broad-30 (dev-8 95.8 /
+93.2). (Re-measured 28 September 2026.) On the synthetic fixture every
 threshold from 1.2 to 4 gives IoU 1.00. This insensitivity is a property of the clustering criterion,
 not luck. Strong connectivity gives the pruning slack on both sides. A
 too-loose threshold leaves stray long edges, but they are *directed*, and
@@ -414,8 +418,8 @@ form one clean block.
 
 <!--FIG:pooled-->
 
-End to end it is slightly worse on letters (broad-30 94.3 / 90.4 against
-95.4 / 92.3) — finer blocks multiply the reading-order decisions — and
+End to end it is slightly worse on letters (broad-30 94.8 / 91.9 against
+95.8 / 93.3) — finer blocks multiply the reading-order decisions — and
 better on typewritten legal pages (§5.3). Pooled-k is a second,
 *structural* granularity dial: at k_total = 3 the links that exist, not the ones that
 survive, set the level — above about 1.8 × mean the threshold stops
@@ -441,7 +445,8 @@ photo-heavy pages the big-component bias *inverts* rather than vanishing.
 A large residual photo fragment's distant centroid had kept it separate;
 its edges being near everything now merge it into adjacent text — on one
 newspaper page 12 mixed blocks and 54.5% character accuracy, against
-centroid mode's 47 blocks and 77.4% (Figure 8). The two distance
+centroid mode's 47 blocks and 77.4% (Figure 8; measured September 2026 on
+the engine of the time, not re-measured). The two distance
 definitions trade biases by domain; centroid mode remains the default.
 
 <!--FIG:edge_a,edge_b-->
@@ -458,8 +463,8 @@ components first (`cc_merge_overlap`). A component dropped for being big
 is not noise but a detected picture, so it returns to the output as an
 *image block*, merged only with other image blocks (merging it with text
 is the measured photo-weld hazard) and placed in reading order.
-Measured: inside the full pipeline, where despeckling and picture-zone
-detection already run upstream, the filters are near no-ops on letters,
+Measured (September 2026, on the engine of the time): inside the full
+pipeline, where despeckling and picture-zone detection already run upstream, the filters are near no-ops on letters,
 and the speck filter is harmful on newspapers (44 blocks → 4): the
 thousands of short speck links had been holding the mean down, and
 without them 1.5 × mean climbs above the column gutter — the pruning
@@ -472,27 +477,30 @@ by default.
 
 As a last example the method was run on the first page of the IDUR paper
 itself (Sharpe, Ahmed & Sutcliffe, MVA '94): a 150-dpi scan from the MVA
-commemorative DVD, through the pipeline's standard cleanup. At the 1995
-default (5,267 components; 111,949 links, mean 23.6 px, cut at 1.5 × mean
-= 35 px; 16 SCCs) the page resolves into 9 blocks: the running header,
-the title, the author block, the abstract, the section heading, the whole
-left column — and the whole right column, where the opening paragraph,
-the system-design diagram, its caption and the closing paragraph weld
-into one. The links show why: the diagram's dashed frames and arrows are
-chains of small, evenly spaced marks, each linked to the next by a short
-kept edge, forming a bridge from the paragraph above the diagram to the
-one below. Pooled-k (k_total = 5, factor 1.8; 25,261 links kept, mean
-11.7 px, cut 21 px; 58 SCCs, 20 blocks) breaks the bridge: the diagram
-becomes one block, its caption another, the paragraphs above and below
-their own, the abstract's heading separates from its body and the
-introduction splits at its paragraph break. What it costs is the display
-title, which fragments at its wide word gaps — the headline weakness the
-hybrid rule addresses for newspaper type, at a size (about twice the
-body) it does not reach here. On a page with a line-art figure the lesson
-is the same as on the newspaper: the global cut cannot see a bridge made
-of short links; pooling the neighbours shortens the mean and the bridge
-breaks. (Figure 9: the blocks under both settings, and the whole page's
-kept and pruned links under each.)
+commemorative DVD, through the pipeline's standard cleanup — which now
+magnifies a low-resolution scan to the 300-dpi scale its models were built
+for, so the page is segmented at 2364 × 3496 pixels. At the 1995 default
+(4,595 components; 97,860 links, mean 52.0 px, cut at 1.5 × mean = 78 px;
+11 SCCs) the page resolves into 7 blocks: the running header, the title,
+the author block, the abstract, the whole introduction with its heading,
+the page number — and the whole right column, where the opening
+paragraph, the system-design diagram, its caption and the closing
+paragraph weld into one. The links show why: the diagram's dashed frames
+and arrows are chains of small, evenly spaced marks, each linked to the
+next by a short kept edge, forming a bridge from the paragraph above the
+diagram to the one below. Pooled-k (k_total = 5, factor 1.8; 23,161
+links kept, mean 29.8 px, cut 54 px; 31 SCCs, 14 blocks) breaks the
+bridge: the diagram becomes one block, its caption another, the
+paragraphs above and below their own, the abstract's and the
+introduction's headings separate from their bodies, and the introduction
+splits at its paragraph break. At the page's original 150 dpi (the first
+revision of this section) pooled-k had also fragmented the display title
+at its wide word gaps; at 300 dpi the title holds together under both
+settings. On a page with a line-art figure the lesson is the same as on
+the newspaper: the global cut cannot see a bridge made of short links;
+pooling the neighbours shortens the mean and the bridge breaks.
+(Figure 9: the blocks under both settings, and the whole page's kept and
+pruned links under each.)
 
 <!--FIG:mva_a,mva_b-->
 
@@ -529,10 +537,11 @@ components — with tuned, trained and held-out measurements.
 ## 7. Conclusion
 
 A thirty-year-old idea, tested at last. Directional k-NN graphs with
-strong connectivity as the cohesion criterion segment letters and legal
-pages as well as a classical method tuned per document type, with no
-document-specific assumptions and within a wide plateau of the one
-threshold they have. On newspapers and magazines they need a tighter
+strong connectivity as the cohesion criterion segment letters as well as a
+classical method tuned per document type, with no document-specific
+assumptions and within a wide plateau of the one threshold they have; on
+typewritten legal pages the 1995 settings trail by 2.7 points and pooled-k
+draws level. On newspapers and magazines they need a tighter
 cut than the 1995 one, and then find blocks almost as good as the tuned
 incumbent's; what they lack there is a reading order for side-by-side
 blocks — the clearest next step. The threshold turns out to be less a parameter to tune than a dial over the

@@ -2,7 +2,7 @@
 
 **Michael Sharpe** — a follow-on study in the mlws-ocr project (2026).
 
-*Revised 26 September 2026: the claim that the improved variants beat the incumbent on fresh newspaper pages rested on 20 pages; on 70 fresh pages no single segmenter wins, and a per-page judge does (§4.4). Figures are in the [HTML edition](https://msharpe248.github.io/mlws-ocr/docs/papers/knn-scc-beyond-1995.html); this text refers to them by number. The first paper is [Block Segmentation by Directional k-Nearest-Neighbor Graphs and Strongly Connected Components](https://msharpe248.github.io/mlws-ocr/docs/papers/knn-scc-block-segmentation.html).*
+*Revised 28 September 2026: every accuracy in §4 (and in this summary and the abstract) re-measured on the current mlws-ocr engine, with only the `blocks` stage changed as before. The engine around the segmenter has improved since (the line reader, deskew, picture zones, the facing page of a spread), so the absolute figures rose — the judge's fresh magazine pages from 67.8% to 83.7% — while the comparisons stand; three statements changed with them and are noted where they fall (legal-8, zone order on magazines, the size of the judge's lead). Revised 26 September 2026: the claim that the improved variants beat the incumbent on fresh newspaper pages rested on 20 pages; on 70 fresh pages no single segmenter wins, and a per-page judge does (§4.4). Figures are in the [HTML edition](https://msharpe248.github.io/mlws-ocr/docs/papers/knn-scc-beyond-1995.html); this text refers to them by number. The first paper is [Block Segmentation by Directional k-Nearest-Neighbor Graphs and Strongly Connected Components](https://msharpe248.github.io/mlws-ocr/docs/papers/knn-scc-block-segmentation.html).*
 
 ## In brief
 
@@ -27,23 +27,23 @@ What it found:
 
 - **Two changes fix the newspaper failure.** Reading the blocks in the
   order a recursive XY-cut gives them, instead of top-left, and cutting
-  links more tightly, lift newspapers from 45% to 87% of characters read
-  correctly and magazines from 31% to 79%.
+  links more tightly, lift newspapers from 45% to 89% of characters read
+  correctly and magazines from 30% to 83%.
 - **A new structure does better still on newspapers.** Because cutting
   links can only ever split a block, the blocks at a series of
   thresholds nest into a tree. Choosing, region by region, the coarsest
   level with no column gutter inside it — and cutting along a gutter the
-  graph cannot separate — reaches 95% on the newspaper set.
+  graph cannot separate — reaches 97% on the newspaper set.
 - **On fresh newspaper pages no single segmenter wins — a per-page
   judge does.** The first 20 fresh pages favoured the improved variants
-  (82% and 85% against the incumbent's 79%); 40 more favoured the
-  incumbent by up to 8 points. Newspaper pages differ so much that small
+  (83% and 87% against the incumbent's 81%); 40 more favoured the
+  incumbent by up to 10 points. Newspaper pages differ so much that small
   samples point either way. A judge that picks the segmenter for each
-  page from its layout alone reads fresh newspaper pages at 84% against
-  the incumbent's 80%, and fresh magazines at 68% against 66% (§4.4); it
+  page from its layout alone reads fresh newspaper pages at 87% against
+  the incumbent's 83%, and fresh magazines at 84% against 78% (§4.4); it
   is now the default for newspapers and magazines. On fresh letters all
-  methods are level; on legal pages the incumbent keeps a lead of 1–2
-  points.
+  methods are level; on fresh legal pages the incumbent keeps a lead of
+  1–3 points.
 - **Several ideas did not pay:** a learned rule for which links to keep,
   gutter "fences" on their own, and a size-normalised link length. They
   are reported with their numbers.
@@ -64,16 +64,16 @@ and a gutter no level separates cut along geometrically; (iv) gutter
 fences; and (v) a logistic keep-rule learned from zone truth (AUC 0.920).
 Settings were chosen on tuning pages, the rule trained on separate pages,
 and finalists confirmed on held-out pages. On the UNLV evaluation sets
-the tighter cut with XY-cut order lifts newspapers from 45.4% to 87.2%
-character accuracy and magazines from 31.2% to 79.0%; the tree reaches
-94.6% and 79.9%. On fresh newspaper pages the ranking depends on the
+the tighter cut with XY-cut order lifts newspapers from 45.5% to 89.4%
+character accuracy and magazines from 29.8% to 82.7%; the tree reaches
+96.8% and 85.0%. On fresh newspaper pages the ranking depends on the
 sample — 20 held-out pages favoured both variants over the incumbent
-(81.9% and 84.9% against 78.8%), 40 others the incumbent (87.6% against
-83.6% and 79.2%) — so a per-page judge over layout evidence alone was
-fitted instead: on 30 held-out pages per type it reads newspapers at 84.3%
-against the incumbent's 79.7% and magazines at 67.8% against 65.9%. All
-methods are at parity on fresh letters; on legal pages the incumbent
-keeps 1.3–2.3 points. The learned rule, fences alone and scale-free
+(82.6% and 87.0% against 80.9%), 40 others the incumbent (88.1% against
+84.2% and 77.8%) — so a per-page judge over layout evidence alone was
+fitted instead: on 30 held-out pages per type it reads newspapers at 86.7%
+against the incumbent's 83.1% and magazines at 83.7% against 78.0%. All
+methods are at parity on fresh letters; on fresh legal pages the incumbent
+keeps 1.4–2.8 points. The learned rule, fences alone and scale-free
 lengths did not improve on the simpler variants.
 
 ## 1. Where the first paper left off
@@ -81,8 +81,8 @@ lengths did not improve on the simpler variants.
 The first paper measured the method, at its 1995 settings, against a
 recursive XY-cut segmenter carrying rules tuned per kind of document
 (§5.3 there). On letters the untuned method was level with it; on the
-eight-page newspaper set it read 45.4% of characters against 95.8%, and
-on magazines 31.2% against 77.4%. Its diagnosis was that the newspaper
+eight-page newspaper set it read 45.5% of characters against 97.4%, and
+on magazines 29.8% against 82.5% (on the current engine). Its diagnosis was that the newspaper
 failure was two problems, not one:
 
 1. **The cut is too loose for narrow gutters.** The threshold, 1.5 ×
@@ -95,7 +95,7 @@ failure was two problems, not one:
    out, the blocks then read almost as well as the incumbent's — but the
    blocks are sorted by their top-left corners, which interleaves
    side-by-side paragraphs. End to end, the tighter cut alone reached
-   only 53.5% on newspapers.
+   only 54.7% on newspapers.
 
 It also named the untried refinements: a column-aware order, a threshold
 that tracks the gutter, one size reference for the two rules that use
@@ -213,7 +213,9 @@ check matters: variants were designed while looking at evaluation
 results, and two apparent wins did not survive it (§4.3).
 
 The OCR is the project's neural engine, unchanged; only the `blocks`
-stage differs. Accuracy is character / word accuracy against the ground
+stage differs. Every accuracy in §4 was re-measured on the engine of 28
+September 2026 (the first measurements used the engine of 25–26 September;
+see the revision note). Accuracy is character / word accuracy against the ground
 truth in reading order.
 
 ## 4. Results
@@ -228,20 +230,25 @@ The newspaper failure and its two fixes on one page are in Figure 3.
 
 | Variant | Letters dev-8 | Letters broad-30 | Legal-8 | News-8 | Magazines-8 |
 |---|---|---|---|---|---|
-| XY-cut, tuned per document type | **97.3 / 94.6** | 95.3 / 91.6 | **94.5 / 90.7** | **95.8 / 93.2** | 77.4 / 68.7 |
-| knn_scc, 1995 settings (paper 1) | 96.3 / 93.9 | 95.4 / 92.3 | 92.2 / 88.0 | 45.4 / 30.3 | 31.2 / 10.2 |
-| + XY-cut order only | 96.4 / 93.9 | **96.3 / 93.0** | 92.2 / 88.0 | 45.4 / 30.3 | 31.4 / 10.7 |
-| **Tight + order** (0.8 × mean, XY-cut order) | 95.3 / 92.9 | 96.0 / 92.2 | **94.5** / 90.2 | 87.2 / 80.0 | 79.0 / 69.9 |
-| **Tree** (1.5 → 0.8, gutter cut, XY-cut order) | 94.8 / 92.7 | 95.3 / 91.6 | 92.1 / 87.8 | 94.6 / 91.0 | **79.9 / 70.8** |
+| XY-cut, tuned per document type | **97.7 / 95.4** | 95.8 / 93.0 | 93.9 / 90.3 | **97.4 / 95.4** | 82.5 / 77.3 |
+| knn_scc, 1995 settings (paper 1) | 96.4 / 94.2 | 95.8 / 93.3 | 91.2 / 86.4 | 45.5 / 30.4 | 29.8 / 8.6 |
+| + XY-cut order only | 96.5 / 94.1 | **96.5 / 93.8** | 91.2 / 86.4 | 45.5 / 30.4 | 30.0 / 9.4 |
+| **Tight + order** (0.8 × mean, XY-cut order) | 95.5 / 92.4 | 96.3 / 93.3 | **94.6 / 90.5** | 89.4 / 83.0 | 82.7 / 75.1 |
+| **Tree** (1.5 → 0.8, gutter cut, XY-cut order) | 94.9 / 92.6 | 95.7 / 92.8 | 91.1 / 86.2 | 96.8 / 94.1 | **85.0 / 77.8** |
 
-With reading order taken out (zone order), *tight + order* scores 90.3%
-on newspapers and 84.0% on magazines, against XY-cut's 94.8% and 84.3%:
-its blocks read nearly as well as the incumbent's. End to end it loses
-3.1 points more on newspapers than in zone order — reading order still
-costs something, some of it inside fragmented headlines (§5).
+With reading order taken out (zone order), *tight + order* scores 91.0%
+on newspapers and 84.6% on magazines, against XY-cut's 94.8% and 83.5%:
+its blocks read nearly as well as the incumbent's on newspapers, and
+better on magazines (in the first measurement they were 0.3 behind there).
+End to end it loses 1.6 points more on newspapers than in zone order —
+reading order still costs something, some of it inside fragmented
+headlines (§5). On legal-8 *tight + order* now edges the incumbent (94.6
+against 93.9; level in the first measurement), but not on fresh legal
+pages (§4.2).
 
 The other variants, briefly (character accuracy on dev-8 / broad-30 /
-legal-8 / news-8 / magazines-8):
+legal-8 / news-8 / magazines-8; measured 25 September 2026 on the engine
+of that date and not re-measured — none of them is a finalist):
 
 - **Fences + order** 96.4 / 96.3 / 92.2 / 66.2 / 62.5 — helps, but the
   1.5 × mean cut still merges columns wherever no gutter is found.
@@ -261,23 +268,23 @@ Twenty pages per document kind that no decision had seen:
 
 | Variant | Letters | Legal | Newspapers | Magazines |
 |---|---|---|---|---|
-| XY-cut, tuned per document type | **91.6** / 88.0 | **92.7 / 89.4** | 78.8 / 72.4 | 61.1 / 52.7 |
-| knn_scc, 1995 settings | 91.4 / **88.3** | 90.2 / 83.9 | 37.6 / 23.9 | 35.6 / 21.4 |
-| + XY-cut order only | 90.8 / 87.3 | 90.2 / 83.9 | 37.6 / 23.9 | 35.2 / 21.1 |
-| **Tight + order** | **91.6** / 87.2 | 91.4 / 86.7 | 81.9 / 74.6 | **63.2 / 55.0** |
-| **Tree** | 91.3 / 86.9 | 90.4 / 85.4 | **84.9 / 79.3** | 60.1 / 51.7 |
+| XY-cut, tuned per document type | **91.8 / 88.6** | **92.8 / 89.0** | 80.9 / 76.0 | 74.0 / 64.7 |
+| knn_scc, 1995 settings | 91.5 / 88.5 | 89.9 / 83.2 | 37.4 / 24.3 | 44.3 / 28.1 |
+| + XY-cut order only | 90.9 / 87.5 | 89.9 / 83.2 | 37.4 / 24.3 | 47.9 / 32.5 |
+| **Tight + order** | 91.4 / 87.6 | 91.4 / 86.7 | 82.6 / 76.9 | **76.3 / 66.6** |
+| **Tree** | 91.6 / 87.4 | 90.0 / 84.5 | **87.0 / 82.1** | 70.7 / 60.4 |
 
 ### 4.3 What the held-out pages changed
 
-- **The incumbent's newspaper rules do not generalise.** XY-cut's 95.8%
-  on news-8 falls to 78.8% on fresh newspaper pages: its newspaper rules
+- **The incumbent's newspaper rules do not generalise.** XY-cut's 97.4%
+  on news-8 falls to 80.9% on fresh newspaper pages: its newspaper rules
   were tuned on those same eight pages (September 2026). On these 20
   fresh pages both improved variants beat it — the tree by 6.1 points,
-  *tight + order* by 3.1 — but a larger sample does not bear out a
+  *tight + order* by 1.7 — but a larger sample does not bear out a
   general win (§4.4).
-- **One apparent win disappears.** XY-cut ordering on its own lifted the
-  30-letter set to 96.3%, a point above the incumbent; on fresh letters
-  it is 0.6 below the 1995 method. The gain was particular to that set.
+- **One apparent win disappears.** XY-cut ordering on its own lifts the
+  30-letter set to 96.5%, 0.7 above the incumbent; on fresh letters it is
+  0.6 below the 1995 method. The gain was particular to that set.
 - **The layout score ranks, but does not decide.** The tree variants
   tuned at 0.2–0.5 column welds a page on the tuning pages and showed
   1.4–1.8 on news-8; only end-to-end runs, confirmed on fresh pages,
@@ -293,15 +300,16 @@ changes with the sample:
 
 | Newspapers, character accuracy | 40 more fresh pages | 30 held-out pages | All 70 |
 |---|---|---|---|
-| XY-cut, tuned | **87.6** | 79.7 | **84.2** |
-| Tight + order | 83.6 | 81.0 | 82.5 |
-| Tree | 79.2 | **82.4** | 80.6 |
+| XY-cut, tuned | **88.1** | 83.1 | **86.0** |
+| Tight + order | 84.2 | 82.3 | 83.4 |
+| Tree | 77.8 | **83.3** | 80.2 |
 
-On magazines the three sit within 1.2 points over 70 pages (XY-cut 65.3,
-*tight + order* 64.7, tree 64.2). So neither improved variant is a better
+On magazines the three sit within 2.0 points over 70 pages (XY-cut 74.6,
+*tight + order* 74.9, tree 72.9). So neither improved variant is a better
 segmenter than the tuned XY-cut *on average*; what the tables show is that
 each wins on different pages — the best of the three, page by page, would
-read the 30 held-out newspaper pages at 87.3%.
+read the 30 held-out newspaper pages at 90.3% and the magazine pages at
+84.8%.
 
 That is a job for a judge. A follow-up (`layout/segjudge.py`) segments each
 newspaper or magazine page with XY-cut (with and without its rules), *tight
@@ -315,10 +323,17 @@ and it was measured on the 30 held-out pages per kind:
 
 | | Judge | XY-cut, tuned | Best per page |
 |---|---|---|---|
-| Newspapers, held-out | **84.3 / 78.2** | 79.7 / 73.5 | 87.3 |
-| Magazines, held-out | **67.8 / 60.7** | 65.9 / 58.4 | 68.8 |
-| News-8 | 95.3 / 91.7 | 95.8 / 93.2 | — |
-| Magazines-8 | 80.6 / 72.2 | 77.4 / 68.7 | — |
+| Newspapers, held-out | **86.7 / 81.6** | 83.1 / 78.3 | 90.3 |
+| Magazines, held-out | **83.7 / 75.6** | 78.0 / 69.2 | 84.8 |
+| News-8 | 96.9 / 94.2 | **97.4 / 95.4** | — |
+| Magazines-8 | **87.2 / 81.3** | 82.5 / 77.3 | — |
+
+The judge was fitted on runs made with the engine of 26 September and has
+not been refitted; the table measures that same judge on today's engine.
+Its lead on fresh pages grew with the engine's other fixes (it was 4.6
+points on newspapers and 1.9 on magazines): those fixes removed welded
+columns, a rotated photo page and a facing page's text — failures that
+had hidden the segmenters' differences.
 
 On letters and legal pages the judge lost to XY-cut in both pools, so it
 does not decide those: they keep XY-cut. Since 26 September 2026 the judge
@@ -330,24 +345,27 @@ other page is read exactly as before.
 **Display headlines fragment.** The tighter cut breaks a large headline
 into letters or words (Figure 3b), and a vertical-first XY-cut can then
 read a two-line headline down its letter columns instead of along its
-lines. It is one part of the 3.1 points *tight + order* loses to reading
+lines. It is one part of the 1.6 points *tight + order* loses to reading
 order on news-8 (§4.1); how large a part is not yet measured. A
 headline-aware order — merge a row of display-size blocks
 into a line before ordering — is the next step.
 
-**Legal pages keep a gap of 1–2 points.** A pleading's case caption is
+**Fresh legal pages keep a gap of 1–3 points.** On legal-8 *tight +
+order* now edges the incumbent, but on 20 fresh legal pages XY-cut leads
+both variants by 1.4–2.8 points. A pleading's case caption is
 split into a left part and a right part by a column of ")" characters;
 there is no white gap for any geometric test to find, and the
 incumbent separates them only by its legal-document rules.
 
-**Letters lose a little on dev-8** under both improved variants (1.0–1.5
+**Letters lose a little on dev-8** under both improved variants (2.2–2.8
 points), not seen on the fresh letters, where all methods are level.
 
 **No single setting serves every page.** Over 70 fresh newspaper pages
 neither variant beats the tuned XY-cut on average; each wins on different
-pages. The per-page judge (§4.4) recovers about half of the gap to the
-best choice per page (84.3% against 87.3%); a better judge, or one that
-also reads the page's first lines, could close more.
+pages. The per-page judge (§4.4) recovers about half of the gap between
+the incumbent and the best choice per page on fresh newspapers (86.7%,
+between 83.1% and 90.3%); a better judge, one refitted on today's engine,
+or one that also reads the page's first lines, could close more.
 
 ## 6. Conclusion
 
