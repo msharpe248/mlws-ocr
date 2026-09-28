@@ -47,6 +47,22 @@ scoreboard and its history are in `docs/DESIGN.md` §8.
 | cord | photographed receipts, CORD, cut to the receipt | 30.7 / – | **53.5 / 31.1** | 42.1 / 19.5 | 46.7 / 21.1 |
 | blocks | a paragraph handed in alone, no layout (broad-30's text zones) | 94.4 / 85.8 | **98.6 / 97.2** | 98.2 / 96.6 | 98.5 / 96.5 |
 
+
+**Tables.** Table structure is scored by TEDS (tree-edit similarity of the
+recognised table to its HTML truth, text included; after the slash,
+TEDS-S, structure alone; 1.0 is perfect), with the table options on
+(`imagezones.keep_grids`, `tables.spans` for the ruled forms; the `table`
+hint and `output.ws_table_doc_types` for whitespace tables; FinTabNet's
+72-dpi crops magnified). Neither Tesseract engine outputs table
+structure -- its text, hOCR and TSV carry no rows, columns or cells -- so
+there is nothing to score. With the options off, both sets score about
+0.00 / 0.03.
+
+| set | what it is | classic | neural | legacy Tesseract | Tesseract LSTM |
+|---|---|---|---|---|---|
+| payroll forms | generated ruled payroll forms: spanned headers, two-row records; software, typewriter and hand-lettered entries (20 pages) | 0.600 / **0.854** | **0.668 / 0.854** | no table output | no table output |
+| annual-report tables | real financial tables, FinTabNet.c, ruled by whitespace (60 tables) | 0.607 / 0.781 | **0.738 / 0.847** | no table output | no table output |
+
 **Held-out pages.** The eight-page sets flatter newspapers and magazines:
 on 30 fresh pages of each type, never used for any decision, the neural
 profile reads newspapers at 86.7 / 81.6 and magazines at 83.7 / 75.6 (with
