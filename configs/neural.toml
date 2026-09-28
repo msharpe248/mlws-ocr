@@ -179,6 +179,8 @@ case_repair = true      # I/l and case-twin repair runs even with the corrector 
                         # CORD +0.3/+0.5, FUNSD +0.2 word, the rest level or +0.1
 
 [stage.output]
+drop_facing_page = true     # the facing page's column clipped at a spread's edge is left out (newspaper and
+                            # magazine pages; 2026-09-27: news-8 +1.5 / +1.8, mag-8 +5.8 / +6.5 neural, RESEARCH)
 impl = "text"
 align_pair_min_rows = 2        # a text pair may form from two aligned rows (a table needs three) and takes the
                                # unpartnered one-line blocks on its columns' left edges; the higher-starting

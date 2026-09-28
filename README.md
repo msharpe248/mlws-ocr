@@ -36,10 +36,10 @@ scoreboard and its history are in `docs/DESIGN.md` §8.
 | legal-8 | UNLV legal pleadings (typewriter) | 91.7 / 81.3 | **93.9 / 90.3** | 90.4 / 88.7 | 90.3 / 86.9 |
 | modern | born-digital PDFs and templated business letters | 91.6 / 83.5 | **94.2 / 90.7** | 75.4 / 70.8 | 74.2 / 66.6 |
 | business | invoices, payslips, receipts, statements, purchase orders | 95.3 / 86.1 | **98.0 / 96.8** | 70.7 / 68.0 | 70.7 / 68.6 |
-| news-8 | UNLV newspapers (the layout rules were tuned here) | 92.6 / 82.3 | 95.4 / 92.4 | 96.3 / 93.1 | **96.7 / 94.8** |
-| mag-8 | UNLV magazines (the layout rules were tuned here) | 64.6 / 43.8 | 81.4 / 74.8 | 87.3 / **84.7** | **87.8** / 84.4 |
-| newspapers, held out | 30 UNLV newspaper pages no decision has used | 73.9 / 60.5 | 84.6 / 79.2 | 87.1 / 82.4 | **87.7 / 84.2** |
-| magazines, held out | 30 UNLV magazine pages no decision has used | 67.6 / 49.2 | **82.1** / 73.2 | 77.9 / 71.3 | 78.5 / **73.6** |
+| news-8 | UNLV newspapers (the layout rules were tuned here) | 94.2 / 84.1 | **96.9** / 94.2 | 96.3 / 93.1 | 96.7 / **94.8** |
+| mag-8 | UNLV magazines (the layout rules were tuned here) | 66.8 / 45.5 | 87.2 / 81.3 | 87.3 / **84.7** | **87.8** / 84.4 |
+| newspapers, held out | 30 UNLV newspaper pages no decision has used | 76.5 / 63.4 | 86.7 / 81.6 | 87.1 / 82.4 | **87.7 / 84.2** |
+| magazines, held out | 30 UNLV magazine pages no decision has used | 68.3 / 50.7 | **83.7 / 75.6** | 77.9 / 71.3 | 78.5 / 73.6 |
 | letters, held out | 30 UNLV business letters no decision has used | 90.7 / 83.1 | **93.9 / 91.1** | 92.4 / 88.8 | 93.1 / 90.6 |
 | sroie | real scanned receipts, ICDAR 2019 | 48.0 / 13.6 | **79.5 / 62.4** | 56.2 / 29.4 | 64.0 / 40.3 |
 | funsd | real scanned forms, FUNSD, at 2x | 37.4 / 12.7 | 65.8 / 44.2 | 54.8 / 32.0 | **66.4 / 47.2** |
@@ -49,7 +49,7 @@ scoreboard and its history are in `docs/DESIGN.md` §8.
 
 **Held-out pages.** The eight-page sets flatter newspapers and magazines:
 on 30 fresh pages of each type, never used for any decision, the neural
-profile reads newspapers at 84.6 / 79.2 and magazines at 82.1 / 73.4 (with
+profile reads newspapers at 86.7 / 81.6 and magazines at 83.7 / 75.6 (with
 the per-page segmenter judge on those two types since 26 September 2026;
 XY-cut alone read them at 79.7 and 65.9; magazines 68.1 before text-row protection
 and 77.1 before deskew stopped trusting an estimate at its search limit, which had
@@ -58,6 +58,15 @@ rotated three straight photo-heavy pages by 5 degrees). Letters (93.7), legal pa
 on the same held-out pages: newspapers 87.7 / 84.2, magazines 78.5 / 73.6,
 letters 93.1 / 90.6 (neural 93.7 / 90.8).
 `scripts/eval_unlv.py --heldout` draws them.
+
+**Photographs and the facing page (27 September 2026).** Photographs no
+longer cost text (0.3% of the text's ink falls in picture zones), but a
+scanned spread often holds a strip of the facing page along the edge, and
+every word read there is an insertion against the page's truth. Its column
+is recognisable -- lines running off the image, words cut mid-word -- and is
+now left out on newspaper and magazine pages: mag-8 81.4 -> 87.2, news-8
+95.4 -> 96.9 (ahead of Tesseract's LSTM on characters), fresh magazines 82.1 /
+73.2 -> 83.7 / 75.6 (ahead of it on both).
 
 **Reading a paragraph (27 September 2026).** Handed a paragraph with no
 layout to find, the engine now reads more of its words right than either

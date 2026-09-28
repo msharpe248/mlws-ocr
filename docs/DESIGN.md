@@ -556,9 +556,9 @@ fairer measure
 
 | profile | news-8 | mag-8 |
 |---|---|---|
-| classic | 92.6 / 82.3 | 64.6 / 43.8 (text-row protection; 65.3 / 41.5 before) |
-| neural | 95.5 / 92.2 (v0.14.0 reader; text-row protection and form fixes 95.3 / 91.9; grey reader + segmenter judge 95.4 / 92.0; v17a + judge 95.3 / 91.7; XY-cut alone 95.8 / 93.2) | 81.4 / 74.8 (v0.14.0 reader; 81.4 / 75.2 before it; grey reader + judge 80.6 / 73.1; v17a + judge 80.6 / 72.2; XY-cut alone 77.4 / 68.7) |
-| neural, 30 held-out pages | 84.6 / 79.2 (v0.14.0 reader; 84.7 / 79.4 before it; 84.8 / 79.5 before protection; v17a + judge 84.3 / 78.2; XY-cut alone 79.7 / 73.5) | 82.1 / 73.4 (deskew limit mode; 77.1 / 65.3 before it with the v0.14.0 reader; 77.1 / 65.2 with text-row protection; 68.1 / 60.3 before; 67.8 / 60.7; 65.9 / 58.4) |
+| classic | 94.2 / 84.1 (facing page left out; 92.6 / 82.3 before) | 66.8 / 45.5 (facing page left out; 64.6 / 43.8 with text-row protection; 65.3 / 41.5 before) |
+| neural | 96.9 / 94.2 (facing page left out; 95.4 / 92.4 before it; v0.14.0 reader 95.5 / 92.2; text-row protection and form fixes 95.3 / 91.9; grey reader + segmenter judge 95.4 / 92.0; v17a + judge 95.3 / 91.7; XY-cut alone 95.8 / 93.2) | 87.2 / 81.3 (facing page left out; 81.4 / 74.8 before it; 81.4 / 75.2 before the v0.14.0 reader; grey reader + judge 80.6 / 73.1; v17a + judge 80.6 / 72.2; XY-cut alone 77.4 / 68.7) |
+| neural, 30 held-out pages | 86.7 / 81.6 (facing page left out; 84.6 / 79.2 with the v0.14.0 reader; 84.7 / 79.4 before it; 84.8 / 79.5 before protection; v17a + judge 84.3 / 78.2; XY-cut alone 79.7 / 73.5) | 83.7 / 75.6 (facing page left out; 82.1 / 73.4 with the deskew limit mode; 77.1 / 65.3 before it with the v0.14.0 reader; 77.1 / 65.2 with text-row protection; 68.1 / 60.3 before; 67.8 / 60.7; 65.9 / 58.4) |
 | legacy Tesseract | 96.3 / 93.1 (97.5 / 94.4) | 87.3 / 84.7 (95.9 / 90.5) |
 | Tesseract LSTM | 96.7 / 94.8 (98.6 / 95.7) | 87.8 / 84.4 (97.4 / 90.5) |
 

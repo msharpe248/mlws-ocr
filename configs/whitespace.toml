@@ -66,6 +66,8 @@ enabled = false          # (decode/correct.py); switch on here, in the workbench
 confusions_path = "data/confusions_classic.json"
 
 [stage.output]
+drop_facing_page = true     # the facing page's column clipped at a spread's edge is left out (newspaper and
+                            # magazine pages; 2026-09-27: news-8 +1.5 / +1.8, mag-8 +5.8 / +6.5 neural, RESEARCH)
 impl = "text"
 
 # [stage.chop]  impl = "unendorsed" -- word-level chopping between the decode

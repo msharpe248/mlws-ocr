@@ -60,6 +60,10 @@ class TextOutput(Stage):
                                          # edge is left out (_facing_page_lines)
         "facing_edge_frac": 0.012,       # a line within this share of the width of the edge
         "facing_min_lines": 3,
+        "facing_doc_types": "newspaper,magazine",  # a facing page exists in a scanned SPREAD;
+                                         # "" = any page (receipts lost 6 points: cropped edge
+                                         # to edge, their own lines touch the border)
+        "facing_max_share": 0.5,         # never more than this share of the page's lines
         "facing_touch_frac": 0.6,        # ...most of the block's lines reach the edge
         "facing_cut_frac": 0.3,          # ...and at least 0.3 of their edge words are unknown (a clipped
                                          # word is often still a word: "miser", "he")
@@ -127,6 +131,7 @@ class TextOutput(Stage):
             if ln.get("words"):
                 by_block.setdefault(ln.get("block", -1), []).append((li, ln))
         out = set()
+        total = sum(len(v) for v in by_block.values())
         for blk, lines in by_block.items():
             if len(lines) < p["facing_min_lines"]:
                 continue
@@ -139,7 +144,9 @@ class TextOutput(Stage):
                       if not (ln["words"][0] if side == "left" else ln["words"][-1]).get("in_lexicon"))
             if cut >= p["facing_cut_frac"] * len(touching):
                 out.update(li for li, _ in lines)
-        return out
+        # the strip is never most of the page: a receipt or a crop fills the image
+        # edge to edge, and its lines touch the border because they are the page
+        return out if len(out) <= p["facing_max_share"] * total else set()
 
     def run(self, page: Page) -> tuple[Page, DebugBundle]:
         layout = page.meta.get("layout", {})
@@ -149,7 +156,9 @@ class TextOutput(Stage):
         allowed = [t for t in self.params["line_number_doc_types"].split(",") if t]
         numbering = (self._line_number_column(layout)
                      if doc_type in allowed else set())
-        if self.params["drop_facing_page"] and page.binary is not None:
+        facing_types = [t for t in self.params["facing_doc_types"].split(",") if t]
+        if (self.params["drop_facing_page"] and page.binary is not None
+                and (not facing_types or doc_type in facing_types)):
             numbering |= self._facing_page_lines(layout, page.binary.shape[1], self.params)
         blocks: dict[int, list[str]] = {}
         kept_lines: list[dict] = []          # survivors, for row alignment

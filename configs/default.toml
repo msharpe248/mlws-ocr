@@ -74,6 +74,8 @@ confusions_path = "data/confusions_classic.json"   # this engine's own confusion
 seq_path = "data/seq_en.npz"   # the image check: the word scorer must not prefer the original spelling
 
 [stage.output]
+drop_facing_page = true     # the facing page's column clipped at a spread's edge is left out (newspaper and
+                            # magazine pages; 2026-09-27: news-8 +1.5 / +1.8, mag-8 +5.8 / +6.5 neural, RESEARCH)
 impl = "text"
 
 # [stage.chop]  impl = "unendorsed" -- word-level chopping between the decode
