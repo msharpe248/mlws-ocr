@@ -66,14 +66,23 @@ def test_neural_shares_the_stage_list_with_classic():
             assert slot == "decode", slot
             assert issubclass(registry.get(slot, impl_n), BeamDecode), impl_n
     neural, classic = _specs("neural.toml"), _specs("classic.toml")
+    # table structure, output only (owner's decision 2026-09-28): the tables the page
+    # reports may differ; nothing that changes what the reader sees
+    table_only = {"tables": {"spans", "open_sides", "nested"},
+                  "output": {"split_words_at_cells", "fix_figure_columns", "check_arithmetic", "ws_detect"}}
     for key, spec in neural.items():
-        if spec.params != classic.get(key, classic.get(("decode", "beam"))).params:
+        c = classic.get(key, classic.get(("decode", "beam"))).params
+        if key[1] in table_only:
+            diff = {k for k in set(spec.params) | set(c) if spec.params.get(k) != c.get(k)}
+            assert diff <= table_only[key[1]], (key, diff - table_only[key[1]])
+            continue
+        if spec.params != c:
             # the word corrector: on in classic, an option (off) in neural -- the owner's
             # decision of 2026-09-25; the neural profile carries its own confusion table
             assert key[1] in ("recognize", "decode", "correct", "blocks"), key
 
 
-@pytest.mark.parametrize("name", ["classic.toml", "pure.toml", "neural.toml"])
+@pytest.mark.parametrize("name", ["classic.toml", "pure.toml", "neural.toml", "neural-table.toml"])
 def test_profile_parameters_are_declared(name):
     for spec in load_config(CONFIGS / name).stages:
         declared = registry.get(spec.slot, spec.impl).defaults
@@ -102,3 +111,14 @@ def test_command_line_sets_reach_the_stage():
     assert spec.params["enabled"] is True and spec.params["confusions_path"] == "x.json"
     with pytest.raises(ValueError):
         apply_sets(load_config(CONFIGS / "neural.toml"), parse_sets(["nosuchslot.x=1"]))
+
+
+def test_neural_table_is_neural_plus_the_table_options():
+    """The table profile may differ from neural ONLY in the table options that
+    change what the reader sees; everything else stays neural's."""
+    allowed = {"magnify": {"max_scale"}, "imagezones": {"keep_grids"}, "rulings": {"short_in_grid_300dpi"}}
+    a, b = _specs("neural-table.toml"), _specs("neural.toml")
+    assert list(a) == list(b)
+    for key in a:
+        diff = {k for k in set(a[key].params) | set(b[key].params) if a[key].params.get(k) != b[key].params.get(k)}
+        assert diff <= allowed.get(key[1], set()), (key, diff)

@@ -50,8 +50,8 @@ scoreboard and its history are in `docs/DESIGN.md` §8.
 
 **Tables.** Table structure is scored by TEDS (tree-edit similarity of the
 recognised tables to their HTML truth, text included; after the slash,
-TEDS-S, structure alone; 1.0 is perfect), with the table options on (they
-are all off by default while their effect elsewhere is measured):
+TEDS-S, structure alone; 1.0 is perfect), read with `neural-table` (the
+neural column) and the classic profile with the same options:
 ruled grids kept from the picture zones, short grid rules, spanned cells,
 open sides, nested tables, words split at cell borders, figure columns, and tables found
 on the page (the generated sets, scored page-wide over every table) or the
@@ -175,6 +175,7 @@ python3 -m venv .venv && .venv/bin/pip install -e ".[dev]"
 .venv/bin/mlws-ocr run configs/neural.toml demo_page.png      # read it (writes text.txt and page.hocr under runs/)
 .venv/bin/mlws-ocr run configs/neural.toml scan.pdf --pdf-page 0
 .venv/bin/mlws-ocr run configs/neural.toml paragraph.png --doc-type block   # the image is one block of text
+.venv/bin/mlws-ocr run configs/neural-table.toml paystub.png  # a table document (writes tables.json, .html, .csv)
 .venv/bin/mlws-ocr-ui scan.png                                # the interactive workbench at http://127.0.0.1:8330
 .venv/bin/mlws-ocr inspect                                    # browse persisted runs (read-only)
 .venv/bin/mlws-ocr batch configs/neural.toml scans/ --out out/  # many pages at once, one per worker process
@@ -197,18 +198,20 @@ per run.
 
 **Tables.** A page's tables come out as structure, not only as text:
 `tables.json` (each table's rows, columns and cells with rowspan, colspan,
-box and text; a table inside another's cell nested under that cell),
-`tables.html` (the same as `<table>` markup) and `ocr_table` in the hOCR.
-Ruled tables are found from their rules; payroll forms, statements and
-other ruled grids with spanned headers want two options,
-`--set imagezones.keep_grids=true --set tables.spans=true` (a ruled grid
-is otherwise taken for a picture, and every cell is 1 × 1). A table set
-by whitespace alone -- a financial statement, an earnings block -- is
-read when the image is one table: `--doc-type table --set
-output.ws_table_doc_types=table`. Measured by TEDS against HTML truth
-(`scripts/eval_tables.py`): generated payroll forms 0.003 → 0.668, real
-annual-report tables (FinTabNet) 0.032 → 0.738. All three are options,
-off by default, while their effect on other pages is measured.
+box and text, header rows marked, a table inside another's cell nested
+under that cell), `tables.html` (the same as `<table>` markup),
+`tables.csv`, and `ocr_table` in the hOCR. The neural profile finds ruled
+tables from their rules (spanned cells, open sides, tables nested in a
+frame) and tables set by whitespace or ruled only between rows anywhere
+on the page; it reads a column of figures as figures ('S 25' → '$ 25')
+and checks each table's arithmetic (quantity × price = amount, totals),
+marking the cells a failed check points at. None of this changes the
+page's text. For table documents, `configs/neural-table.toml` adds the
+options that do: a large ruled grid kept from the picture zones, short
+dividers under spanned headers, and low-dpi crops magnified. A table
+image on its own reads best with `--doc-type table`. Measured by TEDS
+against HTML truth (`scripts/eval_tables.py`), table by table in the
+comparison above.
 
 Training the sequence models is faster with the optional extra
 (`pip install -e ".[train]"`, torch on the machine's own GPU); the numpy
@@ -276,7 +279,8 @@ profile, kept as the reference; the neural profile is the accurate one.
 |---|---|---|---|
 | **classic** | `configs/classic.toml` | the MLP second opinion (53k) and the character GRU (258k) | the feature engine: nearest-prototype, outline and MLP channels over explicit glyph features, a beam decoder with lexicon and language model, per-document adaptation. Its row is the regression guard after every neural adoption. |
 | **pure** | `configs/pure.toml` | none | classic with both networks off; what the feature engine reads on its own |
-| **neural** | `configs/neural.toml` | classic's, plus the word-strip CRNN+CTC scorer as the judge of the classic word variants, the line reader (every line read end to end by the line model), the fitted judge that decides each line between the two readings, and the word-confidence calibrator | the engine to use |
+| **neural** | `configs/neural.toml` | classic's, plus the word-strip CRNN+CTC scorer as the judge of the classic word variants, the line reader (every line read end to end by the line model), the fitted judge that decides each line between the two readings, and the word-confidence calibrator | the engine to use; reports table structure (spans, nesting, tables found on the page, figure columns, arithmetic checks) without changing the text |
+| **neural-table** | `configs/neural-table.toml` | neural's | neural plus the table options that also change what the reader sees (ruled grids kept from the picture zones, short grid rules, low-dpi crops magnified): for payroll forms, paystubs, statements, invoices, receipts |
 | **neural-line** | `configs/neural_line.toml` | the same, as the experiment profile for a new line model or choice rule | development |
 
 `tests/test_profiles.py` keeps the profiles honest (pure differs from

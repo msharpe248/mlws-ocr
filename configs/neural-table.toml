@@ -1,3 +1,16 @@
+# The NEURAL-TABLE engine: configs/neural.toml for table documents -- payroll
+# forms, paystubs, timesheets, statements, invoices, receipts.  The neural
+# profile already reports table structure (the output-only table options);
+# this one adds the table options that also change what the reader sees,
+# kept out of neural so its measurements stand (the owner's decision,
+# 2026-09-28):
+#   imagezones.keep_grids   a large ruled grid is a table, not a picture
+#   rulings.short_in_grid   rules too short for the length test that end on rules
+#   magnify.max_scale 4.2   a 72-dpi table crop is brought up to 300 dpi
+# Measured (docs/RESEARCH.md): payroll forms 0.717 TEDS, paystubs 0.793,
+# invoices 0.711, timesheets 0.604, receipts 0.624; on text, dev-8 and
+# legal-8 unchanged, SROIE -0.1 / -0.3, FUNSD +0.4 / -0.1.
+#
 # The NEURAL engine: configs/classic.toml plus the heavier self-trained
 # networks, each added here only when it has been adopted on all four
 # evaluation sets (docs/RESEARCH.md records the measurement).  Every network
@@ -24,6 +37,7 @@ stages = ["magnify", "deskew", "illumination", "binarize", "despeckle",
 
 [stage.magnify]
 impl = "xheight"
+max_scale = 4.2                # table profile: a 72-dpi crop (FinTabNet) needs x4.2 to reach 300 dpi
 target_px = 0                  # median glyph height to magnify small-type pages up to (0 = off; measured 2026-09-20)
 min_dpi = 200                  # a page declared below 200 dpi is resampled to 300 (2026-09-25: a 150-dpi paper scan 0.57 -> 0.81 mean word confidence; no evaluation page declares under 209)
 
@@ -49,12 +63,14 @@ min_area_300dpi = 5
 
 [stage.imagezones]
 impl = "density"
+keep_grids = true              # table profile: a ruled grid is left to the rulings and tables stages
 protect_text_rows = true       # glyph chains (and their punctuation) inside a picture zone go back to the text
                                # (2026-09-26): magazine captions and photo-side columns were swallowed; held-out
                                # magazines 68.1 -> 77.2 char, mag-8 80.6 -> 81.3, FUNSD 63.5 -> 64.5, the rest within 0.1
 
 [stage.rulings]
 impl = "morphological"
+short_in_grid_300dpi = 40      # table profile: dividers under spanned headers, both ends on rules
 dash_gap_300dpi = 12           # dashed and fax-broken rules too (form fill-in lines and underlines):
                                # FUNSD +1.4 char, CORD +1.1 / +2.9 word, SROIE +3.1 word, the rest level
                                # (2026-09-26)
