@@ -42,6 +42,19 @@ def text_sized(ink: np.ndarray, max_frac: float) -> np.ndarray:
     return out if out.sum() >= 0.05 * ink.sum() else ink
 
 
+def picture_free(ink: np.ndarray, dpi: float) -> np.ndarray:
+    """The ink mask with the picture-zone stage's zones removed, run on the
+    downsampled mask itself (its dpi given), text rows protected; all the ink
+    when nothing would be left to estimate from."""
+    from ..core.artifacts import Page as _Page
+    from ..layout.imagezones import DensityImageZones
+    b = ink > 0
+    out, _ = DensityImageZones(protect_text_rows=True).run(
+        _Page(gray=(~b).astype(np.float32), binary=b, dpi=dpi))
+    kept = out.binary.astype(np.float32)
+    return kept if kept.sum() >= 0.05 * ink.sum() else ink
+
+
 class _InkProjector:
     """The same profile variance without rotating any image: rotate the
     ink pixels' COORDINATES and histogram their row (Postl 1986, projection
@@ -86,6 +99,10 @@ class ProjectionDeskew(Stage):
                                # "limit": only re-estimate so when the estimate lands on
                                # the search limit -- the sign that it has no real peak --
                                # and leave the page unrotated if it lands there again
+        "zone_mask": False,    # estimate with the picture-zone detector's zones (density,
+                               # solid and hollow art -- layout/imagezones.py) taken out of
+                               # the mask first, on every page: halftones and photos never
+                               # vote on the skew (2026-09-27 experiment)
         "text_max_frac": 0.025,  # a component taller than this share of the page height
                                  # (a photo, a rule, a display letter) is left out
         "angle_deg": None,     # a manual correction (degrees, + = counter-clockwise) that
@@ -101,6 +118,8 @@ class ProjectionDeskew(Stage):
         scale = min(1.0, p["working_width"] / gray.shape[1])
         small = ndimage.zoom(gray, scale, order=1) if scale < 1.0 else gray
         ink = (small < threshold_otsu(small)).astype(np.float32)
+        if p["zone_mask"]:
+            ink = picture_free(ink, float(page.dpi or 300.0) * scale)
         mode = p["text_ink"]
         if mode is True or mode == "always":
             ink = text_sized(ink, float(p["text_max_frac"]))

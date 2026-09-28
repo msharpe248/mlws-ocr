@@ -56,6 +56,13 @@ class TextOutput(Stage):
         "line_number_min": 6,            # this many short numerics in one
                                          # narrow x band, mostly ascending,
                                          # are a line-number column
+        "drop_facing_page": False,       # the facing page's column caught at the scan's
+                                         # edge is left out (_facing_page_lines)
+        "facing_edge_frac": 0.012,       # a line within this share of the width of the edge
+        "facing_min_lines": 3,
+        "facing_touch_frac": 0.6,        # ...most of the block's lines reach the edge
+        "facing_cut_frac": 0.3,          # ...and at least 0.3 of their edge words are unknown (a clipped
+                                         # word is often still a word: "miser", "he")
         "keep_short_numeric": True,      # a short ALL-DIGIT line is a table
                                          # cell, not junk: "9" trivially
                                          # repeats 100% of itself, so the
@@ -104,6 +111,36 @@ class TextOutput(Stage):
             return set()
         return {r[0] for r in rows}
 
+    @staticmethod
+    def _facing_page_lines(layout, width: int, p) -> set:
+        """Lines of the facing page caught at the scan's edge.  A magazine or
+        newspaper scan often holds a strip of the next page; its column runs
+        off the image, so its lines reach the left or right edge and the word
+        there is cut mid-word ('that this miser', 'My fatl').  A block of at
+        least ``facing_min_lines`` lines, most reaching the edge, most of whose
+        edge words the lexicon does not know, is that strip (2026-09-27: 789
+        of 16,676 output words on 30 held-out magazine pages).  A real column
+        in a tightly cropped scan may touch the edge, but its words are whole."""
+        edge = p["facing_edge_frac"] * width
+        by_block: dict = {}
+        for li, ln in enumerate(layout.get("lines", [])):
+            if ln.get("words"):
+                by_block.setdefault(ln.get("block", -1), []).append((li, ln))
+        out = set()
+        for blk, lines in by_block.items():
+            if len(lines) < p["facing_min_lines"]:
+                continue
+            left = [ln for _, ln in lines if ln["box"][0] <= edge]
+            right = [ln for _, ln in lines if ln["box"][2] >= width - edge]
+            side, touching = ("left", left) if len(left) >= len(right) else ("right", right)
+            if len(touching) < p["facing_touch_frac"] * len(lines):
+                continue
+            cut = sum(1 for ln in touching
+                      if not (ln["words"][0] if side == "left" else ln["words"][-1]).get("in_lexicon"))
+            if cut >= p["facing_cut_frac"] * len(touching):
+                out.update(li for li, _ in lines)
+        return out
+
     def run(self, page: Page) -> tuple[Page, DebugBundle]:
         layout = page.meta.get("layout", {})
         if "lines" not in layout:
@@ -112,6 +149,8 @@ class TextOutput(Stage):
         allowed = [t for t in self.params["line_number_doc_types"].split(",") if t]
         numbering = (self._line_number_column(layout)
                      if doc_type in allowed else set())
+        if self.params["drop_facing_page"] and page.binary is not None:
+            numbering |= self._facing_page_lines(layout, page.binary.shape[1], self.params)
         blocks: dict[int, list[str]] = {}
         kept_lines: list[dict] = []          # survivors, for row alignment
         suppressed = []

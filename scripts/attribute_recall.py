@@ -12,6 +12,10 @@ it, two ways:
   third of its length in edit distance, SUPPRESSED when it matches a word
   of a line the output stage suppressed (garbage / sliver / graphic
   rules), else UNREAD;
+* the other direction -- output words outside every truth zone, split into
+  those on lines running off the image (a facing page in the scan), words
+  the lexicon knows (real print the truth leaves out: adverts, pull quotes)
+  and junk (a photo, a diagram, a logo read as text);
 * ink -- the glyph-sized ink inside the ground truth's zones (UNLV .uzn;
   every zone there is text, but a zone can sit on a halftone), followed
   through the stages: removed by the picture-zone
@@ -119,7 +123,22 @@ def attribute(page, snaps, truth: str, zones):
     for name, boxes in (("read", read_l), ("line, no words", empty_l), ("suppressed line", sup_l)):
         m = left & box_mask(base.shape, boxes); out[name] = int(m.sum()); left &= ~m
     out["no line"] = int(left.sum())
-    return classes, examples, {k: out[k] / total for k in INK}, sum(tw.values())
+    # the other direction: output words outside every truth zone -- a photo,
+    # a diagram or a logo read as text (each one an insertion)
+    zm_out = box_mask(base.shape, [[v * s for v in z] for z in zones])
+    outside = []
+    W = base.shape[1]
+    for ln in lines:
+        lx0, lx1 = ln["box"][0], ln["box"][2]
+        edge = lx0 <= 0.01 * W or lx1 >= 0.99 * W    # a line running off the image: a facing page
+        for w in ln.get("words") or []:
+            x0, y0, x1, y1 = (int(v) for v in w["box"][:4])
+            cy, cx = min(max((y0 + y1) // 2, 0), base.shape[0] - 1), min(max((x0 + x1) // 2, 0), base.shape[1] - 1)
+            if zones and not zm_out[cy, cx]:
+                outside.append((w["text"], edge, bool(w.get("in_lexicon"))))
+    n_out = sum(len(ln.get("words") or []) for ln in lines)
+    kinds = Counter("edge" if e else ("words" if lex else "junk") for _, e, lex in outside)
+    return classes, examples, {k: out[k] / total for k in INK}, sum(tw.values()), (len(outside), n_out, kinds)
 
 
 def main():
@@ -142,23 +161,31 @@ def main():
     random.Random(args.seed).shuffle(pairs)
     pairs = pairs[:args.pages]
     tot_c, tot_ink, tot_words, rows = Counter(), Counter(), 0, []
+    tot_outside = tot_out_words = 0
+    tot_kinds = Counter()
     for img, gt in pairs:
         uzn = gt.with_suffix(".uzn")
         zones = read_zones(uzn) if uzn.exists() else []
         page, snaps = run_page(img, pipeline, overrides, args.doc_type)
-        c, ex, ink, n = attribute(page, snaps, normalize(gt.read_text(errors="ignore")), zones)
+        c, ex, ink, n, (n_outside, n_words_out, outside_ex) = attribute(page, snaps, normalize(gt.read_text(errors="ignore")), zones)
+        tot_outside += n_outside; tot_out_words += n_words_out; tot_kinds.update(outside_ex)
         tot_c += c; tot_words += n
         for k, v in ink.items():
             tot_ink[k] += v / len(pairs)
-        rows.append((sum(c.values()) / max(n, 1), img.name, c, ex, ink, n))
+        rows.append((sum(c.values()) / max(n, 1), img.name, c, ex, ink, n, n_outside, outside_ex))
         print(f"  {img.name}: {n} words, missing {sum(c.values())} "
               f"(misread {c['misread']}, suppressed {c['suppressed']}, unread {c['unread']}); zone ink "
-              + ", ".join(f"{k} {v:.0%}" for k, v in ink.items() if v >= 0.01), flush=True)
+              + ", ".join(f"{k} {v:.0%}" for k, v in ink.items() if v >= 0.01)
+              + f"; {n_outside} output words outside the text zones {dict(outside_ex)}", flush=True)
     print(f"\n{len(pairs)} pages, {tot_words} truth words; missing words: "
           + ", ".join(f"{k} {v} ({v / max(tot_words, 1):.1%})" for k, v in tot_c.most_common()))
     print("zone ink, mean share per page: " + ", ".join(f"{k} {tot_ink[k]:.1%}" for k in INK))
+    print(f"output words outside every truth zone (photos, diagrams, logos read as text): {tot_outside} of "
+          f"{tot_out_words} ({tot_outside / max(tot_out_words, 1):.1%}) -- on lines running off the image "
+          f"(a facing page) {tot_kinds['edge']}, dictionary words {tot_kinds['words']}, junk {tot_kinds['junk']}; worst pages: "
+          + ", ".join(f"{r[1]} {r[6]}" for r in sorted(rows, key=lambda r: -r[6])[:6]))
     print("\nworst pages:")
-    for frac, name, c, ex, ink, n in sorted(rows, reverse=True)[:args.worst]:
+    for frac, name, c, ex, ink, n, _, _ in sorted(rows, key=lambda r: -r[0])[:args.worst]:
         print(f"  {name}: missing {frac:.0%} of {n}; unread e.g. {ex['unread'][:8]}; "
               f"suppressed e.g. {ex['suppressed'][:5]}; misread e.g. {ex['misread'][:5]}")
 
