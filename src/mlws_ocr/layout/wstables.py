@@ -63,10 +63,40 @@ def _rows(words: list[dict], line_h: float) -> list[list[dict]]:
 SPACE_UNIT = [None]      # experiment switch: None = word height, "row" = row height, k = k x word space
 
 
+SPACE_FLOOR = [0.0]      # in monospace, the phrase gap is at least this many word spaces (0 = off)
+MONO_CV = [0.12]         # monospace: a word's width per character varies less than this (CV)
+
+
+def _monospace(words: list[dict]) -> bool:
+    """Monospace type: every character the same width, so a word's width per
+    character barely varies (coefficient of variation under MONO_CV over
+    words of 3+ letters; proportional faces run 0.2 and more)."""
+    # words of letters only: a proportional face's DIGITS are tabular (all
+    # one width), so a table of figures looked monospace
+    per = [(w["box"][2] - w["box"][0]) / len(w["text"]) for w in words
+           if len(w.get("text", "")) >= 3 and w["text"].isalpha()]
+    if len(per) < 6:
+        return False
+    per = np.array(per)
+    return float(per.std() / max(per.mean(), 1e-6)) < MONO_CV[0]
+
+
 def _gap(rows, phrase_gap) -> float:
+    """The phrase gap: ``phrase_gap`` word heights; in monospace type, never
+    under SPACE_FLOOR of the page's own word spaces -- a monospace face (a
+    thermal receipt's) sets a full character cell between words, wider than
+    a proportional face's gap at the same height, and 'CHEESE CHDR' split
+    in two.  (Applied to proportional type too, the floor merged the tight
+    cells of paystubs and timesheets: 0.769 -> 0.626, 0.575 -> 0.454.)"""
     rh = _row_height(rows)
     if SPACE_UNIT[0] is None:
-        return phrase_gap * float(np.median([w["box"][3] - w["box"][1] for r in rows for w in r]))
+        g = phrase_gap * float(np.median([w["box"][3] - w["box"][1] for r in rows for w in r]))
+        if SPACE_FLOOR[0] > 0 and _monospace([w for r in rows for w in r]):
+            sp = [b["box"][0] - a["box"][2] for r in rows for a, b in zip(r, r[1:])]
+            sp = [x for x in sp if 0 < x < rh]
+            if len(sp) >= 3:
+                g = max(g, SPACE_FLOOR[0] * float(np.median(sp)))
+        return g
     if SPACE_UNIT[0] == "row":
         return phrase_gap * rh
     gaps = [b["box"][0] - a["box"][2] for r in rows for a, b in zip(r, r[1:])]
@@ -104,6 +134,78 @@ def _phrases(row: list[dict], gap: float) -> list[dict]:
             p["words"].append(w)
         else:
             out.append({"text": w["text"], "box": list(w["box"]), "words": [w]})
+    return out
+
+
+ALIGN_SPLIT = [1.4]      # gap factor over the word space; 0 = off (experiment switch)
+ALIGN_SPLIT_MONO = [0.9]  # ...in monospace type, where a single space may part two cells
+JOIN_FACTOR = [1.5]      # rejoin an unaligned phrase closer than this many word spaces; 0 = off
+
+
+def _align_factor(words) -> float:
+    return ALIGN_SPLIT_MONO[0] if SPACE_FLOOR[0] > 0 and _monospace(words) else ALIGN_SPLIT[0]
+
+
+def _split_aligned(rows_p: list[list[dict]], factor: float) -> list[list[dict]]:
+    """Split phrases where cells a little more than a word space apart line
+    up across rows: a key-value block ('Employee  Omar Patel  Pay Date
+    11/03/2026' over 'Employee ID  19543  Period  04/01') has its keys and
+    values starting at the same x on every row, a word space inside a label
+    does not.  A phrase is split before a word whose preceding gap is at
+    least ``factor`` times the page's median word space AND whose left edge
+    lines up (within half a word height) with a word starting after such a
+    gap -- or a phrase starting -- on another row."""
+    if factor <= 0:
+        return rows_p
+    gaps = [b["box"][0] - a["box"][2] for r in rows_p for p in r for a, b in zip(p["words"], p["words"][1:])]
+    gaps = [g for g in gaps if g > 0]
+    if len(gaps) < 4:
+        return rows_p
+    space = float(np.median(gaps))
+    wh = float(np.median([w["box"][3] - w["box"][1] for r in rows_p for p in r for w in p["words"]]))
+    tol = 0.5 * wh
+    starts: list[tuple[int, float]] = []          # (row, x) of phrase starts and wide-gap word starts
+    cand: list[tuple[int, int, int]] = []          # (row, phrase, word) split candidates
+    for ri, r in enumerate(rows_p):
+        for pi, p in enumerate(r):
+            starts.append((ri, p["box"][0]))
+            for wi in range(1, len(p["words"])):
+                if p["words"][wi]["box"][0] - p["words"][wi - 1]["box"][2] >= factor * space:
+                    starts.append((ri, p["words"][wi]["box"][0]))
+                    cand.append((ri, pi, wi))
+    cut: dict[tuple[int, int], list[int]] = {}
+    for ri, pi, wi in cand:
+        x = rows_p[ri][pi]["words"][wi]["box"][0]
+        if any(rj != ri and abs(xj - x) <= tol for rj, xj in starts):
+            cut.setdefault((ri, pi), []).append(wi)
+    # the converse: a phrase starting just past the phrase gap from its
+    # neighbour and lining up with nothing on any other row is a word of the
+    # same cell set a little wide ('Employee  ID' in a bold face)
+    join: set[tuple[int, int]] = set()
+    for ri, r in enumerate(rows_p):
+        for pi in range(1, len(r)):
+            g = r[pi]["box"][0] - r[pi - 1]["box"][2]
+            x = r[pi]["box"][0]
+            if g < JOIN_FACTOR[0] * space and not any(rj != ri and abs(xj - x) <= tol for rj, xj in starts) \
+                    and not any(ch.isdigit() for ch in r[pi]["text"] + r[pi - 1]["text"]):
+                join.add((ri, pi))
+    if not cut and not join:
+        return rows_p
+    out = []
+    for ri, r in enumerate(rows_p):
+        new = []
+        for pi, p in enumerate(r):
+            if (ri, pi) in join and new:
+                new[-1] = _phrase_of(new[-1]["words"] + p["words"])
+                continue
+            ks = sorted(cut.get((ri, pi), []))
+            if not ks:
+                new.append(p)
+                continue
+            bounds = [0] + ks + [len(p["words"])]
+            for a, b in zip(bounds, bounds[1:]):
+                new.append(_phrase_of(p["words"][a:b]))
+        out.append(new)
     return out
 
 
@@ -400,7 +502,7 @@ def whitespace_table(words: list[dict], phrase_gap: float = 0.8,
         return None
     line_h = float(np.median([w["box"][3] - w["box"][1] for w in words]))
     rows_w = _rows(words, line_h)
-    rows = [_phrases(r, _gap(rows_w, phrase_gap)) for r in rows_w]
+    rows = _split_aligned([_phrases(r, _gap(rows_w, phrase_gap)) for r in rows_w], _align_factor(words))
     if header_wraps:
         rows = _merge_header_wraps(rows)
     multi = [i for i, r in enumerate(rows) if len(r) >= 2]
@@ -496,7 +598,7 @@ def find_tables(words: list[dict], phrase_gap: float = 0.8, cross_frac: float = 
         return []
     line_h = float(np.median([w["box"][3] - w["box"][1] for w in ws]))
     rows_w = _rows(ws, line_h)
-    rows_p = [_phrases(r, _gap(rows_w, phrase_gap)) for r in rows_w]
+    rows_p = _split_aligned([_phrases(r, _gap(rows_w, phrase_gap)) for r in rows_w], _align_factor(ws))
     cy = [float(np.mean([(w["box"][1] + w["box"][3]) / 2 for w in r])) for r in rows_w]
     multi = [len(p) >= 2 for p in rows_p]
 
