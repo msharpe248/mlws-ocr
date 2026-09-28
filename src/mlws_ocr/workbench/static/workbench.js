@@ -418,16 +418,20 @@ function renderTools(s, k) {
 const TABLE_SWITCHES = [
   { slot: "imagezones", key: "keep_grids", on: true, off: false, label: "Ruled grids are tables",
     title: "a large ruled grid is kept for the rulings and tables stages instead of being taken for a picture" },
+  { slot: "rulings", key: "short_in_grid_300dpi", on: 40, off: 0, label: "Short grid rules",
+    title: "keep rules too short for the length test when both their ends meet a rule (dividers under a spanned header)" },
   { slot: "tables", key: "spans", on: true, off: false, label: "Spanned cells",
     title: "merge neighbouring cells whose shared border carries no rule (rowspan / colspan)" },
-  { slot: "output", key: "ws_table_doc_types", on: "*", off: "", label: "Whitespace table",
-    title: "no ruled table found: read the page as one table from how its words line up" },
+  { slot: "output", key: "ws_detect", on: true, off: false, label: "Find tables on the page",
+    title: "find tables set by whitespace or ruled only between rows, anywhere on the page" },
+  { slot: "output", key: "ws_table_doc_types", on: "*", off: "", label: "The page is one table",
+    title: "no ruled table found: read the whole page as one table from how its words line up (a table image on its own)" },
 ];
 function switchState(sw) {
   const st = S.st.stages.find((t) => t.slot === sw.slot);
   if (!st) return null;
   const v = sw.key in st.params ? st.params[sw.key] : st.defaults[sw.key];
-  return sw.on === "*" ? String(v || "").split(",").includes("*") : !!v;
+  return sw.on === "*" ? String(v || "").split(",").includes("*") : typeof sw.on === "number" ? Number(v) > 0 : !!v;
 }
 function tableSwitches() {
   const box = el("div", { class: "tswitches" });
@@ -462,7 +466,7 @@ function renderTables(R) {
   const tabs = R.tables || [];
   if (!tabs.length) {
     host.append(el("div", { class: "tablesView" }, el("p", {},
-      "No tables on this page. A ruled table needs its rules found (try 'Ruled grids are tables'); a table set by whitespace alone is read when 'Whitespace table' is on.")));
+      "No tables on this page. A ruled table needs its rules found (try 'Ruled grids are tables'); a table set by whitespace or ruled only between rows is found with 'Find tables on the page' ('The page is one table' for a table image on its own).")));
     return;
   }
   const m = /class="ocr_page"[^>]*title="bbox (\d+) (\d+) (\d+) (\d+)/.exec(R.hocr || "");

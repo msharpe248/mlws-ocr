@@ -238,10 +238,11 @@ what the page lost (a line never read, a headline taken for a picture).
 **Tables** get their own view in the result tab: each table beside the scan
 cropped to it (above it, for a wide table), rows, columns and spanned
 cells tinted, a nested table inside its cell; hover a cell on either side
-to see its partner. Three switches above it turn the table options on
-and off and re-run the page -- ruled grids kept from the picture zones,
-spanned cells, a whitespace table -- and the tables stage lists what it
-found. On the page view, ruled tables are drawn solid, whitespace ones
+to see its partner. Switches above it turn the table options on and off
+and re-run the page -- ruled grids kept from the picture zones, short
+grid rules, spanned cells, tables found on the page (set by whitespace or
+ruled only between rows), and a page that is one table -- and the tables
+stage lists what it found. On the page view, ruled tables are drawn solid, whitespace ones
 dashed, each labelled with its size.
 
 ![The Tables view: an annual-report table read by whitespace, beside the scan; hovering a cell marks it on both sides](docs/img/workbench_tables.png)
