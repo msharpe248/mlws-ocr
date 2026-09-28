@@ -4,8 +4,6 @@
 
 *Figures are in the [HTML edition](https://msharpe248.github.io/mlws-ocr/docs/papers/knn-scc-block-segmentation.html); this text refers to them by number.*
 
-*Revised for release v0.15.1: every end-to-end figure in §5.3–§5.5 and §5.7 and the whole of §5.10 were re-measured on mlws-ocr v0.15.1, with only the `blocks` stage changed as before. The engine around the segmenter has improved since the first measurements (the line reader, deskew, picture zones, the facing page of a spread), so absolute accuracies moved — XY-cut's newspapers from 95.8% to 97.4%, for instance — while the comparisons, and every conclusion drawn from them, stand. Where a figure was not re-measured it is marked with the release it was measured on.*
-
 ## In brief
 
 Before a computer can read a page it has to find the page's parts — the
@@ -69,7 +67,7 @@ of the remaining digraph — sets of characters that are *mutually*
 reachable through short links — become layout blocks. On a synthetic
 multi-column fixture the method recovers every ground-truth block at
 IoU 1.00 untuned, and at every threshold tested between 1.2 and 4 times
-the mean link length. In the mlws-ocr pipeline (release v0.15.1), replacing the
+the mean link length. In the mlws-ocr pipeline, replacing the
 tuned recursive XY-cut segmenter leaves end-to-end OCR accuracy on
 scanned business letters unchanged or better (30 letters: 95.8% character
 and 93.3% word accuracy against 95.8% and 93.0%) with no document-type
@@ -212,7 +210,8 @@ All experiments use the mlws-ocr pipeline: image cleanup (deskew,
 illumination flattening, Sauvola binarisation, despeckling), picture and
 ruled-line removal upstream of the `blocks` stage; line finding,
 character recognition, decoding and per-document adaptation downstream.
-Only the `blocks` stage is changed between runs. Two engine profiles are
+Only the `blocks` stage is changed between runs. Measurements use
+mlws-ocr release v0.15.1 unless marked otherwise. Two engine profiles are
 measured: *classic* (prototype matching, beam-search decoding with
 language models; no neural reader) and *neural* (the same plus
 self-trained sequence networks).
@@ -259,7 +258,7 @@ qualify them.
 
 <!--FIG:magazine-->
 
-**End to end, by set (release v0.15.1).** Each cell is character / word
+**End to end, by set.** Each cell is character / word
 accuracy (%) for the whole pipeline with only the `blocks` stage
 changed. XY-cut is the incumbent: recursive XY-cut with rules tuned per
 document type (a letter's column gap is 2.5 times wider than the
@@ -330,10 +329,10 @@ robust MAD variants) collapses the page into a single block, because
 residual photo fragments give the length distribution a heavy tail that
 inflates any spread statistic until nothing is pruned (Figure 5). The
 1995 ratio rule is the domain-robust choice and is the default; the
-spread rule remains an option for clean text. On release v0.15.1 the
+spread rule remains an option for clean text. In the full pipeline the
 two are indistinguishable on letters (mean + 1σ: dev-8 96.4 / 94.3,
 broad-30 95.7 / 93.3, against 96.4 / 94.2 and 95.8 / 93.3 for the ratio
-rule; release v0.15.1).
+rule).
 
 <!--FIG:sigma-->
 
@@ -345,7 +344,7 @@ character accuracy (1.2 × mean: 95.7, 1.5: 96.4, 2.0: 96.4, 3.0: 95.5);
 broad-30 between 93.7 and 96.4% (1.2: 96.4, 1.5: 95.8, 2.0: 96.0, 3.0:
 93.7), both tighter settings above XY-cut's 95.8 on that set; and with the
 hybrid rule off, 1.0 × mean gives 96.2 / 93.4 on broad-30 (dev-8 95.8 /
-93.2). (Release v0.15.1.) On the synthetic fixture every
+93.2). On the synthetic fixture every
 threshold from 1.2 to 4 gives IoU 1.00. This insensitivity is a property of the clustering criterion,
 not luck. Strong connectivity gives the pruning slack on both sides. A
 too-loose threshold leaves stray long edges, but they are *directed*, and
@@ -385,12 +384,9 @@ at a multiple of each node's nearest-link length) descends below
 paragraphs and shatters sparse lines into word boxes. Loosening goes the
 other way: 2.5 × mean gives 2 blocks, 4 × mean one. No single ratio is
 "right": the cut selects a level of the hierarchy, and which level is
-wanted depends on the consumer. (An earlier revision of this paper showed
-a paragraph-level result at the default ratio; it came from a diagnostic
-harness that fed the binariser mis-scaled grey values and is retracted.
-The interactive segmentation lab that caught this, `mlws-ocr-lab`,
-renders every link and the computed threshold live and is part of the
-repository.)
+wanted depends on the consumer. (The interactive segmentation lab,
+`mlws-ocr-lab`, renders every link and the computed threshold live and is
+part of the repository.)
 
 <!--FIG:letter-->
 
@@ -446,7 +442,7 @@ A large residual photo fragment's distant centroid had kept it separate;
 its edges being near everything now merge it into adjacent text — on one
 newspaper page 12 mixed blocks and 54.5% character accuracy, against
 centroid mode's 47 blocks and 77.4% (Figure 8; measured before the first
-release, v0.2.0, and not re-measured). The two distance
+release, v0.2.0). The two distance
 definitions trade biases by domain; centroid mode remains the default.
 
 <!--FIG:edge_a,edge_b-->
@@ -463,7 +459,7 @@ components first (`cc_merge_overlap`). A component dropped for being big
 is not noise but a detected picture, so it returns to the output as an
 *image block*, merged only with other image blocks (merging it with text
 is the measured photo-weld hazard) and placed in reading order.
-Measured (before the first release, v0.2.0; not re-measured): inside the full
+Measured (before the first release, v0.2.0): inside the full
 pipeline, where despeckling and picture-zone detection already run upstream, the filters are near no-ops on letters,
 and the speck filter is harmful on newspapers (44 blocks → 4): the
 thousands of short speck links had been holding the mean down, and
@@ -493,10 +489,9 @@ links kept, mean 29.8 px, cut 54 px; 31 SCCs, 14 blocks) breaks the
 bridge: the diagram becomes one block, its caption another, the
 paragraphs above and below their own, the abstract's and the
 introduction's headings separate from their bodies, and the introduction
-splits at its paragraph break. At the page's original 150 dpi (the first
-revision of this section) pooled-k had also fragmented the display title
-at its wide word gaps; at 300 dpi the title holds together under both
-settings. On a page with a line-art figure the lesson is the same as on
+splits at its paragraph break; the display title holds together under
+both settings at 300 dpi (at the scan's native 150 dpi pooled-k had split
+it at its wide word gaps). On a page with a line-art figure the lesson is the same as on
 the newspaper: the global cut cannot see a bridge made of short links;
 pooling the neighbours shortens the mean and the bridge breaks.
 (Figure 9: the blocks under both settings, and the whole page's kept and
