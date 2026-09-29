@@ -19,6 +19,38 @@ from .tableio import split_at_cells, table_records, tables_csv, tables_html
 _RE_DASHRUN = re.compile(r"-{3,}")
 
 
+def _clean_separators(xs, ys, words, box):
+    """A network's separators made consistent with the words: a column
+    separator crossing a word (its x inside a word, the word in the table's
+    rows) is not one; of the separators around a column holding no word's
+    centre, the weaker is dropped (the one nearer the column's middle
+    -- the column joins its neighbour).  Rows the same way."""
+    def crossing(v, axis):
+        lo, hi = (0, 2) if axis == 0 else (1, 3)
+        return any(w["box"][lo] + 1 < v < w["box"][hi] - 1 for w in words)
+
+    def thin(seps, axis, lo_edge, hi_edge):
+        lo, hi = (0, 2) if axis == 0 else (1, 3)
+        seps = sorted(seps)
+        changed = True
+        while changed and seps:
+            changed = False
+            edges = [lo_edge] + seps + [hi_edge]
+            for k in range(len(edges) - 1):
+                a, b = edges[k], edges[k + 1]
+                if not any(a <= (w["box"][lo] + w["box"][hi]) / 2 < b for w in words):
+                    # an empty band: drop the separator bounding it on the inside
+                    drop = k if k > 0 else k + 1
+                    if 1 <= drop <= len(seps):
+                        del seps[drop - 1]
+                        changed = True
+                        break
+        return seps
+    xs = [x for x in xs if not crossing(x, 0)]
+    ys = [y for y in ys if not crossing(y, 1)]
+    return thin(xs, 0, box[0], box[2]), thin(ys, 1, box[1], box[3])
+
+
 @register
 class TextOutput(Stage):
     slot = "output"
@@ -96,6 +128,9 @@ class TextOutput(Stage):
                                          # tables where it finds them -- a ruled grid kept when a
                                          # detected table covers it, each other detection a table
                                          # of the words inside; "" = off (the finders below)
+        "table_split_clean": True,       # ...separators crossing a word dropped, empty bands joined
+        "table_split_extent": "net",     # ...the table's extent: "net" (its inside outputs), "crop"
+                                         # (the whole crop when the page is one table's crop)
         "table_split_path": "",          # a trained structure network (layout/splitnet.py): a
                                          # whitespace table's rows and columns from its ink and
                                          # words, over the extent it marks as table; "" = off
@@ -302,6 +337,8 @@ class TextOutput(Stage):
                     k += 1
             return best
         ex, ey = extent(qc), extent(qr)
+        if whole and self.params["table_split_extent"] == "crop":
+            ex, ey = (0, len(qc)), (0, len(qr))
         if ex is None or ey is None:
             return t
         box = [x0 + ex[0] * f, y0 + ey[0] * f, x0 + ex[1] * f, y0 + ey[1] * f]
@@ -309,9 +346,12 @@ class TextOutput(Stage):
             # a table found on the page: the finder's box stands too (a header the
             # network leaves out, set above the first rule, is the finder's)
             box = [min(box[0], t["box"][0]), min(box[1], t["box"][1]), max(box[2], t["box"][2]), max(box[3], t["box"][3])]
-        xs = [x0 + v for v in separators(pc, f)]
-        ys = [y0 + v for v in separators(pr, f)]
-        nt = grid_table(box, [x for x in xs if box[0] < x < box[2]], [y for y in ys if box[1] < y < box[3]], inw)
+        xs = [x for x in (x0 + v for v in separators(pc, f)) if box[0] < x < box[2]]
+        ys = [y for y in (y0 + v for v in separators(pr, f)) if box[1] < y < box[3]]
+        tw = [w for w in inw if box[0] <= (w["box"][0] + w["box"][2]) / 2 <= box[2] and box[1] <= (w["box"][1] + w["box"][3]) / 2 <= box[3]]
+        if self.params["table_split_clean"]:
+            xs, ys = _clean_separators(xs, ys, tw, box)
+        nt = grid_table(box, xs, ys, inw)
         return nt if nt is not None else t
 
     def run(self, page: Page) -> tuple[Page, DebugBundle]:

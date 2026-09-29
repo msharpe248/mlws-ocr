@@ -29,6 +29,11 @@ class MedianBackgroundIllumination(Stage):
                              # Left in, the median background inside a 75-px frame IS the
                              # frame, division turns it paper-white with speckle, and Sauvola
                              # made 176 lines of a 15-line Library of Congress page (2026-09-22).
+        "stretch_low": 0.0,  # > 0: a page whose darkest 1% is still lighter than this after the
+                             # correction (a dim photo of faint print: ink at 0.8 of the paper)
+                             # is stretched so that level is black -- Sauvola found 0.4% of a
+                             # CORD receipt's page as ink and no line (2026-09-29).  0 = off
+        "stretch_max_gain": 5.0,
         "frame_blur_300dpi": 15,
         "frame_min_edges": 3,  # a frame touches at least three of the image's four edges
                                # (a surround touches four, a lid's strip three); a dark
@@ -57,13 +62,21 @@ class MedianBackgroundIllumination(Stage):
             if frame_px:
                 corrected[frame] = 1.0
 
+        stretched = 0.0
+        if p["stretch_low"] > 0:
+            lo = float(np.percentile(corrected, 1))
+            if lo > p["stretch_low"]:
+                gain = min(float(p["stretch_max_gain"]), 1.0 / max(1e-3, 1.0 - lo))
+                corrected = np.clip(1.0 - (1.0 - corrected) * gain, 0.0, 1.0).astype(np.float32)
+                stretched = round(gain, 2)
+
         out = page.evolve(gray=corrected)
         out.meta.setdefault("corrections", {})["illumination"] = "median_background"
         debug = DebugBundle(
             images={"input": gray, "background": background, "corrected": corrected},
             scalars={"background_min": round(float(background.min()), 3),
                      "background_max": round(float(background.max()), 3),
-                     "frame_pixels": frame_px},
+                     "frame_pixels": frame_px, "stretch_gain": stretched},
         )
         return out, debug
 

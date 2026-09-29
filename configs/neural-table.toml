@@ -58,6 +58,8 @@ edge_nearest = true  # table profile: the search's shrunk page padded from its o
 
 [stage.illumination]
 impl = "median_background"
+stretch_low = 0.35   # table profile: a dim page (its darkest 1% lighter than 0.35 after the correction) stretched
+                     # so that level is black: faint receipt photos and light-grey table print (FinTabNet.c +0.023)
 frame_dark = 0.3   # clear a scanner's dark frame (a dark region touching three edges) to paper; 2026-09-22; 0.5 -> 0.3 on 2026-09-23 (shaded paper in a photo fell under 0.5)
 
 [stage.binarize]

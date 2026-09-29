@@ -787,6 +787,9 @@ EMPTY_GRID = [0.0]       # a ruled grid needs at least this many words per cell 
                          # table (0 = off).  Off: a chart's bars read as junk letters, about one
                          # a cell, so words do not tell a chart grid from a table; the grid
                          # stage's tables.min_row_ink (a row of inked cells) does
+REGION_MIN_W = [150.0]   # a rule-marked region narrower than this (px at 300 dpi) is no table: a
+                         # receipt photo's dot-matrix rows, taken for dashed rules, share their
+                         # ends in 30-px strips that claimed every word (CORD: no table found)
 REGION_GAP = [800.0]     # the most px (at 300 dpi) between two rules of one table: a
                          # scientific table's header rule and bottom rule enclose its whole
                          # body (400 let a booktabs table fall apart at its blank lines;
@@ -904,7 +907,7 @@ def page_tables(words: list[dict], ruled: list[dict], rules_h: list, dpi: float,
     free = [w for w in words if inside(w, boxes) is None and inside(w, list(image_zones)) is None]
     s = dpi / 300.0
     regions = [r for r in rule_regions(rules_h, 30 * s, max_gap=REGION_GAP[0] * s)
-               if not any(r[0] >= b[0] - 5 and r[2] <= b[2] + 5 and r[1] >= b[1] - 5 and r[3] <= b[3] + 5
+               if r[2] - r[0] >= REGION_MIN_W[0] * s and not any(r[0] >= b[0] - 5 and r[2] <= b[2] + 5 and r[1] >= b[1] - 5 and r[3] <= b[3] + 5
                           for b in boxes)]
     # a region's box runs from its first rule to its last; words just above
     # a top rule (a header set over the rule) are not in it
