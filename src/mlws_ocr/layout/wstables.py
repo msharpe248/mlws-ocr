@@ -783,6 +783,25 @@ def rule_regions(rules_h: list, tol: float, min_rules: int = 3, max_gap: float =
 _CAPTION = re.compile(r"^\s*(table|tab\.)\s*[0-9IVX]+", re.I)
 
 
+REGION_GAP = [800.0]     # the most px (at 300 dpi) between two rules of one table: a
+                         # scientific table's header rule and bottom rule enclose its whole
+                         # body (400 let a booktabs table fall apart at its blank lines;
+                         # 1200+ joined a receipt's separator lines around too much;
+                         # experiment switch)
+
+
+def _split_at_captions(g: list[dict]) -> list[list[dict]]:
+    if not g:
+        return [g]
+    lh = float(np.median([w["box"][3] - w["box"][1] for w in g]))
+    rows = _rows(g, lh)
+    cut = [i for i, r in enumerate(rows) if i > 0 and _CAPTION.match(" ".join(w["text"] for w in r))]
+    if not cut:
+        return [g]
+    bounds = [0] + cut + [len(rows)]
+    return [[w for r in rows[a:b] for w in r] for a, b in zip(bounds, bounds[1:]) if b > a]
+
+
 def _cut_caption(g: list[dict]) -> list[dict]:
     """A table's words without a leading caption row ('Table 3  Univariate
     and multivariate ...'): the caption names the table, it is not a row."""
@@ -873,12 +892,15 @@ def page_tables(words: list[dict], ruled: list[dict], rules_h: list, dpi: float,
     # words inside picture zones (a chart's axis figures and labels) are no table's
     free = [w for w in words if inside(w, boxes) is None and inside(w, list(image_zones)) is None]
     s = dpi / 300.0
-    regions = [r for r in rule_regions(rules_h, 30 * s, max_gap=400 * s)
+    regions = [r for r in rule_regions(rules_h, 30 * s, max_gap=REGION_GAP[0] * s)
                if not any(r[0] >= b[0] - 5 and r[2] <= b[2] + 5 and r[1] >= b[1] - 5 and r[3] <= b[3] + 5
                           for b in boxes)]
     # a region's box runs from its first rule to its last; words just above
     # a top rule (a header set over the rule) are not in it
     groups = [[w for w in free if inside(w, [r]) is not None] for r in regions]
+    # a region holding a caption row ('Table 2 ...') part-way down is two tables
+    # stacked in one column, their rules sharing their ends: split there
+    groups = [part for g in groups for part in _split_at_captions(g)]
     rest = [w for w in free if inside(w, regions) is None]
     n_regions = len(groups)
     if (detector or DETECTOR[0]) == "mesh":
