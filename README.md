@@ -398,6 +398,14 @@ way?" by looking.
   ([rendered](https://msharpe248.github.io/mlws-ocr/docs/papers/knn-scc-beyond-1995.html),
   [markdown](docs/papers/knn-scc-beyond-1995.md)).
 
+## Licence
+
+MIT (see [`LICENSE`](LICENSE)): the code, the documentation and the model
+files released with each version. The evaluation and training datasets the
+project downloads (UNLV, SROIE, FUNSD, CORD, FinTabNet.c, PubTables-1M, the
+Library of Congress pages and others) are not part of the repository and
+keep their own licences; `docs/NETWORKS.md` names each source.
+
 ## Where the work stands
 
 The neural profile leads both Tesseract engines on typewriter pleadings,

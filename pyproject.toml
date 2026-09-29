@@ -7,6 +7,8 @@ name = "mlws-ocr"
 version = "0.16.0"
 description = "A readable OCR reference implementation for scanned documents: a classic feature-based engine and a neural engine of self-trained networks"
 requires-python = ">=3.11"
+license = { file = "LICENSE" }
+authors = [{ name = "Michael Sharpe" }]
 dependencies = [
     "numpy>=1.26",
     "scipy>=1.11",
