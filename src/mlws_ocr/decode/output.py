@@ -163,6 +163,8 @@ class TextOutput(Stage):
         "join_digit_groups": False,      # '1, 428.80' -> '1,428.80' in a cell that is a figure
         "dollar_s": False,               # 'S 91.0' -> '$ 91.0': a lone S before a figure in a
                                          # figure cell is the dollar sign the reader took for S
+        "trim_notes": False,             # a table's crop: caption rows above and note rows below
+                                         # trimmed (wstables.trim_caption_notes)
         "span_labels": False,            # a total row's label set to the right under the figure
                                          # columns made one cell spanning to its figures
                                          # (wstables.span_set_right_labels)
@@ -675,6 +677,9 @@ class TextOutput(Stage):
             if self.params["table_split_path"]:
                 t = self._split_or_rules(t or {"box": [0, 0, 1, 1]}, page, words, whole=True)
                 t = t if t.get("cells") else None
+            if t is not None and self.params["trim_notes"]:
+                from ..layout.wstables import trim_caption_notes
+                t = trim_caption_notes(t)
             if t is not None:
                 # a new layout dict: the incoming page's stays as its stage left it
                 layout = dict(layout, tables=[t])

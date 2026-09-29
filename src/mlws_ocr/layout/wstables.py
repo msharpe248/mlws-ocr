@@ -875,6 +875,39 @@ def _merge_stacked(tagged: list[tuple[list[dict], bool]]) -> list[tuple[list[dic
     return [([w for i in m for w in groups[i]], any(tagged[i][1] for i in m)) for m in merged]
 
 
+def trim_caption_notes(t: dict) -> dict:
+    """A table cut from its page with its caption above and its notes below
+    ('Table 2 Walkability ...', 'Data are expressed as mean ...', a doi):
+    leading and trailing rows whose one filled cell is running text (five
+    words or more) or opens with 'Table N' are not the table's.  The rows
+    left are renumbered; a table left with fewer than two rows is kept whole."""
+    cells = t.get("cells", [])
+    if not cells:
+        return t
+    rows: dict[int, list] = {}
+    for c in cells:
+        rows.setdefault(c["row"], []).append(c)
+    order = sorted(rows)
+
+    def one(r):
+        filled = [c for c in rows[r] if (c.get("text") or "").strip()]
+        return filled[0]["text"].strip() if len(filled) == 1 else None
+    # above: a caption opens 'Table N' (a heading row -- 'Accounts payable ... as
+    # follows:' -- is the table's); below: a note is running text
+    lo, hi = 0, len(order)
+    while lo < hi and one(order[lo]) and _CAPTION.match(one(order[lo])):
+        lo += 1
+    while hi > lo and one(order[hi - 1]) and (len(one(order[hi - 1]).split()) >= 5 or _CAPTION.match(one(order[hi - 1]))):
+        hi -= 1
+    keep = order[lo:hi]
+    if len(keep) < 2 or (lo == 0 and hi == len(order)):
+        return t
+    new = {r: i for i, r in enumerate(keep)}
+    out = [dict(c, row=new[c["row"]], rowspan=min(c.get("rowspan", 1), len(keep) - new[c["row"]]))
+           for c in cells if c["row"] in new]
+    return dict(t, cells=out, n_rows=len(keep))
+
+
 SPAN_LEFT_LABELS = [False]  # a first-column label followed by empty figure columns spans them too (measured:
                             # paystubs +0.016, receipts -0.059 -- their truths disagree on the convention)
 

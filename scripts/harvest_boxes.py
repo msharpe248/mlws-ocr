@@ -17,6 +17,11 @@ Sources (see make_external_sets.py for the corpora and their terms):
   --sroie DIR   the mirror's data/ (img/*.jpg + box/*.csv), line boxes
   --funsd DIR   FUNSD dataset/, entity boxes from training_data/annotations
   --cord DIR    CORD v2 unpacked by fetch_cord.py, row boxes from train + validation
+  --tables DIR  a PubTables-1M / FinTabNet.c structure TRAINING directory (train/*.xml,
+                images/, words/): each PDF text line split at gaps wider than a
+                word height into the pieces a table's cells hold, with the PDF's
+                text (--table-n tables drawn at random, --table-part k of --table-parts);
+                the crops are ~72 dpi: pass --scale 4.17 to bring them to 300
 Only pages NOT in the evaluation split are harvested: pass --eval-dir with
 the evaluation set written by make_external_sets.py and its stems are
 excluded (the contamination guard, by construction).
@@ -165,11 +170,53 @@ def cord_pages(root: Path):
             yield js.with_suffix(".png"), [(tuple(r["box"]), r["text"]) for r in json.loads(js.read_text())]
 
 
+def tables_pages(root: Path, n: int, part: int, parts: int):
+    xmls = sorted((root / "train").glob("*.xml"))
+    rng = np.random.default_rng(7)
+    if len(xmls) > n:
+        xmls = [xmls[i] for i in sorted(rng.choice(len(xmls), n, replace=False))]
+    for xml in xmls[part::parts]:
+        img = root / "images" / f"{xml.stem}.jpg"
+        wf = root / "words" / f"{xml.stem}_words.json"
+        if not img.exists() or not wf.exists():
+            continue
+        ws = [w for w in json.loads(wf.read_text()) if w.get("text", "").strip()]
+        # lines by position (FinTabNet.c's words carry no line numbers): a word
+        # whose centre is within half a height of a line's joins it
+        lines: list[list] = []
+        for w in sorted(ws, key=lambda w: (w["bbox"][1] + w["bbox"][3]) / 2):
+            cy, h = (w["bbox"][1] + w["bbox"][3]) / 2, w["bbox"][3] - w["bbox"][1]
+            ln = next((ln for ln in lines if abs(cy - np.mean([(v["bbox"][1] + v["bbox"][3]) / 2 for v in ln])) <= 0.5 * h), None)
+            if ln is None:
+                lines.append([w])
+            else:
+                ln.append(w)
+        items = []
+        for group in lines:
+            group.sort(key=lambda w: w["bbox"][0])
+            h = float(np.median([w["bbox"][3] - w["bbox"][1] for w in group]))
+            piece = [group[0]]
+            for w in group[1:] + [None]:
+                if w is not None and w["bbox"][0] - piece[-1]["bbox"][2] <= 1.0 * h:
+                    piece.append(w)
+                    continue
+                box = (min(v["bbox"][0] for v in piece), min(v["bbox"][1] for v in piece),
+                       max(v["bbox"][2] for v in piece), max(v["bbox"][3] for v in piece))
+                items.append((box, " ".join(v["text"] for v in piece)))
+                if w is not None:
+                    piece = [w]
+        yield img, items
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     ap.add_argument("--sroie", type=Path)
     ap.add_argument("--funsd", type=Path)
     ap.add_argument("--cord", type=Path, help="CORD v2 unpacked by fetch_cord.py")
+    ap.add_argument("--tables", type=Path, help="a PubTables-1M / FinTabNet.c structure training directory")
+    ap.add_argument("--table-n", type=int, default=3000)
+    ap.add_argument("--table-part", type=int, default=0)
+    ap.add_argument("--table-parts", type=int, default=1)
     ap.add_argument("--eval-dir", type=Path, required=True, help="the evaluation split to exclude (stems)")
     ap.add_argument("--out", required=True)
     ap.add_argument("--out-gray", default="", help="also write every strip as a GREY twin (one byte of ink per pixel)")
@@ -180,6 +227,7 @@ def main():
     excluded = {p.stem for p in args.eval_dir.glob("*.tif")}
     pipeline = load_pipeline(args.config)
     src = (sroie_pages(args.sroie) if args.sroie else cord_pages(args.cord) if args.cord
+           else tables_pages(args.tables, args.table_n, args.table_part, args.table_parts) if args.tables
            else funsd_pages(args.funsd))
     strips, widths, labels, pages, xhs, grays = [], [], [], [], [], []
     n_pages = 0
