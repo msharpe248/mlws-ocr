@@ -22,6 +22,24 @@ _RE_DASHRUN = re.compile(r"-{3,}")
 _GROUPED = re.compile(r"(\d),\s+(\d{3})(?=\D|$)")
 
 
+_S_DOLLAR = re.compile(r"(^|\s)[Ss](?=\s*\(?\d)")
+
+
+def _dollar_s(recs: list[dict]) -> None:
+    """'S 91.0', 's 181.4', 'S72.8': a dollar sign read as S -- in a cell whose
+    other words are figures, an S right before a figure is '$'."""
+    for r in recs:
+        for c in r["cells"]:
+            t = c.get("text") or ""
+            if t and _S_DOLLAR.search(t):
+                new = _S_DOLLAR.sub(r"\1$", t)
+                new = re.sub(r"(^|\s)[Ss](\d)", r"\1$\2", new)
+                if all(_FIGURE.match(w) or w == "$" for w in new.split()):
+                    c["text"] = new
+            for sub in c.get("tables", []):
+                _dollar_s([sub])
+
+
 def _join_groups(recs: list[dict]) -> None:
     """A figure read with a space after its thousands comma ('21, 432.00')
     joined up, in cells that hold figures only."""
@@ -143,6 +161,8 @@ class TextOutput(Stage):
         "nest_side_by_side": False,      # tables set side by side as the cells of one outer table
                                          # (tableio.nest_side_by_side)
         "join_digit_groups": False,      # '1, 428.80' -> '1,428.80' in a cell that is a figure
+        "dollar_s": False,               # 'S 91.0' -> '$ 91.0': a lone S before a figure in a
+                                         # figure cell is the dollar sign the reader took for S
         "span_labels": False,            # a total row's label set to the right under the figure
                                          # columns made one cell spanning to its figures
                                          # (wstables.span_set_right_labels)
@@ -700,9 +720,32 @@ class TextOutput(Stage):
         out.meta["tables_text"] = tables_text
         # the tables as data (JSON records, nested tables inside their
         # cells) and as HTML with rowspan / colspan
+        if self.params["join_digit_groups"] or self.params["dollar_s"]:
+            # the figure-cell repairs on the tables' text grids and the layout's cells
+            # too, so every reader of the tables sees the same text
+            def fix(t):
+                if not t:
+                    return t
+                if self.params["join_digit_groups"] and _GROUPED.search(t):
+                    new = _GROUPED.sub(r"\1,\2", t)
+                    if all(_FIGURE.match(w) for w in new.split()):
+                        t = new
+                if self.params["dollar_s"] and _S_DOLLAR.search(t):
+                    new = re.sub(r"(^|\s)[Ss](\d)", r"\1$\2", _S_DOLLAR.sub(r"\1$", t))
+                    if all(_FIGURE.match(w) or w == "$" for w in new.split()):
+                        t = new
+                return t
+            tables_text = [[[fix(x) for x in row] for row in grid] for grid in tables_text]
+            layout = dict(layout, tables=[dict(t, cells=[dict(c, text=fix(c["text"])) if c.get("text") else c
+                                                         for c in t.get("cells", [])])
+                                          for t in layout.get("tables", [])])
+            out.meta["layout"] = layout
+            out.meta["tables_text"] = tables_text
         recs = table_records(layout, tables_text)
         if self.params["join_digit_groups"]:
             _join_groups(recs)
+        if self.params["dollar_s"]:
+            _dollar_s(recs)
         if self.params["nest_side_by_side"]:
             from .tableio import nest_side_by_side
             recs = nest_side_by_side(recs)
