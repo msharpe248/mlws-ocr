@@ -875,6 +875,10 @@ def _merge_stacked(tagged: list[tuple[list[dict], bool]]) -> list[tuple[list[dic
     return [([w for i in m for w in groups[i]], any(tagged[i][1] for i in m)) for m in merged]
 
 
+SPAN_LEFT_LABELS = [False]  # a first-column label followed by empty figure columns spans them too (measured:
+                            # paystubs +0.016, receipts -0.059 -- their truths disagree on the convention)
+
+
 def span_set_right_labels(t: dict) -> dict:
     """A total row's label set to the right ('Total Hours' under the In / Out
     columns, 'Subtotal' beside the unit prices): a body row whose words lie in
@@ -913,6 +917,13 @@ def span_set_right_labels(t: dict) -> dict:
         first, last = min(c["col"] for c in label), max(c["col"] for c in label)
         inner_empty = all(not (r[k].get("text")) for k in range(0, last + 1) if k in r and r[k] not in label)
         right_set = all(c["col"] in figcols for c in label) or (first > 0 and not (r.get(0, {}).get("text")))
+        if SPAN_LEFT_LABELS[0] and not right_set and len(label) == 1 and first == 0:
+            # 'Gross Pay' in the first column, the figure columns after it empty up to
+            # the row's figures: a total's label spanning them
+            gap = [k for k in range(1, min(c["col"] for c in figs_end))]
+            right_set = bool(gap) and all(k in figcols and not r.get(k, {}).get("text") for k in gap)
+            if right_set:
+                last = gap[-1]
         if not (inner_empty and right_set and last < min(c["col"] for c in figs_end)):
             out.extend(cs); continue
         span = [r[k] for k in range(0, last + 1) if k in r]

@@ -19,6 +19,23 @@ from .tableio import split_at_cells, table_records, tables_csv, tables_html
 _RE_DASHRUN = re.compile(r"-{3,}")
 
 
+_GROUPED = re.compile(r"(\d),\s+(\d{3})(?=\D|$)")
+
+
+def _join_groups(recs: list[dict]) -> None:
+    """A figure read with a space after its thousands comma ('21, 432.00')
+    joined up, in cells that hold figures only."""
+    for r in recs:
+        for c in r["cells"]:
+            t = c.get("text") or ""
+            if t and _GROUPED.search(t):
+                new = _GROUPED.sub(r"\1,\2", t)
+                if all(_FIGURE.match(w) for w in new.split()):
+                    c["text"] = new
+            for sub in c.get("tables", []):
+                _join_groups([sub])
+
+
 _FIGURE = re.compile(r"^[-+($]*\d[\d,.]*%?\)?$")
 
 
@@ -123,6 +140,9 @@ class TextOutput(Stage):
                                          # "replace": rows and columns from the network alone
                                          # (measured worse, RESEARCH)
         "table_net_row_join": 0.3,       # ...refine: rows join below this separator probability
+        "nest_side_by_side": False,      # tables set side by side as the cells of one outer table
+                                         # (tableio.nest_side_by_side)
+        "join_digit_groups": False,      # '1, 428.80' -> '1,428.80' in a cell that is a figure
         "span_labels": False,            # a total row's label set to the right under the figure
                                          # columns made one cell spanning to its figures
                                          # (wstables.span_set_right_labels)
@@ -681,6 +701,11 @@ class TextOutput(Stage):
         # the tables as data (JSON records, nested tables inside their
         # cells) and as HTML with rowspan / colspan
         recs = table_records(layout, tables_text)
+        if self.params["join_digit_groups"]:
+            _join_groups(recs)
+        if self.params["nest_side_by_side"]:
+            from .tableio import nest_side_by_side
+            recs = nest_side_by_side(recs)
         n_fixed = fix_figure_columns(recs) if self.params["fix_figure_columns"] else 0
         kept, failed = check_tables(recs) if self.params["check_arithmetic"] else (0, 0)
         out.meta["tables"] = recs

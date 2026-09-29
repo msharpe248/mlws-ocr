@@ -138,6 +138,38 @@ def table_html(rec: dict) -> str:
     return "\n".join(out)
 
 
+def nest_side_by_side(recs: list[dict]) -> list[dict]:
+    """Top-level tables set side by side (their heights overlap by most of
+    the shorter one's, their widths not at all) as the cells of one outer
+    table of a row -- a paystub's earnings beside its deductions is one
+    layout of two tables, and the page's structure says so.  Tables stay in
+    reading order; a group of one is left as it is."""
+    out, used = [], set()
+    for i, r in enumerate(recs):
+        if i in used:
+            continue
+        group = [r]
+        for j in range(i + 1, len(recs)):
+            if j in used:
+                continue
+            o = recs[j]
+            a, b = r["box"], o["box"]
+            ov = min(a[3], b[3]) - max(a[1], b[1])
+            if ov > 0.6 * min(a[3] - a[1], b[3] - b[1]) and (a[2] <= b[0] or b[2] <= a[0]):
+                group.append(o)
+                used.add(j)
+        if len(group) == 1:
+            out.append(r)
+            continue
+        group.sort(key=lambda g: g["box"][0])
+        box = [min(g["box"][0] for g in group), min(g["box"][1] for g in group),
+               max(g["box"][2] for g in group), max(g["box"][3] for g in group)]
+        out.append({"box": box, "n_rows": 1, "n_cols": len(group), "source": "layout",
+                    "cells": [{"row": 0, "col": k, "rowspan": 1, "colspan": 1, "box": list(g["box"]), "text": "",
+                               "tables": [g]} for k, g in enumerate(group)]})
+    return out
+
+
 def tables_html(recs: list[dict]) -> str:
     """Every table of the page, in reading order (top to bottom)."""
     return "\n".join(table_html(r) for r in recs)
