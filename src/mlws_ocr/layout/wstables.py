@@ -651,9 +651,10 @@ def _prose(phrases: list[dict]) -> bool:
 
 DETECTOR = ["words"]     # the whitespace-table finder on the page: "words" (find_tables) or
                          # "mesh" (the junction graph, layout/junctions.py) -- experiment switch
-FIGURE_SHAPE = [True]    # ...a FIGURE is a cell shaped like one (cellfix.is_figure), not any
-                         # cell with a digit in it: a citation '[39]' or 'Page 4 of 13' is not
-                         # (experiment switch)
+FIGURE_SHAPE = [True]    # ...a FIGURE is a cell of mostly digits, not any cell with a digit
+                         # in it: a citation '[39]' or 'Page 4 of 13' is not (the strict
+                         # cellfix.is_figure rejected dates and ranges: business sets 0.767
+                         # -> 0.724; experiment switch)
 MERGE_GROUPS = [False]    # found tables stacked with the same columns, a small gap apart, are one
                          # (a scientific table's row groups set off by rules; experiment switch)
 CAPTION_CUT = [True]     # a leading 'Table N' caption row is not a row of the table (experiment switch)
