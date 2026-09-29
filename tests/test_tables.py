@@ -252,3 +252,20 @@ def test_cell_diagonal_found_and_erased():
     e = erase_diagonal(b, [10, 10, 290, 110], "/", width=7)
     assert cell_diagonal(e, [10, 10, 290, 110], reach=3) is None
     assert cell_diagonal(b, [10, 10, 150, 110], reach=3) is None     # half a cell: no corner-to-corner line
+
+
+def test_lines_found_cell_by_cell_inside_a_ruled_table():
+    """Two cells of a ruled table, their text at different heights: found
+    across the table's block they would join into one line crossing the rule;
+    found cell by cell they stay two."""
+    from mlws_ocr.layout.lines import _lines_by_cell, _lines_in
+    b = np.zeros((100, 200), bool)
+    b[20:30, 10:80] = True          # left cell's text
+    b[40:50, 110:190] = True        # right cell's text, lower
+    table = {"source": "grid", "n_cols": 2, "n_rows": 1, "box": [0, 0, 200, 100],
+             "cells": [{"row": 0, "col": 0, "box": [0, 0, 100, 100]}, {"row": 0, "col": 1, "box": [100, 0, 200, 100]}]}
+    joined = _lines_in(b, [0, 0, 200, 100], 0.5)
+    assert len(joined) == 2 or joined[0]["box"][3] - joined[0]["box"][1] > 25
+    lines = _lines_by_cell(b, joined, [table], [[0, 0, 200, 100]], 0.002)
+    boxes = sorted(ln["box"] for ln in lines)
+    assert len(boxes) == 2 and boxes[0][2] <= 100 <= boxes[1][0]

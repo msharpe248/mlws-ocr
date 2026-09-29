@@ -97,6 +97,7 @@ impl = "judged"                # newspapers and magazines: XY-cut or knn_scc cho
 
 [stage.lines]
 impl = "profile"
+in_cells = true                # table profile: inside a ruled table of 2+ columns, lines found cell by cell
 
 [stage.components]
 impl = "overlap"

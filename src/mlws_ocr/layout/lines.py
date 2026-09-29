@@ -52,6 +52,42 @@ def _lines_in(binary: np.ndarray, box: list[int], noise: float) -> list[dict]:
     return out
 
 
+def _lines_by_cell(binary, lines, tables, blocks, noise_frac):
+    """The lines inside a ruled table of two or more columns, found again
+    cell by cell (the cell's box, its rules' width in from the edges); the
+    rest as they were.  A cell's lines take the block holding the cell's
+    centre.  (Asking each cell for a drawn rule at both sides measured worse:
+    a warped scan's leaning rules miss the test.)"""
+    # a one-column 'grid' is a framed list of rows: its lines are the rows the
+    # blocks already split at their column gaps
+    grids = [t for t in tables if t.get("cells") and t.get("source", "grid") == "grid" and t.get("n_cols", 0) >= 2]
+    if not grids:
+        return lines
+
+    def inside(ln, b):
+        cx, cy = (ln["box"][0] + ln["box"][2]) / 2, (ln["box"][1] + ln["box"][3]) / 2
+        return b[0] <= cx <= b[2] and b[1] <= cy <= b[3]
+    keep = [ln for ln in lines if not any(inside(ln, t["box"]) for t in grids)]
+    for t in grids:
+        # a table nested in one of this table's cells finds its own lines: the
+        # outer cell leaves them to it (else they are read twice)
+        nested = [u["box"] for u in grids if u is not t and t["box"][0] <= u["box"][0] and t["box"][1] <= u["box"][1]
+                  and u["box"][2] <= t["box"][2] and u["box"][3] <= t["box"][3]]
+        for c in t["cells"]:
+            x0, y0, x1, y1 = [int(v) for v in c["box"]]
+            box = [x0 + 3, y0 + 3, x1 - 3, y1 - 3]
+            if box[2] - box[0] < 4 or box[3] - box[1] < 4:
+                continue
+            cx, cy = (x0 + x1) / 2, (y0 + y1) / 2
+            bi = next((k for k, b in enumerate(blocks) if b[0] <= cx <= b[2] and b[1] <= cy <= b[3]), 0)
+            for ln in _lines_in(binary, box, noise_frac * (box[2] - box[0])):
+                if any(inside(ln, b) for b in nested):
+                    continue
+                ln["block"] = bi
+                keep.append(ln)
+    return keep
+
+
 @register
 class ProfileLines(Stage):
     slot = "lines"
@@ -64,6 +100,10 @@ class ProfileLines(Stage):
                                  # own peak row ink
         "resplit_min_h": 0.4,    # accept only pieces at least this x
                                  # median height (no stroke-band shredding)
+        "in_cells": False,       # inside a ruled table, lines found cell by cell: a line found
+                                 # across a table's block runs through its cells' rules, joining
+                                 # a header's lines at different heights into one strip the
+                                 # reader cannot read (2026-09-29)
     }
 
     def run(self, page: Page) -> tuple[Page, DebugBundle]:
@@ -134,6 +174,9 @@ class ProfileLines(Stage):
                 else:
                     resplit.append(ln)
             all_lines = resplit
+
+        if p["in_cells"] and layout.get("tables"):
+            all_lines = _lines_by_cell(page.binary, all_lines, layout["tables"], layout["blocks"], p["noise_frac"])
 
         out = page.evolve()
         out.meta["layout"] = dict(layout, lines=all_lines)
