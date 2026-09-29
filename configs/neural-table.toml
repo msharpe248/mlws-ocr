@@ -51,6 +51,8 @@ text_ink = "limit"   # an estimate at the search limit is re-made from glyph-siz
                      # lands there again: a photograph had rotated straight magazine pages 5 degrees
                      # (held-out magazines neural 77.1/65.3 -> 82.1/73.4, classic 65.4 -> 67.6; 2026-09-27)
 max_angle = 5.0
+ink_fallback = true  # table profile: over a quarter of the page 'ink' under Otsu (uneven light): threshold
+                     # against the page's own blurred background (deskew right on all 220 business pages)
 edge_nearest = true  # table profile: the search's shrunk page padded from its own edge -- zoom's black pad was a
                      # straight line that won at 0 deg on sparse pages (timesheets 0.707 -> 0.801, 2026-09-29)
 
@@ -217,6 +219,7 @@ impl = "text"
 align_pair_min_rows = 2        # a text pair may form from two aligned rows (a table needs three) and takes the
                                # unpartnered one-line blocks on its columns' left edges; the higher-starting
                                # column reads first (2026-09-17: payslips 84.6 -> 89.3 word, orders 86.7 -> 92.3)
+cell_order_by_line = true      # table profile: a cell's words in line order, then left to right ('Date Pay' -> 'Pay Date')
 ws_mesh_min_spines = 2         # table profile: a mesh must close a cell (two spines sharing two row lines)
 ws_detector = "mesh"           # table profile: tables found as meshes of E's in the junction graph (layout/junctions.py)
 table_net_path = "data/sepnet_v2.npz"  # table profile: the separator network as row evidence (wrapped rows joined)

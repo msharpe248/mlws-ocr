@@ -26,6 +26,8 @@ judged before it went live. The measurements themselves are in
 | Segmenter judge | `segjudge.npz` | 32 weights | none yet (option `blocks.impl = "judged"`) | `segmenter_judge.py` | per-page accuracy of four segmenters read end to end on UNLV training-pool pages |
 | Glyph CNN | `cnn.npz` | 30k | none (kept off; `recognize.cnn_path`) | `train_cnn.py` | synthetic renders + truth-labelled real crops |
 | Table separator network | `sepnet_v2.npz` (`sepnet_v1.npz` the previous) | 44k | neural-table (`output.table_net_path`, row evidence: wrapped rows joined) | `train_sepnet.py` | 6,000 tables drawn by `factory/tablegen.py` with pixel-exact separators + 6,492 FinTabNet.c training tables |
+| Table structure network (in training) | `splitnet_v1.npz` (round one); round two training | 280k | none yet (`output.table_split_path`; `output.table_net_path` takes it as row evidence too) | `train_splitnet.py` | PubTables-1M structure training tables (100,000 of 758,849), FinTabNet.c training tables (78,537), 12,000 drawn tables, 2,550 tables of drawn business pages, 308 CORD receipts (`make_split_data.py`) |
+| Table detector (in training) | queued | 190k | none yet (`output.table_det_path`) | `train_tabledet.py` | PubTables-1M detection training pages (60,000 of Part 1's 230,294) + 1,500 drawn business pages (`make_det_data.py`) |
 
 The classic engine also builds three learned tables that are not networks
 but come from the same data: the condensed nearest-prototype pool
@@ -698,6 +700,61 @@ separator in it) was negative at every threshold (0.1: 0.675 / 0.799).
 .venv/bin/python scripts/make_sep_data.py fintabnet --src data/raw/fintabnet/trainsample --n 6500 --out data/sep_fin.npz
 .venv/bin/python scripts/train_sepnet.py --data data/sep_synth_1.npz data/sep_synth_2.npz data/sep_synth_3.npz data/sep_fin.npz --out data/sepnet_v1.npz --epochs 12 --device cuda
 ```
+
+### Table structure network — `layout/splitnet.py` (in training, not yet in a profile)
+
+The separator network's successor (2026-09-29), closer to split-and-merge
+(Tensmeyer et al., ICDAR 2019): projection pooling inside every block --
+each block adds to every pixel the mean of its row and of its column --
+and the WORDS as a second input channel (their boxes filled), so a gap
+inside a cell ('$  1,234') can be told from a gap between columns.  Two
+outputs per axis: a separator runs here, and here is inside the table (a
+crop carries a caption and running text).  Input at a quarter of 300 dpi;
+stem 3x3 conv 2 -> 16, stride-2 conv -> 48, six blocks (dilations 1, 2, 4,
+8, 1, 2), heads [mean, max] -> 1-D convs -> 4 (two sub-pixel pairs); 280k
+parameters.  The numpy forward is the reference; `tests/test_splitnet.py`
+holds the torch mirror equal to it.
+
+**Data.** `make_split_data.py`: PubTables-1M structure TRAINING tables
+(Smock, Pesala & Abraham, CVPR 2022; CDLA-Permissive 2.0; 100,000 drawn of
+758,849, five disjoint parts), FinTabNet.c training tables (78,537), tables
+drawn by `factory/tablegen.py` (12,000, words found in their ink), the tables
+of 1,500 business pages drawn by `make_table_set.py` with seed 101 (the
+evaluation sets use seed 1; 2,550 tables), and CORD's training receipts
+(308).  Labels: the whitespace band around each row / column boundary as
+the TABLE's own ink shows it (the projection restricted to the table box:
+a caption over a column gap had shrunk its band to a sliver), and the table
+box for the inside outputs.
+
+**Training.** `train_splitnet.py` on ai01: 512-px windows, words jittered
+and a tenth dropped, masked BCE (separators weighted 2, inside 0.5),
+AdamW, one-cycle.  Round one (PubTables, 6,492 FinTabNet.c, drawn, CORD;
+12 epochs of 60,000 draws, 13 min each): held-out separator F1 0.942
+(columns about 0.89, rows 0.98; the first network had 0.73 / 0.915).
+Round two adds the full FinTabNet.c and the business tables (8 epochs of
+80,000, from round one).
+
+**Measured (round one, end to end, the network building the whitespace
+tables' structure).** PubTables-1M structure 0.452 / 0.596 -> **0.686 /
+0.823**; but FinTabNet.c 0.766 -> 0.624 (it cut a header set above the
+first rule out of the table: PubTables taught it that text over a top rule
+is a caption), and the business sets fell (receipts 0.909 -> 0.710,
+paystubs 0.852 -> 0.640): round one had seen no business table.  Not
+adopted; round two is the test.
+
+### Table detector — `layout/tabledet.py` (queued, not yet in a profile)
+
+A fully convolutional segmenter over the whole page at an eighth of 300 dpi
+(a letter page 319 x 412), the same projection-pooling blocks, two outputs
+per pixel: inside a table, and on a table's border band (two tables
+touching are two components once the band is out).  Ink and words as the
+inputs; 190k parameters; `tests/test_tabledet.py` holds the mirror.
+Data (`make_det_data.py`): PubTables-1M detection training pages (60,000
+of Part 1's 230,294; their tables' boxes, the PDF words) and 1,500 drawn
+business pages (their tables' boxes, words found in the ink).  Used by
+`output.table_det_path`: a ruled grid is kept when a detected table covers
+it (a chart's grid has none), each other detection is a whitespace table
+of its words.
 
 ## Rebuilding everything from scratch
 

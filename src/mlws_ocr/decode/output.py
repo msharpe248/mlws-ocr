@@ -88,6 +88,17 @@ class TextOutput(Stage):
                                          # "replace": rows and columns from the network alone
                                          # (measured worse, RESEARCH)
         "table_net_row_join": 0.3,       # ...refine: rows join below this separator probability
+        "cell_order_by_line": False,     # a cell's words in the order of their LINES, then left to
+                                         # right: sorted by each word's own centre, two words on a
+                                         # line a pixel apart came out reversed ('Pay Date' ->
+                                         # 'Date Pay': a descender lowers a word's centre)
+        "table_det_path": "",            # a trained table detector (layout/tabledet.py): the page's
+                                         # tables where it finds them -- a ruled grid kept when a
+                                         # detected table covers it, each other detection a table
+                                         # of the words inside; "" = off (the finders below)
+        "table_split_path": "",          # a trained structure network (layout/splitnet.py): a
+                                         # whitespace table's rows and columns from its ink and
+                                         # words, over the extent it marks as table; "" = off
         "ws_detector": "words",          # ...how: "words" (runs of rows sharing columns) or "mesh"
         "ws_mesh_min_spines": 1,         # ...a mesh's fewest spines (2: it must close a cell)
                                          # (the junction graph: whitespace and rules as one set of
@@ -199,12 +210,21 @@ class TextOutput(Stage):
         path = self.params["table_net_path"]
         if page.gray is None:
             return t
-        net = self._nets.get(path) or self._nets.setdefault(path, SepNet(path))
+        if path not in self._nets:
+            # a separator network (sepnet) or a structure network (splitnet: the words too)
+            from ..layout.splitnet import SplitNet
+            self._nets[path] = SplitNet(path) if "stem_w" in np.load(path).files else SepNet(path)
+        net = self._nets[path]
         m = int(12 * (page.dpi or 300.0) / 300.0)
         H, W = page.gray.shape
         x0, y0 = max(0, t["box"][0] - m), max(0, t["box"][1] - m)
         x1, y1 = min(W, t["box"][2] + m), min(H, t["box"][3] + m)
-        pc, pr, f = net.predict(page.gray[y0:y1, x0:x1], page.dpi or 300.0)
+        if isinstance(net, SepNet):
+            pc, pr, f = net.predict(page.gray[y0:y1, x0:x1], page.dpi or 300.0)
+        else:
+            inw = [[w["box"][0] - x0, w["box"][1] - y0, w["box"][2] - x0, w["box"][3] - y0] for w in words
+                   if x0 <= (w["box"][0] + w["box"][2]) / 2 <= x1 and y0 <= (w["box"][1] + w["box"][3]) / 2 <= y1]
+            pc, pr, _, _, f = net.predict(page.gray[y0:y1, x0:x1], page.dpi or 300.0, inw)
         if self.params["table_net_mode"] == "refine":
             def span_max(p, off):
                 return lambda a, b: float(p[max(0, int((a - off) / f)):max(int((a - off) / f) + 1,
@@ -214,6 +234,84 @@ class TextOutput(Stage):
         xs = [x0 + v for v in separators(pc, f)]
         ys = [y0 + v for v in separators(pr, f)]
         nt = grid_table([x0, y0, x1, y1], xs, ys, words)
+        return nt if nt is not None else t
+
+    def _det_tables(self, page: Page, words: list[dict], ruled: list[dict]) -> tuple[list[int], list[dict]]:
+        """The table detector over the page: (the ruled grids a detected table
+        covers -- a chart's grid has none --, the whitespace tables of the other
+        detections' words)."""
+        from ..layout.tabledet import TableDet
+        path = self.params["table_det_path"]
+        if page.gray is None:
+            return list(range(len(ruled))), []
+        net = self._nets.get(path) or self._nets.setdefault(path, TableDet(path))
+        boxes = net.detect(page.gray, page.dpi or 300.0, [w["box"] for w in words])
+
+        def cover(a, b):             # the share of a inside b
+            w = min(a[2], b[2]) - max(a[0], b[0]); h = min(a[3], b[3]) - max(a[1], b[1])
+            return max(0.0, w) * max(0.0, h) / max(1.0, (a[2] - a[0]) * (a[3] - a[1]))
+        keep = [k for k, t in enumerate(ruled) if t.get("n_rows", 0) >= 2 and t.get("n_cols", 0) >= 2
+                and any(cover(t["box"], b) > 0.5 for b in boxes)]
+        found = []
+        for b in boxes:
+            if any(cover(b, ruled[k]["box"]) > 0.5 or cover(ruled[k]["box"], b) > 0.5 for k in keep):
+                continue
+            g = [w for w in words if b[0] <= (w["box"][0] + w["box"][2]) / 2 <= b[2] and b[1] <= (w["box"][1] + w["box"][3]) / 2 <= b[3]]
+            t = whitespace_table(g, self.params["ws_phrase_gap"], cross_frac=self.params["ws_cross_frac"]) if g else None
+            if t is not None:
+                t["box"] = [int(v) for v in b]
+                found.append(t)
+        return keep, found
+
+    def _split_structure(self, t: dict, page: Page, words: list[dict], whole: bool = False) -> dict:
+        """The structure network (layout/splitnet.py) over the grey page
+        cropped to a found table and a margin (``whole``: the page is the
+        table's crop): the table's extent where the network marks it inside
+        the table, its rows and columns at the separators within, cells from
+        the words (sepnet.grid_table).  The table stays as found if the page
+        has no grey level or the network marks no extent."""
+        from ..layout.sepnet import grid_table, separators
+        from ..layout.splitnet import SplitNet
+        path = self.params["table_split_path"]
+        if page.gray is None:
+            return t
+        net = self._nets.get(path) or self._nets.setdefault(path, SplitNet(path))
+        dpi = page.dpi or 300.0
+        H, W = page.gray.shape
+        if whole:
+            x0, y0, x1, y1 = 0, 0, W, H
+        else:
+            m = int(90 * dpi / 300.0)
+            x0, y0 = max(0, t["box"][0] - m), max(0, t["box"][1] - m)
+            x1, y1 = min(W, t["box"][2] + m), min(H, t["box"][3] + m)
+        inw = [w for w in words if x0 <= (w["box"][0] + w["box"][2]) / 2 <= x1 and y0 <= (w["box"][1] + w["box"][3]) / 2 <= y1]
+        pc, pr, qc, qr, f = net.predict(page.gray[y0:y1, x0:x1], dpi,
+                                        [[w["box"][0] - x0, w["box"][1] - y0, w["box"][2] - x0, w["box"][3] - y0] for w in inw])
+
+        def extent(q):
+            on, best, k = q > 0.5, None, 0
+            while k < len(on):
+                if on[k]:
+                    j = k
+                    while j + 1 < len(on) and on[j + 1]:
+                        j += 1
+                    if best is None or j - k > best[1] - best[0]:
+                        best = (k, j + 1)
+                    k = j + 1
+                else:
+                    k += 1
+            return best
+        ex, ey = extent(qc), extent(qr)
+        if ex is None or ey is None:
+            return t
+        box = [x0 + ex[0] * f, y0 + ey[0] * f, x0 + ex[1] * f, y0 + ey[1] * f]
+        if not whole:
+            # a table found on the page: the finder's box stands too (a header the
+            # network leaves out, set above the first rule, is the finder's)
+            box = [min(box[0], t["box"][0]), min(box[1], t["box"][1]), max(box[2], t["box"][2]), max(box[3], t["box"][3])]
+        xs = [x0 + v for v in separators(pc, f)]
+        ys = [y0 + v for v in separators(pr, f)]
+        nt = grid_table(box, [x for x in xs if box[0] < x < box[2]], [y for y in ys if box[1] < y < box[3]], inw)
         return nt if nt is not None else t
 
     def run(self, page: Page) -> tuple[Page, DebugBundle]:
@@ -345,7 +443,9 @@ class TextOutput(Stage):
         for t in layout.get("tables", []):
             grid = [["" for _ in range(t["n_cols"])] for _ in range(t["n_rows"])]
             entries = []
+            by_line = self.params["cell_order_by_line"]
             for ln in layout["lines"]:
+                ly = (ln["box"][1] + ln["box"][3]) / 2 if by_line and ln.get("box") else None
                 for w0 in ln.get("words", []):
                   for w in (split_at_cells(w0, t["cells"]) if self.params["split_words_at_cells"] else [w0]):
                     cx = (w["box"][0] + w["box"][2]) / 2
@@ -354,7 +454,7 @@ class TextOutput(Stage):
                         bx = cell["box"]
                         if bx[0] <= cx < bx[2] and bx[1] <= cy < bx[3]:
                             entries.append((cell["row"], cell["col"],
-                                            cy, cx, w["text"]))
+                                            ly if ly is not None else cy, cx, w["text"]))
                             break
             entries.sort()
             diag = {(c["row"], c["col"]): c for c in t["cells"] if c.get("diagonal")}
@@ -384,6 +484,9 @@ class TextOutput(Stage):
                                  cross_frac=self.params["ws_cross_frac"])
             if t is not None and self.params["table_net_path"]:
                 t = self._net_structure(t, page, words)
+            if self.params["table_split_path"]:
+                t = self._split_structure(t or {"box": [0, 0, 1, 1]}, page, words, whole=True)
+                t = t if t.get("cells") else None
             if t is not None:
                 # a new layout dict: the incoming page's stays as its stage left it
                 layout = dict(layout, tables=[t])
@@ -394,13 +497,18 @@ class TextOutput(Stage):
 
         if self.params["ws_detect"] and not ("*" in ws_types or doc_type in ws_types):
             words = [w for ln in layout["lines"] for w in ln.get("words", [])]
-            keep, found = page_tables(words, layout.get("tables", []), layout.get("rules_h", []),
-                                      page.dpi or 300.0, self.params["ws_phrase_gap"],
-                                      self.params["ws_cross_frac"], self.params["ws_detector"],
-                                      image_zones=layout.get("image_zones", []),
-                                      mesh_min_spines=self.params["ws_mesh_min_spines"])
+            if self.params["table_det_path"]:
+                keep, found = self._det_tables(page, words, layout.get("tables", []))
+            else:
+                keep, found = page_tables(words, layout.get("tables", []), layout.get("rules_h", []),
+                                          page.dpi or 300.0, self.params["ws_phrase_gap"],
+                                          self.params["ws_cross_frac"], self.params["ws_detector"],
+                                          image_zones=layout.get("image_zones", []),
+                                          mesh_min_spines=self.params["ws_mesh_min_spines"])
             if self.params["table_net_path"]:
                 found = [self._net_structure(t, page, words) for t in found]
+            if self.params["table_split_path"]:
+                found = [self._split_structure(t, page, words) for t in found]
             if len(keep) < len(layout.get("tables", [])):
                 layout = dict(layout, tables=[layout["tables"][k] for k in keep])
                 tables_text = [tables_text[k] for k in keep]

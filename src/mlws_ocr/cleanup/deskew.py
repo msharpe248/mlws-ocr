@@ -110,6 +110,9 @@ class ProjectionDeskew(Stage):
                                # 1200-px straight line that won the search at exactly 0 deg on a
                                # sparse page (34 of 220 business table pages left skewed,
                                # 2026-09-29)
+        "ink_fallback": False, # when a global Otsu threshold makes over a quarter of the page 'ink'
+                               # (uneven lighting taken for print), threshold against the page's own
+                               # blurred background instead (2026-09-29)
         "angle_deg": None,     # a manual correction (degrees, + = counter-clockwise) that
                                # replaces the estimate; the estimate is still computed and
                                # reported. None = use the estimate. Set by the workbench.
@@ -124,6 +127,8 @@ class ProjectionDeskew(Stage):
         small = (ndimage.zoom(gray, scale, order=1, mode="nearest" if p["edge_nearest"] else "constant")
                  if scale < 1.0 else gray)
         ink = (small < threshold_otsu(small)).astype(np.float32)
+        if p["ink_fallback"] and ink.mean() > 0.25:
+            ink = (small < ndimage.gaussian_filter(small, 20) - 0.12).astype(np.float32)
         if p["zone_mask"]:
             ink = picture_free(ink, float(page.dpi or 300.0) * scale)
         mode = p["text_ink"]
