@@ -395,7 +395,8 @@ class TextOutput(Stage):
             words = [w for ln in layout["lines"] for w in ln.get("words", [])]
             keep, found = page_tables(words, layout.get("tables", []), layout.get("rules_h", []),
                                       page.dpi or 300.0, self.params["ws_phrase_gap"],
-                                      self.params["ws_cross_frac"], self.params["ws_detector"])
+                                      self.params["ws_cross_frac"], self.params["ws_detector"],
+                                      image_zones=layout.get("image_zones", []))
             if self.params["table_net_path"]:
                 found = [self._net_structure(t, page, words) for t in found]
             if len(keep) < len(layout.get("tables", [])):

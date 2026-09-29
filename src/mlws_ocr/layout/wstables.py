@@ -651,6 +651,12 @@ def _prose(phrases: list[dict]) -> bool:
 
 DETECTOR = ["words"]     # the whitespace-table finder on the page: "words" (find_tables) or
                          # "mesh" (the junction graph, layout/junctions.py) -- experiment switch
+FIGURE_SHAPE = [True]    # ...a FIGURE is a cell shaped like one (cellfix.is_figure), not any
+                         # cell with a digit in it: a citation '[39]' or 'Page 4 of 13' is not
+                         # (experiment switch)
+MERGE_GROUPS = [False]    # found tables stacked with the same columns, a small gap apart, are one
+                         # (a scientific table's row groups set off by rules; experiment switch)
+CAPTION_CUT = [True]     # a leading 'Table N' caption row is not a row of the table (experiment switch)
 FIGURE_COLUMN = [0.6]    # a found table needs a column after the first whose cells are at least
                          # this share figures (0 = off)
 
@@ -668,7 +674,17 @@ def _has_figure_column(t: dict) -> bool:
     for c in t["cells"]:
         if c["col"] > 0 and c.get("colspan", 1) == 1 and c.get("text"):
             by.setdefault(c["col"], []).append(c["text"])
-    return any(len(v) >= 2 and sum(any(ch.isdigit() for ch in x) for x in v) >= FIGURE_COLUMN[0] * len(v)
+    if FIGURE_SHAPE[0]:
+        def fig(x):
+            # mostly digits, and not a citation: '43447', '09/03/2026', '11/01 - 02/14'
+            # are figures; 'Page 4 of 13' and '[39]' are not
+            t = x.strip()
+            d = sum(ch.isdigit() for ch in t)
+            return d > 0 and d >= sum(ch.isalpha() for ch in t) and not t.startswith("[")
+    else:
+        def fig(x):
+            return any(ch.isdigit() for ch in x)
+    return any(len(v) >= 2 and sum(fig(x) for x in v) >= FIGURE_COLUMN[0] * len(v)
                for v in by.values())
 
 
@@ -763,9 +779,78 @@ def rule_regions(rules_h: list, tol: float, min_rules: int = 3, max_gap: float =
     return out
 
 
+_CAPTION = re.compile(r"^\s*(table|tab\.)\s*[0-9IVX]+", re.I)
+
+
+def _cut_caption(g: list[dict]) -> list[dict]:
+    """A table's words without a leading caption row ('Table 3  Univariate
+    and multivariate ...'): the caption names the table, it is not a row."""
+    if not g:
+        return g
+    lh = float(np.median([w["box"][3] - w["box"][1] for w in g]))
+    rows = _rows(g, lh)
+    if rows and _CAPTION.match(" ".join(w["text"] for w in rows[0])):
+        return [w for r in rows[1:] for w in r]
+    return g
+
+
+SAME_COL_TOL = [0.5]     # column centres within this many line heights line up (experiment switch)
+
+
+def _same_columns(a: list[dict], b: list[dict], lh: float) -> bool:
+    """Do two word groups set their columns at the same places?  Row groups
+    of one table do; a paystub's info block, earnings and deductions --
+    stacked just as closely -- do not (4, 5 and 3 columns)."""
+    ta, tb = whitespace_table(a), whitespace_table(b)
+    if ta is None or tb is None or abs(ta["n_cols"] - tb["n_cols"]) > 1:
+        return False
+
+    def centres(t):
+        by: dict[int, list[float]] = {}
+        for c in t["cells"]:
+            if c.get("colspan", 1) == 1 and c.get("text"):
+                by.setdefault(c["col"], []).append((c["box"][0] + c["box"][2]) / 2)
+        return [float(np.median(v)) for _, v in sorted(by.items())]
+    ca, cb = centres(ta), centres(tb)
+    small, big = (ca, cb) if len(ca) <= len(cb) else (cb, ca)
+    if not small:
+        return False
+    hit = sum(1 for x in small if any(abs(x - y) <= SAME_COL_TOL[0] * lh for y in big))
+    return hit >= 0.8 * len(small)
+
+
+def _merge_stacked(tagged: list[tuple[list[dict], bool]]) -> list[tuple[list[dict], bool]]:
+    """Word groups stacked one above the next, overlapping in x over most of
+    the narrower, less than three line heights apart, are one table: a
+    scientific table's row groups set off by rules or gaps were found as
+    tables of their own (one table in five pieces).  A merged group is a
+    region if any of its parts was."""
+    groups = [g for g, _ in tagged]
+    boxes = [[min(w["box"][0] for w in g), min(w["box"][1] for w in g),
+              max(w["box"][2] for w in g), max(w["box"][3] for w in g)] if g else None for g in groups]
+    order = sorted(range(len(groups)), key=lambda i: boxes[i][1] if boxes[i] else 0)
+    merged: list[list[int]] = []
+    for i in order:
+        if boxes[i] is None:
+            continue
+        if merged:
+            j = merged[-1][-1]
+            a, b = boxes[j], boxes[i]
+            lh = float(np.median([w["box"][3] - w["box"][1] for w in groups[i]]))
+            ov = min(a[2], b[2]) - max(a[0], b[0])
+            if ov > 0.8 * min(a[2] - a[0], b[2] - b[0]) and 0 <= b[1] - a[3] < 3 * lh \
+                    and _same_columns([w for k in merged[-1] for w in groups[k]], groups[i], lh):
+                merged[-1].append(i)
+                boxes[j] = [min(a[0], b[0]), a[1], max(a[2], b[2]), max(a[3], b[3])]
+                boxes[i] = boxes[j]
+                continue
+        merged.append([i])
+    return [([w for i in m for w in groups[i]], any(tagged[i][1] for i in m)) for m in merged]
+
+
 def page_tables(words: list[dict], ruled: list[dict], rules_h: list, dpi: float,
                 phrase_gap: float = 0.8, cross_frac: float = 0.15,
-                detector: str | None = None) -> tuple[list[int], list[dict]]:
+                detector: str | None = None, image_zones=()) -> tuple[list[int], list[dict]]:
     """The whitespace tables of a page beside its ruled ones.  Returns the
     indices of the ruled tables to keep and the tables found.
 
@@ -784,7 +869,8 @@ def page_tables(words: list[dict], ruled: list[dict], rules_h: list, dpi: float,
     def inside(w, bs):
         cx, cy = (w["box"][0] + w["box"][2]) / 2, (w["box"][1] + w["box"][3]) / 2
         return next((k for k, b in enumerate(bs) if b[0] <= cx <= b[2] and b[1] <= cy <= b[3]), None)
-    free = [w for w in words if inside(w, boxes) is None]
+    # words inside picture zones (a chart's axis figures and labels) are no table's
+    free = [w for w in words if inside(w, boxes) is None and inside(w, list(image_zones)) is None]
     s = dpi / 300.0
     regions = [r for r in rule_regions(rules_h, 30 * s, max_gap=400 * s)
                if not any(r[0] >= b[0] - 5 and r[2] <= b[2] + 5 and r[1] >= b[1] - 5 and r[3] <= b[3] + 5
@@ -808,11 +894,19 @@ def page_tables(words: list[dict], ruled: list[dict], rules_h: list, dpi: float,
         groups += find_tables(left, phrase_gap, cross_frac)
     else:
         groups += find_tables(rest, phrase_gap, cross_frac)
+    # each group with whether it is a rule-marked region (exempt from the
+    # figure-column test), carried through the cuts and merges
+    tagged = [(g, k < n_regions) for k, g in enumerate(groups)]
+    if CAPTION_CUT[0]:
+        tagged = [(_cut_caption(g), r) for g, r in tagged]
+        tagged = [(g, r) for g, r in tagged if g]
+    if MERGE_GROUPS[0]:
+        tagged = _merge_stacked(tagged)
     found = []
-    for k, g in enumerate(groups):
+    for g, is_region in tagged:
         t = whitespace_table(g, phrase_gap, cross_frac=cross_frac)
         # a table found by its words alone must have a column of figures; a region
         # marked by rules is a table whatever it holds
-        if t is not None and (k < n_regions or _has_figure_column(t)):
+        if t is not None and (is_region or _has_figure_column(t)):
             found.append(t)
     return keep, found

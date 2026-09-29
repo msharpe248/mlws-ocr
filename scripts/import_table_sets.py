@@ -4,6 +4,8 @@
     scripts/import_table_sets.py fintabnet --src data/raw/fintabnet/FinTabNet.c-Structure \\
         --names data/raw/fintabnet/sample300.txt --out data/tables/fintabnet
     scripts/import_table_sets.py cord --src data/raw/cord/parquet --out data/tables/cord
+    scripts/import_table_sets.py pubtables --src data/raw/pubtables1m/structure \\
+        --names data/raw/pubtables1m/sample300.txt --out data/tables/pubtables
 
 FinTabNet.c (B. Smock, R. Pesala & R. Abraham, "Aligning benchmark datasets
 for table structure recognition", ICDAR 2023; from FinTabNet, X. Zheng et
@@ -100,7 +102,7 @@ def fintabnet(src: Path, names: list[str], out: Path) -> None:
         Image.open(img).convert("L").save(out / f"{name}.png", dpi=(72, 72))
         (out / f"{name}.table.html").write_text(table_html(boxes(xml), json.loads(wj.read_text())))
         n += 1
-    print(f"{n} FinTabNet.c tables -> {out}")
+    print(f"{n} tables -> {out}")
 
 
 CORD_FIELDS = ["nm", "cnt", "unitprice", "price"]
@@ -158,7 +160,7 @@ def cord(src: Path, out: Path) -> None:
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("source", choices=["fintabnet", "cord"])
+    ap.add_argument("source", choices=["fintabnet", "cord", "pubtables"])
     ap.add_argument("--src", type=Path, required=True)
     ap.add_argument("--names", type=Path, help="one table name a line (fintabnet)")
     ap.add_argument("--out", type=Path, required=True)
@@ -166,6 +168,9 @@ def main():
     if args.source == "cord":
         return cord(args.src, args.out)
     names = [l.strip() for l in args.names.read_text().splitlines() if l.strip()]
+    # PubTables-1M's structure crops (the same authors, the same format as
+    # FinTabNet.c: B. Smock, R. Pesala & R. Abraham, 'PubTables-1M', CVPR 2022;
+    # CDLA-Permissive 2.0) -- scientific tables from PubMed Central, about 72 dpi
     fintabnet(args.src, names, args.out)
 
 
