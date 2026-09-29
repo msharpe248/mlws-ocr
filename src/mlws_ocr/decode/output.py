@@ -356,8 +356,24 @@ class TextOutput(Stage):
                                             cy, cx, w["text"]))
                             break
             entries.sort()
-            for r, c, _, _, text in entries:
+            diag = {(c["row"], c["col"]): c for c in t["cells"] if c.get("diagonal")}
+            parts: dict = {}
+            for r, c, cy, cx, text in entries:
+                if (r, c) in diag:
+                    # which side of the cell's diagonal the word lies on
+                    b = diag[(r, c)]["box"]
+                    u = (cx - b[0]) / max(1, b[2] - b[0]); v = (cy - b[1]) / max(1, b[3] - b[1])
+                    upper = (u + v < 1.0) if diag[(r, c)]["diagonal"] == "/" else (v < u)
+                    parts.setdefault((r, c), {"upper": [], "lower": []})["upper" if upper else "lower"].append(text)
+                    continue
                 grid[r][c] = (grid[r][c] + " " + text).strip()
+            for (r, c), pp in parts.items():
+                grid[r][c] = " ".join(pp["upper"] + pp["lower"])
+            if parts:
+                # the split kept with the cell (a copy: the incoming layout stays as it was)
+                cells = [dict(c, parts={k: " ".join(v) for k, v in parts[(c["row"], c["col"])].items()})
+                         if (c["row"], c["col"]) in parts else c for c in t["cells"]]
+                layout = dict(layout, tables=[dict(x, cells=cells) if x is t else x for x in layout["tables"]])
             tables_text.append(grid)
 
         ws_types = [t for t in self.params["ws_table_doc_types"].split(",") if t]

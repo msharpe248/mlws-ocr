@@ -36,6 +36,7 @@ import random
 import subprocess
 import sys
 import tempfile
+import zlib
 from pathlib import Path
 
 import numpy as np
@@ -147,6 +148,13 @@ def payroll(rng: random.Random) -> dict:
         f[f"deductionOther{e}"] = money(other) if other else ""
         f[f"totalDeductions{e}"] = money(tot)
         f[f"netWages{e}"] = money(gross - tot)
+    # the diagonal gross cell's LOWER amount: gross from all work, never less
+    # than this project's (the form's grossNT field).  Added last and from its
+    # own generator, so every other value and every stroke drawn is unchanged.
+    for e in range(1, n + 1):
+        g = float(f[f"gross{e}"].replace(",", ""))
+        extra = random.Random(int(g * 100) + e).choice([0.0, 0.0, 180.0, 412.5, 960.0])
+        f[f"gross{e}T"] = money(g + extra)
     f["_n"] = n
     return f
 
@@ -189,7 +197,9 @@ def truth_table(f: dict) -> list[dict]:
         add(r, 12, g("rateOfPayOT")); add(r + 1, 12, g("rateOfPayST"))
         for k, name in zip(range(13, 21), ["gross", "fica", "withholding", "deductionA", "deductionB",
                                            "deductionOther", "totalDeductions", "netWages"]):
-            add(r, k, g(name), rs=2)
+            # the gross cell is split by its diagonal: this project's amount above,
+            # all work's below, read in that order
+            add(r, k, " ".join(v for v in (g("gross"), f.get(f"gross{e}T", "")) if v) if name == "gross" else g(name), rs=2)
     return c
 
 
@@ -224,8 +234,11 @@ def draw(img: Image.Image, f: dict, rects: dict, face: Path, style: str, rng: ra
             tw = d.textlength(text, font=font)
             while tw > (x1 - x0) - 6 and size > 12:
                 size -= 1; font = ImageFont.truetype(str(face), size); tw = d.textlength(text, font=font)
-            jx = rng.uniform(-3, 3) if style == "hand" else 0
-            jy = rng.uniform(-2, 2) if style == "hand" else 0
+            # the diagonal cell's lower amount jitters from its own generator, so
+            # adding it changed no other stroke nor the pages drawn after it
+            jr = random.Random(zlib.crc32(key.encode())) if key.endswith("T") and key.startswith("gross") else rng
+            jx = jr.uniform(-3, 3) if style == "hand" else 0
+            jy = jr.uniform(-2, 2) if style == "hand" else 0
             if key.startswith(("OT", "ST", "day", "date", "noWith", "totalHours")) or \
                     key.startswith(("gross", "fica", "withholding", "deduction", "netWages", "rateOfPay", "totalDed")):
                 x = x0 + ((x1 - x0) - tw) / 2 if key.startswith(("OT", "ST", "day", "date", "noWith")) else x1 - tw - 6

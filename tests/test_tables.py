@@ -238,3 +238,17 @@ def test_crossfoot_days_sum_to_total_hours():
     cells = [{"row": r, "col": c, "text": t} for r, row in enumerate(rows) for c, t in enumerate(row)]
     checks = [ch for ch in check_table({"cells": cells, "header_rows": 1}) if ch["kind"] == "crossfoot"]
     assert {ch["row"]: ch["ok"] for ch in checks} == {1: True, 2: True, 3: True, 4: False}
+
+
+def test_cell_diagonal_found_and_erased():
+    from PIL import Image, ImageDraw
+    from mlws_ocr.layout.tables import cell_diagonal, erase_diagonal
+    img = Image.new("1", (300, 120), 0)
+    d = ImageDraw.Draw(img)
+    d.rectangle([10, 10, 290, 110], outline=1, width=3)
+    d.line([(10, 110), (290, 10)], fill=1, width=3)                  # corner to corner, '/'
+    b = np.asarray(img, bool)
+    assert cell_diagonal(b, [10, 10, 290, 110], reach=3) == "/"
+    e = erase_diagonal(b, [10, 10, 290, 110], "/", width=7)
+    assert cell_diagonal(e, [10, 10, 290, 110], reach=3) is None
+    assert cell_diagonal(b, [10, 10, 150, 110], reach=3) is None     # half a cell: no corner-to-corner line

@@ -157,6 +157,38 @@ def split_nested(hs, vs, tol, inset):
     return out
 
 
+def cell_diagonal(b: np.ndarray, box, reach: int, min_frac: float = 0.75):
+    """'/' or '\\' when a straight line of ink runs corner to corner across
+    the cell (sampled from 10% to 90% of its length, ink within ``reach`` px
+    of each sample), else None."""
+    x0, y0, x1, y1 = (int(v) for v in box)
+    if x1 - x0 < 20 or y1 - y0 < 20:
+        return None
+    H, W = b.shape
+    ts = np.linspace(0.1, 0.9, 25)
+    for kind, (ax, ay, bx, by) in (("/", (x0, y1, x1, y0)), ("\\", (x0, y0, x1, y1))):
+        hit = 0
+        for t in ts:
+            cx, cy = int(ax + t * (bx - ax)), int(ay + t * (by - ay))
+            win = b[max(0, cy - reach):min(H, cy + reach + 1), max(0, cx - reach):min(W, cx + reach + 1)]
+            hit += bool(win.any())
+        if hit >= min_frac * len(ts):
+            return kind
+    return None
+
+
+def erase_diagonal(b: np.ndarray, box, kind: str, width: int) -> np.ndarray:
+    """The page's ink with the cell's diagonal line cleared (a band of
+    ``width`` px along it), so the reader never sees it."""
+    from PIL import Image, ImageDraw
+    x0, y0, x1, y1 = (int(v) for v in box)
+    m = Image.new("1", (b.shape[1], b.shape[0]), 0)
+    d = ImageDraw.Draw(m)
+    pts = [(x0, y1), (x1, y0)] if kind == "/" else [(x0, y0), (x1, y1)]
+    d.line(pts, fill=1, width=width)
+    return b & ~np.asarray(m, bool)
+
+
 @register
 class GridTables(Stage):
     slot = "tables"
@@ -181,6 +213,10 @@ class GridTables(Stage):
                                  # (nested in the output), not more rows and columns of
                                  # the frame (split_nested; 2026-09-28)
         "nested_inset_300dpi": 4,  # ...inset at least this far (px at 300 dpi)
+        "diagonals": False,      # a cell split corner to corner by a diagonal rule (a payroll
+                                 # form's gross cell: this project above, all work below) is
+                                 # marked ("diagonal": "/" or "\\") and the line erased before
+                                 # reading; the output splits its words by side (2026-09-28)
     }
 
     def run(self, page: Page) -> tuple[Page, DebugBundle]:
@@ -244,7 +280,16 @@ class GridTables(Stage):
                 "cells": cells,
             })
 
-        out = page.evolve()
+        binary = page.binary
+        if self.params["diagonals"] and binary is not None:
+            reach = max(2, int(3 * s))
+            for t in tables:
+                for c in t["cells"]:
+                    kind = cell_diagonal(binary, c["box"], reach)
+                    if kind:
+                        c["diagonal"] = kind
+                        binary = erase_diagonal(binary, c["box"], kind, max(5, int(7 * s)))
+        out = page.evolve(binary=binary)
         out.meta.setdefault("layout", {})["tables"] = tables
         debug = DebugBundle(
             images={"cells_overlay": draw_boxes(page.gray, cell_boxes,

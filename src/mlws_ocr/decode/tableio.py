@@ -38,7 +38,8 @@ def table_records(layout: dict, tables_text: list[list[list[str]]]) -> list[dict
             if text is None and grid is not None:
                 text = grid[c["row"]][c["col"]]
             cells.append({"row": c["row"], "col": c["col"], "rowspan": c.get("rowspan", 1),
-                          "colspan": c.get("colspan", 1), "box": list(c["box"]), "text": text or ""})
+                          "colspan": c.get("colspan", 1), "box": list(c["box"]), "text": text or ""}
+                         | {k: c[k] for k in ("diagonal", "parts") if k in c})
         recs.append({"box": list(t["box"]), "n_rows": t["n_rows"], "n_cols": t["n_cols"],
                      "source": t.get("source", "grid"), "cells": cells})
     # nest: each table under the smallest cell of another table holding it
