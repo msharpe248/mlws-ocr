@@ -59,6 +59,25 @@ def _chunk_columns(ink_cols: np.ndarray, max_cols: int, min_cols: int = 64) -> l
     return spans
 
 
+def _rules_out(gray: np.ndarray, binary: np.ndarray, segs, pad: int) -> np.ndarray:
+    """A copy of the grey page with the rules painted out: inside each rule
+    segment's box (grown ``pad`` px), every pixel the text-only binary does
+    not hold as ink is lifted to the paper's level there (the box's 90th
+    percentile) -- text crossing a rule keeps its ink."""
+    out = gray.copy()
+    H, W = gray.shape
+    for s in segs:
+        x0, y0 = max(0, int(s[0]) - pad), max(0, int(s[1]) - pad)
+        x1, y1 = min(W, int(s[2]) + pad + 1), min(H, int(s[3]) + pad + 1)
+        if x1 <= x0 or y1 <= y0:
+            continue
+        reg = out[y0:y1, x0:x1]
+        paper = float(np.percentile(reg, 90))
+        keep = binary[y0:y1, x0:x1]
+        reg[~keep] = np.maximum(reg[~keep], paper)
+    return out
+
+
 @register
 class HybridDecode(BeamDecode):
     slot = "decode"
@@ -69,6 +88,10 @@ class HybridDecode(BeamDecode):
         "line_source": "binary",   # the reader's strips: "binary" (as trained) or "gray" --
                                    # the flattened grey page, contrast-normalised, for a
                                    # reader trained on grey strips (2026-09-26 pilot)
+        "line_gray_rules_out": False,  # grey strips: the rules the rulings stage took out of the
+                                   # binary taken out of the grey too -- a cell border beside a
+                                   # figure read as '1' / 'l' in the table profile (the binary
+                                   # was clean; the grey still had them)
         "line_mode": "choose",     # off | pure | choose
         "line_max_cols": 512,      # chunk a longer strip at its widest gaps
         "line_beam": 8,
@@ -151,6 +174,10 @@ class HybridDecode(BeamDecode):
         page_unend = (sum(1 for ln in _cl if not any(w.get("in_lexicon") or w.get("numeric_format") for w in ln["words"]))
                       / len(_cl)) if _cl else 0.0
 
+        gray = page.gray if p.get("line_source") == "gray" else None
+        if gray is not None and p["line_gray_rules_out"] and page.binary is not None:
+            gray = _rules_out(gray, page.binary, layout.get("rules_h", []) + layout.get("rules_v", []),
+                              max(2, int(3 * (page.dpi or 300.0) / 300.0)))
         n_read = n_taken = 0
         n_graphic = n_superset = n_dropped = 0
         _xh = [ln["x_height"] for ln in layout["lines"] if ln.get("x_height") and ln.get("words")]
@@ -163,7 +190,7 @@ class HybridDecode(BeamDecode):
                     ln["words"] = []; n_dropped += 1
                 continue
             read = self._read_line(page.binary, ln, model, word_bonus, p, min_conf=0.0 if graphic else None,
-                                   gray=page.gray if p.get("line_source") == "gray" else None)
+                                   gray=gray)
             if read is None:
                 if xh_floor and not graphic and ln["x_height"] < xh_floor \
                         and self._unendorsed(ln.get("words", [])):

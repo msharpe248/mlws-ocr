@@ -140,6 +140,7 @@ line_model_path = "data/seq_line_gray9_en.npz+data/seq_line_gray9_en_2.npz+data/
                                # v17a: CORD cropped 37.7/8.0 -> 46.4/21.7, FUNSD 57.8/33.6 -> 63.5/41.8, Legal Reports
                                # 85.5/69.9 -> 87.6/74.2, SROIE 68.3/39.7 -> 67.3/43.6, business +0.4/+1.7, broad-30 +0.4/+0.7,
                                # legal-8 -0.5/-0.3. Previous live: seq_line_v17a (seq_line_en*.npz, binary strips).
+line_gray_rules_out = true     # table profile: the rules painted out of the grey strips too (payroll forms 0.609 -> 0.738)
 line_source = "gray"           # the reader's strips cut from the flattened grey page, contrast-normalised
                                # (glyph/strip.py gray_contrast): faint thermal and dot-matrix print survives
 line_mode = "choose"
