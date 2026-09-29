@@ -52,6 +52,28 @@ plan stands (TEDS, neural-table; RESEARCH has every row):
     grids; arithmetic checks as a confidence signal (a failed check holds a
     real misread 12 times in 13); a self-trained network that loses as the
     structure and wins as evidence.
+12a. **Table structure as a junction graph** (the owner's ideas, 2026-09-28).
+    (1) Whitespace as virtual rules: done for whitespace tables (header
+    rowspans, body columns; generated sets 0.672 → 0.751). (2) Maximal empty
+    rectangles plus real rules as one set of separators; their junctions
+    classified T, L and + (the page edge makes none); a table is a region
+    closed by T / L junctions with + junctions inside. (3) Combs -- E's in
+    any orientation: a spine with three or more teeth on one side (a table's
+    side with its row separators, its top with its column separators; a
+    column gap with teeth on both sides that line up). Repetition is the
+    table's signature; tooth strength (rules, gaps wider than the leading)
+    and tooth pattern (shared across spines, irregular) keep a prose gutter
+    with a line gap on every line from counting. E's overlap: along a
+    spine they slide (teeth 1-3, 2-4, ...) and chain into one comb, its
+    length the row count; across spines a row separator is a tooth of the
+    side's E and the spine of the E its crossing column separators make --
+    a grid is a MESH of overlapping E's. A table is the connected mesh grown
+    from any E through shared teeth and spines, bounded where the E's stop
+    (L at the corners, T along the sides); a prose gutter is a single chain
+    with no E across it. Also: header paths per
+    cell (the day and O / S sub-row hierarchy of a payroll form, with the
+    arithmetic checked over them) and diagonal split cells.
+
 13. **The earlier items below** (Next): short newspaper columns under a
     headline, photo junk on magazines, typewriter blocks and FUNSD words.
 

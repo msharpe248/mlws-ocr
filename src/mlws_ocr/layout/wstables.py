@@ -631,6 +631,45 @@ def whitespace_table(words: list[dict], phrase_gap: float = 0.8,
             "n_cols": len(cols), "cells": cells, "source": "whitespace"}
 
 
+PROSE = [0.0, 0.25]      # a run is prose when its median phrase has >= this many words and
+                         # under this share of its phrases hold a figure (0 words = off)
+
+
+def _prose(phrases: list[dict]) -> bool:
+    """Columns of running text, not a table: two newspaper columns set with
+    the same leading line up row for row across their gutter, so they look
+    like a table of two long columns (58 x 2 on a UNLV newspaper page).  A
+    table's cells are short or figures; prose phrases are long runs of words
+    across the column and rarely figures.  (A financial table's long labels
+    sit beside columns of figures, so it keeps its figure share.)"""
+    if PROSE[0] <= 0 or not phrases:
+        return False
+    nw = [len(p["text"].split()) for p in phrases]
+    fig = sum(1 for p in phrases if any(ch.isdigit() for ch in p["text"])) / len(phrases)
+    return float(np.median(nw)) >= PROSE[0] and fig < PROSE[1]
+
+
+FIGURE_COLUMN = [0.6]    # a found table needs a column after the first whose cells are at least
+                         # this share figures (0 = off)
+
+
+def _has_figure_column(t: dict) -> bool:
+    """Every table in the measured sets -- payroll, paystubs, invoices,
+    timesheets, receipts, financial statements -- has a column of figures
+    after its first; justified prose (its stretched word spaces break a
+    line into short 'phrases') and letterheads (two address blocks side by
+    side) have none.  The test that turned away 58 x 2 'tables' of
+    newspaper columns."""
+    if FIGURE_COLUMN[0] <= 0:
+        return True
+    by: dict[int, list[str]] = {}
+    for c in t["cells"]:
+        if c["col"] > 0 and c.get("colspan", 1) == 1 and c.get("text"):
+            by.setdefault(c["col"], []).append(c["text"])
+    return any(len(v) >= 2 and sum(any(ch.isdigit() for ch in x) for x in v) >= FIGURE_COLUMN[0] * len(v)
+               for v in by.values())
+
+
 def find_tables(words: list[dict], phrase_gap: float = 0.8, cross_frac: float = 0.15,
                 split_pitch: float = 1.6, min_multi: int = 2) -> list[list[dict]]:
     """The word groups of the whitespace tables on a page (each then read by
@@ -681,6 +720,8 @@ def find_tables(words: list[dict], phrase_gap: float = 0.8, cross_frac: float = 
             continue
         lo, hi = run.index(idx[0]), run.index(idx[-1])
         keep = run[lo:hi + 1]
+        if _prose([p for i in keep for p in rows_p[i]]):
+            continue
         if lo > 0:                  # a spanning header just above the first table-like row
             j = run[lo - 1]
             p = rows_p[j][0]
@@ -746,10 +787,13 @@ def page_tables(words: list[dict], ruled: list[dict], rules_h: list, dpi: float,
     # a top rule (a header set over the rule) are not in it
     groups = [[w for w in free if inside(w, [r]) is not None] for r in regions]
     rest = [w for w in free if inside(w, regions) is None]
+    n_regions = len(groups)
     groups += find_tables(rest, phrase_gap, cross_frac)
     found = []
-    for g in groups:
+    for k, g in enumerate(groups):
         t = whitespace_table(g, phrase_gap, cross_frac=cross_frac)
-        if t is not None:
+        # a table found by its words alone must have a column of figures; a region
+        # marked by rules is a table whatever it holds
+        if t is not None and (k < n_regions or _has_figure_column(t)):
             found.append(t)
     return keep, found
