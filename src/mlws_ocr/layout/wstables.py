@@ -783,6 +783,8 @@ def rule_regions(rules_h: list, tol: float, min_rules: int = 3, max_gap: float =
 _CAPTION = re.compile(r"^\s*(table|tab\.)\s*[0-9IVX]+", re.I)
 
 
+EMPTY_GRID = [0.1]       # a ruled grid needs at least this many words per cell (and 3) to be a
+                         # table -- a chart's axes and bars make empty grids (0 = off)
 REGION_GAP = [800.0]     # the most px (at 300 dpi) between two rules of one table: a
                          # scientific table's header rule and bottom rule enclose its whole
                          # body (400 let a booktabs table fall apart at its blank lines;
@@ -884,6 +886,13 @@ def page_tables(words: list[dict], ruled: list[dict], rules_h: list, dpi: float,
        the words the meshes left (a one-row key-value line has no mesh).
     """
     keep = [k for k, t in enumerate(ruled) if t["n_rows"] >= 2 and t["n_cols"] >= 2]
+    if EMPTY_GRID[0] > 0:
+        # a ruled "grid" with next to no words in it is a chart's axes, gridlines and
+        # bar edges, not a table: a table's cells hold text
+        def n_words(b):
+            return sum(1 for w in words if b[0] <= (w["box"][0] + w["box"][2]) / 2 <= b[2]
+                       and b[1] <= (w["box"][1] + w["box"][3]) / 2 <= b[3])
+        keep = [k for k in keep if n_words(ruled[k]["box"]) >= max(3, EMPTY_GRID[0] * len(ruled[k].get("cells", [])))]
     boxes = [ruled[k]["box"] for k in keep]
 
     def inside(w, bs):

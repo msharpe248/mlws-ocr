@@ -81,6 +81,7 @@ dash_gap_300dpi = 12           # dashed and fax-broken rules too (form fill-in l
 
 [stage.tables]
 impl = "grid"
+min_row_ink = 0.03             # table profile: a grid with no row of text is a chart's axes and bars, not a table
 diagonals = true               # table profile: a cell split by a diagonal rule: the line erased before reading, the words split by side
 # table structure, output only (the owner's decision, 2026-09-28): these change
 # the tables the page reports, never its text (docs/RESEARCH.md; the table

@@ -213,6 +213,9 @@ class GridTables(Stage):
                                  # (nested in the output), not more rows and columns of
                                  # the frame (split_nested; 2026-09-28)
         "nested_inset_300dpi": 4,  # ...inset at least this far (px at 300 dpi)
+        "min_row_ink": 0.0,      # a grid needs a row whose cells hold at least this ink (median
+                                 # share) -- its header, its text; a chart's axes, gridlines and bar
+                                 # edges make a grid of empty cells (0 = off; 2026-09-28)
         "diagonals": False,      # a cell split corner to corner by a diagonal rule (a payroll
                                  # form's gross cell: this project above, all work below) is
                                  # marked ("diagonal": "/" or "\\") and the line erased before
@@ -281,6 +284,15 @@ class GridTables(Stage):
             })
 
         binary = page.binary
+        if self.params["min_row_ink"] > 0 and binary is not None:
+            def has_text_row(t):
+                by: dict[int, list[float]] = {}
+                for c in t["cells"]:
+                    x0, y0, x1, y1 = c["box"]
+                    if x1 > x0 and y1 > y0:
+                        by.setdefault(c["row"], []).append(float(binary[y0:y1, x0:x1].mean()))
+                return any(float(np.median(v)) >= self.params["min_row_ink"] for v in by.values())
+            tables = [t for t in tables if has_text_row(t)]
         if self.params["diagonals"] and binary is not None:
             reach = max(2, int(3 * s))
             for t in tables:
