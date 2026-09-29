@@ -52,7 +52,7 @@ plan stands (TEDS, neural-table; RESEARCH has every row):
     grids; arithmetic checks as a confidence signal (a failed check holds a
     real misread 12 times in 13); a self-trained network that loses as the
     structure and wins as evidence.
-12a. **Table structure as a junction graph** (the owner's ideas, 2026-09-28).
+12a. **Table structure as a junction graph** (the owner's ideas, 2026-09-28; the mesh finder is neural-table's since the same day: paystubs 0.849, receipts 0.898, CORD 0.369).
     (1) Whitespace as virtual rules: done for whitespace tables (header
     rowspans, body columns; generated sets 0.672 → 0.751). (2) Maximal empty
     rectangles plus real rules as one set of separators; their junctions

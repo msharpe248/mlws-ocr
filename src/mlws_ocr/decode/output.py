@@ -88,6 +88,9 @@ class TextOutput(Stage):
                                          # "replace": rows and columns from the network alone
                                          # (measured worse, RESEARCH)
         "table_net_row_join": 0.3,       # ...refine: rows join below this separator probability
+        "ws_detector": "words",          # ...how: "words" (runs of rows sharing columns) or "mesh"
+                                         # (the junction graph: whitespace and rules as one set of
+                                         # lines, E's meshed into tables; layout/junctions.py)
         "ws_detect": False,              # find whitespace tables ON the page (runs of
                                          # text rows sharing columns, outside the ruled
                                          # tables; wstables.find_tables); 2026-09-28
@@ -376,7 +379,7 @@ class TextOutput(Stage):
             words = [w for ln in layout["lines"] for w in ln.get("words", [])]
             keep, found = page_tables(words, layout.get("tables", []), layout.get("rules_h", []),
                                       page.dpi or 300.0, self.params["ws_phrase_gap"],
-                                      self.params["ws_cross_frac"])
+                                      self.params["ws_cross_frac"], self.params["ws_detector"])
             if self.params["table_net_path"]:
                 found = [self._net_structure(t, page, words) for t in found]
             if len(keep) < len(layout.get("tables", [])):

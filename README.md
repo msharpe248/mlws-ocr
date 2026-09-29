@@ -63,11 +63,11 @@ the options off, every set scores between 0.00 and 0.03.
 | set | what it is | classic | neural | legacy Tesseract | Tesseract LSTM |
 |---|---|---|---|---|---|
 | payroll forms | generated ruled payroll forms: spanned headers, two-row records, open sides; software, typewriter and hand-lettered entries (20 pages) | 0.600 / 0.854 * | **0.717 / 0.896** | no table output | no table output |
-| paystubs | generated: earnings and deductions nested in the stub, in five rule styles from full grid to whitespace (20 pages) | – | 0.804 / 0.869 | no table output | no table output |
-| invoices | generated: line items with spanned totals, five rule styles (20 pages) | – | 0.776 / 0.819 | no table output | no table output |
-| timesheets | generated: two-level spanned headers, five rule styles (20 pages) | – | 0.705 / 0.752 | no table output | no table output |
-| receipts | generated: thermal-roll receipts, whitespace or a header rule (20 pages) | – | 0.836 / 0.865 | no table output | no table output |
-| real receipts | CORD photographed receipts, their line items as the table (30 receipts) | – | 0.327 / 0.440 | no table output | no table output |
+| paystubs | generated: earnings and deductions nested in the stub, in five rule styles from full grid to whitespace (20 pages) | – | 0.849 / 0.887 | no table output | no table output |
+| invoices | generated: line items with spanned totals, five rule styles (20 pages) | – | 0.779 / 0.823 | no table output | no table output |
+| timesheets | generated: two-level spanned headers, five rule styles (20 pages) | – | 0.700 / 0.752 | no table output | no table output |
+| receipts | generated: thermal-roll receipts, whitespace or a header rule (20 pages) | – | 0.898 / 0.922 | no table output | no table output |
+| real receipts | CORD photographed receipts, their line items as the table (30 receipts) | – | 0.369 / 0.498 | no table output | no table output |
 | annual-report tables | real financial tables, FinTabNet.c, ruled by whitespace (60 tables) | 0.607 / 0.781 | **0.769 / 0.886** | no table output | no table output |
 
 \* measured before the open-sides and short-rule options; – not measured.

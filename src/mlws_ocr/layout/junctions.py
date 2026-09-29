@@ -32,6 +32,7 @@ from __future__ import annotations
 import numpy as np
 
 
+GROW = [True]       # grow a mesh's box over neighbouring rows up to a boundary gap (experiment switch)
 BOUNDARY = [1.6]    # a row gap over this many usual spacings ends every column gap (experiment switch)
 
 
@@ -47,7 +48,7 @@ def _rows(words, lh):
     return [sorted(r, key=lambda w: w["box"][0]) for r in rows]
 
 
-def virtual_segments(words: list[dict], gap_factor: float = 0.8, min_rows: int = 2):
+def virtual_segments(words: list[dict], gap_factor: float = 0.8, min_rows: int = 2, rules_h=(), barriers=()):
     """(vertical, horizontal) virtual segments from the words.  Vertical:
     [x, y0, y1, n_rows]; horizontal: [y, x0, x1, strength]."""
     if len(words) < 4:
@@ -70,7 +71,13 @@ def virtual_segments(words: list[dict], gap_factor: float = 0.8, min_rows: int =
     V = []
     open_ch: list[list] = []                     # [lo, hi, first_row, last_row]
     for ri, gs in enumerate(row_gaps):
-        if ri > 0 and pitches[ri - 1] > BOUNDARY[0] * usual:
+        # two rules in one row gap -- one table's bottom rule over the next's top
+        # rule -- are a boundary too
+        n_rules = sum(1 for r in rules_h if bots[ri - 1] < (r[1] + r[3]) / 2 < tops[ri]) if ri > 0 else 0
+        # a table already taken (a ruled grid, a rule-marked region) between two
+        # rows is a boundary: its words are gone, and no chain may cross the hole
+        walled = ri > 0 and any(bots[ri - 1] <= (b0 + b1) / 2 <= tops[ri] for b0, b1 in barriers)
+        if ri > 0 and (pitches[ri - 1] > BOUNDARY[0] * usual or n_rules >= 2 or walled):
             V += [ch for ch in open_ch if ch[3] - ch[2] + 1 >= min_rows]
             open_ch = []
         nxt = []
@@ -108,12 +115,20 @@ def meshes(vert, horiz, tol: float, min_teeth: int = 3):
     horizontal segments crossing or meeting it is an E; spines sharing a
     tooth (a row gap crossing both) are one mesh.  Returns lists of
     (spine indices, tooth indices)."""
-    teeth_of = []
+    teeth_of, n_teeth = [], []
     for v in vert:
         x, y0, y1 = v[0], v[1], v[2]
-        teeth_of.append({k for k, h in enumerate(horiz)
-                         if y0 - tol <= h[0] <= y1 + tol and h[1] - tol <= x <= h[2] + tol})
-    spines = [i for i, t in enumerate(teeth_of) if len(t) >= min_teeth]
+        meet = {k for k, h in enumerate(horiz)
+                if y0 - tol <= h[0] <= y1 + tol and h[1] - tol <= x <= h[2] + tol}
+        # a boundary gap (a blank band between two tables) is the line a spine
+        # ENDS on -- the table's edge: it counts as a tooth of the E (a two-row
+        # table is top edge, one row gap, bottom edge: three teeth) but is not
+        # one of the table's rows; a rule stays a row line
+        rows_k = {k for k in meet if horiz[k][3] >= 99 or horiz[k][3] <= BOUNDARY[0]}
+        ends = (y0 <= min((horiz[k][0] for k in rows_k), default=y1) - tol) + (y1 >= max((horiz[k][0] for k in rows_k), default=y0) + tol)
+        teeth_of.append(rows_k)
+        n_teeth.append(len(rows_k) + min(2, len(meet - rows_k) + ends))
+    spines = [i for i, n in enumerate(n_teeth) if n >= min_teeth and teeth_of[i]]
     parent = {i: i for i in spines}
 
     def find(i):
@@ -138,31 +153,56 @@ def meshes(vert, horiz, tol: float, min_teeth: int = 3):
 
 
 def junction_tables(words: list[dict], rules_h=(), rules_v=(), gap_factor: float = 0.8,
-                    min_teeth: int = 3) -> list[dict]:
+                    min_teeth: int = 3, barriers=()) -> list[dict]:
     """Table candidates as meshes: {"box", "xs" (column lines), "ys" (row
     lines)} in page pixels.  Real rules join the virtual segments as
     strong ones."""
-    vert, horiz = virtual_segments(words, gap_factor)
+    vert, horiz = virtual_segments(words, gap_factor, rules_h=rules_h, barriers=barriers)
     for r in rules_v:
         vert.append([(r[0] + r[2]) / 2, r[1], r[3], 99])
     for r in rules_h:
-        horiz.append([(r[1] + r[3]) / 2, r[0], r[2], 99.0])
+        y = (r[1] + r[3]) / 2
+        if any(b0 - 2 <= y <= b1 + 2 for b0, b1 in barriers):
+            continue                      # a rule of a table already taken
+        horiz.append([y, r[0], r[2], 99.0])
     if not vert or not horiz:
         return []
     lh = float(np.median([w["box"][3] - w["box"][1] for w in words]))
+    rows = [(min(w["box"][1] for w in r), max(w["box"][3] for w in r),
+             float(np.mean([(w["box"][1] + w["box"][3]) / 2 for w in r]))) for r in _rows(words, lh)]
+    gaps = [b[0] - a[1] for a, b in zip(rows, rows[1:])]
+    usual = float(np.median(gaps)) if gaps else lh
     out = []
     for spines, teeth in meshes(vert, horiz, 0.5 * lh, min_teeth):
         xs = sorted(vert[i][0] for i in spines)
         ys = sorted(horiz[k][0] for k in teeth)
         if len(ys) < 2:
             continue
-        # the box: from the first to the last row line, one row pitch beyond each,
-        # and across the words these rows hold
-        pitch = float(np.median(np.diff(ys))) if len(ys) > 1 else 2 * lh
-        top, bot = ys[0] - pitch, ys[-1] + pitch
+        # the box: the text rows between the first and last row lines, plus the
+        # one just outside each (a row line lies BETWEEN two rows)
+        walled = lambda a, b: any(a <= (b0 + b1) / 2 <= b for b0, b1 in barriers)  # noqa: E731
+        above = [r for r in rows if r[2] < ys[0] and not walled(r[2], ys[0])]
+        below = [r for r in rows if r[2] > ys[-1] and not walled(ys[-1], r[2])]
+        top = above[-1][0] if above else ys[0]
+        bot = below[0][1] if below else ys[-1]
+        # grow over neighbouring rows until a boundary gap: a two-level header
+        # crosses fewer column gaps (a spanning 'Morning' breaks them) and a
+        # total row may too, but both belong to the table the mesh found
+        if GROW[0]:
+            wall = lambda a, b: any(a <= (b0 + b1) / 2 <= b for b0, b1 in barriers)  # noqa: E731
+            k = len(above) - 1
+            while k > 0 and above[k][0] - above[k - 1][1] <= BOUNDARY[0] * usual and not wall(above[k - 1][1], above[k][0]):
+                k -= 1
+                top = above[k][0]
+            k = 0
+            while k + 1 < len(below) and below[k + 1][0] - below[k][1] <= BOUNDARY[0] * usual and not wall(below[k][1], below[k + 1][0]):
+                k += 1
+                bot = below[k][1]
         inside = [w for w in words if top <= (w["box"][1] + w["box"][3]) / 2 <= bot]
         if not inside:
             continue
         box = [min(w["box"][0] for w in inside), top, max(w["box"][2] for w in inside), bot]
+        if any(o["box"] == [int(v) for v in box] for o in out):
+            continue                      # two meshes grown to the same rows: one table
         out.append({"box": [int(v) for v in box], "xs": xs, "ys": ys, "n_spines": len(spines)})
     return out

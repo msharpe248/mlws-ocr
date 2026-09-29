@@ -649,6 +649,8 @@ def _prose(phrases: list[dict]) -> bool:
     return float(np.median(nw)) >= PROSE[0] and fig < PROSE[1]
 
 
+DETECTOR = ["words"]     # the whitespace-table finder on the page: "words" (find_tables) or
+                         # "mesh" (the junction graph, layout/junctions.py) -- experiment switch
 FIGURE_COLUMN = [0.6]    # a found table needs a column after the first whose cells are at least
                          # this share figures (0 = off)
 
@@ -762,7 +764,8 @@ def rule_regions(rules_h: list, tol: float, min_rules: int = 3, max_gap: float =
 
 
 def page_tables(words: list[dict], ruled: list[dict], rules_h: list, dpi: float,
-                phrase_gap: float = 0.8, cross_frac: float = 0.15) -> tuple[list[int], list[dict]]:
+                phrase_gap: float = 0.8, cross_frac: float = 0.15,
+                detector: str | None = None) -> tuple[list[int], list[dict]]:
     """The whitespace tables of a page beside its ruled ones.  Returns the
     indices of the ruled tables to keep and the tables found.
 
@@ -770,7 +773,10 @@ def page_tables(words: list[dict], ruled: list[dict], rules_h: list, dpi: float,
        rules, not a table: dropped, its words read below.
     2. Regions marked by horizontal rules alone (rule_regions): each one's
        words are one table.
-    3. The rest of the page's words outside the ruled tables: find_tables.
+    3. The rest of the page's words outside the ruled tables: find_tables
+       ("words"), or ("mesh") the junction graph's meshes first -- the tables
+       already taken are walls no column gap crosses -- then find_tables on
+       the words the meshes left (a one-row key-value line has no mesh).
     """
     keep = [k for k, t in enumerate(ruled) if t["n_rows"] >= 2 and t["n_cols"] >= 2]
     boxes = [ruled[k]["box"] for k in keep]
@@ -788,7 +794,20 @@ def page_tables(words: list[dict], ruled: list[dict], rules_h: list, dpi: float,
     groups = [[w for w in free if inside(w, [r]) is not None] for r in regions]
     rest = [w for w in free if inside(w, regions) is None]
     n_regions = len(groups)
-    groups += find_tables(rest, phrase_gap, cross_frac)
+    if (detector or DETECTOR[0]) == "mesh":
+        # the junction graph (layout/junctions.py): meshes of E's among the
+        # virtual and real lines, each mesh's words one table
+        from .junctions import junction_tables
+        walls = [(b[1], b[3]) for b in boxes + regions]
+        boxes_m = [m["box"] for m in junction_tables(rest, rules_h, barriers=walls)]
+        for b in boxes_m:
+            groups.append([w for w in rest if inside(w, [b]) is not None])
+        # tables a mesh cannot see (one row has no row gaps: a key-value line)
+        # from the words the meshes left
+        left = [w for w in rest if inside(w, boxes_m) is None]
+        groups += find_tables(left, phrase_gap, cross_frac)
+    else:
+        groups += find_tables(rest, phrase_gap, cross_frac)
     found = []
     for k, g in enumerate(groups):
         t = whitespace_table(g, phrase_gap, cross_frac=cross_frac)
