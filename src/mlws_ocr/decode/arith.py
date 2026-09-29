@@ -6,6 +6,9 @@ The relations are learned from the table, not declared:
 
 * PRODUCT -- three figure columns a, b, c with a x b = c (to the cent) on
   most rows: quantity x unit price = amount, rate x hours = current pay.
+* CROSS-FOOT -- a column equal, on most rows, to the sum of a run of
+  neighbouring figure columns in the same row: the seven day columns of a
+  payroll record and its total hours (an empty day cell counts as zero).
 * SUM -- a row whose first cell names a total ('Total', 'Subtotal', 'Gross
   Pay', 'Total Hours', ...) holds, in a figure column, the sum of that
   column over the rows above it back to the header or the previous total.
@@ -67,6 +70,30 @@ def check_table(rec: dict, tol: float = 0.011) -> list[dict]:
         if len(ok) >= 3 and len(ok) >= 0.75 * len(rs):
             for r in rs:
                 checks.append({"kind": "product", "row": r, "cols": [a, b, c], "ok": r in ok})
+
+    # CROSS-FOOT: a column equals the sum of a run of neighbouring figure
+    # columns across the row (seven day columns -> total hours); an empty
+    # cell in the run is zero when another in it holds a figure
+    for c in fig_cols:
+        best = None
+        for a in cols:
+            for b in cols:
+                if b - a < 1 or a <= c <= b:
+                    continue
+                run = [k for k in cols if a <= k <= b and k in fig_cols]
+                if len(run) < 2:
+                    continue          # 'a column equals its neighbour' is no sum
+                rs = [r for r in body if val.get((r, c)) is not None
+                      and any(val.get((r, k)) is not None for k in run)
+                      and not TOTAL_WORDS.search(g.get((r, cols[0]), {}).get("text", "") or "")]
+                ok = [r for r in rs if abs(sum(val.get((r, k)) or 0.0 for k in run) - val[(r, c)])
+                      <= tol * max(1.0, abs(val[(r, c)]))]
+                if len(ok) >= 3 and len(ok) >= 0.75 * len(rs) and (best is None or len(ok) > len(best[2])):
+                    best = (run, rs, ok)
+        if best:
+            run, rs, ok = best
+            for r in rs:
+                checks.append({"kind": "crossfoot", "row": r, "cols": run + [c], "ok": r in ok})
 
     # SUM: a total row sums the column above it, back to the header or the previous total
     start = head

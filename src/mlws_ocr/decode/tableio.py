@@ -55,7 +55,49 @@ def table_records(layout: dict, tables_text: list[list[list[str]]]) -> list[dict
     top.sort(key=lambda r: (r["box"][1], r["box"][0]))
     for r in recs:
         mark_header(r)
+        header_paths(r)
     return top
+
+
+def header_paths(rec: dict) -> None:
+    """Each body cell's headers, the way a reader finds them: its COLUMN
+    header path, the header cells above it whose columns cover it, top to
+    bottom ('(4) DAY AND DATE' > 'M'); its ROW header path, the cells of the
+    table's stub -- the leading columns whose body cells are labels, not
+    figures -- whose rows cover it ('Elena Nguyen' > 'O').  A payroll form's
+    hours cell is then 'overtime, Monday' for its worker, not 'row 4,
+    column 5'.  Stub cells are marked ``stub: True`` (written <th
+    scope="row">)."""
+    from .cellfix import is_figure
+    n = rec.get("header_rows", 0)
+    cells = rec["cells"]
+    ncols = rec.get("n_cols", 0)
+    stub = 0
+    for c in range(ncols):
+        body = [x for x in cells if x["row"] >= n and x["col"] == c and x.get("text")]
+        if body and sum(is_figure(x["text"]) for x in body) * 2 < len(body):
+            stub = c + 1
+        else:
+            break
+    if stub >= ncols:
+        stub = 1 if ncols > 1 else 0
+    span = lambda x, a, k: range(x[a], x[a] + x.get(k, 1))  # noqa: E731
+    for x in cells:
+        if x["row"] < n:
+            continue
+        if x["col"] < stub:
+            x["stub"] = True
+            continue
+        cols = set(span(x, "col", "colspan"))
+        rows = set(span(x, "row", "rowspan"))
+        ch = [h["text"] for h in sorted(cells, key=lambda h: h["row"])
+              if h["row"] < n and h.get("text") and cols & set(span(h, "col", "colspan"))]
+        rh = [h["text"] for h in sorted(cells, key=lambda h: h["col"])
+              if h["row"] >= n and h["col"] < stub and h.get("text") and rows & set(span(h, "row", "rowspan"))]
+        if ch:
+            x["col_header"] = ch
+        if rh:
+            x["row_header"] = rh
 
 
 def mark_header(rec: dict) -> int:
@@ -86,9 +128,10 @@ def table_html(rec: dict) -> str:
             span = (f' rowspan="{c["rowspan"]}"' if c["rowspan"] > 1 else "") + \
                    (f' colspan="{c["colspan"]}"' if c["colspan"] > 1 else "")
             inner = html.escape(c["text"]) + "".join(table_html(n) for n in c.get("tables", []))
-            tag = "th" if c.get("header") else "td"
+            tag = "th" if c.get("header") or c.get("stub") else "td"
+            scope = ' scope="col"' if c.get("header") else ' scope="row"' if c.get("stub") else ""
             chk = f' class="check-{c["check"]}"' if c.get("check") else ""
-            tds.append(f"<{tag}{span}{chk}>{inner}</{tag}>")
+            tds.append(f"<{tag}{span}{scope}{chk}>{inner}</{tag}>")
         out.append("<tr>" + "".join(tds) + "</tr>")
     out.append("</table>")
     return "\n".join(out)

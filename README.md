@@ -198,13 +198,14 @@ per run.
 
 **Tables.** A page's tables come out as structure, not only as text:
 `tables.json` (each table's rows, columns and cells with rowspan, colspan,
-box and text, header rows marked, a table inside another's cell nested
-under that cell), `tables.html` (the same as `<table>` markup),
+box and text, header rows marked, each cell's column and row header
+path, a table inside another's cell nested under that cell), `tables.html` (the same as `<table>` markup),
 `tables.csv`, and `ocr_table` in the hOCR. The neural profile finds ruled
 tables from their rules (spanned cells, open sides, tables nested in a
 frame) and tables set by whitespace or ruled only between rows anywhere
 on the page; it reads a column of figures as figures ('S 25' → '$ 25')
-and checks each table's arithmetic (quantity × price = amount, totals),
+and checks each table's arithmetic (quantity × price = amount, a row's
+day columns against its total, column totals),
 marking the cells a failed check points at. None of this changes the
 page's text. For table documents, `configs/neural-table.toml` adds the
 options that do: a large ruled grid kept from the picture zones, short

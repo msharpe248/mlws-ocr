@@ -167,7 +167,11 @@ def test_header_cells_and_csv():
         {"row": 1, "col": 1, "box": [50, 30, 100, 60], "text": "950.00"},
         {"row": 2, "col": 0, "colspan": 2, "box": [0, 60, 100, 90], "text": "Total, paid"}]}
     recs = table_records({"tables": [t]}, [])
-    assert "<th>Item</th><th>Amount</th>" in tables_html(recs)
+    h = tables_html(recs)
+    assert '<th scope="col">Item</th><th scope="col">Amount</th>' in h
+    assert '<th scope="row">Rent</th><td>950.00</td>' in h
+    amount = next(c for c in recs[0]["cells"] if c["text"] == "950.00")
+    assert amount["col_header"] == ["Amount"] and amount["row_header"] == ["Rent"]
     assert tables_csv(recs) == '# Table 1\nItem,Amount\nRent,950.00\n"Total, paid",\n'
 
 
@@ -225,3 +229,12 @@ def test_two_level_header_spans_across_and_down():
     assert got[0, 0] == (2, 1, "Day") and got[0, 3] == (2, 1, "Hours")      # span down
     assert got[0, 1] == (1, 2, "Morning")                                     # span across
     assert got[1, 1][2] == "In" and got[1, 2][2] == "Out"
+
+
+def test_crossfoot_days_sum_to_total_hours():
+    from mlws_ocr.decode.arith import check_table
+    rows = [("Name", "M", "T", "W", "Total"), ("Ann", "8", "8", "", "16"), ("Bob", "4", "8", "8", "20"),
+            ("Cy", "", "8", "8", "16"), ("Di", "8", "8", "8", "42")]
+    cells = [{"row": r, "col": c, "text": t} for r, row in enumerate(rows) for c, t in enumerate(row)]
+    checks = [ch for ch in check_table({"cells": cells, "header_rows": 1}) if ch["kind"] == "crossfoot"]
+    assert {ch["row"]: ch["ok"] for ch in checks} == {1: True, 2: True, 3: True, 4: False}
