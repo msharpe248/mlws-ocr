@@ -51,6 +51,8 @@ text_ink = "limit"   # an estimate at the search limit is re-made from glyph-siz
                      # lands there again: a photograph had rotated straight magazine pages 5 degrees
                      # (held-out magazines neural 77.1/65.3 -> 82.1/73.4, classic 65.4 -> 67.6; 2026-09-27)
 max_angle = 5.0
+edge_nearest = true  # table profile: the search's shrunk page padded from its own edge -- zoom's black pad was a
+                     # straight line that won at 0 deg on sparse pages (timesheets 0.707 -> 0.801, 2026-09-29)
 
 [stage.illumination]
 impl = "median_background"

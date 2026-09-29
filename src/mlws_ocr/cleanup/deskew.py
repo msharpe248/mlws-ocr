@@ -105,6 +105,11 @@ class ProjectionDeskew(Stage):
                                # vote on the skew (2026-09-27 experiment)
         "text_max_frac": 0.025,  # a component taller than this share of the page height
                                  # (a photo, a rule, a display letter) is left out
+        "edge_nearest": False, # the search's downsampled page padded from its own edge, not black:
+                               # zoom's default pad made the last row and column solid 'ink', a
+                               # 1200-px straight line that won the search at exactly 0 deg on a
+                               # sparse page (34 of 220 business table pages left skewed,
+                               # 2026-09-29)
         "angle_deg": None,     # a manual correction (degrees, + = counter-clockwise) that
                                # replaces the estimate; the estimate is still computed and
                                # reported. None = use the estimate. Set by the workbench.
@@ -116,7 +121,8 @@ class ProjectionDeskew(Stage):
 
         # Downsampled ink mask just for angle search (cheap, order-0 rotates).
         scale = min(1.0, p["working_width"] / gray.shape[1])
-        small = ndimage.zoom(gray, scale, order=1) if scale < 1.0 else gray
+        small = (ndimage.zoom(gray, scale, order=1, mode="nearest" if p["edge_nearest"] else "constant")
+                 if scale < 1.0 else gray)
         ink = (small < threshold_otsu(small)).astype(np.float32)
         if p["zone_mask"]:
             ink = picture_free(ink, float(page.dpi or 300.0) * scale)

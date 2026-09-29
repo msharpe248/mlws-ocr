@@ -116,7 +116,7 @@ def test_command_line_sets_reach_the_stage():
 def test_neural_table_is_neural_plus_the_table_options():
     """The table profile may differ from neural ONLY in the table options that
     change what the reader sees; everything else stays neural's."""
-    allowed = {"magnify": {"max_scale"}, "imagezones": {"keep_grids"}, "rulings": {"short_in_grid_300dpi"},
+    allowed = {"magnify": {"max_scale"}, "deskew": {"edge_nearest"}, "imagezones": {"keep_grids"}, "rulings": {"short_in_grid_300dpi"},
                "tables": {"diagonals", "min_row_ink"}, "decode": {"line_gray_rules_out"}, "lines": {"in_cells"},
                "output": {"table_net_path", "table_net_row_join", "ws_detector", "ws_mesh_min_spines"}}
     a, b = _specs("neural-table.toml"), _specs("neural.toml")
