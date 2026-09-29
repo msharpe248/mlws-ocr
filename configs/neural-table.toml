@@ -225,6 +225,7 @@ table_det_path = "data/tabledet_v1.npz"   # table profile: the self-trained tabl
 table_det_mode = "complement"  # ...with the finders: its detections replace their fragments, side-by-side tables stay
 table_split_path = "data/splitnet_v2.npz" # table profile: the self-trained structure network (layout/splitnet.py) ...
 table_split_select = "empty"   # ...its table used when it leaves no more cells empty than the rules' (and merges no figures)
+span_labels = true             # table profile: a total row's label set right under the figure columns spans to its figures
 cell_order_by_line = true      # table profile: a cell's words in line order, then left to right ('Date Pay' -> 'Pay Date')
 ws_mesh_min_spines = 2         # table profile: a mesh must close a cell (two spines sharing two row lines)
 ws_detector = "mesh"           # table profile: tables found as meshes of E's in the junction graph (layout/junctions.py)

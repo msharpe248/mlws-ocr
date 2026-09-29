@@ -875,6 +875,55 @@ def _merge_stacked(tagged: list[tuple[list[dict], bool]]) -> list[tuple[list[dic
     return [([w for i in m for w in groups[i]], any(tagged[i][1] for i in m)) for m in merged]
 
 
+def span_set_right_labels(t: dict) -> dict:
+    """A total row's label set to the right ('Total Hours' under the In / Out
+    columns, 'Subtotal' beside the unit prices): a body row whose words lie in
+    FIGURE columns (columns where most filled rows hold a figure), or begin
+    after an empty first column, with nothing before them, is one label cell
+    spanning from the first column to the row's figures -- a label is not a
+    figure and its column is not theirs.  Rows with spans are left as they
+    are."""
+    cells = t.get("cells", [])
+    if not cells:
+        return t
+    fig = re.compile(r"^[-+($]*\d[\d,.:/]*%?\)?$")
+    isfig = lambda c: bool(c.get("text")) and all(fig.match(w) for w in c["text"].split())  # noqa: E731
+    rows: dict[int, dict[int, dict]] = {}
+    for c in cells:
+        rows.setdefault(c["row"], {})[c["col"]] = c
+    filled = [r for r in rows.values() if sum(1 for c in r.values() if c.get("text")) >= 2]
+    ncol = t.get("n_cols", 0)
+    figcols = {k for k in range(ncol)
+               if filled and sum(1 for r in filled if k in r and isfig(r[k])) >= 0.6 * len(filled)}
+    out = []
+    for ri, r in sorted(rows.items()):
+        cs = [r[k] for k in sorted(r)]
+        if any(c.get("colspan", 1) > 1 or c.get("rowspan", 1) > 1 for c in cs):
+            out.extend(cs); continue
+        texts = [c for c in cs if c.get("text")]
+        figs_end = []
+        for c in reversed(cs):
+            if c.get("text") and isfig(c):
+                figs_end.append(c)
+            elif c.get("text"):
+                break
+        label = [c for c in texts if c not in figs_end]
+        if not label or not figs_end or any(isfig(c) for c in label):
+            out.extend(cs); continue
+        first, last = min(c["col"] for c in label), max(c["col"] for c in label)
+        inner_empty = all(not (r[k].get("text")) for k in range(0, last + 1) if k in r and r[k] not in label)
+        right_set = all(c["col"] in figcols for c in label) or (first > 0 and not (r.get(0, {}).get("text")))
+        if not (inner_empty and right_set and last < min(c["col"] for c in figs_end)):
+            out.extend(cs); continue
+        span = [r[k] for k in range(0, last + 1) if k in r]
+        box = [min(c["box"][0] for c in span), min(c["box"][1] for c in span),
+               max(c["box"][2] for c in span), max(c["box"][3] for c in span)]
+        out.append({"row": ri, "col": 0, "rowspan": 1, "colspan": last + 1, "box": box,
+                    "text": " ".join(c["text"] for c in label)})
+        out.extend(c for c in cs if c["col"] > last)
+    return dict(t, cells=sorted(out, key=lambda c: (c["row"], c["col"])))
+
+
 def page_tables(words: list[dict], ruled: list[dict], rules_h: list, dpi: float,
                 phrase_gap: float = 0.8, cross_frac: float = 0.15,
                 detector: str | None = None, image_zones=(), mesh_min_spines: int = 1) -> tuple[list[int], list[dict]]:

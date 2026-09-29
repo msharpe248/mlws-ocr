@@ -123,6 +123,9 @@ class TextOutput(Stage):
                                          # "replace": rows and columns from the network alone
                                          # (measured worse, RESEARCH)
         "table_net_row_join": 0.3,       # ...refine: rows join below this separator probability
+        "span_labels": False,            # a total row's label set to the right under the figure
+                                         # columns made one cell spanning to its figures
+                                         # (wstables.span_set_right_labels)
         "cell_order_by_line": False,     # a cell's words in the order of their LINES, then left to
                                          # right: sorted by each word's own centre, two words on a
                                          # line a pixel apart came out reversed ('Pay Date' ->
@@ -656,6 +659,9 @@ class TextOutput(Stage):
                 found = [self._net_structure(t, page, words) for t in found]
             if self.params["table_split_path"]:
                 found = [self._split_or_rules(t, page, words) for t in found]
+            if self.params["span_labels"]:
+                from ..layout.wstables import span_set_right_labels
+                found = [span_set_right_labels(t) for t in found]
             if len(keep) < len(layout.get("tables", [])):
                 layout = dict(layout, tables=[layout["tables"][k] for k in keep])
                 tables_text = [tables_text[k] for k in keep]
