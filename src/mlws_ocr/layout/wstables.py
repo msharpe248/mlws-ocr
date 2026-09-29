@@ -874,7 +874,7 @@ def _merge_stacked(tagged: list[tuple[list[dict], bool]]) -> list[tuple[list[dic
 
 def page_tables(words: list[dict], ruled: list[dict], rules_h: list, dpi: float,
                 phrase_gap: float = 0.8, cross_frac: float = 0.15,
-                detector: str | None = None, image_zones=()) -> tuple[list[int], list[dict]]:
+                detector: str | None = None, image_zones=(), mesh_min_spines: int = 1) -> tuple[list[int], list[dict]]:
     """The whitespace tables of a page beside its ruled ones.  Returns the
     indices of the ruled tables to keep and the tables found.
 
@@ -919,7 +919,7 @@ def page_tables(words: list[dict], ruled: list[dict], rules_h: list, dpi: float,
         # virtual and real lines, each mesh's words one table
         from .junctions import junction_tables
         walls = [(b[1], b[3]) for b in boxes + regions]
-        boxes_m = [m["box"] for m in junction_tables(rest, rules_h, barriers=walls)]
+        boxes_m = [m["box"] for m in junction_tables(rest, rules_h, barriers=walls, min_spines=mesh_min_spines)]
         for b in boxes_m:
             groups.append([w for w in rest if inside(w, [b]) is not None])
         # tables a mesh cannot see (one row has no row gaps: a key-value line)

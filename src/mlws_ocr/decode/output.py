@@ -89,6 +89,7 @@ class TextOutput(Stage):
                                          # (measured worse, RESEARCH)
         "table_net_row_join": 0.3,       # ...refine: rows join below this separator probability
         "ws_detector": "words",          # ...how: "words" (runs of rows sharing columns) or "mesh"
+        "ws_mesh_min_spines": 1,         # ...a mesh's fewest spines (2: it must close a cell)
                                          # (the junction graph: whitespace and rules as one set of
                                          # lines, E's meshed into tables; layout/junctions.py)
         "ws_detect": False,              # find whitespace tables ON the page (runs of
@@ -396,7 +397,8 @@ class TextOutput(Stage):
             keep, found = page_tables(words, layout.get("tables", []), layout.get("rules_h", []),
                                       page.dpi or 300.0, self.params["ws_phrase_gap"],
                                       self.params["ws_cross_frac"], self.params["ws_detector"],
-                                      image_zones=layout.get("image_zones", []))
+                                      image_zones=layout.get("image_zones", []),
+                                      mesh_min_spines=self.params["ws_mesh_min_spines"])
             if self.params["table_net_path"]:
                 found = [self._net_structure(t, page, words) for t in found]
             if len(keep) < len(layout.get("tables", [])):

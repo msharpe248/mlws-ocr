@@ -213,6 +213,7 @@ impl = "text"
 align_pair_min_rows = 2        # a text pair may form from two aligned rows (a table needs three) and takes the
                                # unpartnered one-line blocks on its columns' left edges; the higher-starting
                                # column reads first (2026-09-17: payslips 84.6 -> 89.3 word, orders 86.7 -> 92.3)
+ws_mesh_min_spines = 2         # table profile: a mesh must close a cell (two spines sharing two row lines)
 ws_detector = "mesh"           # table profile: tables found as meshes of E's in the junction graph (layout/junctions.py)
 table_net_path = "data/sepnet_v2.npz"  # table profile: the separator network as row evidence (wrapped rows joined)
 table_net_row_join = 0.2       # ...v2's threshold (v1 at 0.3; RESEARCH 2026-09-28)
