@@ -783,8 +783,10 @@ def rule_regions(rules_h: list, tol: float, min_rules: int = 3, max_gap: float =
 _CAPTION = re.compile(r"^\s*(table|tab\.)\s*[0-9IVX]+", re.I)
 
 
-EMPTY_GRID = [0.1]       # a ruled grid needs at least this many words per cell (and 3) to be a
-                         # table -- a chart's axes and bars make empty grids (0 = off)
+EMPTY_GRID = [0.0]       # a ruled grid needs at least this many words per cell (and 3) to be a
+                         # table (0 = off).  Off: a chart's bars read as junk letters, about one
+                         # a cell, so words do not tell a chart grid from a table; the grid
+                         # stage's tables.min_row_ink (a row of inked cells) does
 REGION_GAP = [800.0]     # the most px (at 300 dpi) between two rules of one table: a
                          # scientific table's header rule and bottom rule enclose its whole
                          # body (400 let a booktabs table fall apart at its blank lines;
