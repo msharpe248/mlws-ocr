@@ -19,6 +19,9 @@ from .tableio import split_at_cells, table_records, tables_csv, tables_html
 _RE_DASHRUN = re.compile(r"-{3,}")
 
 
+_FIGURE = re.compile(r"^[-+($]*\d[\d,.]*%?\)?$")
+
+
 def _clean_separators(xs, ys, words, box):
     """A network's separators made consistent with the words: a column
     separator crossing a word (its x inside a word, the word in the table's
@@ -128,9 +131,22 @@ class TextOutput(Stage):
                                          # tables where it finds them -- a ruled grid kept when a
                                          # detected table covers it, each other detection a table
                                          # of the words inside; "" = off (the finders below)
-        "table_split_clean": True,       # ...separators crossing a word dropped, empty bands joined
+        "table_split_select": "",        # ...how its table is used: "" = always; "empty" = only when
+                                         # it leaves no more of its cells empty than the rules' table
+                                         # (measured over PubTables-1M and FinTabNet.c: the network's
+                                         # empty cells are the best sign of a wrong grid)
+        "table_split_clean": False,      # ...separators crossing a word dropped, empty bands joined
+                                         # (measured: FinTabNet some tables better, PubTables 0.686 -> 0.610)
         "table_split_extent": "net",     # ...the table's extent: "net" (its inside outputs), "crop"
                                          # (the whole crop when the page is one table's crop)
+        "table_det_mode": "replace",     # ...how: "replace" (its tables only); "merge": the ruled grids
+                                         # kept, the whitespace tables its detections (none where it
+                                         # finds none, the finders' where it finds nothing on the page);
+                                         # "complement": the
+                                         # finders' tables kept, a whitespace table no detection
+                                         # touches dropped (when it found any), one inside a larger
+                                         # detection given its extent, a detection nothing found
+                                         # made a table
         "table_split_path": "",          # a trained structure network (layout/splitnet.py): a
                                          # whitespace table's rows and columns from its ink and
                                          # words, over the extent it marks as table; "" = off
@@ -271,6 +287,73 @@ class TextOutput(Stage):
         nt = grid_table([x0, y0, x1, y1], xs, ys, words)
         return nt if nt is not None else t
 
+    def _det_complement(self, page: Page, words: list[dict], ruled: list[dict], keep: list[int],
+                        found: list[dict]) -> tuple[list[int], list[dict]]:
+        """The detector over the page, with the finders' tables: see
+        ``table_det_mode = "complement"``.  Returns the ruled grids kept and the
+        whitespace tables."""
+        from ..layout.tabledet import TableDet
+        path = self.params["table_det_path"]
+        if page.gray is None:
+            return keep, found
+        net = self._nets.get(path) or self._nets.setdefault(path, TableDet(path))
+        boxes = net.detect(page.gray, page.dpi or 300.0, [w["box"] for w in words])
+        if not boxes:
+            return keep, found
+
+        def cover(a, b):             # the share of a inside b
+            w = min(a[2], b[2]) - max(a[0], b[0]); h = min(a[3], b[3]) - max(a[1], b[1])
+            return max(0.0, w) * max(0.0, h) / max(1.0, (a[2] - a[0]) * (a[3] - a[1]))
+
+        def table_of(b):
+            g = [w for w in words if b[0] <= (w["box"][0] + w["box"][2]) / 2 <= b[2] and b[1] <= (w["box"][1] + w["box"][3]) / 2 <= b[3]]
+            t = whitespace_table(g, self.params["ws_phrase_gap"], cross_frac=self.params["ws_cross_frac"]) if g else None
+            if t is not None:
+                t["box"] = [int(v) for v in b]
+            return t
+        grids = [ruled[k]["box"] for k in keep]
+        if self.params["table_det_mode"] == "merge":
+            # the detections decide the whitespace tables: each one a table of its
+            # words (every fragment inside it replaced), none where it found none;
+            # the ruled grids stay whatever it says
+            out = []
+            for b in boxes:
+                if any(cover(g, b) > 0.5 or cover(b, g) > 0.5 for g in grids):
+                    continue
+                nt = table_of(b)
+                if nt is not None:
+                    out.append(nt)
+            return keep, out
+        # each detection's own table replaces the finders' tables that mostly lie
+        # in it or it mostly lies in (fragments cut at a blank band, strips fused
+        # with the next page column, a table run on past its bottom) -- unless
+        # they are tables of their own set side by side, each a real share of its
+        # width (a paystub's earnings and deductions); a finder's table no
+        # detection touches is a false one; the ruled grids stay
+        out, used = [], set()
+        for b in boxes:
+            if any(cover(g, b) > 0.5 or cover(b, g) > 0.5 for g in grids):
+                continue
+            mine = [i for i, t in enumerate(found) if cover(t["box"], b) > 0.5 or cover(b, t["box"]) > 0.5]
+            bw = max(1, b[2] - b[0])
+            big = [i for i in mine if found[i]["box"][2] - found[i]["box"][0] >= 0.3 * bw]
+            side = any(min(found[i]["box"][3], found[j]["box"][3]) > max(found[i]["box"][1], found[j]["box"][1])
+                       and (min(found[i]["box"][2], found[j]["box"][2]) <= max(found[i]["box"][0], found[j]["box"][0]))
+                       for i in big for j in big if i < j)
+            if side:
+                continue
+            nt = table_of(b)
+            if nt is not None:
+                out.append(nt)
+                used.update(mine)
+        made = [t["box"] for t in out]
+        for i, t in enumerate(found):
+            if i in used or any(cover(t["box"], m) > 0.3 for m in made):
+                continue
+            if any(cover(t["box"], b) > 0.1 or cover(b, t["box"]) > 0.1 for b in boxes):
+                out.append(t)
+        return keep, out
+
     def _det_tables(self, page: Page, words: list[dict], ruled: list[dict]) -> tuple[list[int], list[dict]]:
         """The table detector over the page: (the ruled grids a detected table
         covers -- a chart's grid has none --, the whitespace tables of the other
@@ -297,6 +380,28 @@ class TextOutput(Stage):
                 t["box"] = [int(v) for v in b]
                 found.append(t)
         return keep, found
+
+    def _split_or_rules(self, t: dict, page: Page, words: list[dict], whole: bool = False) -> dict:
+        """The structure network's table, or the rules' when it is chosen by
+        ``table_split_select``."""
+        nt = self._split_structure(t, page, words, whole)
+        if self.params["table_split_select"] != "empty" or nt is t or not t.get("cells"):
+            return nt
+
+        def empty(x):
+            cs = x.get("cells", [])
+            return sum(1 for c in cs if not (c.get("text") or "").strip()) / max(1, len(cs))
+
+        def multi(x):              # cells holding two or more separate figures: rows or columns merged
+            cs = x.get("cells", [])
+            return sum(1 for c in cs if sum(1 for tok in (c.get("text") or "").split() if _FIGURE.match(tok)) >= 2) / max(1, len(cs))
+        if empty(nt) > empty(t):
+            return t
+        # a table found on a page (not a table's crop): the network's must not merge figures the rules
+        # kept apart -- a paystub's deductions collapsed into two cells had no empty cell at all
+        if not whole and multi(nt) > multi(t):
+            return t
+        return nt
 
     def _split_structure(self, t: dict, page: Page, words: list[dict], whole: bool = False) -> dict:
         """The structure network (layout/splitnet.py) over the grey page
@@ -525,7 +630,7 @@ class TextOutput(Stage):
             if t is not None and self.params["table_net_path"]:
                 t = self._net_structure(t, page, words)
             if self.params["table_split_path"]:
-                t = self._split_structure(t or {"box": [0, 0, 1, 1]}, page, words, whole=True)
+                t = self._split_or_rules(t or {"box": [0, 0, 1, 1]}, page, words, whole=True)
                 t = t if t.get("cells") else None
             if t is not None:
                 # a new layout dict: the incoming page's stays as its stage left it
@@ -537,7 +642,7 @@ class TextOutput(Stage):
 
         if self.params["ws_detect"] and not ("*" in ws_types or doc_type in ws_types):
             words = [w for ln in layout["lines"] for w in ln.get("words", [])]
-            if self.params["table_det_path"]:
+            if self.params["table_det_path"] and self.params["table_det_mode"] == "replace":
                 keep, found = self._det_tables(page, words, layout.get("tables", []))
             else:
                 keep, found = page_tables(words, layout.get("tables", []), layout.get("rules_h", []),
@@ -545,10 +650,12 @@ class TextOutput(Stage):
                                           self.params["ws_cross_frac"], self.params["ws_detector"],
                                           image_zones=layout.get("image_zones", []),
                                           mesh_min_spines=self.params["ws_mesh_min_spines"])
+                if self.params["table_det_path"]:
+                    keep, found = self._det_complement(page, words, layout.get("tables", []), keep, found)
             if self.params["table_net_path"]:
                 found = [self._net_structure(t, page, words) for t in found]
             if self.params["table_split_path"]:
-                found = [self._split_structure(t, page, words) for t in found]
+                found = [self._split_or_rules(t, page, words) for t in found]
             if len(keep) < len(layout.get("tables", [])):
                 layout = dict(layout, tables=[layout["tables"][k] for k in keep])
                 tables_text = [tables_text[k] for k in keep]

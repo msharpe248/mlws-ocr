@@ -26,8 +26,8 @@ judged before it went live. The measurements themselves are in
 | Segmenter judge | `segjudge.npz` | 32 weights | none yet (option `blocks.impl = "judged"`) | `segmenter_judge.py` | per-page accuracy of four segmenters read end to end on UNLV training-pool pages |
 | Glyph CNN | `cnn.npz` | 30k | none (kept off; `recognize.cnn_path`) | `train_cnn.py` | synthetic renders + truth-labelled real crops |
 | Table separator network | `sepnet_v2.npz` (`sepnet_v1.npz` the previous) | 44k | neural-table (`output.table_net_path`, row evidence: wrapped rows joined) | `train_sepnet.py` | 6,000 tables drawn by `factory/tablegen.py` with pixel-exact separators + 6,492 FinTabNet.c training tables |
-| Table structure network (in training) | `splitnet_v1.npz` (round one); round two training | 280k | none yet (`output.table_split_path`; `output.table_net_path` takes it as row evidence too) | `train_splitnet.py` | PubTables-1M structure training tables (100,000 of 758,849), FinTabNet.c training tables (78,537), 12,000 drawn tables, 2,550 tables of drawn business pages, 308 CORD receipts (`make_split_data.py`) |
-| Table detector (in training) | queued | 190k | none yet (`output.table_det_path`) | `train_tabledet.py` | PubTables-1M detection training pages (60,000 of Part 1's 230,294) + 1,500 drawn business pages (`make_det_data.py`) |
+| Table structure network | `splitnet_v2.npz` (`splitnet_v1.npz` round one) | 280k | neural-table (`output.table_split_path`, chosen over the rules' table by `table_split_select = "empty"`) | `train_splitnet.py` | PubTables-1M structure training tables (100,000 of 758,849), FinTabNet.c training tables (78,537), 12,000 drawn tables, 2,550 tables of drawn business pages, 308 CORD receipts (`make_split_data.py`) |
+| Table detector | `tabledet_v1.npz` | 190k | neural-table (`output.table_det_path`, `table_det_mode = "complement"`) | `train_tabledet.py` | PubTables-1M detection training pages (60,000 of Part 1's 230,294) + 1,200 drawn business pages + 900 CORD training receipts (`make_det_data.py`) |
 
 The classic engine also builds three learned tables that are not networks
 but come from the same data: the condensed nearest-prototype pool
@@ -701,7 +701,7 @@ separator in it) was negative at every threshold (0.1: 0.675 / 0.799).
 .venv/bin/python scripts/train_sepnet.py --data data/sep_synth_1.npz data/sep_synth_2.npz data/sep_synth_3.npz data/sep_fin.npz --out data/sepnet_v1.npz --epochs 12 --device cuda
 ```
 
-### Table structure network — `layout/splitnet.py` (in training, not yet in a profile)
+### Table structure network — `layout/splitnet.py` (neural-table)
 
 The separator network's successor (2026-09-29), closer to split-and-merge
 (Tensmeyer et al., ICDAR 2019): projection pooling inside every block --
@@ -742,7 +742,9 @@ is a caption), and the business sets fell (receipts 0.909 -> 0.710,
 paystubs 0.852 -> 0.640): round one had seen no business table.  Not
 adopted; round two is the test.
 
-### Table detector — `layout/tabledet.py` (queued, not yet in a profile)
+**Round two (`splitnet_v2.npz`, adopted with a choice).** From round one, 8 epochs of 80,000 draws over 193,334 tables (the full FinTabNet.c training split and the drawn business tables added): held-out F1 0.922.  Alone it wins on receipts and loses on paystubs and timesheets; so `table_split_select = "empty"`: its table is used when it leaves no more cells empty than the rules' and, for a table found on a page, merges no figures the rules kept apart.  Measured with the detector (RESEARCH 2026-09-29): PubTables-1M structure 0.452 -> 0.654, receipts 0.909 -> 0.929.
+
+### Table detector — `layout/tabledet.py` (neural-table)
 
 A fully convolutional segmenter over the whole page at an eighth of 300 dpi
 (a letter page 319 x 412), the same projection-pooling blocks, two outputs
@@ -755,6 +757,16 @@ business pages (their tables' boxes, words found in the ink).  Used by
 `output.table_det_path`: a ruled grid is kept when a detected table covers
 it (a chart's grid has none), each other detection is a whitespace table
 of its words.
+
+**Training.** `train_tabledet.py` on ai01, whole pages, batch 8 (16 ran out
+of memory), masked BCE (the border band weighted 3), one-cycle: 12 epochs
+of 24,000 pages (5 min each), held-out detection F1 0.981; the first round
+had taken the 300 drawn payroll forms as table-FREE pages (their records
+keep no boxes) -- left out, 4 more epochs (0.978); then 900 CORD training
+receipts cut as the evaluation cuts them, weight 16, 4 more epochs (0.974):
+`tabledet_v1.npz`.  In neural-table as `table_det_mode = "complement"`
+(RESEARCH 2026-09-29): PubTables-1M detection F1 0.685 -> 0.957, paystubs
+0.861 -> 0.890, invoices 0.787 -> 0.847.
 
 ## Rebuilding everything from scratch
 

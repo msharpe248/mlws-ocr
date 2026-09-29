@@ -143,5 +143,5 @@ class SplitNet:
         small = np.asarray(Image.fromarray((np.clip(gray, 0, 1) * 255).astype(np.uint8)).resize(
             (W, H), Image.BILINEAR), np.float32) / 255.0
         zs = forward(self.params, 1.0 - small, word_mask((H, W), words, W / w))
-        sig = lambda z: 1.0 / (1.0 + np.exp(-z))  # noqa: E731
+        sig = lambda z: 1.0 / (1.0 + np.exp(-np.clip(z, -50.0, 50.0)))  # noqa: E731
         return (*[sig(z) for z in zs], 1.0 / f)

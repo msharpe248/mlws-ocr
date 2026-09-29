@@ -115,5 +115,5 @@ class TableDet:
     def detect(self, gray: np.ndarray, dpi: float, words=()) -> list[list[float]]:
         ink, wm, f = page_inputs(gray, dpi, words)
         zt, zb = forward(self.params, ink, wm)
-        sig = lambda z: 1.0 / (1.0 + np.exp(-z))  # noqa: E731
+        sig = lambda z: 1.0 / (1.0 + np.exp(-np.clip(z, -50.0, 50.0)))  # noqa: E731
         return boxes_from(sig(zt), sig(zb), f)

@@ -79,6 +79,7 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--data", nargs="+", required=True, help="path[=weight], globs allowed")
     ap.add_argument("--out", type=Path, required=True)
+    ap.add_argument("--init", type=Path, default=None)
     ap.add_argument("--epochs", type=int, default=10)
     ap.add_argument("--per-epoch", type=int, default=0)
     ap.add_argument("--batch", type=int, default=16)
@@ -101,6 +102,11 @@ def main():
     per = args.per_epoch or len(train)
     print(f"{len(X)} pages ({len(train)} train, {len(val)} held out), {per} a epoch, device {device}", flush=True)
     net = TableDetT(seed=args.seed).to(device)
+    if args.init:
+        z = np.load(args.init)
+        with torch.no_grad():
+            for k in net.p:
+                net.p[k].copy_(torch.from_numpy(z[k]))
     opt = torch.optim.AdamW(net.parameters(), lr=args.lr, weight_decay=1e-4)
     steps = args.epochs * ((per + args.batch - 1) // args.batch)
     sched = torch.optim.lr_scheduler.OneCycleLR(opt, max_lr=args.lr, total_steps=steps, pct_start=0.05)

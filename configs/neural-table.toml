@@ -221,6 +221,10 @@ impl = "text"
 align_pair_min_rows = 2        # a text pair may form from two aligned rows (a table needs three) and takes the
                                # unpartnered one-line blocks on its columns' left edges; the higher-starting
                                # column reads first (2026-09-17: payslips 84.6 -> 89.3 word, orders 86.7 -> 92.3)
+table_det_path = "data/tabledet_v1.npz"   # table profile: the self-trained table detector (layout/tabledet.py) ...
+table_det_mode = "complement"  # ...with the finders: its detections replace their fragments, side-by-side tables stay
+table_split_path = "data/splitnet_v2.npz" # table profile: the self-trained structure network (layout/splitnet.py) ...
+table_split_select = "empty"   # ...its table used when it leaves no more cells empty than the rules' (and merges no figures)
 cell_order_by_line = true      # table profile: a cell's words in line order, then left to right ('Date Pay' -> 'Pay Date')
 ws_mesh_min_spines = 2         # table profile: a mesh must close a cell (two spines sharing two row lines)
 ws_detector = "mesh"           # table profile: tables found as meshes of E's in the junction graph (layout/junctions.py)

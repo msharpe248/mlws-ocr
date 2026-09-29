@@ -118,7 +118,8 @@ def test_neural_table_is_neural_plus_the_table_options():
     change what the reader sees; everything else stays neural's."""
     allowed = {"magnify": {"max_scale"}, "deskew": {"edge_nearest", "ink_fallback"}, "illumination": {"stretch_low"}, "imagezones": {"keep_grids"}, "rulings": {"short_in_grid_300dpi"},
                "tables": {"diagonals", "min_row_ink"}, "decode": {"line_gray_rules_out"}, "lines": {"in_cells"},
-               "output": {"table_net_path", "table_net_row_join", "ws_detector", "ws_mesh_min_spines", "cell_order_by_line"}}
+               "output": {"table_net_path", "table_net_row_join", "ws_detector", "ws_mesh_min_spines", "cell_order_by_line",
+                          "table_det_path", "table_det_mode", "table_split_path", "table_split_select"}}
     a, b = _specs("neural-table.toml"), _specs("neural.toml")
     assert list(a) == list(b)
     for key in a:
