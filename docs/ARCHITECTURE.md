@@ -29,33 +29,33 @@ Contents
 
 ```mermaid
 flowchart LR
-    subgraph In[Inputs]
-        IMG[image<br/>PNG / TIFF / JPEG]
-        PDF[PDF page<br/>largest embedded image]
+    subgraph In["inputs"]
+        direction TB
+        IMG["image<br/>PNG / TIFF / JPEG"]
+        PDF["PDF page<br/>largest embedded image"]
     end
-    subgraph Surfaces[Ways in]
+    subgraph Doors["ways in"]
+        direction TB
         CLI["mlws-ocr run / batch"]
         SVC["mlws-ocr-service<br/>POST /ocr"]
         UI["mlws-ocr-ui<br/>the workbench"]
     end
-    CFG[(configs/*.toml<br/>engine profile)]
-    MOD[(data/*.npz<br/>released models)]
-    PIPE[[the pipeline<br/>17 stage slots]]
-    subgraph Out[Outputs]
-        TXT[text]
-        HOCR[hOCR<br/>words, lines, tables]
-        TAB[tables<br/>JSON / HTML / CSV]
-        RUN[runs/&lt;id&gt;/<br/>every stage persisted]
+    subgraph Engine["the engine"]
+        direction TB
+        CFG[("configs/*.toml<br/>engine profile")]
+        PIPE[["the pipeline<br/>17 stage slots"]]
+        MOD[("data/*.npz<br/>released models")]
+        CFG --> PIPE
+        MOD --> PIPE
     end
-    IMG --> CLI & SVC & UI
-    PDF --> CLI & SVC & UI
-    CFG --> PIPE
-    MOD --> PIPE
-    CLI --> PIPE
-    SVC --> PIPE
-    UI --> PIPE
-    PIPE --> TXT & HOCR & TAB
-    CLI -.-> RUN
+    subgraph Out["outputs"]
+        direction TB
+        TXT["text"]
+        HOCR["hOCR<br/>words, lines, tables"]
+        TAB["tables<br/>JSON / HTML / CSV"]
+    end
+    In --> Doors --> Engine --> Out
+    CLI -.->|persists every stage| RUN["runs/ID/<br/>one folder per stage"]
     RUN -.-> INSP["mlws-ocr inspect<br/>read-only viewer"]
 ```
 
@@ -75,43 +75,44 @@ the live block-segmentation lab).
 
 ```mermaid
 flowchart TB
-    subgraph core["core/ — the contracts"]
-        artifacts["artifacts.py<br/>Page"]
-        stage["stage.py<br/>Stage, DebugBundle"]
-        registry["registry.py<br/>@register, get, available"]
-        config["config.py<br/>TOML profile, --set"]
-        runner["runner.py<br/>run_pipeline, persistence"]
-        imgio["imgio.py / pdfio.py<br/>load_gray, PDF pages"]
-    end
-    subgraph stages["the stages"]
-        cleanup["cleanup/<br/>magnify, deskew, illumination,<br/>binarize, despeckle"]
-        layout["layout/<br/>imagezones, rulings, blocks,<br/>tables, lines + table finders<br/>and table networks"]
-        glyph["glyph/<br/>components, features,<br/>skeletons, strips"]
-        recognize["recognize/<br/>prototypes, MLP, outline,<br/>CRNN (seq.py), CTC"]
-        lang["lang/<br/>lexicon + trigrams,<br/>character GRU"]
-        decode["decode/<br/>beam, hybrid line reader,<br/>correct, output, tables I/O"]
-        adapt["adapt/<br/>per-document refit"]
-    end
     subgraph surfaces["the surfaces"]
-        cli["cli.py"]
-        service["service.py"]
-        batch["batch.py"]
-        workbench["workbench/<br/>session, edits, server, static/"]
+        direction LR
+        cli["cli.py<br/>run, batch, inspect"]
+        service["service.py<br/>HTTP service"]
+        workbench["workbench/<br/>session, edits, server"]
         inspector["inspector/<br/>run viewer, lab"]
     end
-    subgraph offline["offline"]
-        factory["factory/<br/>synthetic pages, fonts,<br/>table generator"]
-        evalpkg["eval/<br/>alignment"]
-        scripts["scripts/<br/>data, training,<br/>evaluation, release"]
+    subgraph stages["the stages, in pipeline order"]
+        direction LR
+        cleanup["cleanup/<br/>magnify, deskew,<br/>illumination,<br/>binarize, despeckle"]
+        layout["layout/<br/>zones, rulings, blocks,<br/>tables, lines;<br/>table networks"]
+        glyph["glyph/<br/>components,<br/>features, strips"]
+        recognize["recognize/<br/>prototypes, MLP,<br/>CRNN, CTC"]
+        decode["decode/<br/>beam, line reader,<br/>correct, output"]
+        adapt["adapt/<br/>document refit"]
+        cleanup --> layout --> glyph --> recognize --> decode
+        decode <--> adapt
     end
-    stages --> core
-    surfaces --> core
-    recognize --> lang
-    decode --> recognize
+    lang["lang/<br/>lexicon, trigrams,<br/>character GRU"]
+    subgraph core["core/ — the contracts"]
+        direction LR
+        artifacts["artifacts.py<br/>Page"]
+        stage["stage.py<br/>Stage, DebugBundle"]
+        registry["registry.py"]
+        config["config.py<br/>profiles, --set"]
+        runner["runner.py<br/>runs on disk"]
+        imgio["imgio.py, pdfio.py"]
+    end
+    subgraph offline["offline, never imported by the pipeline"]
+        direction LR
+        factory["factory/<br/>synthetic pages, fonts,<br/>table generator"]
+        scripts["scripts/<br/>data, training,<br/>evaluation, release"]
+        evalpkg["eval/<br/>alignment"]
+    end
+    surfaces --> stages
     decode --> lang
-    decode --> layout
-    scripts --> stages
-    scripts --> factory
+    stages --> core
+    offline -.-> stages
 ```
 
 `core/` knows nothing about OCR: it defines the page, the stage, the
@@ -440,7 +441,7 @@ CSV are `decode/tableio.py`; the checks `decode/arith.py`.
 
 ```mermaid
 flowchart LR
-    run["runs/&lt;doc-id&gt;/"] --> man[manifest.json<br/>source, profile,<br/>per-stage time and scalars]
+    run["runs/DOC-ID/"] --> man[manifest.json<br/>source, profile,<br/>per-stage time and scalars]
     run --> s0["00_ingest/page/"]
     run --> s1["01_magnify.xheight/"]
     run --> sd["…"]
