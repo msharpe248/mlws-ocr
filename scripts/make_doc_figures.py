@@ -507,6 +507,37 @@ def fig_ensemble():
     s.save("ensemble.svg")
 
 
+def fig_temperature():
+    """What distillation's temperature does to one frame's distribution: the
+    teacher's second choices become visible."""
+    classes = ["l", "1", "I", "|", "i", "t", "!", "L"]
+    z = np.array([6.0, 4.2, 3.6, 2.4, 1.2, 0.6, 0.3, 0.0])
+    temps = [(1, "T = 1 (as trained)"), (2, "T = 2 (what the student matches)"), (4, "T = 4")]
+    W, H = 900, 300
+    im = Image.new("RGB", (W, H), "white")
+    d = ImageDraw.Draw(im)
+    d.text((20, 12), "One frame of the teacher, softened: p_i = exp(z_i / T) / sum_j exp(z_j / T)", fill=INK,
+           font=font(15))
+    pw = (W - 40) // 3
+    for k, (T, name) in enumerate(temps):
+        p = np.exp(z / T) / np.exp(z / T).sum()
+        x0, y0, h = 20 + k * pw, 60, 170
+        d.text((x0 + 10, y0 - 18), name, fill=INK, font=font(13))
+        bw = (pw - 40) // len(classes)
+        for i, (c, v) in enumerate(zip(classes, p)):
+            x = x0 + 20 + i * bw
+            bh = int(h * v)
+            d.rectangle([x, y0 + h - bh, x + bw - 6, y0 + h], fill=BLUE if i == 0 else "#9fb8ec")
+            d.text((x + bw / 2 - 6, y0 + h + 6), c, fill=INK, font=font(13))
+            if v >= 0.02:
+                d.text((x, y0 + h - bh - 16), f"{v:.2f}", fill=MUTED, font=font(11))
+    d.text((20, H - 34), "At T = 1 the teacher says almost only 'l'. Softened, it also says 'if not l, then 1, then I': "
+                         "which characters look alike -- knowledge a one-hot truth label cannot carry.",
+           fill=MUTED, font=font(12))
+    im.save(OUT / "temperature.png")
+    print("wrote", OUT / "temperature.png")
+
+
 def schematics():
     fig_neuron()
     fig_activations()
@@ -522,6 +553,7 @@ def schematics():
     fig_table_nets()
     fig_logistic()
     fig_finetune()
+    fig_temperature()
     fig_ensemble()
 
 

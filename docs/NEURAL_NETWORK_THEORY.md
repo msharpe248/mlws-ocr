@@ -8,8 +8,8 @@ never trained a network, and to stay useful as a reference for someone who
 has.
 
 - **Part I** is the general theory: neurons and layers, how a network
-  learns, convolutions, recurrence, CTC, and the training practices this
-  project leans on.
+  learns, convolutions, recurrence, CTC, the training practices this
+  project leans on, and fine-tuning and distillation.
 - **Part II** is the engine's own networks, one section each, with the
   numbers.
 - **Part III** is a summary table and a list of what we deliberately do not
@@ -303,33 +303,216 @@ three good points is not a good point. The output average costs three
 forward passes; `recognize/seq.py: SeqEnsemble` runs the three GRUs in one
 stacked loop to keep that cheap.
 
-**Teaching something new without forgetting the old.**
-
-![Fine-tuning without forgetting](img/nn/finetune.svg)
-
-When a working reader must learn a new kind of text (receipts, then table
-cells), training it only on the new lines erodes what it knew. Three
-techniques together prevent that:
-
-- **L2-SP** (Li, Grandvalet & Davoine, 2018): instead of decaying weights
-  towards zero, pull them towards their **starting** values,
-  `λ‖θ − θ₀‖²`, so the network moves only as far as the new data demands.
-- **Self-distillation** (Learning without Forgetting, Li & Hoiem, 2016;
-  distillation, Hinton et al., 2015): the live reader, frozen, is the
-  **teacher**; on the old kind of lines the new reader (the **student**) is
-  also trained to match the teacher's softened per-frame distributions
-  (temperature 2), not just the one-hot truth. The new kind of lines are
-  left out of the distillation — there the teacher is the thing being
-  improved on.
-- **EMA weights** (Polyak averaging): keep a slowly moving average of the
-  weights (0.999 of the old average plus 0.001 of the new weights, every
-  step) and ship the average. It smooths out the noise of the last steps
-  of training; the released readers are the EMA weights.
+**Teaching something new without forgetting the old** — fine-tuning,
+distillation and the rest — has a section of its own, §8.
 
 **Adopt only what measures better.** A trained network is a candidate. It
 is run through the whole engine on every evaluation set, and it is named in
 a profile only if it wins, or if the owner accepts a stated trade-off. The
 losing attempts stay in [RESEARCH.md](RESEARCH.md) with their numbers.
+
+## 8. Fine-tuning, forgetting, and distillation
+
+The line reader was not trained once. It was trained, and then taught
+again four times — grey strips instead of binary ones, then receipts and
+forms, then eight new symbols, then the text of tables — each time starting
+from the reader before. This section explains how that is done, what goes
+wrong when it is done naively, and the four remedies the project uses.
+
+### 8.1 Fine-tuning
+
+**Fine-tuning** means training a network that has already been trained:
+instead of starting from random weights, start from the weights of a
+network that already does a related job (`train_seq.py --init
+data/seq_line_gray9_en.npz`), and train on for a few epochs with data that
+includes the new job.
+
+It works because most of what a trained reader knows is not specific to
+the text it was trained on. Its first layers detect edges, stroke ends and
+bowls (§3); its middle layers, letter parts; its recurrent layer, how
+letters follow one another. A receipt's thermal print uses the same
+letters. Fine-tuning keeps all of that and adjusts it, so it needs far less
+data and time than training from scratch: each of the reader's fine-tunes
+ran for 3 to 8 epochs, half an hour to an hour and a half for the three
+ensemble members together on one GPU.
+
+It is also the only way to keep what cannot be re-created cheaply. A
+from-scratch retrain to add one new character moved the typewriter set by
+more than the character was worth (RESEARCH, 2026-09-16); fine-tuning
+leaves everything else where it was.
+
+### 8.2 Catastrophic forgetting
+
+The danger has a name: **catastrophic forgetting**. The gradient only says
+how to do better on the batch in front of it. If every batch is receipts,
+every step pulls the shared weights towards receipts, and nothing pulls
+them back towards what they did for letters and legal pages. The network
+does not "remember" the old data; it only has the weights, and the weights
+are moving.
+
+This project measured it. The first attempt to teach the reader SROIE
+receipts was a plain fine-tune on the receipt lines (RESEARCH, 2026-09-26,
+"v4"): **SROIE +12.7 points, and up to −1.7 on every other set**. The
+receipts were learned; something else was paid for them.
+
+The four remedies below were added one at a time, each measured, until the
+receipts' gain came at no more than 0.4 of a point anywhere else (v0.14.0).
+
+### 8.3 Remedy one: rehearsal — keep the old data in the mix
+
+The simplest remedy is to keep training on the old data alongside the new,
+so every batch pulls both ways. Each fine-tune here trains on the reader's
+whole previous training set plus the new lines, and **controls the shares**:
+`--weight FILE=W` sets how often each file's lines are drawn per epoch
+(CORD's receipt photos at ×20, the table lines at ×0.5), and
+`--lines-once` takes a very large new file once an epoch instead of
+repeating it. Getting the shares right (v6) closed most of the forgetting
+by itself — and getting them wrong is how the v0.17 table reader was nearly
+lost: with the table lines at ×1.0 instead of ×0.5, tables improved and
+receipts fell (RESEARCH, `seq_line_gray13`).
+
+### 8.4 Remedy two: L2-SP — a spring back to the start
+
+Ordinary **weight decay** adds `λ‖θ‖²` to the loss: a pull of every weight
+towards zero, to keep weights small. **L2-SP** ("starting point"; Li,
+Grandvalet & Davoine, 2018) pulls towards the **starting** weights
+instead:
+
+$$L_{\text{L2-SP}} = \lambda \,\lVert \theta - \theta_0 \rVert^2 \qquad (\lambda = 10^{-4},\ \texttt{--l2sp})$$
+
+Think of every weight tied to where it started by a weak spring. A weight
+the new data really needs to move, moves — the pull of the new loss is
+stronger than the spring. A weight the new data only nudges by accident
+stays put. On its own (v5) it kept business letters and the modern set, but
+not CORD or the Legal Reports: a spring cannot tell which accidental nudges
+matter.
+
+### 8.5 Remedy three: distillation — learn from the old network's opinions
+
+**Knowledge distillation** (Hinton, Vinyals & Dean, 2015) trains a
+**student** network to match the outputs of a **teacher** network, not just
+the truth. Hinton's use was compression — a large teacher, a small student.
+Here the teacher and student are the same size: the teacher is the reader
+*before* the fine-tune, frozen, and the student is the reader being
+fine-tuned. Used this way to prevent forgetting it is called **Learning
+without Forgetting** (Li & Hoiem, 2016).
+
+**Why the teacher's outputs, and not just the truth?** The truth for a
+frame is one-hot: "this is an 'l'". The teacher says more. Its distribution
+over the 120 classes also says what the 'l' *resembles*: some '1', a little
+'I', a trace of '|'. That ranking of second choices — sometimes called the
+network's *dark knowledge* — is exactly the behaviour the fine-tune must
+not lose, and a one-hot label cannot carry it.
+
+**Temperature.** A trained network is confident, so its second choices are
+tiny numbers (the 'l' frame below: 0.77, then 0.13, then 0.07, then almost
+nothing). To make the student attend to them, both networks' outputs are
+**softened** by a temperature `T` before they are compared:
+
+$$p_i^{(T)} = \frac{\exp(z_i / T)}{\sum_j \exp(z_j / T)}$$
+
+At `T = 1` this is the ordinary softmax; larger `T` flattens it towards
+uniform while keeping the order. The project uses `T = 2`
+(`--distill-temp`):
+
+![Temperature](img/nn/temperature.png)
+
+**The distillation loss** is the **Kullback–Leibler divergence** from the
+teacher's softened distribution to the student's — how many extra nats it
+costs to describe the teacher's opinion using the student's — at every
+frame of the line:
+
+$$L_{\text{distill}} = T^2 \cdot \frac{1}{F}\sum_{\text{frames } f} \sum_i p_i^{\text{teacher},(T)}(f)\,\log\frac{p_i^{\text{teacher},(T)}(f)}{p_i^{\text{student},(T)}(f)}$$
+
+Three details matter:
+
+- **The `T²` factor.** Softening by `T` shrinks the gradients of the
+  divergence by about `1/T²`; multiplying back keeps the distillation term
+  on the same scale as the CTC loss whatever `T` is chosen (Hinton et
+  al.'s recipe).
+- **Per frame, over real frames only.** A CRNN's output is a distribution
+  per 2-pixel frame (§5), so distillation compares frame by frame; the
+  padding frames beyond each strip's width are masked out
+  (`scripts/train_seq.py`).
+- **Not on the new domain.** On the lines being taught — the receipts, the
+  table cells — the teacher is exactly what is being improved on, and
+  matching it would hold the student back. Those files are named in
+  `--distill-skip` (`sroie_box`, `funsd_box`, `tab_`) and get the CTC loss
+  only. So are lines whose text needs a character the teacher has no class
+  for (the teacher can only say '?' there).
+
+Distillation with the fuller typescript data (v7) closed the last of the
+forgetting: the receipts' gain kept, at most 0.4 of a word point lost
+anywhere else.
+
+### 8.6 Remedy four: EMA — ship the average, not the last step
+
+Training ends with the weights still jittering from batch to batch. An
+**exponential moving average** of the weights,
+
+$$\bar\theta \leftarrow 0.999\,\bar\theta + 0.001\,\theta \qquad \text{(after every step; \texttt{--ema 0.999})}$$
+
+averages over the last few thousand steps (Polyak averaging). The average
+lies nearer the middle of the valley the weights have been bouncing around
+in, which generalises better than any one point on its walls. Measured on
+v0.14.0: the best single epoch read SROIE 1.9 points better than the EMA
+weights, and held-out business letters 0.6 worse. The EMA weights ship: a
+reader for every kind of page, not the best reader for the newest kind.
+
+### 8.7 Growing the output layer
+
+Teaching the reader eight new symbols (`* = + @ [ ] _ `` `, v0.15.0) meant
+eight new output classes. `SeqNet.with_classes` (`recognize/seq.py`) builds
+the wider network by **copying** every weight, moving each output row to
+its class's new position **by name**, and giving each new class a fresh
+random column with a bias two below the mean of the others — so the new
+classes start rare and the CTC does not "spray" them across frames before
+they have been learned. The frozen teacher is widened the same way, so
+distillation can compare the two distributions class for class.
+
+### 8.8 All together
+
+![Fine-tuning without forgetting](img/nn/finetune.svg)
+
+One fine-tuning step of the line reader minimises
+
+$$L = \underbrace{L_{\text{CTC}}(\text{student}, \text{truth})}_{\text{old and new lines, weighted}} \;+\; \underbrace{1.0 \cdot T^2\, \overline{\mathrm{KL}}\big(p^{\text{teacher},(T)} \,\Vert\, p^{\text{student},(T)}\big)}_{\text{old lines only},\ T = 2} \;+\; \underbrace{10^{-4}\,\lVert\theta - \theta_0\rVert^2}_{\text{L2-SP}}$$
+
+and ships the EMA of its weights. The recipe as one command
+([NETWORKS.md](NETWORKS.md) has each version's exact files and weights):
+
+```sh
+.venv/bin/python scripts/train_seq.py --backend torch --device cuda \
+    --init data/seq_line_gray9_en.npz \
+    --lines <the old line files> <the new line files> --weight <per-file shares> \
+    --l2sp 1e-4 --distill 1.0 --distill-skip <the new files> --ema 0.999 \
+    --epochs 3 --out data/seq_line_gray12_1.npz
+```
+
+- `--init`: fine-tune — start from the live reader, which is also the
+  frozen teacher;
+- `--lines`, `--weight`: rehearsal, old and new lines in chosen shares;
+- `--l2sp`: the spring back to the start;
+- `--distill`, `--distill-skip`: learning without forgetting at `T = 2`,
+  not on the new files;
+- `--ema`: ship the average of the weights.
+
+### 8.9 The reader's family tree
+
+```mermaid
+flowchart LR
+    v17a["seq_line_v17a<br/>binary strips<br/>v0.9.0"] -->|grey strips, 8 epochs| g2["gray2<br/>v0.13.0"]
+    g2 -->|"receipts, forms<br/>rehearsal + L2-SP + distillation + EMA"| g7["gray7<br/>v0.14.0"]
+    g7 -->|"8 new classes<br/>(widened), 3 epochs"| g9["gray9<br/>v0.15.0<br/>neural profile"]
+    g9 -->|"table lines x0.5,<br/>receipts up, 3 epochs"| g12["gray12<br/>v0.17.0<br/>neural-table profile"]
+    g9 -.->|"table lines x0.5,<br/>no receipt weighting"| g11["gray11<br/>not adopted"]
+    g12 -.->|"3 more epochs,<br/>table lines x1.0"| g13["gray13<br/>not adopted"]
+```
+
+Every arrow is a fine-tune with the remedies above; every box was measured
+on every evaluation set before it was adopted, and the dashed ones lost
+somewhere and were not (RESEARCH.md has each one's numbers). That is the
+final safeguard against forgetting: not a technique, a measurement.
 
 ---
 
@@ -474,7 +657,7 @@ table cell lines from PubTables-1M and FinTabNet.c training crops. Adam
 with cosine decay, CTC loss, width-bucketed batches, page-disjoint held-out
 lines; the epoch with the best held-out word accuracy ships. The live
 readers were **fine-tuned** in steps, each from the one before, with L2-SP,
-self-distillation and EMA (§7), so each gained a new kind of text without
+self-distillation and EMA (§8), so each gained a new kind of text without
 losing the old: grey strips (v0.13), receipts and forms (v0.14), eight new
 symbols (v0.15), table lines (v0.17, table profile).
 
