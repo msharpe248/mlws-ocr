@@ -253,6 +253,8 @@ ws_mesh_min_spines = 2         # table profile: a mesh must close a cell (two sp
 ws_detector = "mesh"           # table profile: tables found as meshes of E's in the junction graph (layout/junctions.py)
 table_net_path = "data/sepnet_v2.npz"  # table profile: the separator network as row evidence (wrapped rows joined)
 table_net_row_join = 0.2       # ...v2's threshold (v1 at 0.3; RESEARCH 2026-09-28)
+table_net_figure_rows = true   # table profile: ...two rows each with a cell of figures alone in the same column
+                               # never join (a receipt's item lines, each with its price): CORD 0.395 -> 0.466
 split_words_at_cells = true    # table output only (2026-09-28): a word across ruled cell borders split at them
 fix_figure_columns = true      # ...a misread cell in a column of figures repaired to a figure ('S 25' -> '$ 25')
 check_arithmetic = true        # ...each table's figures checked against the relations it keeps (cells ok / fail)

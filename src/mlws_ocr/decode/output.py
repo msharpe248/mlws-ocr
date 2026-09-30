@@ -248,6 +248,7 @@ class TextOutput(Stage):
                                          # are one wrapped row (sepnet.refine_with_separators);
                                          # "replace": rows and columns from the network alone
                                          # (measured worse, RESEARCH)
+        "table_net_figure_rows": False,  # ...two rows each holding a figure in the same column never join
         "table_net_row_join": 0.3,       # ...refine: rows join below this separator probability
         "nest_side_by_side": False,      # tables set side by side as the cells of one outer table
                                          # (tableio.nest_side_by_side)
@@ -429,7 +430,8 @@ class TextOutput(Stage):
                 return lambda a, b: float(p[max(0, int((a - off) / f)):max(int((a - off) / f) + 1,
                                                                             int((b - off) / f) + 1)].max()) if len(p) else 1.0
             return refine_with_separators(t, span_max(pc, x0), span_max(pr, y0), 0.0,
-                                          self.params["table_net_row_join"])
+                                          self.params["table_net_row_join"],
+                                          self.params["table_net_figure_rows"])
         xs = [x0 + v for v in separators(pc, f)]
         ys = [y0 + v for v in separators(pr, f)]
         nt = grid_table([x0, y0, x1, y1], xs, ys, words)

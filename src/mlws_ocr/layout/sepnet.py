@@ -223,14 +223,27 @@ def _merge_axis(t: dict, groups: list[int], axis: str) -> dict:
     return out
 
 
-def refine_with_separators(t: dict, pcol, prow, col_veto: float = 0.2, row_join: float = 0.2) -> dict:
+def refine_with_separators(t: dict, pcol, prow, col_veto: float = 0.2, row_join: float = 0.2,
+                           figure_rows: bool = False) -> dict:
     """The separator network as EVIDENCE for a table the word-alignment rules
     built: a column gap where the network sees no separator anywhere
     (max probability under ``col_veto``) is a gap inside one column (a '$'
     apart from its amount, dot leaders) -- the two columns merge; two rows
     with no row separator between them are one wrapped row -- they merge.
     ``pcol(x0, x1)`` / ``prow(y0, y1)`` give the network's highest separator
-    probability over a page-pixel range."""
+    probability over a page-pixel range.  ``figure_rows``: two rows that each
+    hold a cell of figures alone in the same column never merge -- a wrapped row's second
+    line has no figure of its own where its first has one (a receipt's item
+    lines, each with its price, were joined into one row)."""
+    import re
+    fig = re.compile(r"^[-+($]*\d[\d,.]*%?\)?$")
+    figcols: dict[int, set] = {}
+    if figure_rows:
+        for c in t["cells"]:
+            toks = (c.get("text") or "").split()
+            if c.get("rowspan", 1) == 1 and toks and any(fig.match(w) for w in toks) \
+                    and all(fig.match(w) or w in "$%" for w in toks):
+                figcols.setdefault(c["row"], set()).add(c["col"])
     def extents(axis):
         span = "colspan" if axis == "col" else "rowspan"
         lo_i, hi_i = (0, 2) if axis == "col" else (1, 3)
@@ -250,7 +263,7 @@ def refine_with_separators(t: dict, pcol, prow, col_veto: float = 0.2, row_join:
                 lo, hi = min(a[1], b[0]), max(a[1], b[0])
                 if hi - lo < 1:
                     lo, hi = lo - 1, hi + 1
-                if fn(lo, hi) < th:
+                if fn(lo, hi) < th and not (axis == "row" and figcols.get(k - 1, set()) & figcols.get(k, set())):
                     groups[k] = g
                     continue
             g += 1
