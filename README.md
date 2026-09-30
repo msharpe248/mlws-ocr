@@ -149,26 +149,24 @@ Both Tesseract engines are measured on every set with the same scripts
 and pages; [docs/TESSERACT.md](docs/TESSERACT.md) is the full side-by-side
 of the numbers, the shared ideas and the differences. The short form:
 
-- **Ahead of both engines** on typewriter pleadings (+4 characters),
-  modern documents (+19) and tabular business pages (+26 by edit
-  distance, level on bag-of-words recall), on the letter tuning set, and
-  on the Library of Congress typescript archive (+6.8 characters and +2.7
-  words over the LSTM; +4.2 / +1.5 on a 100-page draw).
-  Tesseract's page analysis is the reason on all three: margins and hole
-  punches read as text, templated letters broken, tables read by column.
-- **Behind on the headline letter set** by 0.2 characters / 0.1 words
-  against legacy and 0.7 / 1.1 against the LSTM. Handed the same text as
-  bare blocks the reader is at character parity, so the gap is letterhead
-  display lines and word spacing, not the recognizer.
-- **Behind on newspapers and magazines**, which are measured and not
-  tuned; the loss is column layout.
-- **Scanned receipts level with the LSTM** in words (39.7 against 40.3)
-  and four characters ahead; forms behind by eight. **Photographed
-  receipts** (CORD) are the widest gap: 9 characters and 13 words behind.
-- **A tenth of the training data**: 286k parameters trained on this
-  machine from open fonts and UNLV truth, against Tesseract's 4,500 fonts
-  and Google's training run. Real scanned strips in training are what buy
-  the lead on degraded pages.
+- **Ahead of both engines** on the headline letter set in words (93.0
+  against 91.7 legacy and 92.7 LSTM; 0.2 characters behind the LSTM), on
+  held-out letters (93.9 / 91.1), typewriter pleadings (+3.5 characters),
+  modern documents (+19), tabular business pages (+27), the Library of
+  Congress typescript archive (+8.7 characters / +7.4 words over the LSTM)
+  and a paragraph read alone. Tesseract's page analysis is much of the
+  reason on the documents: margins and hole punches read as text,
+  templated letters broken, tables read by column.
+- **Receipts, scanned and photographed**: ahead of both -- SROIE by 15.5
+  characters and 22 words over the LSTM, CORD by 6.8 and 10.
+- **Behind** on newspapers (held out: 86.7 / 81.6 against the LSTM's
+  87.7 / 84.2) and on forms (FUNSD: 0.5 characters and 2.9 words behind
+  the LSTM). Newspapers are measured, not tuned; the loss is column layout.
+  Held-out magazines lead (83.7 against 78.5).
+- **A tenth of the training data**: readers of 287k parameters trained on
+  this machine from open fonts and public scans, against Tesseract's 4,500
+  fonts and Google's training run. Real scanned strips in training are
+  what buy the lead on degraded pages.
 
 ## Quick start
 
@@ -402,6 +400,8 @@ way?" by looking.
 
 ## Documentation
 
+**New here? Start with [docs/START_HERE.md](docs/START_HERE.md)** — a path through the engine from pixels to text, with the teaching pages below in reading order.
+
 - [docs/DESIGN.md](docs/DESIGN.md) — what the system is and why each part is shaped the way it is; the scoreboard.
 - [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) — the system in diagrams: packages, the stage contract, the pipeline, what a page carries, the profiles, where each model plugs in, decoding, tables, runs on disk, the service, the workbench, training and release.
 - [docs/NEURAL_NETWORK_THEORY.md](docs/NEURAL_NETWORK_THEORY.md) — neural networks from a single neuron up, then every network in the engine: its job, its exact shape and why, its training, with pictures of the real networks at work.
@@ -411,6 +411,8 @@ way?" by looking.
 - [docs/TABLES.md](docs/TABLES.md) — table extraction: ruled grids from their rules, unruled tables from their words and the junction mesh, the table networks, reading and checking cells, the output records, TEDS.
 - [docs/RECOGNITION.md](docs/RECOGNITION.md) — glyph recognition in the classic engine: the 95 shape features, nearest prototypes, the outline channel (Tesseract's matcher re-derived), skeleton graphs, how the opinions combine, where it fails.
 - [docs/DECODING.md](docs/DECODING.md) — from candidates to words: the beam decoder and its priors, language models, numbers, the neural readers and the judge, adaptation to the page, the noisy-channel corrector.
+- [docs/SYNTHETIC_DATA.md](docs/SYNTHETIC_DATA.md) — drawing our own pages with the answers known: the degradation model, fonts, training windows, generated test sets, scanner calibration, and what synthetic data could not do.
+- [docs/MEASUREMENT.md](docs/MEASUREMENT.md) — how accuracy is computed, the evaluation sets, held-out pages, seed variance and the bootstrap, adoption rules, and the numbers that turned out to be wrong.
 - [docs/NETWORKS.md](docs/NETWORKS.md) — every network and learned model: purpose, data, training, rebuild order.
 - [docs/DATA_SOURCES.md](docs/DATA_SOURCES.md) — every dataset and document source: what it is, its licence, where to download it, where it goes under `data/`, what it trains or measures.
 - [docs/TESSERACT.md](docs/TESSERACT.md) — mlws-ocr against Tesseract's legacy and LSTM engines: the numbers, what is the same idea, what differs and why.
@@ -435,19 +437,16 @@ keep their own licences; `docs/NETWORKS.md` names each source.
 
 ## Where the work stands
 
-The neural profile leads both Tesseract engines on typewriter pleadings,
-modern documents and business pages, ties them on a paragraph read alone,
-and trails on the headline letter set by 0.7 character / 1.5 word points
-against legacy. That residual is letterhead lines in display faces that
-both channels misread; it was measured three ways (synthetic display
-faces, 86 real letterhead lines, a decomposition by mechanism) and is
-recorded as this set's ceiling under the public-data constraint.
-Business documents went from 92.1 / 86.9 to 97.2 / 93.4 in one day of
-shape and reading-order rules found by a word-error census, and now sit
-within 3.5 word points of their own order-free recall. Newspapers and
-magazines are measured, not tuned. The small items that were left are
-measured and closed: the dropped '%' is fixed, the masked card numbers
-and the touching words on bare blocks each resisted the last honest
-mechanism and are recorded as residuals. What would move the numbers
-next is data the public-data constraint does not yet provide: real
-receipts with truth, and real display-face lines.
+The neural profile leads both Tesseract engines on letters (in words),
+typewriter pleadings, modern documents, business pages, scanned and
+photographed receipts, the Library of Congress typescripts and a paragraph
+read alone; it trails the LSTM on held-out newspapers and on forms, where
+column layout and form structure are the open problems. Tables are the
+current focus ([docs/TABLES.md](docs/TABLES.md)): the generated business
+sets read at 0.91-0.97 TEDS, real financial tables at 0.81, scientific
+tables at 0.72 and photographed receipts at 0.47.
+
+The small items left on the text side were measured and closed or
+recorded as residuals (the masked card numbers and the touching words on
+bare blocks resisted the last honest mechanism); every such result, won or
+lost, is in [docs/RESEARCH.md](docs/RESEARCH.md).

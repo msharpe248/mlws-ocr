@@ -1358,8 +1358,159 @@ def decode_figs():
     fig_adaptation()
 
 
+# ------------------------------------------------------------ synthetic data
+def fig_degradation_steps():
+    from mlws_ocr.factory.fonts import default_font
+    from mlws_ocr.factory.synth import Degradation, degrade, render_text_page
+    clean = render_text_page(TEXT[:3], default_font(), px_height=30, page_width=1000, margin=40)
+    steps = [("clean render", Degradation()),
+             ("+ skew 1.5 deg", Degradation(skew_deg=1.5)),
+             ("+ uneven light", Degradation(skew_deg=1.5, illum_amplitude=0.4, illum_period=500, seed=3)),
+             ("+ scanned at 1/2.5 resolution", Degradation(skew_deg=1.5, illum_amplitude=0.4, illum_period=500,
+                                                            downsample=2.5, seed=3)),
+             ("+ optical blur 0.9 px", Degradation(skew_deg=1.5, illum_amplitude=0.4, illum_period=500, downsample=2.5,
+                                                   blur_sigma=0.9, seed=3)),
+             ("+ bitonal threshold 0.5", Degradation(skew_deg=1.5, illum_amplitude=0.4, illum_period=500,
+                                                     downsample=2.5, blur_sigma=0.9, threshold=0.5, seed=3)),
+             ("+ Kanungo edge flips", Degradation(skew_deg=1.5, illum_amplitude=0.4, illum_period=500, downsample=2.5,
+                                                  blur_sigma=0.9, threshold=0.5, flip_fg=0.15, flip_bg=0.001, seed=3))]
+    box = (40, 30, 560, 150)
+    tiles = [_crop(degrade(clean, th), box) for _, th in steps]
+    ims = [to_rgb(t).resize((330, int(t.shape[0] * 330 / t.shape[1])), Image.NEAREST) for t in tiles]
+    cols = 4
+    h = ims[0].height
+    W = 20 + cols * 350
+    rows = (len(ims) + cols - 1) // cols
+    im = Image.new("RGB", (W, 44 + rows * (h + 34) + 10), "white")
+    d = ImageDraw.Draw(im)
+    d.text((20, 12), "The degradation model, one step at a time: paper, light, sensor, optics, threshold, noise",
+           fill=INK, font=font(15))
+    for k, (t, (lab, _)) in enumerate(zip(ims, steps)):
+        x, y = 20 + (k % cols) * 350, 44 + (k // cols) * (h + 34)
+        im.paste(t, (x, y))
+        d.rectangle([x, y, x + t.width - 1, y + h - 1], outline=LINE)
+        d.text((x, y + h + 4), f"{k + 1}. {lab}", fill=MUTED, font=font(12))
+    save(im, "synth", "degradation_steps.png")
+
+
+def fig_kanungo():
+    from mlws_ocr.factory.synth import Degradation, degrade
+    g = _glyph("e", px=90)
+    b = g < 0.5
+    d_in = ndimage.distance_transform_edt(b)
+    d_out = ndimage.distance_transform_edt(~b)
+    fg, bg, dec = 0.3, 0.02, 1.0
+    p = np.where(b, fg * np.exp(-dec * (d_in - 1)), bg * np.exp(-dec * (d_out - 1)))
+    out = degrade(g, Degradation(flip_fg=fg, flip_bg=bg, flip_decay=dec, seed=2))
+    pm = np.clip(p / fg, 0, 1)
+    heat = np.stack([255 - 40 * pm, 255 - 150 * pm, 255 - 30 * pm], -1).astype(np.uint8)
+    heat[b & (pm < 0.02)] = (220, 225, 230)
+    _panel_row("Kanungo-style noise: a pixel's chance of flipping falls with its distance from the stroke's edge",
+               [g, Image.fromarray(heat), out], ["the clean glyph", "flip probability (darker = likelier)",
+                                                 "one draw: edges fray, interiors survive"],
+               "synth", "kanungo.png", tile_w=220)
+
+
+def fig_severities():
+    import eval_pages as ep
+    from mlws_ocr.factory.fonts import default_font
+    from mlws_ocr.factory.synth import degrade, render_text_page
+    clean = render_text_page(TEXT[:4], default_font(), px_height=32, page_width=1100, margin=40)
+    box = (40, 30, 700, 190)
+    tiles = [_crop(degrade(clean, ep.SEVERITIES[k]), box) for k in sorted(ep.SEVERITIES)]
+    _panel_row("The synthetic test page at its three severities (the modern and business sets use the same three)",
+               tiles, [f"sev{k}" for k in sorted(ep.SEVERITIES)], "synth", "severities.png", tile_w=330)
+
+
+def fig_windows():
+    from mlws_ocr.factory.fonts import default_font
+    from mlws_ocr.factory import words as W_
+    rng = np.random.default_rng(5)
+    fonts = W_.stock_fonts()[:12] or [default_font()]
+    wlist = ["invoice", "$1,249.00", "quarterly", "Total", "08/14/2026", "attached", "receipts", "Kilogram",
+             "the", "committee", "12.5%", "hereby", "statement", "(a)", "numbers", "Overtime"]
+    rows = []
+    tries = 0
+    while len(rows) < 12 and tries < 200:
+        tries += 1
+        f = fonts[int(rng.integers(len(fonts)))]
+        ws = list(rng.choice(wlist, size=4, replace=False))
+        xh = float(rng.choice([12, 14, 18, 22, 26]))
+        th = W_.sample_theta(rng, xh)
+        win = W_.render_word_window(rng, ws, f, xh, th, tracking_em=W_.sample_tracking(rng, False))
+        if win is None:
+            continue
+        rows.append(win)
+    Wd = 900
+    im = Image.new("RGB", (Wd, 50 + len(rows) * 70), "white")
+    d = ImageDraw.Draw(im)
+    d.text((20, 12), "What the readers train on: rendered windows, each degraded with its own random theta, "
+                     "labelled for free", fill=INK, font=font(15))
+    for k, w in enumerate(rows):
+        strip = np.asarray(w.strip, np.float32)
+        t = to_rgb(strip)
+        t = t.resize((min(620, t.width * 2), 64), Image.NEAREST)
+        y = 44 + k * 70
+        im.paste(t, (20, y))
+        lab = getattr(w, "label", None) or getattr(w, "text", "")
+        d.text((660, y + 24), repr(lab), fill=INK, font=font(13))
+    save(im, "synth", "windows.png")
+
+
+def fig_print_model():
+    """A born-digital raster is not a scan: thin serifs fall apart under any
+    threshold; a print model (render at 600 dpi, a pixel of toner spread,
+    area-downsample) keeps them joined."""
+    from mlws_ocr.factory.fonts import find_fonts
+    cands = [f for f in find_fonts() if f.stem.lower().startswith(("times new roman", "georgia"))]
+    fpath = cands[0] if cands else None
+    text = "and for other purposes."
+
+    def render(px):
+        f = ImageFont.truetype(str(fpath), px) if fpath else ImageFont.load_default(size=px)
+        im = Image.new("L", (px * 14, px * 2), 255)
+        ImageDraw.Draw(im).text((px // 3, px // 3), text, font=f, fill=0)
+        return np.asarray(im, np.float32) / 255.0
+    direct = render(22)                         # a small serif face rendered straight to 300 dpi
+    hi = ndimage.minimum_filter(render(44), size=3)
+    hh, ww = hi.shape[0] // 2 * 2, hi.shape[1] // 2 * 2
+    printed = hi[:hh, :ww].reshape(hh // 2, 2, ww // 2, 2).mean(axis=(1, 3))
+
+    def n_cc(a):
+        return ndimage.label(a < 0.5)[1]
+    ys, xs = np.nonzero(direct < 0.5)
+    box = (max(0, xs.min() - 8), max(0, ys.min() - 8), xs.max() + 8, ys.max() + 8)
+    _panel_row("A born-digital raster is not a scan: the print model",
+               [_bin_rgb(_crop(direct, box) < 0.5), _bin_rgb(_crop(printed, box) < 0.5)],
+               [f"rendered straight to 300 dpi: {n_cc(direct)} components", f"600 dpi + 1 px of toner, averaged down: "
+                                                                            f"{n_cc(printed)} components"],
+               "synth", "print_model.png", tile_w=460,
+               note=f"'{text}' has 20 glyphs. Hairline joins that fall apart become broken letters to the "
+                    "recognizer; the modern test set uses the print model.")
+
+
+def fig_calibration_sheet():
+    p = ROOT / "data/calibration/sheet_00.png"
+    if not p.exists():
+        print("no calibration sheet; skipping")
+        return
+    g = np.asarray(Image.open(p).convert("L"), np.float32) / 255.0
+    _panel_row("The calibration sheet: printed, scanned, and read back by its fiducials alone",
+               [g, g[380:900, 250:1150]], ["the whole sheet (875 labelled cells, 4 fiducials)", "a corner of the grid"],
+               "synth", "calibration_sheet.png", tile_w=380)
+
+
+def synth_figs():
+    fig_degradation_steps()
+    fig_kanungo()
+    fig_severities()
+    fig_windows()
+    fig_print_model()
+    fig_calibration_sheet()
+
+
 TOPICS = {"skew": skew, "binarize": binarize, "segment": segment_figs, "tables": tables_figs,
-          "recognize": recognize_figs, "decode": decode_figs}
+          "recognize": recognize_figs, "decode": decode_figs, "synth": synth_figs}
 
 
 def main():

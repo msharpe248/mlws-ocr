@@ -295,9 +295,9 @@ pipeline) and name the profile with any figure you report.
 | legal-8 | `data/unlv/legal.3B` | `eval_unlv.py data/unlv/legal.3B --pages 8 --seed 1 --doc-type legal` |
 | news-8, mag-8 | `data/unlv/news.3B`, `mag.3B` | `--pages 8 --seed 1 --doc-type newspaper` / `magazine` |
 | held-out newspapers, magazines, letters | `data/unlv/news.3B`, `mag.3B`, `bus.3B` | `eval_unlv.py <set> --heldout` (and `eval_tesseract.py --heldout` for the same pages) |
-| modern | `data/modern/sev0..2` | `eval_unlv.py data/modern/sevN` |
+| modern | `data/modern/sev0..2` | `eval_unlv.py data/modern/sevN --pages 59 --by-kind` |
 | business | `data/business/sev0` | `eval_unlv.py data/business/sev0 --pages 60 --seed 1 --by-kind` |
-| sroie, funsd, legal reports, cord | `data/ext/sroie/eval`, `data/ext/funsd/eval`, `data/ext/btp_legal/eval`, `data/ext/cord/evalcrop` | `eval_unlv.py <dir>` |
+| sroie, funsd, legal reports, cord | `data/ext/sroie/eval` (60), `data/ext/funsd/eval` (50), `data/ext/btp_legal/eval` (40), `data/ext/cord/evalcrop` (100) | `eval_unlv.py <dir> --pages <all of them>` (the default is 10) |
 | blocks | the zones of broad-30 | `eval_blocks.py truth data/unlv/bus.3B --pages 30 --seed 2`, then `eval_blocks.py score …` |
 | payroll forms, paystubs, invoices, timesheets, receipts | `data/tables/<set>` | `eval_tables.py data/tables/<set> --pages 20 --whole-page --config configs/neural-table.toml` |
 | real receipts | `data/tables/cord` | `eval_tables.py data/tables/cord --pages 30 --config configs/neural-table.toml` |
