@@ -377,6 +377,52 @@ def _merge_body_wraps(rows, cols, line_h, first_body) -> list[list[dict]]:
     return out
 
 
+PARA_ROWS = [False]      # a table of paragraphs: its lines at single spacing inside a logical row,
+                         # a clearly wider gap between rows -- the single-spaced runs merged
+
+
+def _merge_paragraph_rows(rows, cols) -> list[list[dict]]:
+    """A table whose cells are paragraphs (a policies table: 'Description |
+    Judgments and Uncertainties | Effect if ...') set every wrapped line as a
+    row.  When the table holds at most one figure column and the gaps between
+    its lines fall into single spacing and gaps clearly wider (at least two of
+    each), each run of single-spaced lines is one row, its phrases joined
+    column by column."""
+    if len(rows) < 4:
+        return rows
+    figs = sum(1 for k in range(len(cols))
+               if sum(1 for r in rows for p in r if _col_of(p, cols) == k and _numeric(p["text"])) >= 0.5 * len(rows))
+    if figs > 1:
+        return rows
+    top = [min(p["box"][1] for p in r) for r in rows]
+    bot = [max(p["box"][3] for p in r) for r in rows]
+    gaps = [top[i + 1] - bot[i] for i in range(len(rows) - 1)]
+    single = float(np.percentile(gaps, 25))
+    wide = [g > max(2.0 * single, single + 0.6 * float(np.median([b - t for t, b in zip(top, bot)]))) for g in gaps]
+    if sum(wide) < 2 or len(gaps) - sum(wide) < 2:
+        return rows
+    out = [[dict(p) for p in rows[0]]]
+    for i, r in enumerate(rows[1:]):
+        first = next((p for p in r if _col_of(p, cols) == 0), None)
+        # a wrapped paragraph's next line: its first column empty or going on in
+        # lower case -- a row group's next row opens with its own label
+        cont = first is None or first["text"][:1].islower()
+        if wide[i] or not cont:
+            out.append([dict(p) for p in r])
+            continue
+        up = out[-1]
+        for p in r:
+            c = _col_of(p, cols)
+            q = next((q for q in up if _col_of(q, cols) == c), None)
+            if q is None:
+                up.append(dict(p))
+                up.sort(key=lambda q: q["box"][0])
+            else:
+                q["text"] += " " + p["text"]
+                q["box"] = [min(q["box"][0], p["box"][0]), q["box"][1], max(q["box"][2], p["box"][2]), p["box"][3]]
+    return out
+
+
 def _columns(rows, multi, cross_frac: float = 0.0) -> list[list[float]]:
     """Columns: the x-ranges the multi-phrase rows' phrases cover.  With
     ``cross_frac`` 0 a gap must be crossed by no such row (every row agrees
@@ -526,6 +572,18 @@ def whitespace_table(words: list[dict], phrase_gap: float = 0.8,
     line_h = float(np.median([w["box"][3] - w["box"][1] for w in words]))
     rows_w = _rows(words, line_h)
     rows = _split_aligned([_phrases(r, _gap(rows_w, phrase_gap)) for r in rows_w], _align_factor(words))
+    para = False
+    if PARA_ROWS[0]:
+        # a table of paragraphs: its logical rows from the gaps between its printed
+        # lines, before the header / body wrap rules (they find its body by its
+        # first figure, and a text table has none)
+        multi0 = [i for i, r in enumerate(rows) if len(r) >= 2]
+        if multi0:
+            cols0 = _columns(rows, multi0, cross_frac)
+            joined = _merge_paragraph_rows(rows, cols0) if len(cols0) >= 2 else rows
+            if len(joined) < len(rows):
+                rows, para = joined, True
+                header_wraps = body_wraps = False
     if header_wraps:
         rows = _merge_header_wraps(rows)
     multi = [i for i, r in enumerate(rows) if len(r) >= 2]
@@ -553,6 +611,7 @@ def whitespace_table(words: list[dict], phrase_gap: float = 0.8,
     if body_wraps:
         rows = _merge_body_wraps(rows, cols, line_h, _body_start(rows, multi[0]))
         multi = [i for i, r in enumerate(rows) if len(r) >= 2]
+
     if label_rows:
         # an item's name line may come before the first figure row (a receipt's
         # first item): two-line items are joined from just below the first
