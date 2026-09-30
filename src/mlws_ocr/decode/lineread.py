@@ -88,6 +88,10 @@ class HybridDecode(BeamDecode):
         "line_source": "binary",   # the reader's strips: "binary" (as trained) or "gray" --
                                    # the flattened grey page, contrast-normalised, for a
                                    # reader trained on grey strips (2026-09-26 pilot)
+        "figure_cells": False,     # in a ruled table's figure column (most of its filled cells
+                                   # figures), a word that is not one is read again with the
+                                   # reader's alphabet cut to digits and figure punctuation
+                                   # (a handwriting face's '8' read 'a' / 'e' / 'g' / 'S')
         "line_gray_rules_out": False,  # grey strips: the rules the rulings stage took out of the
                                    # binary taken out of the grey too -- a cell border beside a
                                    # figure read as '1' / 'l' in the table profile (the binary
@@ -274,7 +278,64 @@ class HybridDecode(BeamDecode):
         debug.scalars["graphic_lines_read"] = n_graphic
         debug.scalars["superset_kept"] = n_superset
         debug.scalars["lines_dropped"] = n_dropped
+        if p["figure_cells"] and layout.get("tables"):
+            debug.scalars["figure_cells_reread"] = self._reread_figure_cells(layout, page.binary, model, gray)
         return out, debug
+
+    _FIG_CHARS = set("0123456789,.$()-%/:")
+
+    def _reread_figure_cells(self, layout, binary, model, gray) -> int:
+        """In every ruled table, the columns whose filled cells are mostly
+        figures: each word there that is not a figure read again from its own
+        strip with every class but the blank, the digits and figure
+        punctuation masked out; the new reading kept when it is a figure."""
+        import re
+        fig = re.compile(r"^[-+($]*\d[\d,.:/]*%?\)?$")
+        allowed = np.array([i == 0 or c in self._FIG_CHARS for i, c in enumerate(model.classes)])
+        n = 0
+        for t in layout["tables"]:
+            if t.get("source", "grid") != "grid" or not t.get("cells"):
+                continue
+            where: dict = {}
+            for ln in layout["lines"]:
+                for w in ln.get("words", []):
+                    cx, cy = (w["box"][0] + w["box"][2]) / 2, (w["box"][1] + w["box"][3]) / 2
+                    for c in t["cells"]:
+                        b = c["box"]
+                        if b[0] <= cx < b[2] and b[1] <= cy < b[3]:
+                            where.setdefault((c["col"], c.get("colspan", 1)), []).append((ln, w))
+                            break
+            for key, items in where.items():
+                if key[1] != 1:
+                    continue
+                # a figure column: a quarter of its words figures, and with the one- and
+                # two-character words (the figures a hand face's '8' became: 'a', 'e',
+                # 'to') seven in ten -- words the lexicon knows are never read again
+                figs = sum(1 for _, w in items if fig.match(w["text"]))
+                short = sum(1 for _, w in items if not fig.match(w["text"]) and len(w["text"]) <= 2)
+                if figs < 3 or figs < 0.25 * len(items) or figs + short < 0.7 * len(items):
+                    continue
+                # the column's header (a day's letter over its dates) is above its first
+                # figure: only the words below it are read again
+                first = min(w["box"][1] for _, w in items if fig.match(w["text"]))
+                for ln, w in items:
+                    if fig.match(w["text"]) or w.get("in_lexicon") or w["box"][1] <= first \
+                            or not ln.get("x_height") or ln.get("baseline") is None:
+                        continue
+                    pad = int(0.3 * ln["x_height"])
+                    ln2 = dict(ln, box=[max(0, w["box"][0] - pad), ln["box"][1], w["box"][2] + pad, ln["box"][3]])
+                    strip, _, _, _ = line_strip(binary, ln2, ln["x_height"], gray=gray)
+                    if strip.shape[1] < 6:
+                        continue
+                    ink = (1.0 - strip).astype(np.float32) if gray is not None else (strip < 0.5).astype(np.float32)
+                    logp = cached_log_probs(model, ink).copy()
+                    logp[:, ~allowed] = -1e9
+                    text = "".join(ch for ch, _, _ in prefix_beam_search(logp, model.classes, beam_width=8)).strip()
+                    if text and fig.match(text):
+                        w.setdefault("corrected_from", w["text"])
+                        w["text"] = text
+                        n += 1
+        return n
 
     def _choose_line(self, old, words, old_text, new_text, old_end, new_end,
                      nll_old, nll_new, p, page_unend: float = 0.0) -> bool:
