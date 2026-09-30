@@ -208,6 +208,23 @@ def truth_table(f: dict) -> list[dict]:
     return c
 
 
+def form_table(f: dict) -> list[dict]:
+    """The form's upper section as cells: a ruled grid of labelled boxes (2026-09-29, the owner's
+    decision: the truth says what is drawn).  Five column lines: row one the contractor (two
+    columns), the address (two), the OMB box; row two the payroll number, the week's end, the
+    project and location, the project or contract number (two)."""
+    c = []
+    add = lambda r, k, t, cs=1: c.append({"row": r, "col": k, "rowspan": 1, "colspan": cs, "text": t})  # noqa: E731
+    add(0, 0, f"NAME OF CONTRACTOR OR SUBCONTRACTOR {f['contractor']}", cs=2)
+    add(0, 2, f"ADDRESS {f['address']}", cs=2)
+    add(0, 4, "OMB No. 1235-0008 Expires 09/30/2026")
+    add(1, 0, f"PAYROLL NO. {f['payrollNo']}")
+    add(1, 1, f"FOR WEEK ENDING {f['weekEnding']}")
+    add(1, 2, f"PROJECT AND LOCATION {f['projectAndLocation']}")
+    add(1, 3, f"PROJECT OR CONTRACT NO. {f['projectOrContractorNo']}", cs=2)
+    return c
+
+
 def cells_html(cells: list[dict]) -> str:
     rows: dict = {}
     for cell in cells:
@@ -332,7 +349,7 @@ def main():
         name = f"{args.template}-{style}-{i:03d}"
         Image.fromarray((np.clip(out, 0, 1) * 255).astype(np.uint8)).save(args.out / f"{name}.png", dpi=(DPI, DPI))
         cells = truth_table(f)
-        (args.out / f"{name}.table.html").write_text(cells_html(cells))
+        (args.out / f"{name}.table.html").write_text(cells_html(form_table(f)) + "\n" + cells_html(cells))
         (args.out / f"{name}.txt").write_text(page_text(f))
         (args.out / f"{name}.json").write_text(json.dumps(
             {"fields": {k: v for k, v in f.items() if not k.startswith(("_", "OT", "ST", "day", "date")) and not k[-1].isdigit()},
