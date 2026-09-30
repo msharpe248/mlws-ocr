@@ -226,6 +226,7 @@ table_det_mode = "complement"  # ...with the finders: its detections replace the
 table_split_path = "data/splitnet_v2.npz" # table profile: the self-trained structure network (layout/splitnet.py) ...
 table_split_select = "empty"   # ...its table used when it leaves no more cells empty than the rules' (and merges no figures)
 nest_side_by_side = true       # table profile: tables set side by side as the cells of one outer table
+cell_marks = true              # table profile: a one-letter cell of a case twin is a capital mark; stray single letters are noise
 dollar_s = true                # table profile: 'S 91.0' -> '$ 91.0' in a figure cell
 join_digit_groups = true       # table profile: '1, 428.80' -> '1,428.80' in a figure cell
 trim_notes = true              # table profile: a table's crop: a 'Table N' caption above and running-text notes below trimmed

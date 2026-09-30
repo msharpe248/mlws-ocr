@@ -161,6 +161,10 @@ class TextOutput(Stage):
         "nest_side_by_side": False,      # tables set side by side as the cells of one outer table
                                          # (tableio.nest_side_by_side)
         "join_digit_groups": False,      # '1, 428.80' -> '1,428.80' in a cell that is a figure
+        "cell_marks": False,             # a cell that is one letter whose capital and small forms
+                                         # differ only in size (c o s u v w x z) is a capital mark
+                                         # ('o' -> 'O', an overtime row's O); a cell of two or more
+                                         # stray single letters ('z r', 'r e n m e') is rule noise
         "dollar_s": False,               # 'S 91.0' -> '$ 91.0': a lone S before a figure in a
                                          # figure cell is the dollar sign the reader took for S
         "trim_notes": False,             # a table's crop: caption rows above and note rows below
@@ -725,7 +729,7 @@ class TextOutput(Stage):
         out.meta["tables_text"] = tables_text
         # the tables as data (JSON records, nested tables inside their
         # cells) and as HTML with rowspan / colspan
-        if self.params["join_digit_groups"] or self.params["dollar_s"]:
+        if self.params["join_digit_groups"] or self.params["dollar_s"] or self.params["cell_marks"]:
             # the figure-cell repairs on the tables' text grids and the layout's cells
             # too, so every reader of the tables sees the same text
             def fix(t):
@@ -739,6 +743,12 @@ class TextOutput(Stage):
                     new = re.sub(r"(^|\s)[Ss](\d)", r"\1$\2", _S_DOLLAR.sub(r"\1$", t))
                     if all(_FIGURE.match(w) or w == "$" for w in new.split()):
                         t = new
+                if self.params["cell_marks"]:
+                    toks = t.split()
+                    if len(toks) == 1 and len(t) == 1 and t in "cosuvwxz":
+                        t = t.upper()
+                    elif len(toks) >= 2 and all(len(w) == 1 and w.isalpha() for w in toks):
+                        t = ""
                 return t
             tables_text = [[[fix(x) for x in row] for row in grid] for grid in tables_text]
             layout = dict(layout, tables=[dict(t, cells=[dict(c, text=fix(c["text"])) if c.get("text") else c
