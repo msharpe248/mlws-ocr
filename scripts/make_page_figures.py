@@ -1005,7 +1005,361 @@ def tables_figs():
     fig_checks()
 
 
-TOPICS = {"skew": skew, "binarize": binarize, "segment": segment_figs, "tables": tables_figs}
+# -------------------------------------------------------------- recognition
+def _glyph(ch, px=120, font_path=None, italic=False):
+    """One character rendered alone, float [0,1], ink dark, cropped with a margin."""
+    from mlws_ocr.factory.fonts import default_font
+    f = ImageFont.truetype(str(font_path or default_font()), px)
+    im = Image.new("L", (px * 2, px * 2), 255)
+    ImageDraw.Draw(im).text((px // 3, px // 4), ch, font=f, fill=0)
+    a = np.asarray(im, np.float32) / 255.0
+    if italic:
+        a = ndimage.affine_transform(a, [[1, 0], [-0.25, 1]], offset=[0, px * 0.25], cval=1.0, order=1)
+    ys, xs = np.nonzero(a < 0.5)
+    return a[ys.min() - 6:ys.max() + 7, xs.min() - 6:xs.max() + 7]
+
+
+def fig_features():
+    from mlws_ocr.glyph import features as F
+    from skimage.transform import resize
+    W, H = 1000, 560
+    im = Image.new("RGB", (W, H), "white")
+    d = ImageDraw.Draw(im)
+    d.text((20, 12), "What the classic recognizer measures: 95 numbers about one glyph's shape", fill=INK, font=font(15))
+
+    def put(a, x, y, h, label, binary=False):
+        t = to_rgb(1.0 - a.astype(np.float32)) if binary else to_rgb(a)
+        r = h / t.height
+        t = t.resize((max(1, int(t.width * r)), h), Image.NEAREST)
+        im.paste(t, (x, y))
+        d.rectangle([x, y, x + t.width - 1, y + h - 1], outline=LINE)
+        d.text((x, y + h + 4), label, fill=MUTED, font=font(12))
+        return x + t.width
+    # 1. normalisation of an italic 'a'
+    g = _glyph("a", italic=True)
+    m = g < 0.5
+    steps = [(m, "an italic 'a'"), (F._deslant(m), "deslanted"),
+             (F._crop_to_ink(F._normalize_stroke_width(F._crop_to_ink(F._deslant(m)))), "stroke width set, cropped")]
+    x = 20
+    for a, lab in steps:
+        x = put(a, x, 50, 110, lab, binary=True) + 40
+    z = resize(steps[-1][0].astype(float), (32, 32), order=1, anti_aliasing=False).reshape(8, 4, 8, 4).mean(axis=(1, 3))
+    zt = Image.fromarray((255 - 255 * z).astype(np.uint8)).resize((110, 110), Image.NEAREST).convert("RGB")
+    im.paste(zt, (x, 50))
+    d.text((x, 164), "8 x 8 zones: 64 ink shares", fill=MUTED, font=font(12))
+    # 2. holes that survive a break
+    o = _glyph("o") < 0.5
+    ys, xs = np.nonzero(o)
+    cy = (ys.min() + ys.max()) // 2
+    br = o.copy()
+    br[cy - 2:cy + 2, xs.max() - 25:] = False
+    y2 = 230
+    x = put(br, 20, y2, 110, "a broken 'o'", binary=True) + 30
+    for r in (0, 1, 2):
+        c = ndimage.binary_closing(br, iterations=r) if r else br
+        x = put(c, x, y2, 110, ("as is" if r == 0 else f"closed by {r} px") + f": {F._hole_count(br, r)} hole(s)",
+                binary=True) + 30
+    # 3. crossings and profiles
+    y3 = 400
+    mm = F._crop_to_ink(_glyph("m") < 0.5)
+    t = to_rgb(1.0 - mm.astype(np.float32))
+    r = 110 / t.height
+    t = t.resize((int(t.width * r), 110), Image.NEAREST)
+    td = ImageDraw.Draw(t)
+    cr = F._crossing_counts(mm, 4, 0)
+    for i in range(4):
+        yy = int((i + 0.5) * 110 / 4)
+        td.line([(0, yy), (t.width, yy)], fill=(214, 69, 69), width=1)
+    im.paste(t, (20, y3))
+    d.text((20, y3 + 114), f"crossings: {[int(v) for v in cr]}", fill=MUTED, font=font(12))
+    x = 60 + t.width
+    for ch in ("b", "d"):
+        gm = F._crop_to_ink(_glyph(ch) < 0.5)
+        t = to_rgb(1.0 - gm.astype(np.float32))
+        r = 110 / t.height
+        t = t.resize((int(t.width * r), 110), Image.NEAREST)
+        td = ImageDraw.Draw(t)
+        for i in range(4):
+            yy = int((i + 0.5) * 110 / 4)
+            row = gm[min(gm.shape[0] - 1, int((i + 0.5) * gm.shape[0] / 4))]
+            xs_ = np.flatnonzero(row)
+            if len(xs_):
+                td.line([(0, yy), (xs_[0] * r, yy)], fill=(47, 111, 223), width=2)
+                td.line([(xs_[-1] * r, yy), (t.width, yy)], fill=(31, 157, 107), width=2)
+        im.paste(t, (x, y3))
+        x += t.width + 40
+    d.text((200, y3 + 132), "profiles: distance to the first ink from the left (blue) and right (green) "
+                                  "tell 'b' from 'd'", fill=MUTED, font=font(12))
+    d.text((20, H - 22), "Also: aspect, ink density, stroke width, 7 Hu moments, skeleton endpoints and junctions -- "
+                         "and every number z-scored before distances are taken.", fill=MUTED, font=font(12))
+    save(im, "recognize", "features.png")
+
+
+def _recognize_line(text_line, overrides_list, degrade_kw=None):
+    """Render one degraded line and run the pipeline to the recognizer under
+    each set of overrides; returns (page, [groups per variant])."""
+    import mlws_ocr.cleanup, mlws_ocr.layout, mlws_ocr.glyph.components, mlws_ocr.recognize.stage  # noqa: F401,E401
+    from eval_pages import load_pipeline, run_stages
+    from mlws_ocr.core.artifacts import Page
+    g = text_page(lines=[text_line], px=34, width=1400, **(degrade_kw or {"blur": 1.1, "flip_fg": 0.08, "seed": 4}))
+    pipe = [x for x in load_pipeline(str(ROOT / "configs/classic.toml"))]
+    upto = pipe[:[x[0] for x in pipe].index("recognize") + 1]
+    out = []
+    page = None
+    for ov in overrides_list:
+        page = run_stages(Page(gray=g, dpi=300.0, meta={}), upto, ov)
+        out.append([gr for ln in page.meta["layout"]["lines"] for gr in ln["groups"]])
+    return page, out
+
+
+def fig_channels():
+    variants = [{"recognize": {"mlp_path": "", "outline_path": "", "ged_rerank": False}},
+                {"recognize": {"outline_path": "", "ged_rerank": False}},
+                {"recognize": {}}]
+    page, runs = _recognize_line("Quarterly invoice: bookkeeping services and consulting", variants,
+                                 {"blur": 1.3, "flip_fg": 0.12, "seed": 9})
+    best, score = 0, -1
+    for i, gr in enumerate(runs[0]):
+        if i >= min(len(r) for r in runs):
+            break
+        t0, t1, t2 = (r[i]["candidates"][0][0] for r in runs)
+        if not (t2.isascii() and t2.isalpha()) or (gr["box"][2] - gr["box"][0]) < 12:
+            continue
+        ch = (t0 != t2) * 2 + (t1 != t2) + (t0 != t1)
+        if ch > score:
+            best, score = i, ch
+    gr = runs[2][best]
+    x0, y0, x1, y1 = (int(v) for v in gr["box"])
+    crop = page.gray[max(0, y0 - 6):y1 + 6, max(0, x0 - 6):x1 + 6]
+    W, H = 980, 330
+    im = Image.new("RGB", (W, H), "white")
+    d = ImageDraw.Draw(im)
+    d.text((20, 12), "One glyph's candidate list as each channel re-costs it (lower cost = more likely)", fill=INK,
+           font=font(15))
+    t = to_rgb(crop)
+    r = 120 / t.height
+    im.paste(t.resize((int(t.width * r), 120), Image.NEAREST), (20, 60))
+    names = ["prototypes (nearest neighbour)", "+ MLP second opinion", "+ outline channel (all three)"]
+    for k, run in enumerate(runs):
+        cands = run[best]["candidates"][:6]
+        bx = 200 + k * 260
+        d.text((bx, 44), names[k], fill=INK, font=font(13))
+        mx = max(c[1] for c in cands) or 1
+        for j, (ch, cost) in enumerate(cands):
+            y = 70 + j * 36
+            w = int(170 * cost / mx)
+            d.rectangle([bx + 30, y, bx + 30 + w, y + 24], fill=BLUE if j == 0 else "#9fb8ec")
+            d.text((bx + 6, y + 4), ch if ch.isascii() else ch.encode("ascii", "backslashreplace").decode(),
+                   fill=INK, font=font(15))
+            d.text((bx + 36 + w, y + 5), f"{cost:.1f}", fill=MUTED, font=font(11))
+    d.text((20, H - 26), "The recognizer never decides: it hands the decoder a ranked list of 14 candidates with "
+                         "costs, and the decoder chooses in context.", fill=MUTED, font=font(12))
+    save(im, "recognize", "channels.png")
+
+
+def fig_outline():
+    from mlws_ocr.recognize.outline import OutlineMatcher, outline_features, outline_prototypes, _normalizer
+    clean = _glyph("h") < 0.5
+    broken = clean.copy()
+    ys, xs = np.nonzero(broken)
+    y_cut = ys.min() + int((ys.max() - ys.min()) * 0.62)
+    broken[y_cut:y_cut + 6, (xs.min() + xs.max()) // 2:] = False      # a hairline break through the right stem
+    segs = outline_prototypes(clean)
+    feats = outline_features(broken)
+    m = OutlineMatcher()
+    for ch in ("h", "b", "n", "k"):
+        m.add(ch, _glyph(ch) < 0.5)
+    ratings = {ch: m.rating(feats, ch) for ch in ("h", "b", "n", "k")}
+    S = 2.2
+    W, H = 900, 420
+    im = Image.new("RGB", (W, H), "white")
+    d = ImageDraw.Draw(im)
+    d.text((20, 12), "The outline channel: a broken 'h' still matches 'h' piece by piece", fill=INK, font=font(15))
+    t = to_rgb(1.0 - broken.astype(np.float32))
+    r = 300 / t.height
+    im.paste(t.resize((int(t.width * r), 300), Image.NEAREST), (20, 50))
+    d.text((20, 356), "the input: its outline cut into fixed-length pieces", fill=MUTED, font=font(12))
+    allp = np.concatenate([segs[:, :2], segs[:, 2:], feats[:, :2]])
+    lo, hi = allp.min(axis=0), allp.max(axis=0)
+    S = 290 / max(hi - lo)
+    ox, oy = 470 - lo[0] * S, 55 - lo[1] * S
+    for x0_, y0_, x1_, y1_ in segs:
+        d.line([(ox + x0_ * S, oy + y0_ * S), (ox + x1_ * S, oy + y1_ * S)], fill=(154, 165, 177), width=4)
+    for fx, fy, th in feats:
+        cx, cy = ox + fx * S, oy + fy * S
+        dx, dy = 9 * np.cos(th), 9 * np.sin(th)
+        d.line([(cx - dx, cy - dy), (cx + dx, cy + dy)], fill=(214, 69, 69), width=2)
+    d.text((340, 356), "grey: a clean 'h' as prototype segments · red: the broken glyph's pieces", fill=MUTED,
+           font=font(12))
+    d.text((340, 376), "ratings: " + "  ".join(f"{k} {v:.2f}" for k, v in sorted(ratings.items(), key=lambda kv: -kv[1])),
+           fill=INK, font=font(13))
+    save(im, "recognize", "outline.png")
+
+
+def fig_skeleton():
+    from mlws_ocr.glyph.skeleton import skeleton_graph
+    W, H = 760, 330
+    im = Image.new("RGB", (W, H), "white")
+    d = ImageDraw.Draw(im)
+    d.text((20, 12), "A glyph as a graph: the skeleton's endpoints, junctions and strokes", fill=INK, font=font(15))
+    for k, ch in enumerate(("k", "x", "A")):
+        g = _glyph(ch)
+        gr = skeleton_graph(g)
+        ys, xs = np.nonzero(g < 0.5)
+        crop = g[ys.min():ys.max() + 1, xs.min():xs.max() + 1]
+        h = 220
+        r = h / crop.shape[0]
+        t = to_rgb(0.55 + 0.45 * crop).resize((int(crop.shape[1] * r), h), Image.BILINEAR)
+        td = ImageDraw.Draw(t)
+        pts = [(nx * (t.width - 1), ny * (t.height - 1)) for nx, ny, _ in gr["nodes"]]
+        for a, b, *_ in gr["edges"]:
+            td.line([pts[a], pts[b]], fill=(47, 111, 223), width=3)
+        for (px_, py_), (_, _, deg) in zip(pts, gr["nodes"]):
+            col = (214, 69, 69) if deg == 1 else (224, 138, 30)
+            td.ellipse([px_ - 6, py_ - 6, px_ + 6, py_ + 6], fill=col)
+        x = 20 + k * 250
+        im.paste(t, (x, 50))
+        d.text((x, 280), f"'{ch}': {len(gr['nodes'])} nodes, {len(gr['edges'])} strokes, {gr['n_loops']} loop(s)",
+               fill=MUTED, font=font(12))
+    d.text((20, 305), "red: endpoints · orange: junctions · blue: strokes (drawn straight). Compared by graph edit "
+                      "distance when the features are unsure.", fill=MUTED, font=font(12))
+    save(im, "recognize", "skeleton.png")
+
+
+def recognize_figs():
+    fig_features()
+    fig_outline()
+    fig_skeleton()
+    fig_channels()
+
+
+# ----------------------------------------------------------------- decoding
+def fig_beam():
+    sv = SVG(900, 360)
+    sv.text(20, 28, "Beam search over a word: at each glyph, keep the best few partial readings", size=16,
+            anchor="start", weight="700")
+    cols = [("E", "b", "L"), ("l", "1", "I"), ("m", "rn", "n")]
+    for i, cands in enumerate(cols):
+        x = 90 + i * 230
+        sv.text(x + 40, 62, f"glyph {i + 1}: its candidates", size=12, color=MUTED)
+        for j, c in enumerate(cands):
+            y = 80 + j * 60
+            sv.box(x, y, 80, 40, c, "", "in" if j == 0 else "op", size=15)
+    paths = [((0, 0), (1, 0), (2, 0), GREEN, "Elm  (lexicon, LM)"), ((0, 1), (1, 0), (2, 0), LINE, "blm"),
+             ((0, 0), (1, 1), (2, 1), LINE, "E1rn")]
+    for a, b, c_, col, _ in paths:
+        pts = [(90 + i * 230 + 80, 100 + j * 60) for i, j in (a, b, c_)]
+        sv.line(pts[0][0], pts[0][1], pts[1][0] - 80, pts[1][1], color=col, width=3 if col == GREEN else 1.5)
+        sv.line(pts[1][0], pts[1][1], pts[2][0] - 80, pts[2][1], color=col, width=3 if col == GREEN else 1.5)
+    sv.text(20, 290, "score = pixel evidence (each candidate's cost, softened into a probability) + 0.5 x language "
+                     "model (the character GRU) + priors", size=12, color=MUTED, anchor="start")
+    sv.text(20, 310, "(height, baseline, punctuation position, case) ; 8 partial readings survive each step; at the "
+                     "end the lexicon may promote a known word", size=12, color=MUTED, anchor="start")
+    sv.text(20, 330, "within 4 nats of the best. Split and merge variants of the word ('rn' or 'm') are decoded "
+                     "the same way and compete.", size=12, color=MUTED, anchor="start")
+    out = IMG / "decode"
+    out.mkdir(parents=True, exist_ok=True)
+    (out / "beam.svg").write_text(_svg_text(sv))
+    print("wrote", out / "beam.svg")
+
+
+def fig_temperature_decode():
+    """Costs into probabilities: the old temperature (the list's spread)
+    against the current one (a fraction of the best cost)."""
+    costs = np.array([6.0, 18.0, 21.0, 24.0, 27.0])
+    labels = ["E", "b", "L", "F", "B"]
+    W, H = 900, 300
+    im = Image.new("RGB", (W, H), "white")
+    d = ImageDraw.Draw(im)
+    d.text((20, 12), "From costs to evidence: p = softmax(-cost / T)", fill=INK, font=font(15))
+    temps = [(float(np.std(costs)), "old: T = the list's spread"), (0.35 * costs[0], "now: T = 0.35 x best cost")]
+    for k, (T, name) in enumerate(temps):
+        p = np.exp(-(costs - costs.min()) / T)
+        p /= p.sum()
+        bx = 30 + k * 440
+        d.text((bx, 44), f"{name} (T = {T:.1f})", fill=INK, font=font(13))
+        for i, (lab, v) in enumerate(zip(labels, p)):
+            x = bx + 20 + i * 70
+            h = int(120 * v)
+            d.rectangle([x, 220 - h, x + 50, 220], fill=BLUE if i == 0 else "#9fb8ec")
+            d.text((x + 18, 226), lab, fill=INK, font=font(14))
+            d.text((x + 6, 200 - h), f"{v:.2f}", fill=MUTED, font=font(11))
+    d.text((20, H - 30), "costs 6, 18, 21, 24, 27: the best candidate is three times closer than the next. The old "
+                         "temperature called that a near-tie ('Elm' read 'blm');", fill=MUTED, font=font(12))
+    d.text((20, H - 14), "the new one says so plainly -- the largest single-change gain in the project's record.",
+           fill=MUTED, font=font(12))
+    save(im, "decode", "evidence_temperature.png")
+
+
+def fig_adaptation():
+    """The document's own glyphs, clustered, each cluster pinned to the label
+    its confident words voted for."""
+    import mlws_ocr.cleanup, mlws_ocr.layout, mlws_ocr.glyph.components, mlws_ocr.recognize.stage  # noqa: F401,E401
+    import mlws_ocr.decode, mlws_ocr.adapt  # noqa: F401,E401
+    from eval_pages import load_pipeline, run_stages
+    from mlws_ocr.core.artifacts import Page
+    g = text_page(lines=TEXT, px=30, blur=1.1, flip_fg=0.1, seed=7)
+    pipe = load_pipeline(str(ROOT / "configs/classic.toml"))
+    upto = pipe[:[x[0] for x in pipe].index("adapt") + 1]
+    page = run_stages(Page(gray=g, dpi=300.0, meta={}), upto)
+    by = {}
+    for ln in page.meta["layout"]["lines"]:
+        for gr in ln["groups"]:
+            if gr.get("pinned"):
+                by.setdefault(gr["pinned"], []).append(gr["box"])
+    labels = [k for k, v in sorted(by.items(), key=lambda kv: -len(kv[1])) if k.isalpha()][:8]
+    cell = 44
+    W, H = 20 + 110 + 14 * (cell + 6), 60 + len(labels) * (cell + 10) + 30
+    im = Image.new("RGB", (W, H), "white")
+    d = ImageDraw.Draw(im)
+    d.text((20, 12), "Adaptation: the page's own glyphs, clustered, each cluster pinned to the label its words voted",
+           fill=INK, font=font(15))
+    for i, lab in enumerate(labels):
+        y = 50 + i * (cell + 10)
+        d.text((20, y + 12), f"pinned '{lab}'", fill=INK, font=font(14))
+        for j, b in enumerate(by[lab][:14]):
+            x0, y0, x1, y1 = (int(v) for v in b)
+            crop = g[y0:y1, x0:x1]
+            if crop.size == 0:
+                continue
+            r = cell / max(crop.shape)
+            t = to_rgb(crop).resize((max(1, int(crop.shape[1] * r)), max(1, int(crop.shape[0] * r))), Image.BILINEAR)
+            im.paste(t, (130 + j * (cell + 6), y))
+    d.text((20, H - 22), "Degraded synthetic page. The pins give the second decoding pass the document's own "
+                         "shapes as prototypes (+2.5 nats to the pinned label).", fill=MUTED, font=font(12))
+    save(im, "decode", "adaptation.png")
+
+
+def fig_noisy_channel():
+    sv = SVG(900, 300)
+    sv.text(20, 28, "The noisy channel: which word, sent through this engine's typical misreadings, best "
+                    "explains what came out?", size=16, anchor="start", weight="700")
+    sv.box(30, 80, 170, 60, "'C)vertime'", "what the engine read", "loss")
+    sv.box(300, 60, 250, 50, "'Overtime'", "undo 'O' → 'C)' (seen in harvests)", "out")
+    sv.box(300, 130, 250, 50, "'Covertime'", "not a word", "op")
+    sv.arrow(200, 105, 298, 85)
+    sv.arrow(200, 115, 298, 155)
+    sv.box(640, 60, 230, 50, "score", "log P(channel) + log P(word)", "conv")
+    sv.arrow(550, 85, 638, 85)
+    sv.text(30, 220, "P(channel): how often the engine turns α into β, counted by reading 480 non-evaluation "
+                     "pages against their truth (Brill & Moore 2000).", size=12, color=MUTED, anchor="start")
+    sv.text(30, 240, "P(word): the lexicon's frequency. Accepted only if it beats the runner-up by a margin -- and "
+                     "if the word-strip network,", size=12, color=MUTED, anchor="start")
+    sv.text(30, 260, "looking at the pixels again, does not find the new spelling much less likely (the pixel "
+                     "veto). Classic profile: 899 corrections, 2 wrong.", size=12, color=MUTED, anchor="start")
+    (IMG / "decode" / "noisy_channel.svg").write_text(_svg_text(sv))
+    print("wrote", IMG / "decode" / "noisy_channel.svg")
+
+
+def decode_figs():
+    fig_beam()
+    fig_temperature_decode()
+    fig_noisy_channel()
+    fig_adaptation()
+
+
+TOPICS = {"skew": skew, "binarize": binarize, "segment": segment_figs, "tables": tables_figs,
+          "recognize": recognize_figs, "decode": decode_figs}
 
 
 def main():

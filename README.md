@@ -409,6 +409,8 @@ way?" by looking.
 - [docs/SKEW_CORRECTION.md](docs/SKEW_CORRECTION.md) — finding how far a page is turned (projection profiles, Hough) and turning it back; the ways the search was fooled, and the fixes.
 - [docs/SEGMENTATION.md](docs/SEGMENTATION.md) — pictures and rules out, then blocks (RLSA, XY-cut, whitespace rectangles, k-NN + SCC, the per-page judge), reading order, lines, and how segmentation is measured.
 - [docs/TABLES.md](docs/TABLES.md) — table extraction: ruled grids from their rules, unruled tables from their words and the junction mesh, the table networks, reading and checking cells, the output records, TEDS.
+- [docs/RECOGNITION.md](docs/RECOGNITION.md) — glyph recognition in the classic engine: the 95 shape features, nearest prototypes, the outline channel (Tesseract's matcher re-derived), skeleton graphs, how the opinions combine, where it fails.
+- [docs/DECODING.md](docs/DECODING.md) — from candidates to words: the beam decoder and its priors, language models, numbers, the neural readers and the judge, adaptation to the page, the noisy-channel corrector.
 - [docs/NETWORKS.md](docs/NETWORKS.md) — every network and learned model: purpose, data, training, rebuild order.
 - [docs/DATA_SOURCES.md](docs/DATA_SOURCES.md) — every dataset and document source: what it is, its licence, where to download it, where it goes under `data/`, what it trains or measures.
 - [docs/TESSERACT.md](docs/TESSERACT.md) — mlws-ocr against Tesseract's legacy and LSTM engines: the numbers, what is the same idea, what differs and why.
