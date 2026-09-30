@@ -8,7 +8,7 @@ a word-strip scorer, a line reader, a per-line judge.
 
 **Every model is trained here.** No pre-trained weights, no vision or
 language foundation model. Each network is small enough to read (the
-largest is 285k parameters), trains on a laptop or its GPU in an evening
+largest is under 290k parameters), trains on a laptop or its GPU in an evening
 from public data, and runs locally from one exported `.npz`.
 `docs/NETWORKS.md` describes every network: what it is for, how its
 training data is acquired, how it is trained.
@@ -50,26 +50,28 @@ scoreboard and its history are in `docs/DESIGN.md` §8.
 
 **Tables.** Table structure is scored by TEDS (tree-edit similarity of the
 recognised tables to their HTML truth, text included; after the slash,
-TEDS-S, structure alone; 1.0 is perfect), read with `neural-table` (the
-neural column) and the classic profile with the same options:
+TEDS-S, structure alone; 1.0 is perfect), read with `neural-table` and
+the classic profile with the same options:
 ruled grids kept from the picture zones, short grid rules, spanned cells,
 open sides, nested tables, words split at cell borders, figure columns, and tables found
 on the page (the generated sets, scored page-wide over every table) or the
 `table` hint (FinTabNet's single-table crops, magnified from 72 dpi).
-Neither Tesseract engine outputs table structure -- its text, hOCR and
-TSV carry no rows, columns or cells -- so there is nothing to score. With
-the options off, every set scores between 0.00 and 0.03.
+The neural-table column adds the self-trained table detector, structure
+network and table line reader. Neither Tesseract engine outputs table
+structure -- its text, hOCR and TSV carry no rows, columns or cells -- so
+there is nothing to score. With the options off, every set scores
+between 0.00 and 0.03.
 
-| set | what it is | classic | neural | legacy Tesseract | Tesseract LSTM |
-|---|---|---|---|---|---|
-| payroll forms | generated ruled payroll forms: spanned headers, two-row records, open sides; software, typewriter and hand-lettered entries (20 pages) | 0.600 / 0.854 * | **0.907 / 0.935** | no table output | no table output |
-| paystubs | generated: earnings and deductions nested in the stub, in five rule styles from full grid to whitespace (20 pages) | – | 0.919 / 0.938 | no table output | no table output |
-| invoices | generated: line items with spanned totals, five rule styles (20 pages) | – | 0.967 / 0.981 | no table output | no table output |
-| timesheets | generated: two-level spanned headers, five rule styles (20 pages) | – | 0.944 / 0.964 | no table output | no table output |
-| receipts | generated: thermal-roll receipts, whitespace or a header rule (20 pages) | – | 0.940 / 0.963 | no table output | no table output |
-| real receipts | CORD photographed receipts, their line items as the table (30 receipts) | – | 0.380 / 0.491 | no table output | no table output |
-| annual-report tables | real financial tables, FinTabNet.c, ruled by whitespace (60 tables) | 0.607 / 0.781 | **0.802 / 0.873** | no table output | no table output |
-| scientific tables | real tables from papers, PubTables-1M test crops (60 tables); page-level detection F1 0.967 at IoU 0.5 (40 pages) | – | 0.728 / 0.821 | no table output | no table output |
+| set | what it is | classic | neural-table |
+|---|---|---|---|
+| payroll forms | generated ruled payroll forms: spanned headers, two-row records, open sides; software, typewriter and hand-lettered entries (20 pages) | 0.600 / 0.854 * | **0.907 / 0.935** |
+| paystubs | generated: earnings and deductions nested in the stub, in five rule styles from full grid to whitespace (20 pages) | – | 0.919 / 0.938 |
+| invoices | generated: line items with spanned totals, five rule styles (20 pages) | – | 0.967 / 0.981 |
+| timesheets | generated: two-level spanned headers, five rule styles (20 pages) | – | 0.944 / 0.964 |
+| receipts | generated: thermal-roll receipts, whitespace or a header rule (20 pages) | – | 0.940 / 0.963 |
+| real receipts | CORD photographed receipts, their line items as the table (30 receipts) | – | 0.380 / 0.491 |
+| annual-report tables | real financial tables, FinTabNet.c, ruled by whitespace (60 tables) | 0.607 / 0.781 | **0.802 / 0.873** |
+| scientific tables | real tables from papers, PubTables-1M test crops (60 tables); page-level detection F1 0.967 at IoU 0.5 (40 pages) | – | 0.728 / 0.821 |
 
 Neural-table as of v0.17.0 (2026-09-30); the generated sets' truth was corrected where it disagreed with its own images (timesheets, payroll forms). \* measured before the open-sides and short-rule options and before the payroll truth held both amounts of each diagonal gross cell (the set was regenerated, 2026-09-28); – not measured.
 
@@ -210,9 +212,12 @@ day columns against its total, column totals),
 marking the cells a failed check points at. None of this changes the
 page's text. For table documents, `configs/neural-table.toml` adds the
 options that do: a large ruled grid kept from the picture zones, short
-dividers under spanned headers, low-dpi crops magnified, and a
-self-trained separator network that joins a table's wrapped rows. A table
-image on its own reads best with `--doc-type table`. Measured by TEDS
+dividers under spanned headers, low-dpi crops magnified, rules taken out
+of the reader's strips, figure columns re-read with digits only, and four
+self-trained networks: a table detector over the whole page, a structure
+network that gives a table's rows, columns and extent, a separator network
+that joins a table's wrapped rows, and a line reader fine-tuned on table
+lines. A table image on its own reads best with `--doc-type table`. Measured by TEDS
 against HTML truth (`scripts/eval_tables.py`), table by table in the
 comparison above.
 
@@ -286,7 +291,7 @@ profile, kept as the reference; the neural profile is the accurate one.
 | **classic** | `configs/classic.toml` | the MLP second opinion (53k) and the character GRU (258k) | the feature engine: nearest-prototype, outline and MLP channels over explicit glyph features, a beam decoder with lexicon and language model, per-document adaptation. Its row is the regression guard after every neural adoption. |
 | **pure** | `configs/pure.toml` | none | classic with both networks off; what the feature engine reads on its own |
 | **neural** | `configs/neural.toml` | classic's, plus the word-strip CRNN+CTC scorer as the judge of the classic word variants, the line reader (every line read end to end by the line model), the fitted judge that decides each line between the two readings, and the word-confidence calibrator | the engine to use; reports table structure (spans, nesting, tables found on the page, figure columns, arithmetic checks) without changing the text |
-| **neural-table** | `configs/neural-table.toml` | neural's | neural plus the table options that also change what the reader sees (ruled grids kept from the picture zones, short grid rules, low-dpi crops magnified): for payroll forms, paystubs, statements, invoices, receipts |
+| **neural-table** | `configs/neural-table.toml` | neural's, with a line reader fine-tuned on table lines in place of neural's, plus the table separator network (wrapped rows joined), the table detector (190k), the table structure network (280k) and the fitted choice between the rules' table and the network's | neural plus the table options that also change what the reader sees (ruled grids kept from the picture zones, short grid rules, low-dpi crops magnified, rules taken out of the reader's strips, figure columns re-read as figures, turned cell text read): for payroll forms, paystubs, statements, invoices, receipts, and tables from reports and papers |
 | **neural-line** | `configs/neural_line.toml` | the same, as the experiment profile for a new line model or choice rule | development |
 
 `tests/test_profiles.py` keeps the profiles honest (pure differs from
@@ -318,6 +323,8 @@ short form:
 .venv/bin/python scripts/harvest_lines.py data/unlv/bus.3B --pages 170 --out data/lines_en.npz --line-out data/linesfull_en.npz
 .venv/bin/python scripts/train_seq.py --backend torch --synth data/seq_synth_v1.npz --lines data/lines_en.npz --out data/seq_en_vN.npz
 .venv/bin/python scripts/harvest_word_conf.py data/unlv/bus.3B --pages 60 --config configs/neural.toml && .venv/bin/python scripts/train_wordconf.py data/wordconf_en.npz
+# the table networks: make_det_data.py + train_tabledet.py (detector), make_split_data.py + train_splitnet.py (structure),
+# train_table_select.py (the rules-or-network choice), harvest_boxes.py --tables (the table reader's lines); recipes in docs/NETWORKS.md
 ```
 
 A trained network goes live only when it clears the seed-to-seed range
@@ -334,6 +341,9 @@ way.
 .venv/bin/python scripts/eval_blocks.py truth data/unlv/bus.3B --pages 30 --seed 2 && .venv/bin/python scripts/eval_blocks.py score data/unlv/bus.3B --pages 30 --seed 2 --config configs/neural.toml
 .venv/bin/python scripts/eval_blocks.py zones data/unlv/bus.3B --pages 30 --seed 2 --config configs/neural.toml   # where on the page the errors sit
 TESSDATA_PREFIX=... .venv/bin/python scripts/eval_tesseract.py data/unlv/bus.3B --pages 30 --seed 2 --oem 0    # the legacy reference, same pages
+.venv/bin/python scripts/eval_tables.py data/tables/paystub --pages 20 --whole-page --config configs/neural-table.toml   # a generated table set, every table on the page
+.venv/bin/python scripts/eval_tables.py data/tables/fintabnet --pages 60 --doc-type table --config configs/neural-table.toml --set output.ws_table_doc_types=table --set magnify.min_dpi=150
+.venv/bin/python scripts/eval_detection.py data/raw/pubtables1m/x --pages 40 --config configs/neural-table.toml   # tables found on scientific pages
 ```
 
 Character and word accuracy by edit distance, plus order-free word
