@@ -9,7 +9,8 @@ has.
 
 - **Part I** is the general theory: neurons and layers, how a network
   learns, convolutions, recurrence, CTC, the training practices this
-  project leans on, and fine-tuning and distillation.
+  project leans on, fine-tuning and distillation, and ensembles, weight
+  averages and model soups.
 - **Part II** is the engine's own networks, one section each, with the
   numbers.
 - **Part III** is a summary table and a list of what we deliberately do not
@@ -289,22 +290,13 @@ only for training on a GPU; weights are exported back to `.npz`, and the
 tests hold the two to the same outputs (the CRNN to 1e-4). torch is an
 optional extra; the pipeline never imports it unless asked.
 
-**Ensembles.**
-
-![An ensemble](img/nn/ensemble.svg)
-
-The line reader is three copies of one network trained from different
-random starts (**seeds**). At read time their per-frame probabilities are
-averaged. Different seeds make different mistakes; averaging keeps what
-they agree on and cancels much of what they do not. Averaging their
-*weights* instead (a "model soup") was measured and was worse than any one
-member: the three live in different basins of the loss, and the average of
-three good points is not a good point. The output average costs three
-forward passes; `recognize/seq.py: SeqEnsemble` runs the three GRUs in one
-stacked loop to keep that cheap.
+**Ensembles and averages.** The line reader is three networks whose
+outputs are averaged; each of them is itself an average of its own
+weights over the end of its training. Why one kind of averaging works here
+and the other does not has a section of its own, §9.
 
 **Teaching something new without forgetting the old** — fine-tuning,
-distillation and the rest — has a section of its own, §8.
+distillation and the rest — is §8.
 
 **Adopt only what measures better.** A trained network is a candidate. It
 is run through the whole engine on every evaluation set, and it is named in
@@ -513,6 +505,142 @@ Every arrow is a fine-tune with the remedies above; every box was measured
 on every evaluation set before it was adopted, and the dashed ones lost
 somewhere and were not (RESEARCH.md has each one's numbers). That is the
 final safeguard against forgetting: not a technique, a measurement.
+
+## 9. Averaging: ensembles, weight averages, model soups
+
+Two quite different things get called "averaging several models", and this
+project measured both.
+
+- **Average the outputs.** Run every model on the input and average what
+  they say. This is an **ensemble**. It costs one forward pass per model.
+- **Average the weights.** Add the models' parameters together, divide,
+  and run the one model that results. This costs one forward pass in total.
+  It comes in several forms: an **EMA** of one run's weights, **SWA**
+  (stochastic weight averaging), **model soups**, **WiSE-FT**.
+
+The second looks like a free lunch. It is not, and the reason is worth
+understanding.
+
+### 9.1 Averaging outputs: ensembles
+
+![An ensemble](img/nn/ensemble.svg)
+
+![Averaging outputs](img/nn/output_average.png)
+
+The line reader is three copies of one network trained from different
+random starts (**seeds**). At each frame each member gives a probability
+distribution over the characters; the ensemble's distribution is their
+mean,
+
+$$\bar p(c \mid \text{frame}) = \frac{1}{M}\sum_{m=1}^{M} p_m(c \mid \text{frame}),$$
+
+computed in log space as `logsumexp` of the members' log-probabilities
+minus `log M` (`recognize/seq.py: SeqEnsemble`). CTC decoding then runs on
+the averaged frames exactly as it would for one reader.
+
+**Why it works.** Each member makes mistakes; if their mistakes were
+completely independent, a majority would almost never be wrong at the same
+frame. They are not independent — all three saw the same data — but they
+are independent *enough*: different random starts and different batch
+orders lead to different weaknesses. Averaging keeps what they agree on
+and dilutes what only one of them believes (Hansen & Salamon, 1990). In
+statistical terms it reduces the **variance** of the reader — how much its
+behaviour depends on the luck of its training run — without changing its
+**bias**.
+
+**This project needed exactly that.** Five training runs of one recipe,
+differing only in their seed, read the SROIE receipts at 41.5, 40.0, 39.2,
+37.6 and 38.3 words, and a paired bootstrap showed the differences were
+real, not measurement noise: each seed moved a receipt by a median 7.6
+words. A single reader was a lottery ticket. Three members averaged
+deliver roughly the average of the draws, every time (RESEARCH,
+2026-09-23 and 2026-09-24).
+
+**The cost** is three forward passes. `SeqEnsemble` keeps it down by
+running the three members' recurrent layers in one loop with their weights
+stacked, so the Python overhead is paid once.
+
+### 9.2 Averaging weights: why it can work at all
+
+A trained network is a point in **weight space** — one coordinate per
+parameter, 287,288 of them for a reader — and training is a walk downhill
+on the **loss surface** over that space. Walks end in **basins**: regions of
+low loss.
+
+![Averaging weights](img/nn/soup.svg)
+
+Two facts decide whether averaging weights helps.
+
+- **Inside one basin, the average is better.** Points near the bottom of
+  one basin surround its lowest region; their average lands nearer the
+  middle, and a point in the middle of a wide, flat valley generalises
+  better than a point on its walls (Izmailov et al., 2018).
+- **Across basins, the average is worse.** Two networks trained
+  independently can compute almost the same function with completely
+  different weights. The simplest reason is **permutation symmetry**:
+  shuffle the 96 units of a GRU, and shuffle the rows and columns of the
+  weights that feed and read them to match, and the network is unchanged.
+  So unit 17 of one seed has nothing to do with unit 17 of another, and
+  averaging them unit by unit blends unrelated detectors into mush. The
+  midpoint of two good points in different basins sits on the ridge
+  between them.
+
+So the whole question is whether the models being averaged share a basin.
+They do when they are snapshots of **one** training run, or light
+**fine-tunes of one starting point** that did not travel far from it
+(Frankle et al., 2020, call this *linear mode connectivity*).
+
+### 9.3 The weight averages, one by one
+
+**EMA (Polyak averaging)** — the average of one run's weights over its last
+few thousand steps (§8.6). One run, one basin: the condition holds. Every
+live reader member ships as its EMA weights.
+
+**SWA and late-epoch soups** — the average of several epochs' snapshots of
+one run (Izmailov et al., "Averaging weights leads to wider optima", 2018).
+Measured here (`train_seq.py --save-epochs`, 2026-09-23): the average of
+epochs 6–8 cost the receipts 5.0 and 3.3 words on two seeds. The reason was
+the schedule, not the idea: epochs 6 and 7 were taken while the cosine
+learning rate was still at a third and a sixth of its peak, so they were
+unfinished models. SWA proper keeps the learning rate constant (or cyclic)
+over the epochs it averages.
+
+**Model soups** (Wortsman et al., ICML 2022) — the average of several
+models **fine-tuned from one pre-trained model** with different settings.
+A *uniform soup* averages them all; a *greedy soup* adds each model only if
+the held-out score improves. Their condition is that each fine-tune stays
+near the shared pre-trained point. Measured here with `scripts/soup_models.py`
+(2026-09-23): the weight mean of three seeds, all trained from the same
+starting reader (`seq_en_v5s1`). Every number fell below the **worst**
+seed: receipts 7.5 words under the seeds' range, dev-8 −1.9. Eight epochs at
+the full learning rate had carried each seed into its own basin — the
+same start, but not a light fine-tune — and the soup landed on the ridge.
+
+**WiSE-FT** (Wortsman et al., CVPR 2022) — interpolate between a model and
+its own fine-tune, `θ(α) = (1 − α) θ_before + α θ_after`, to trade how much
+of the new skill to take against how much of the old behaviour to keep.
+Measured here (2026-09-27) between two sibling readers from one parent (0.43
+of the weight norm apart — close enough to share a basin): the interpolation
+was smooth, as the theory says — but it **traded along a straight line**
+rather than combining. SROIE rose 68.2 → 71.5 → 75.2 → 78.6 → 80.9 characters
+from one end to the other while CORD fell 52.4 → 50.7 and held-out business
+letters 93.8 → 93.4, each step paying for what it gained. Keeping the
+receipts' gain without the losses took the fine-tuning remedies of §8
+instead.
+
+### 9.4 What the engine uses, and why
+
+| averaging | what is averaged | cost at read time | measured here | used |
+|---|---|---|---|---|
+| ensemble | three seeds' per-frame outputs | ×3 (stacked) | removes the seed lottery on receipts | **yes**: every line reader |
+| EMA | one run's weights over its last steps | ×1 | generalises better than the best epoch (§8.6) | **yes**: every reader member |
+| late-epoch soup | one run's epoch snapshots | ×1 | −5.0 and −3.3 receipt words (unfinished epochs) | no |
+| model soup of seeds | three seeds' weights | ×1 | worse than every seed | no |
+| WiSE-FT interpolation | a model and its fine-tune | ×1 | a straight-line trade, no free gain | no |
+
+The lesson generalises beyond this project: **average outputs when the
+models disagree for good reasons; average weights only when they are
+really the same model, nudged.**
 
 ---
 
@@ -938,5 +1066,15 @@ the choice mattered), UNLV training-pool pages → `segmenter_judge.py`.
   2015.
 - B. Polyak & A. Juditsky, "Acceleration of stochastic approximation by
   averaging", SIAM J. Control Optim. 1992 (weight averaging).
+- L. K. Hansen & P. Salamon, "Neural network ensembles", IEEE TPAMI 1990.
+- P. Izmailov, D. Podoprikhin, T. Garipov, D. Vetrov & A. G. Wilson,
+  "Averaging weights leads to wider optima and better generalization"
+  (SWA), UAI 2018.
+- M. Wortsman et al., "Model soups: averaging weights of multiple
+  fine-tuned models improves accuracy without increasing inference time",
+  ICML 2022; M. Wortsman et al., "Robust fine-tuning of zero-shot models"
+  (WiSE-FT), CVPR 2022.
+- J. Frankle, G. K. Dziugaite, D. Roy & M. Carbin, "Linear mode
+  connectivity and the lottery ticket hypothesis", ICML 2020.
 - P. Hart, "The condensed nearest neighbor rule", IEEE Trans. Inf. Theory
   1968.

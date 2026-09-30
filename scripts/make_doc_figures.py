@@ -538,6 +538,78 @@ def fig_temperature():
     print("wrote", OUT / "temperature.png")
 
 
+def fig_soup():
+    """Averaging weights: inside one basin the average lands in the valley;
+    across basins it lands on the ridge between them."""
+    s = SVG(900, 380)
+    s.text(20, 28, "Averaging weights works only inside one basin of the loss", size=16, anchor="start",
+           weight="700")
+
+    def basin(cx, cy, rx, ry, col):
+        for k, f in enumerate((1.0, 0.72, 0.46, 0.22)):
+            s.parts.append(f'<ellipse cx="{cx}" cy="{cy}" rx="{rx * f}" ry="{ry * f}" fill="{col}" '
+                           f'fill-opacity="{0.10 + 0.08 * k}" stroke="{col}" stroke-opacity="0.5"/>')
+
+    # left: one basin, points from one run or fine-tunes of one start
+    s.text(220, 62, "one basin: snapshots of one run, or light fine-tunes of one start", size=13, weight="600")
+    basin(220, 200, 170, 105, BLUE)
+    pts = [(150, 170), (285, 160), (250, 262), (170, 245)]
+    for x, y in pts:
+        s.circle(x, y, 7, fill="#ffffff", stroke=INK)
+    mx, my = np.mean([p[0] for p in pts]), np.mean([p[1] for p in pts])
+    for x, y in pts:
+        s.line(x, y, mx, my, color=LINE, dash="4 3")
+    s.circle(mx, my, 9, fill=GREEN, stroke=GREEN)
+    s.text(mx + 16, my + 5, "the average: lower loss", size=12, color=GREEN, weight="600", anchor="start")
+    s.text(220, 335, "EMA / Polyak averaging, SWA, model soups (Wortsman et al. 2022)", size=12, color=MUTED)
+    # right: separate basins, seeds that wandered apart
+    s.text(680, 62, "separate basins: seeds that trained far apart", size=13, weight="600")
+    basin(580, 200, 95, 90, PURPLE)
+    basin(785, 170, 90, 80, PURPLE)
+    basin(700, 290, 85, 55, PURPLE)
+    q = [(580, 200), (785, 170), (700, 292)]
+    for x, y in q:
+        s.circle(x, y, 7, fill="#ffffff", stroke=INK)
+    qx, qy = np.mean([p[0] for p in q]), np.mean([p[1] for p in q])
+    for x, y in q:
+        s.line(x, y, qx, qy, color=LINE, dash="4 3")
+    s.circle(qx, qy, 9, fill=RED, stroke=RED)
+    s.text(qx, qy - 16, "the average: on a ridge", size=12, color=RED, weight="600")
+    s.text(680, 360, "each seed is good; their midpoint is worse than any of them", size=12, color=MUTED)
+    s.save("soup.svg")
+
+
+def fig_output_average():
+    """Averaging outputs: three readers' distributions for one frame."""
+    W, H = 900, 250
+    im = Image.new("RGB", (W, H), "white")
+    d = ImageDraw.Draw(im)
+    d.text((20, 12), "Averaging outputs: three readers' probabilities for one frame, and their mean", fill=INK,
+           font=font(15))
+    classes = ["e", "c", "o", "a"]
+    members = [np.array([0.70, 0.22, 0.05, 0.03]), np.array([0.35, 0.55, 0.06, 0.04]),
+               np.array([0.62, 0.20, 0.12, 0.06])]
+    mean = np.mean(members, axis=0)
+    panels = [("member 1", members[0]), ("member 2 (wrong: 'c')", members[1]), ("member 3", members[2]),
+              ("mean", mean)]
+    pw = (W - 40) // 4
+    for k, (name, p) in enumerate(panels):
+        x0, y0, h = 20 + k * pw, 60, 120
+        d.text((x0 + 10, y0 - 18), name, fill=INK, font=font(13))
+        bw = (pw - 50) // len(classes)
+        for i, (c, v) in enumerate(zip(classes, p)):
+            x = x0 + 20 + i * bw
+            bh = int(h * v)
+            col = GREEN if k == 3 and i == int(np.argmax(p)) else (BLUE if i == int(np.argmax(p)) else "#9fb8ec")
+            d.rectangle([x, y0 + h - bh, x + bw - 8, y0 + h], fill=col)
+            d.text((x + bw / 2 - 8, y0 + h + 6), c, fill=INK, font=font(13))
+            d.text((x, y0 + h - bh - 15), f"{v:.2f}", fill=MUTED, font=font(11))
+    d.text((20, H - 34), "One member's mistake is outvoted when the others disagree with it: the mean still says 'e'. "
+                         "Cost: three forward passes.", fill=MUTED, font=font(12))
+    im.save(OUT / "output_average.png")
+    print("wrote", OUT / "output_average.png")
+
+
 def schematics():
     fig_neuron()
     fig_activations()
@@ -555,6 +627,8 @@ def schematics():
     fig_finetune()
     fig_temperature()
     fig_ensemble()
+    fig_output_average()
+    fig_soup()
 
 
 # ---------------------------------------------------------- real networks
