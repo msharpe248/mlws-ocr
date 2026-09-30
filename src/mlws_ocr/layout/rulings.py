@@ -104,6 +104,31 @@ def dashed_rules(b: np.ndarray, length: int, dpi: float, gap_300: float,
     return out & b
 
 
+def edge_bars(b: np.ndarray) -> np.ndarray:
+    """The tall thin marks at the image's left or right edge: a component
+    within 2% of the width from either side, at least 2.5 glyph heights
+    tall and at most 0.6 of one wide (the glyph height the median of the
+    components 3 px to a tenth of the page tall).  A photographed receipt's
+    paper edge or its shadow is such a mark; beside the item lines it joins
+    them into one strip for the line finder.  Returns their mask."""
+    lab, n = ndimage.label(b, structure=np.ones((3, 3), bool))
+    out = np.zeros_like(b, dtype=bool)
+    if not n:
+        return out
+    H, W = b.shape
+    sl = ndimage.find_objects(lab)
+    hs = np.array([q[0].stop - q[0].start for q in sl])
+    ws = np.array([q[1].stop - q[1].start for q in sl])
+    glyph = (hs >= 3) & (hs <= H / 10)
+    if glyph.sum() < 10:
+        return out
+    ref = float(np.median(hs[glyph]))
+    for i, q in enumerate(sl):
+        if hs[i] >= 2.5 * ref and ws[i] <= 0.6 * ref and (q[1].start <= 0.02 * W or q[1].stop >= 0.98 * W):
+            out[q] |= lab[q] == i + 1
+    return out
+
+
 def short_rules(cand: np.ndarray, cross: np.ndarray, axis: int, reach: int) -> np.ndarray:
     """The candidate runs (along ``axis``: 1 horizontal, 0 vertical) whose two
     ends each come within ``reach`` px of a crossing rule -- the grid-completing
@@ -153,6 +178,10 @@ class MorphologicalRulings(Stage):
                                  # thin runs are kept -- a closed-up word row
                                  # is x-height thick, a rule a few px.  0 = off
         "dash_max_thick_300dpi": 5,
+        "edge_bars": False,      # the text-only page also loses tall thin marks at its left and right
+                                 # edges (edge_bars: a photographed receipt's paper edge or shadow)
+        "dash_min_cover": 0.7,   # a dashed rule's ink must cover this share of its span (a receipt's
+                                 # separator of 13-px dashes 7 px apart covers 0.67)
         "short_in_grid_300dpi": 0,  # > 0: also keep rules this long or longer (and
                                  # shorter than min_len) whose BOTH ends meet a
                                  # rule -- a table's inner dividers under a
@@ -183,7 +212,8 @@ class MorphologicalRulings(Stage):
             vert = open_with_line(b, L, 0)
         if self.params["dash_gap_300dpi"] > 0:
             horiz = horiz | dashed_rules(b, L, page.dpi, self.params["dash_gap_300dpi"],
-                                         self.params["dash_max_thick_300dpi"])
+                                         self.params["dash_max_thick_300dpi"],
+                                         self.params["dash_min_cover"])
         Ls = int(self.params["short_in_grid_300dpi"] * page.dpi / 300.0)
         if 0 < Ls < L:
             src_h = open_with_line(fat_h, Ls, 1) & bridged if self.params["tolerant"] else open_with_line(b, Ls, 1)
@@ -213,6 +243,11 @@ class MorphologicalRulings(Stage):
                 text_only, structure=np.ones((1, 3), bool), iterations=reach) & v_band
             text_only = text_only | (b & (touch_h | touch_v))
 
+        n_bars = 0
+        if self.params["edge_bars"]:
+            bars = edge_bars(text_only)
+            n_bars = int(ndimage.label(bars)[1])
+            text_only = text_only & ~bars
         out = page.evolve(binary=text_only)
         out.meta.setdefault("layout", {})["rules_h"] = _segments(horiz)
         out.meta["layout"]["rules_v"] = _segments(vert)
@@ -220,6 +255,6 @@ class MorphologicalRulings(Stage):
             images={"rules_overlay": overlay_mask(page.gray, rules),
                     "text_only": text_only},
             scalars={"h_rules": len(out.meta["layout"]["rules_h"]),
-                     "v_rules": len(out.meta["layout"]["rules_v"])},
+                     "v_rules": len(out.meta["layout"]["rules_v"]), "edge_bars": n_bars},
         )
         return out, debug
