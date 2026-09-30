@@ -28,32 +28,35 @@ Contents
 ## 1. The system at a glance
 
 ```mermaid
-flowchart TB
+flowchart LR
     subgraph In["inputs"]
-        direction LR
+        direction TB
         IMG["image<br/>PNG / TIFF / JPEG"]
         PDF["PDF page<br/>largest embedded image"]
     end
     subgraph Doors["ways in"]
-        direction LR
+        direction TB
         CLI["mlws-ocr run / batch"]
         SVC["mlws-ocr-service<br/>POST /ocr"]
         UI["mlws-ocr-ui<br/>the workbench"]
     end
     subgraph Engine["the engine"]
-        direction LR
+        direction TB
         CFG[("configs/*.toml<br/>engine profile")]
         PIPE[["the pipeline<br/>17 stage slots"]]
         MOD[("data/*.npz<br/>released models")]
+        CFG --> PIPE
+        MOD --> PIPE
     end
     subgraph Out["outputs"]
-        direction LR
+        direction TB
         TXT["text"]
         HOCR["hOCR<br/>words, lines, tables"]
         TAB["tables<br/>JSON / HTML / CSV"]
-        RUN["runs/ID/<br/>every stage persisted,<br/>viewed by mlws-ocr inspect"]
     end
     In --> Doors --> Engine --> Out
+    CLI -.->|persists every stage| RUN["runs/ID/<br/>one folder per stage"]
+    RUN -.-> INSP["mlws-ocr inspect<br/>read-only viewer"]
 ```
 
 One pipeline, several doors. A **profile** (a TOML file under `configs/`)
