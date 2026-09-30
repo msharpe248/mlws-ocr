@@ -180,7 +180,9 @@ def truth_table(f: dict) -> list[dict]:
     add(0, 4, HEADER[4], cs=7)
     for k, t in zip((11, 12, 13), HEADER[5:8]):
         add(0, k, t, rs=4)
-    add(0, 14, HEADER[8], cs=6)
+    # '(8) DEDUCTIONS' runs down to the line between the day letters and the dates;
+    # its sub-headers fill the two rows below it (as the form draws them)
+    c.append({"row": 0, "col": 14, "rowspan": 2, "colspan": 6, "text": HEADER[8]})
     add(0, 20, HEADER[9], rs=4)
     for i in range(7):
         add(1, 4 + i, f[f"day{i + 1}"])
@@ -188,7 +190,7 @@ def truth_table(f: dict) -> list[dict]:
     add(3, 4, "HOURS WORKED EACH DAY", cs=7)
     for k, t in zip(range(14, 20), ["FICA", "WITHHOLDING TAX", f["deductionLabel1"], f["deductionLabel2"],
                                      "OTHER", "TOTAL DEDUCTIONS"]):
-        add(1, k, t, rs=3)
+        add(2, k, t, rs=2)
     for e in range(1, 9):
         r = 4 + 2 * (e - 1)
         g = lambda k: f.get(f"{k}{e}", "")  # noqa: E731
