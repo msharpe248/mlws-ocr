@@ -22,6 +22,7 @@ _RE_DASHRUN = re.compile(r"-{3,}")
 _GROUPED = re.compile(r"(\d),\s+(\d{3})(?=\D|$)")
 
 
+_MASKED = re.compile(r"\bX{2,}(?:-X{2,})*-(?=\d)")
 _S_DOLLAR = re.compile(r"(^|\s)[Ss](?=\s*\(?\d)")
 
 
@@ -780,8 +781,27 @@ class TextOutput(Stage):
                         t = t.upper()
                     elif len(toks) >= 2 and all(len(w) == 1 and w.isalpha() for w in toks):
                         t = ""
+                    elif any(ch.islower() for ch in t) and _MASKED.search(t):
+                        # a masked number ('xxx-xx-6357') in a cell set in mixed case: the
+                        # x's are small (a case twin the reader gave capitals)
+                        t = _MASKED.sub(lambda m: m.group(0).lower(), t)
                 return t
+
+            def fix_column(values: list[str]) -> list[str]:
+                # a column of single characters, mostly letters (an O / S marks column):
+                # a '0' there is the letter O, a '5' the letter S
+                filled = [v for v in values if v]
+                singles = [v for v in filled if len(v) == 1]
+                if self.params["cell_marks"] and len(singles) >= 4 and len(singles) >= 0.8 * len(filled) \
+                        and sum(1 for v in singles if v.isalpha()) * 2 >= len(singles):
+                    return [{"0": "O", "5": "S"}.get(v, v) for v in values]
+                return values
             tables_text = [[[fix(x) for x in row] for row in grid] for grid in tables_text]
+            fixed_cols = []
+            for grid in tables_text:
+                cols = [fix_column([row[k] for row in grid]) for k in range(len(grid[0]) if grid else 0)]
+                fixed_cols.append([[cols[k][r] for k in range(len(cols))] for r in range(len(grid))])
+            tables_text = fixed_cols
             layout = dict(layout, tables=[dict(t, cells=[dict(c, text=fix(c["text"])) if c.get("text") else c
                                                          for c in t.get("cells", [])])
                                           for t in layout.get("tables", [])])
