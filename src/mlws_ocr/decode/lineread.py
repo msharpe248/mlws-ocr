@@ -88,6 +88,10 @@ class HybridDecode(BeamDecode):
         "line_source": "binary",   # the reader's strips: "binary" (as trained) or "gray" --
                                    # the flattened grey page, contrast-normalised, for a
                                    # reader trained on grey strips (2026-09-26 pilot)
+        "rotated_cells": False,    # a ruled table's tall, narrow cell whose words the lexicon does
+                                   # not know read again turned a quarter turn (text set upward: a
+                                   # form's 'NO. OF WITHHOLDING EXEMPTIONS'), kept when its words are
+                                   # the lexicon's
         "figure_cells": False,     # in a ruled table's figure column (most of its filled cells
                                    # figures), a word that is not one is read again with the
                                    # reader's alphabet cut to digits and figure punctuation
@@ -278,9 +282,75 @@ class HybridDecode(BeamDecode):
         debug.scalars["graphic_lines_read"] = n_graphic
         debug.scalars["superset_kept"] = n_superset
         debug.scalars["lines_dropped"] = n_dropped
+        if p["rotated_cells"] and layout.get("tables"):
+            debug.scalars["rotated_cells_read"] = self._read_rotated_cells(layout, page.binary, model, gray)
         if p["figure_cells"] and layout.get("tables"):
             debug.scalars["figure_cells_reread"] = self._reread_figure_cells(layout, page.binary, model, gray)
         return out, debug
+
+    def _read_rotated_cells(self, layout, binary, model, gray) -> int:
+        """Tall, narrow cells of the ruled tables (at least twice as tall as
+        wide) whose words are not the lexicon's: the cell's image turned a
+        quarter turn clockwise (text set bottom to top reads left to right),
+        its text lines found by the row profile, each read; the reading
+        replaces the cell's words when most of its words are the lexicon's."""
+        n = 0
+        for t in layout.get("tables", []):
+            if t.get("source", "grid") != "grid":
+                continue
+            for c in t.get("cells", []):
+                x0, y0, x1, y1 = [int(v) for v in c["box"]]
+                w, h = x1 - x0, y1 - y0
+                if w < 12 or h < 2 * w:
+                    continue
+                inside = [(ln, wd) for ln in layout["lines"] for wd in ln.get("words", [])
+                          if x0 <= (wd["box"][0] + wd["box"][2]) / 2 < x1 and y0 <= (wd["box"][1] + wd["box"][3]) / 2 < y1]
+                if not inside or sum(1 for _, wd in inside if wd.get("in_lexicon")) * 2 > len(inside):
+                    continue
+                if sum(len(wd["text"]) for _, wd in inside) < 4:
+                    continue              # a mark ('O', 'S'), not a turned heading
+
+                b = np.rot90(binary[y0 + 3:y1 - 3, x0 + 3:x1 - 3], k=-1)      # upward text -> left to right
+                g = np.rot90(gray[y0 + 3:y1 - 3, x0 + 3:x1 - 3], k=-1) if gray is not None else None
+                prof = b.sum(axis=1)
+                on = prof > 0.02 * max(1, b.shape[1])
+                texts, k = [], 0
+                while k < len(on):
+                    if not on[k]:
+                        k += 1
+                        continue
+                    j = k
+                    while j + 1 < len(on) and on[j + 1]:
+                        j += 1
+                    band = b[k:j + 1]
+                    rows = band.sum(axis=1)
+                    dense = np.nonzero(rows >= 0.5 * rows.max())[0]
+                    if len(dense) >= 3 and band.any():
+                        cols = np.nonzero(band.any(axis=0))[0]
+                        xh = float(dense[-1] - dense[0] + 1)
+                        ln2 = {"box": [int(cols[0]), k, int(cols[-1]) + 1, j + 1], "baseline": k + int(dense[-1]) + 1,
+                               "x_height": xh}
+                        strip, _, _, _ = line_strip(np.ascontiguousarray(b), ln2, xh,
+                                                    gray=np.ascontiguousarray(g) if g is not None else None)
+                        if strip.shape[1] >= 6:
+                            ink = (1.0 - strip).astype(np.float32) if g is not None else (strip < 0.5).astype(np.float32)
+                            read = "".join(ch for ch, _, _ in prefix_beam_search(cached_log_probs(model, ink), model.classes,
+                                                                                  beam_width=8)).strip()
+                            if read:
+                                texts.append(read)
+                    k = j + 1
+                words = " ".join(texts).split()
+                known = sum(1 for wd in words if self._lm_endorsed(self._core(wd)))
+                if not words or known * 2 < len(words):
+                    continue
+                for ln, wd in inside:
+                    ln["words"] = [x for x in ln["words"] if x is not wd]
+                layout["lines"].append({"box": [x0, y0, x1, y1], "baseline": y1, "x_height": float(w) / 3,
+                                        "words": [{"text": " ".join(words), "box": [x0 + 3, y0 + 3, x1 - 3, y1 - 3],
+                                                   "confidence": 0.9, "in_lexicon": True, "rotated": True,
+                                                   "line_read": True}]})
+                n += 1
+        return n
 
     _FIG_CHARS = set("0123456789,.$()-%/:")
 
