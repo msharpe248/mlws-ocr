@@ -310,8 +310,37 @@ class HybridDecode(BeamDecode):
                 if sum(len(wd["text"]) for _, wd in inside) < 4:
                     continue              # a mark ('O', 'S'), not a turned heading
 
-                b = np.rot90(binary[y0 + 3:y1 - 3, x0 + 3:x1 - 3], k=-1)      # upward text -> left to right
-                g = np.rot90(gray[y0 + 3:y1 - 3, x0 + 3:x1 - 3], k=-1) if gray is not None else None
+                import re as _re
+                label = [wd for _, wd in inside if _re.fullmatch(r"\(\d+\)", wd["text"])]
+                prefix = ""
+                if label:
+                    # a level '(2)' over the turned heading: turn only what is below it
+                    top = max(wd["box"][3] for wd in label) + 3
+                    words = self._turned_words(binary, gray, model, x0, top, x1, y1)
+                    prefix = label[0]["text"]
+                else:
+                    words = self._turned_words(binary, gray, model, x0, y0 + 3, x1, y1)
+                known = sum(1 for wd in words if self._lm_endorsed(self._core(wd).lower()))
+                if not words or known * 2 < len(words):
+                    continue
+                words = ([prefix] if prefix else []) + words
+                for ln, wd in inside:
+                    ln["words"] = [x for x in ln["words"] if x is not wd]
+                layout["lines"].append({"box": [x0, y0, x1, y1], "baseline": y1, "x_height": float(w) / 3,
+                                        "words": [{"text": " ".join(words), "box": [x0 + 3, y0 + 3, x1 - 3, y1 - 3],
+                                                   "confidence": 0.9, "in_lexicon": True, "rotated": True,
+                                                   "line_read": True}]})
+                n += 1
+        return n
+
+    def _turned_words(self, binary, gray, model, x0, ya, x1, y1) -> list[str]:
+        """The words of a cell region read a quarter turn round (text set
+        bottom to top), line by line."""
+        if y1 - 3 - ya < 8 or x1 - x0 < 8:
+            return []
+        if True:
+                b = np.rot90(binary[ya:y1 - 3, x0 + 3:x1 - 3], k=-1)      # upward text -> left to right
+                g = np.rot90(gray[ya:y1 - 3, x0 + 3:x1 - 3], k=-1) if gray is not None else None
                 prof = b.sum(axis=1)
                 on = prof > 0.02 * max(1, b.shape[1])
                 texts, k = [], 0
@@ -339,18 +368,7 @@ class HybridDecode(BeamDecode):
                             if read:
                                 texts.append(read)
                     k = j + 1
-                words = " ".join(texts).split()
-                known = sum(1 for wd in words if self._lm_endorsed(self._core(wd)))
-                if not words or known * 2 < len(words):
-                    continue
-                for ln, wd in inside:
-                    ln["words"] = [x for x in ln["words"] if x is not wd]
-                layout["lines"].append({"box": [x0, y0, x1, y1], "baseline": y1, "x_height": float(w) / 3,
-                                        "words": [{"text": " ".join(words), "box": [x0 + 3, y0 + 3, x1 - 3, y1 - 3],
-                                                   "confidence": 0.9, "in_lexicon": True, "rotated": True,
-                                                   "line_read": True}]})
-                n += 1
-        return n
+                return " ".join(texts).split()
 
     _FIG_CHARS = set("0123456789,.$()-%/:")
 
