@@ -1,0 +1,464 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en"><head>
+<title></title><meta http-equiv="Content-Type" content="text/html;charset=utf-8"/>
+<meta name="ocr-system" content="mlws-ocr"/>
+<meta name="ocr-capabilities" content="ocr_page ocr_carea ocr_par ocr_line ocrx_word ocr_table ocr_photo ocr_separator"/></head><body>
+<div class="ocr_page" id="page_1" title="bbox 0 0 2550 3300; ppageno 0">
+<div class="ocr_carea" id="block_1_1" title="bbox 228 233 682 359">
+<p class="ocr_par" id="par_1_1" title="bbox 228 233 682 359">
+<span class="ocr_line" id="line_1_1" title="bbox 229 233 682 269; baseline 0 -9; x_xheight 19.8">
+<span class="ocrx_word" id="word_1_1_1" title="bbox 229 233 403 261; x_wconf 100; x_conf 100.0">Lakeside</span>
+<span class="ocrx_word" id="word_1_1_2" title="bbox 419 233 546 262; x_wconf 98; x_conf 54.7">Dental</span>
+<span class="ocrx_word" id="word_1_1_3" title="bbox 563 234 682 269; x_wconf 99; x_conf 91.2">Group</span>
+</span>
+<span class="ocr_line" id="line_1_2" title="bbox 228 279 491 308; baseline 0 -2; x_xheight 19.8">
+<span class="ocrx_word" id="word_1_2_1" title="bbox 228 280 327 307; x_wconf 96; x_conf 100.0">9750</span>
+<span class="ocrx_word" id="word_1_2_2" title="bbox 344 279 434 307; x_wconf 99; x_conf 100.0">Main</span>
+<span class="ocrx_word" id="word_1_2_3" title="bbox 451 280 491 308; x_wconf 99; x_conf 92.2">St</span>
+</span>
+<span class="ocr_line" id="line_1_3" title="bbox 229 326 591 359; baseline 0 -7; x_xheight 19.6">
+<span class="ocrx_word" id="word_1_3_1" title="bbox 229 327 382 359; x_wconf 99; x_conf 100.0">Denver,</span>
+<span class="ocrx_word" id="word_1_3_2" title="bbox 398 326 451 353; x_wconf 92; x_conf 31.1">CO</span>
+<span class="ocrx_word" id="word_1_3_3" title="bbox 467 326 591 354; x_wconf 99; x_conf 100.0">80202</span>
+</span>
+</p></div>
+<div class="ocr_carea" id="block_1_2" title="bbox 228 395 403 422">
+<p class="ocr_par" id="par_1_2" title="bbox 228 395 403 422">
+<span class="ocr_line" id="line_1_4" title="bbox 228 395 403 422; baseline 0 -1; x_xheight 19.8">
+<span class="ocrx_word" id="word_1_4_1" title="bbox 228 395 403 422; x_wconf 98; x_conf 71.2">INVOICE</span>
+</span>
+</p></div>
+<div class="ocr_carea" id="block_1_3" title="bbox 228 463 682 584">
+<p class="ocr_par" id="par_1_3" title="bbox 228 463 682 584">
+<span class="ocr_line" id="line_1_5" title="bbox 229 463 578 492; baseline 0 -2; x_xheight 19.7">
+<span class="ocrx_word" id="word_1_5_1" title="bbox 229 463 288 491; x_wconf 83; x_conf 4.1">Bill</span>
+<span class="ocrx_word" id="word_1_5_2" title="bbox 304 465 363 491; x_wconf 99; x_conf 97.9">To:</span>
+<span class="ocrx_word" id="word_1_5_3" title="bbox 380 463 453 492; x_wconf 97; x_conf 52.9">Wei</span>
+<span class="ocrx_word" id="word_1_5_4" title="bbox 471 463 578 492; x_wconf 100; x_conf 100.0">Davis</span>
+</span>
+<span class="ocr_line" id="line_1_6" title="bbox 229 509 682 545; baseline 0 -9; x_xheight 19.8">
+<span class="ocrx_word" id="word_1_6_1" title="bbox 229 509 403 537; x_wconf 100; x_conf 100.0">Lakeside</span>
+<span class="ocrx_word" id="word_1_6_2" title="bbox 419 509 546 538; x_wconf 99; x_conf 69.4">Dental</span>
+<span class="ocrx_word" id="word_1_6_3" title="bbox 563 510 682 545; x_wconf 100; x_conf 100.0">Group</span>
+</span>
+<span class="ocr_line" id="line_1_7" title="bbox 228 555 543 584; baseline 0 -2; x_xheight 19.5">
+<span class="ocrx_word" id="word_1_7_1" title="bbox 228 556 327 583; x_wconf 96; x_conf 100.0">6888</span>
+<span class="ocrx_word" id="word_1_7_2" title="bbox 344 555 481 584; x_wconf 100; x_conf 100.0">Harbor</span>
+<span class="ocrx_word" id="word_1_7_3" title="bbox 496 555 543 584; x_wconf 99; x_conf 100.0">Rd</span>
+</span>
+</p></div>
+<table class="ocr_table" id="table_1_1" title="bbox 227 617 777 800"><tbody>
+<tr>
+<td title="bbox 227 617 485 678">
+<span class="ocr_line" id="line_1_8" title="bbox 242 632 468 660; baseline 0 -1; x_xheight 21.0">
+<span class="ocrx_word" id="word_1_8_1" title="bbox 242 632 390 660; x_wconf 100; x_conf 100.0">Invoice</span>
+<span class="ocrx_word" id="word_1_8_2" title="bbox 406 634 468 660; x_wconf 97; x_conf 71.1">No.</span>
+</span>
+</td>
+<td title="bbox 485 617 777 678">
+<span class="ocr_line" id="line_1_9" title="bbox 501 633 694 661; baseline 0 -1; x_xheight 19.8">
+<span class="ocrx_word" id="word_1_9_1" title="bbox 501 633 694 661; x_wconf 94; x_conf 98.1">INV-47245</span>
+</span>
+</td>
+</tr>
+<tr>
+<td title="bbox 227 678 485 740">
+<span class="ocr_line" id="line_1_10" title="bbox 243 696 333 722; baseline 0 -1; x_xheight 23.5">
+<span class="ocrx_word" id="word_1_10_1" title="bbox 243 696 333 722; x_wconf 98; x_conf 61.4">Date</span>
+</span>
+</td>
+<td title="bbox 485 678 777 740">
+<span class="ocr_line" id="line_1_11" title="bbox 504 694 713 728; baseline 0 -6; x_xheight 19.8">
+<span class="ocrx_word" id="word_1_11_1" title="bbox 504 694 713 728; x_wconf 99; x_conf 100.0">10/16/2026</span>
+</span>
+</td>
+</tr>
+<tr>
+<td title="bbox 227 740 485 800">
+<span class="ocr_line" id="line_1_12" title="bbox 240 758 364 784; baseline 0 -1; x_xheight 21.0">
+<span class="ocrx_word" id="word_1_12_1" title="bbox 240 758 364 784; x_wconf 99; x_conf 100.0">Terms</span>
+</span>
+</td>
+<td title="bbox 485 740 777 800">
+<span class="ocr_line" id="line_1_13" title="bbox 502 758 764 792; baseline 0 -8; x_xheight 22.0">
+<span class="ocrx_word" id="word_1_13_1" title="bbox 502 758 570 785; x_wconf 99; x_conf 100.0">Due</span>
+<span class="ocrx_word" id="word_1_13_2" title="bbox 585 763 625 785; x_wconf 100; x_conf 100.0">on</span>
+<span class="ocrx_word" id="word_1_13_3" title="bbox 644 758 764 792; x_wconf 100; x_conf 100.0">receipt</span>
+</span>
+</td>
+</tr>
+</tbody></table>
+<table class="ocr_table" id="table_1_2" title="bbox 227 850 2124 1715"><tbody>
+<tr>
+<td title="bbox 227 850 412 910">
+<span class="ocr_line" id="line_1_14" title="bbox 271 866 365 892; baseline 0 -1; x_xheight 23.5">
+<span class="ocrx_word" id="word_1_14_1" title="bbox 271 866 365 892; x_wconf 99; x_conf 100.0">Item</span>
+</span>
+</td>
+<td title="bbox 412 850 1545 910">
+<span class="ocr_line" id="line_1_15" title="bbox 866 865 1091 900; baseline 0 -8; x_xheight 19.9">
+<span class="ocrx_word" id="word_1_15_1" title="bbox 866 865 1091 900; x_wconf 100; x_conf 100.0">Description</span>
+</span>
+</td>
+<td title="bbox 1545 850 1643 910">
+</td>
+<td title="bbox 1643 850 1868 910">
+<span class="ocr_line" id="line_1_16" title="bbox 1660 865 1852 894; baseline 0 -2; x_xheight 19.8">
+<span class="ocrx_word" id="word_1_16_1" title="bbox 1660 865 1740 894; x_wconf 99; x_conf 100.0">Unit</span>
+<span class="ocrx_word" id="word_1_16_2" title="bbox 1756 865 1852 894; x_wconf 97; x_conf 55.5">Price</span>
+</span>
+</td>
+<td title="bbox 1868 850 2124 910">
+<span class="ocr_line" id="line_1_17" title="bbox 1918 867 2076 894; baseline 0 -1; x_xheight 21.5">
+<span class="ocrx_word" id="word_1_17_1" title="bbox 1918 867 2076 894; x_wconf 99; x_conf 100.0">Amount</span>
+</span>
+</td>
+</tr>
+<tr>
+<td title="bbox 227 910 412 972">
+<span class="ocr_line" id="line_1_18" title="bbox 241 927 397 954; baseline 0 -1; x_xheight 19.8">
+<span class="ocrx_word" id="word_1_18_1" title="bbox 241 927 397 954; x_wconf 89; x_conf 74.7">G907-36</span>
+</span>
+</td>
+<td title="bbox 412 910 1545 972">
+<span class="ocr_line" id="line_1_19" title="bbox 425 926 818 962; baseline 0 -9; x_xheight 19.8">
+<span class="ocrx_word" id="word_1_19_1" title="bbox 425 928 526 954; x_wconf 100; x_conf 100.0">Toner</span>
+<span class="ocrx_word" id="word_1_19_2" title="bbox 539 926 710 962; x_wconf 99; x_conf 100.0">cartridge,</span>
+<span class="ocrx_word" id="word_1_19_3" title="bbox 728 926 818 955; x_wconf 100; x_conf 100.0">black</span>
+</span>
+</td>
+<td title="bbox 1545 910 1643 972">
+</td>
+<td title="bbox 1643 910 1868 972">
+<span class="ocr_line" id="line_1_20" title="bbox 1730 928 1851 956; baseline 0 -1; x_xheight 19.8">
+<span class="ocrx_word" id="word_1_20_1" title="bbox 1730 928 1851 956; x_wconf 98; x_conf 81.0">199.40</span>
+</span>
+</td>
+<td title="bbox 1868 910 2124 972">
+<span class="ocr_line" id="line_1_21" title="bbox 1950 928 2110 963; baseline 0 -8; x_xheight 19.8">
+<span class="ocrx_word" id="word_1_21_1" title="bbox 1950 928 2110 963; x_wconf 99; x_conf 100.0">2,991.00</span>
+</span>
+</td>
+</tr>
+<tr>
+<td title="bbox 227 972 412 1034">
+<span class="ocr_line" id="line_1_22" title="bbox 241 989 397 1016; baseline 0 -1; x_xheight 19.8">
+<span class="ocrx_word" id="word_1_22_1" title="bbox 241 989 397 1016; x_wconf 92; x_conf 87.9">G543-87</span>
+</span>
+</td>
+<td title="bbox 412 972 1545 1034">
+<span class="ocr_line" id="line_1_23" title="bbox 429 988 791 1017; baseline 0 -2; x_xheight 19.8">
+<span class="ocrx_word" id="word_1_23_1" title="bbox 429 990 599 1017; x_wconf 100; x_conf 100.0">Extension</span>
+<span class="ocrx_word" id="word_1_23_2" title="bbox 615 988 689 1017; x_wconf 100; x_conf 100.0">cord</span>
+<span class="ocrx_word" id="word_1_23_3" title="bbox 707 989 749 1017; x_wconf 96; x_conf 100.0">50</span>
+<span class="ocrx_word" id="word_1_23_4" title="bbox 764 988 791 1017; x_wconf 99; x_conf 100.0">ft</span>
+</span>
+</td>
+<td title="bbox 1545 972 1643 1034">
+<span class="ocr_line" id="line_1_24" title="bbox 1587 990 1627 1017; baseline 0 -1; x_xheight 26.5">
+<span class="ocrx_word" id="word_1_24_1" title="bbox 1587 990 1627 1017; x_wconf 95; x_conf 100.0">16</span>
+</span>
+</td>
+<td title="bbox 1643 972 1868 1034">
+<span class="ocr_line" id="line_1_25" title="bbox 1753 990 1851 1018; baseline 0 -1; x_xheight 19.8">
+<span class="ocrx_word" id="word_1_25_1" title="bbox 1753 990 1851 1018; x_wconf 99; x_conf 100.0">13.85</span>
+</span>
+</td>
+<td title="bbox 1868 972 2124 1034">
+<span class="ocr_line" id="line_1_26" title="bbox 1986 990 2109 1018; baseline 0 -1; x_xheight 19.8">
+<span class="ocrx_word" id="word_1_26_1" title="bbox 1986 990 2109 1018; x_wconf 99; x_conf 90.4">221.60</span>
+</span>
+</td>
+</tr>
+<tr>
+<td title="bbox 227 1034 412 1096">
+<span class="ocr_line" id="line_1_27" title="bbox 243 1051 391 1078; baseline 0 -1; x_xheight 19.8">
+<span class="ocrx_word" id="word_1_27_1" title="bbox 243 1051 391 1078; x_wconf 94; x_conf 100.0">E838-39</span>
+</span>
+</td>
+<td title="bbox 412 1034 1545 1096">
+<span class="ocr_line" id="line_1_28" title="bbox 428 1050 715 1086; baseline 0 -9; x_xheight 19.8">
+<span class="ocrx_word" id="word_1_28_1" title="bbox 428 1050 540 1086; x_wconf 100; x_conf 100.0">Safety</span>
+<span class="ocrx_word" id="word_1_28_2" title="bbox 555 1050 679 1086; x_wconf 99; x_conf 100.0">gloves,</span>
+<span class="ocrx_word" id="word_1_28_3" title="bbox 697 1052 715 1079; x_wconf 97; x_conf 100.0">L</span>
+</span>
+</td>
+<td title="bbox 1545 1034 1643 1096">
+</td>
+<td title="bbox 1643 1034 1868 1096">
+<span class="ocr_line" id="line_1_29" title="bbox 1728 1052 1852 1080; baseline 0 -1; x_xheight 19.8">
+<span class="ocrx_word" id="word_1_29_1" title="bbox 1728 1052 1852 1080; x_wconf 99; x_conf 100.0">292.86</span>
+</span>
+</td>
+<td title="bbox 1868 1034 2124 1096">
+<span class="ocr_line" id="line_1_30" title="bbox 1986 1052 2110 1080; baseline 0 -1; x_xheight 19.8">
+<span class="ocrx_word" id="word_1_30_1" title="bbox 1986 1052 2110 1080; x_wconf 99; x_conf 100.0">292.86</span>
+</span>
+</td>
+</tr>
+<tr>
+<td title="bbox 227 1096 412 1158">
+<span class="ocr_line" id="line_1_31" title="bbox 240 1113 393 1140; baseline 0 -1; x_xheight 19.8">
+<span class="ocrx_word" id="word_1_31_1" title="bbox 240 1113 393 1140; x_wconf 93; x_conf 100.0">A122-13</span>
+</span>
+</td>
+<td title="bbox 412 1096 1545 1158">
+<span class="ocr_line" id="line_1_32" title="bbox 429 1112 706 1147; baseline 0 -8; x_xheight 19.6">
+<span class="ocrx_word" id="word_1_32_1" title="bbox 429 1112 509 1141; x_wconf 100; x_conf 100.0">Hard</span>
+<span class="ocrx_word" id="word_1_32_2" title="bbox 527 1112 594 1147; x_wconf 99; x_conf 100.0">hat,</span>
+<span class="ocrx_word" id="word_1_32_3" title="bbox 610 1112 706 1141; x_wconf 96; x_conf 33.1">white</span>
+</span>
+</td>
+<td title="bbox 1545 1096 1643 1158">
+<span class="ocr_line" id="line_1_33" title="bbox 1606 1115 1627 1141; baseline 0 -7; x_xheight 26.0">
+<span class="ocrx_word" id="word_1_33_1" title="bbox 1606 1115 1627 1141; x_wconf 95; x_conf 100.0">4</span>
+</span>
+</td>
+<td title="bbox 1643 1096 1868 1158">
+<span class="ocr_line" id="line_1_34" title="bbox 1728 1114 1851 1142; baseline 0 -1; x_xheight 19.8">
+<span class="ocrx_word" id="word_1_34_1" title="bbox 1728 1114 1851 1142; x_wconf 98; x_conf 78.9">378.80</span>
+</span>
+</td>
+<td title="bbox 1868 1096 2124 1158">
+<span class="ocr_line" id="line_1_35" title="bbox 1952 1114 2109 1149; baseline 0 -8; x_xheight 19.8">
+<span class="ocrx_word" id="word_1_35_1" title="bbox 1952 1114 2109 1149; x_wconf 99; x_conf 93.7">1,515.20</span>
+</span>
+</td>
+</tr>
+<tr>
+<td title="bbox 227 1158 412 1220">
+<span class="ocr_line" id="line_1_36" title="bbox 241 1175 396 1202; baseline 0 -1; x_xheight 19.8">
+<span class="ocrx_word" id="word_1_36_1" title="bbox 241 1175 396 1202; x_wconf 85; x_conf 64.7">G802-37</span>
+</span>
+</td>
+<td title="bbox 412 1158 1545 1220">
+<span class="ocr_line" id="line_1_37" title="bbox 427 1174 752 1203; baseline 0 -2; x_xheight 19.6">
+<span class="ocrx_word" id="word_1_37_1" title="bbox 433 1174 629 1203; x_wconf 100; x_conf 99.6">Whiteboard</span>
+<span class="ocrx_word" id="word_1_37_2" title="bbox 653 1174 710 1203; x_wconf 89; x_conf 88.9">4x6</span>
+<span class="ocrx_word" id="word_1_37_3" title="bbox 731 1174 758 1203; x_wconf 78; x_conf 78.4">ft</span>
+</span>
+</td>
+<td title="bbox 1545 1158 1643 1220">
+</td>
+<td title="bbox 1643 1158 1868 1220">
+<span class="ocr_line" id="line_1_38" title="bbox 1774 1176 1851 1204; baseline 0 -1; x_xheight 19.8">
+<span class="ocrx_word" id="word_1_38_1" title="bbox 1774 1176 1851 1204; x_wconf 98; x_conf 86.0">5.85</span>
+</span>
+</td>
+<td title="bbox 1868 1158 2124 1220">
+<span class="ocr_line" id="line_1_39" title="bbox 1988 1176 2109 1204; baseline 0 -1; x_xheight 19.8">
+<span class="ocrx_word" id="word_1_39_1" title="bbox 1988 1176 2109 1204; x_wconf 99; x_conf 100.0">105.30</span>
+</span>
+</td>
+</tr>
+<tr>
+<td title="bbox 227 1220 412 1282">
+<span class="ocr_line" id="line_1_40" title="bbox 242 1237 396 1264; baseline 0 -1; x_xheight 19.8">
+<span class="ocrx_word" id="word_1_40_1" title="bbox 242 1237 396 1264; x_wconf 94; x_conf 100.0">D882-66</span>
+</span>
+</td>
+<td title="bbox 412 1220 1545 1282">
+<span class="ocr_line" id="line_1_41" title="bbox 427 1236 789 1272; baseline 0 -8; x_xheight 20.9">
+<span class="ocrx_word" id="word_1_41_1" title="bbox 427 1236 580 1272; x_wconf 99; x_conf 88.5">Shipping</span>
+<span class="ocrx_word" id="word_1_41_2" title="bbox 598 1236 699 1265; x_wconf 100; x_conf 100.0">boxes</span>
+<span class="ocrx_word" id="word_1_41_3" title="bbox 716 1236 789 1272; x_wconf 94; x_conf 100.0">(25)</span>
+</span>
+</td>
+<td title="bbox 1545 1220 1643 1282">
+<span class="ocr_line" id="line_1_42" title="bbox 1585 1238 1627 1265; baseline 0 -1; x_xheight 26.5">
+<span class="ocrx_word" id="word_1_42_1" title="bbox 1585 1238 1627 1265; x_wconf 96; x_conf 100.0">24</span>
+</span>
+</td>
+<td title="bbox 1643 1220 1868 1282">
+<span class="ocr_line" id="line_1_43" title="bbox 1753 1239 1852 1266; baseline 0 -1; x_xheight 19.8">
+<span class="ocrx_word" id="word_1_43_1" title="bbox 1753 1239 1852 1266; x_wconf 99; x_conf 100.0">14.14</span>
+</span>
+</td>
+<td title="bbox 1868 1220 2124 1282">
+<span class="ocr_line" id="line_1_44" title="bbox 1986 1238 2110 1266; baseline 0 -1; x_xheight 19.8">
+<span class="ocrx_word" id="word_1_44_1" title="bbox 1986 1238 2110 1266; x_wconf 99; x_conf 100.0">339.36</span>
+</span>
+</td>
+</tr>
+<tr>
+<td title="bbox 227 1282 412 1344">
+<span class="ocr_line" id="line_1_45" title="bbox 242 1299 396 1326; baseline 0 -1; x_xheight 19.8">
+<span class="ocrx_word" id="word_1_45_1" title="bbox 242 1299 396 1326; x_wconf 94; x_conf 100.0">D793-38</span>
+</span>
+</td>
+<td title="bbox 412 1282 1545 1344">
+<span class="ocr_line" id="line_1_46" title="bbox 428 1298 790 1327; baseline 0 -2; x_xheight 19.8">
+<span class="ocrx_word" id="word_1_46_1" title="bbox 428 1300 598 1327; x_wconf 99; x_conf 74.1">Extension</span>
+<span class="ocrx_word" id="word_1_46_2" title="bbox 615 1298 689 1327; x_wconf 100; x_conf 100.0">cord</span>
+<span class="ocrx_word" id="word_1_46_3" title="bbox 707 1299 748 1327; x_wconf 96; x_conf 100.0">50</span>
+<span class="ocrx_word" id="word_1_46_4" title="bbox 764 1298 790 1327; x_wconf 100; x_conf 100.0">ft</span>
+</span>
+</td>
+<td title="bbox 1545 1282 1643 1344">
+<span class="ocr_line" id="line_1_47" title="bbox 1587 1300 1626 1327; baseline 0 -1; x_xheight 26.5">
+<span class="ocrx_word" id="word_1_47_1" title="bbox 1587 1300 1626 1327; x_wconf 93; x_conf 100.0">18</span>
+</span>
+</td>
+<td title="bbox 1643 1282 1868 1344">
+<span class="ocr_line" id="line_1_48" title="bbox 1750 1300 1851 1328; baseline 0 -1; x_xheight 19.8">
+<span class="ocrx_word" id="word_1_48_1" title="bbox 1750 1300 1851 1328; x_wconf 99; x_conf 100.0">99.43</span>
+</span>
+</td>
+<td title="bbox 1868 1282 2124 1344">
+<span class="ocr_line" id="line_1_49" title="bbox 1952 1301 2110 1335; baseline 0 -8; x_xheight 19.8">
+<span class="ocrx_word" id="word_1_49_1" title="bbox 1952 1301 2110 1335; x_wconf 99; x_conf 100.0">1,789.74</span>
+</span>
+</td>
+</tr>
+<tr>
+<td title="bbox 227 1344 412 1406">
+<span class="ocr_line" id="line_1_50" title="bbox 240 1361 391 1388; baseline 0 -1; x_xheight 19.8">
+<span class="ocrx_word" id="word_1_50_1" title="bbox 240 1361 391 1388; x_wconf 94; x_conf 100.0">A526-81</span>
+</span>
+</td>
+<td title="bbox 412 1344 1545 1406">
+<span class="ocr_line" id="line_1_51" title="bbox 428 1360 705 1395; baseline 0 -8; x_xheight 19.6">
+<span class="ocrx_word" id="word_1_51_1" title="bbox 428 1360 509 1389; x_wconf 100; x_conf 100.0">Hard</span>
+<span class="ocrx_word" id="word_1_51_2" title="bbox 527 1360 593 1395; x_wconf 99; x_conf 100.0">hat,</span>
+<span class="ocrx_word" id="word_1_51_3" title="bbox 610 1360 705 1389; x_wconf 86; x_conf 13.4">white</span>
+</span>
+</td>
+<td title="bbox 1545 1344 1643 1406">
+</td>
+<td title="bbox 1643 1344 1868 1406">
+<span class="ocr_line" id="line_1_52" title="bbox 1726 1362 1852 1390; baseline 0 -1; x_xheight 19.8">
+<span class="ocrx_word" id="word_1_52_1" title="bbox 1726 1362 1852 1390; x_wconf 99; x_conf 100.0">400.04</span>
+</span>
+</td>
+<td title="bbox 1868 1344 2124 1406">
+<span class="ocr_line" id="line_1_53" title="bbox 1949 1362 2109 1397; baseline 0 -8; x_xheight 19.8">
+<span class="ocrx_word" id="word_1_53_1" title="bbox 1949 1362 2109 1397; x_wconf 99; x_conf 100.0">6,000.60</span>
+</span>
+</td>
+</tr>
+<tr>
+<td title="bbox 227 1406 412 1468">
+<span class="ocr_line" id="line_1_54" title="bbox 242 1423 391 1450; baseline 0 -1; x_xheight 19.8">
+<span class="ocrx_word" id="word_1_54_1" title="bbox 242 1423 391 1450; x_wconf 94; x_conf 100.0">E223-52</span>
+</span>
+</td>
+<td title="bbox 412 1406 1545 1468">
+<span class="ocr_line" id="line_1_55" title="bbox 428 1422 688 1458; baseline 0 -9; x_xheight 19.5">
+<span class="ocrx_word" id="word_1_55_1" title="bbox 428 1424 494 1450; x_wconf 99; x_conf 100.0">LED</span>
+<span class="ocrx_word" id="word_1_55_2" title="bbox 510 1422 596 1451; x_wconf 99; x_conf 69.9">work</span>
+<span class="ocrx_word" id="word_1_55_3" title="bbox 612 1422 688 1458; x_wconf 99; x_conf 91.9">light</span>
+</span>
+</td>
+<td title="bbox 1545 1406 1643 1468">
+<span class="ocr_line" id="line_1_56" title="bbox 1606 1425 1626 1451; baseline 0 -7; x_xheight 26.0">
+<span class="ocrx_word" id="word_1_56_1" title="bbox 1606 1425 1626 1451; x_wconf 88; x_conf 100.0">4</span>
+</span>
+</td>
+<td title="bbox 1643 1406 1868 1468">
+<span class="ocr_line" id="line_1_57" title="bbox 1751 1424 1849 1452; baseline 0 -1; x_xheight 19.8">
+<span class="ocrx_word" id="word_1_57_1" title="bbox 1751 1424 1849 1452; x_wconf 99; x_conf 100.0">79.71</span>
+</span>
+</td>
+<td title="bbox 1868 1406 2124 1468">
+<span class="ocr_line" id="line_1_58" title="bbox 1986 1424 2110 1452; baseline 0 -1; x_xheight 19.8">
+<span class="ocrx_word" id="word_1_58_1" title="bbox 1986 1424 2110 1452; x_wconf 99; x_conf 100.0">318.84</span>
+</span>
+</td>
+</tr>
+<tr>
+<td title="bbox 227 1468 412 1530">
+<span class="ocr_line" id="line_1_59" title="bbox 241 1485 396 1512; baseline 0 -1; x_xheight 19.8">
+<span class="ocrx_word" id="word_1_59_1" title="bbox 241 1485 396 1512; x_wconf 85; x_conf 63.9">G619-95</span>
+</span>
+</td>
+<td title="bbox 412 1468 1545 1530">
+<span class="ocr_line" id="line_1_60" title="bbox 428 1484 745 1519; baseline 0 -8; x_xheight 19.7">
+<span class="ocrx_word" id="word_1_60_1" title="bbox 428 1486 562 1513; x_wconf 99; x_conf 100.0">Monitor</span>
+<span class="ocrx_word" id="word_1_60_2" title="bbox 576 1491 656 1519; x_wconf 99; x_conf 100.0">arm,</span>
+<span class="ocrx_word" id="word_1_60_3" title="bbox 674 1484 745 1513; x_wconf 100; x_conf 100.0">dual</span>
+</span>
+</td>
+<td title="bbox 1545 1468 1643 1530">
+<span class="ocr_line" id="line_1_61" title="bbox 1585 1486 1625 1513; baseline 0 -1; x_xheight 27.0">
+<span class="ocrx_word" id="word_1_61_1" title="bbox 1585 1486 1625 1513; x_wconf 96; x_conf 100.0">23</span>
+</span>
+</td>
+<td title="bbox 1643 1468 1868 1530">
+<span class="ocr_line" id="line_1_62" title="bbox 1728 1486 1850 1514; baseline 0 -1; x_xheight 19.8">
+<span class="ocrx_word" id="word_1_62_1" title="bbox 1728 1486 1850 1514; x_wconf 99; x_conf 100.0">211.33</span>
+</span>
+</td>
+<td title="bbox 1868 1468 2124 1530">
+<span class="ocr_line" id="line_1_63" title="bbox 1948 1486 2109 1521; baseline 0 -8; x_xheight 19.8">
+<span class="ocrx_word" id="word_1_63_1" title="bbox 1948 1486 2109 1521; x_wconf 99; x_conf 100.0">4,860.59</span>
+</span>
+</td>
+</tr>
+<tr>
+<td colspan="4" title="bbox 227 1530 1868 1592">
+<span class="ocr_line" id="line_1_64" title="bbox 1703 1547 1850 1576; baseline 0 -1; x_xheight 20.7">
+<span class="ocrx_word" id="word_1_64_1" title="bbox 1703 1547 1850 1576; x_wconf 96; x_conf 63.7">Subtotal</span>
+</span>
+</td>
+<td title="bbox 1868 1530 2124 1592">
+<span class="ocr_line" id="line_1_65" title="bbox 1930 1548 2109 1583; baseline 0 -8; x_xheight 19.8">
+<span class="ocrx_word" id="word_1_65_1" title="bbox 1930 1548 2109 1583; x_wconf 99; x_conf 100.0">18,435.09</span>
+</span>
+</td>
+</tr>
+<tr>
+<td colspan="4" title="bbox 227 1592 1868 1654">
+<span class="ocr_line" id="line_1_66" title="bbox 1792 1611 1852 1638; baseline 0 -1; x_xheight 22.0">
+<span class="ocrx_word" id="word_1_66_1" title="bbox 1802 1611 1852 1638; x_wconf 98; x_conf 97.6">TAX</span>
+</span>
+</td>
+<td title="bbox 1868 1592 2124 1654">
+<span class="ocr_line" id="line_1_67" title="bbox 1952 1610 2109 1645; baseline 0 -8; x_xheight 19.8">
+<span class="ocrx_word" id="word_1_67_1" title="bbox 1952 1610 2109 1645; x_wconf 99; x_conf 100.0">1,152.19</span>
+</span>
+</td>
+</tr>
+<tr>
+<td colspan="4" title="bbox 227 1654 1868 1715">
+<span class="ocr_line" id="line_1_68" title="bbox 1659 1671 1852 1700; baseline 0 -1; x_xheight 24.0">
+<span class="ocrx_word" id="word_1_68_1" title="bbox 1659 1671 1758 1700; x_wconf 99; x_conf 89.1">Total</span>
+<span class="ocrx_word" id="word_1_68_2" title="bbox 1777 1673 1852 1700; x_wconf 98; x_conf 72.8">Due</span>
+</span>
+</td>
+<td title="bbox 1868 1654 2124 1715">
+<span class="ocr_line" id="line_1_69" title="bbox 1882 1671 2109 1706; baseline 0 -7; x_xheight 19.8">
+<span class="ocrx_word" id="word_1_69_1" title="bbox 1882 1671 2109 1706; x_wconf 99; x_conf 100.0">$19,587.28</span>
+</span>
+</td>
+</tr>
+</tbody></table>
+<div class="ocr_separator" id="separator_1_1" title="bbox 226 615 779 620"></div>
+<div class="ocr_separator" id="separator_1_2" title="bbox 226 674 779 682"></div>
+<div class="ocr_separator" id="separator_1_3" title="bbox 226 736 779 744"></div>
+<div class="ocr_separator" id="separator_1_4" title="bbox 225 798 779 803"></div>
+<div class="ocr_separator" id="separator_1_5" title="bbox 225 847 2127 853"></div>
+<div class="ocr_separator" id="separator_1_6" title="bbox 225 906 2127 915"></div>
+<div class="ocr_separator" id="separator_1_7" title="bbox 225 968 2127 977"></div>
+<div class="ocr_separator" id="separator_1_8" title="bbox 225 1030 2127 1039"></div>
+<div class="ocr_separator" id="separator_1_9" title="bbox 225 1092 2127 1101"></div>
+<div class="ocr_separator" id="separator_1_10" title="bbox 225 1154 2127 1163"></div>
+<div class="ocr_separator" id="separator_1_11" title="bbox 225 1216 2127 1225"></div>
+<div class="ocr_separator" id="separator_1_12" title="bbox 225 1278 2127 1287"></div>
+<div class="ocr_separator" id="separator_1_13" title="bbox 225 1340 2127 1349"></div>
+<div class="ocr_separator" id="separator_1_14" title="bbox 225 1402 2126 1411"></div>
+<div class="ocr_separator" id="separator_1_15" title="bbox 225 1464 2126 1473"></div>
+<div class="ocr_separator" id="separator_1_16" title="bbox 225 1526 2126 1535"></div>
+<div class="ocr_separator" id="separator_1_17" title="bbox 225 1588 2126 1597"></div>
+<div class="ocr_separator" id="separator_1_18" title="bbox 225 1650 2126 1659"></div>
+<div class="ocr_separator" id="separator_1_19" title="bbox 225 1712 2126 1718"></div>
+<div class="ocr_separator" id="separator_1_20" title="bbox 225 615 230 802"></div>
+<div class="ocr_separator" id="separator_1_21" title="bbox 482 615 489 803"></div>
+<div class="ocr_separator" id="separator_1_22" title="bbox 775 615 779 803"></div>
+<div class="ocr_separator" id="separator_1_23" title="bbox 225 847 230 1716"></div>
+<div class="ocr_separator" id="separator_1_24" title="bbox 408 847 416 1532"></div>
+<div class="ocr_separator" id="separator_1_25" title="bbox 1541 848 1549 1533"></div>
+<div class="ocr_separator" id="separator_1_26" title="bbox 1639 848 1647 1534"></div>
+<div class="ocr_separator" id="separator_1_27" title="bbox 1864 848 1872 1718"></div>
+<div class="ocr_separator" id="separator_1_28" title="bbox 2122 848 2127 1718"></div>
+</div></body></html>

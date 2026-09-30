@@ -429,6 +429,7 @@ way?" by looking.
 - [docs/TABLES.md](docs/TABLES.md) — table extraction: ruled grids from their rules, unruled tables from their words and the junction mesh, the table networks, reading and checking cells, the output records, TEDS.
 - [docs/RECOGNITION.md](docs/RECOGNITION.md) — glyph recognition in the classic engine: the 95 shape features, nearest prototypes, the outline channel (Tesseract's matcher re-derived), skeleton graphs, how the opinions combine, where it fails.
 - [docs/DECODING.md](docs/DECODING.md) — from candidates to words: the beam decoder and its priors, language models, numbers, the neural readers and the judge, adaptation to the page, the noisy-channel corrector.
+- [docs/HOCR.md](docs/HOCR.md) — the output with its geometry: what hOCR is, exactly what the engine writes (blocks, lines, words with calibrated confidence, tables), the coordinate frame, reading it, searchable PDFs.
 - [docs/SYNTHETIC_DATA.md](docs/SYNTHETIC_DATA.md) — drawing our own pages with the answers known: the degradation model, fonts, training windows, generated test sets, scanner calibration, and what synthetic data could not do.
 - [docs/MEASUREMENT.md](docs/MEASUREMENT.md) — how accuracy is computed, the evaluation sets, held-out pages, seed variance and the bootstrap, adoption rules, and the numbers that turned out to be wrong.
 - [docs/NETWORKS.md](docs/NETWORKS.md) — every network and learned model: purpose, data, training, rebuild order.

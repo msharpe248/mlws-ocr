@@ -1509,8 +1509,101 @@ def synth_figs():
     fig_calibration_sheet()
 
 
+# -------------------------------------------------------------------- hOCR
+def _hocr_elements(hocr: str):
+    """(class, bbox, x_wconf or None, text) for every element with a bbox."""
+    import re
+    out = []
+    for m in re.finditer(r'<(\w+) class="(ocr\w*|ocrx_word)"[^>]*title="([^"]*)"[^>]*>([^<]*)', hocr):
+        tag, cls, title, text = m.groups()
+        b = re.search(r"bbox (\d+) (\d+) (\d+) (\d+)", title)
+        if not b:
+            continue
+        c = re.search(r"x_wconf (\d+)", title)
+        out.append((cls, [int(v) for v in b.groups()], int(c.group(1)) if c else None, text))
+    return out
+
+
+def fig_hocr():
+    clean, final = _full(TABLES / "invoice" / "invoice-grid-000.png")
+    hocr = final.meta["hocr"]
+    (IMG / "hocr").mkdir(parents=True, exist_ok=True)
+    (IMG / "hocr" / "sample.hocr").write_text(hocr)
+    els = _hocr_elements(hocr)
+    g = clean.gray
+    ys = [b[1] for c, b, _, _ in els if c == "ocrx_word"] + [b[3] for c, b, _, _ in els if c == "ocrx_word"]
+    top, bot = max(0, min(ys) - 40), min(g.shape[0], max(ys) + 40)
+    crop = g[top:bot]
+    sc = 900 / crop.shape[1]
+    tiles = []
+    for mode in ("structure", "confidence"):
+        base = to_rgb(crop).resize((900, int(crop.shape[0] * sc)), Image.BILINEAR).convert("RGBA")
+        ov = Image.new("RGBA", base.size, (0, 0, 0, 0))
+        d = ImageDraw.Draw(ov)
+        for cls, (x0, y0, x1, y1), conf, _ in els:
+            r = [x0 * sc, (y0 - top) * sc, x1 * sc, (y1 - top) * sc]
+            if mode == "structure":
+                col = {"ocr_carea": (47, 111, 223), "ocr_table": (124, 77, 204), "ocr_line": (31, 157, 107),
+                       "ocrx_word": (224, 138, 30)}.get(cls)
+                if col:
+                    w = 3 if cls in ("ocr_carea", "ocr_table") else 1
+                    d.rectangle(r, outline=col + (255,), width=w)
+            elif cls == "ocrx_word" and conf is not None:
+                v = conf / 100
+                col = (int(214 * (1 - v) + 31 * v), int(69 * (1 - v) + 157 * v), int(69 * (1 - v) + 107 * v))
+                d.rectangle(r, fill=col + (90,), outline=col + (255,))
+        tiles.append(Image.alpha_composite(base, ov).convert("RGB"))
+    im = Image.new("RGB", (940, tiles[0].height * 2 + 130), "white")
+    dd = ImageDraw.Draw(im)
+    dd.text((20, 12), "An invoice's hOCR, drawn back over the page from the file itself", fill=INK, font=font(15))
+    im.paste(tiles[0], (20, 40))
+    dd.text((20, 44 + tiles[0].height), "blue: ocr_carea (a block) · purple: ocr_table · green: ocr_line · orange: "
+                                        "ocrx_word", fill=MUTED, font=font(12))
+    y2 = 70 + tiles[0].height
+    im.paste(tiles[1], (20, y2))
+    dd.text((20, y2 + 4 + tiles[1].height), "each word by its x_wconf: green = likely right, red = worth a look",
+            fill=MUTED, font=font(12))
+    save(im, "hocr", "overlay.png")
+
+
+def hocr_figs():
+    fig_hocr()
+
+
+# ---------------------------------------------------------------- the map
+def fig_learning_map():
+    sv = SVG(980, 360)
+    sv.text(20, 28, "The teaching pages, in pipeline order", size=16, anchor="start", weight="700")
+    row = [("ARCHITECTURE", "the whole system", "in"), ("SKEW_CORRECTION", "turn the page level", "conv"),
+           ("BINARIZATION", "grey to ink", "conv"), ("SEGMENTATION", "blocks, order, lines", "conv"),
+           ("RECOGNITION", "glyph to candidates", "rnn"), ("DECODING", "candidates to words", "rnn")]
+    x = 20
+    pos = {}
+    for k, (a, b, f) in enumerate(row):
+        sv.box(x, 70, 142, 60, a.replace("_", " ").title(), b, f, size=12)
+        pos[a] = (x, 70)
+        if k < len(row) - 1:
+            sv.arrow(x + 142, 100, x + 158, 100)
+        x += 160
+    sv.box(pos["SEGMENTATION"][0], 190, 142, 60, "Tables", "rows, columns, cells", "out", size=12)
+    sv.arrow(pos["SEGMENTATION"][0] + 71, 130, pos["SEGMENTATION"][0] + 71, 188)
+    sv.box(pos["DECODING"][0], 190, 142, 60, "hOCR", "what comes out", "out", size=12)
+    sv.arrow(pos["DECODING"][0] + 71, 130, pos["DECODING"][0] + 71, 188)
+    sv.box(pos["RECOGNITION"][0], 190, 142, 60, "Measurement", "how it is scored", "loss", size=12)
+    sv.box(20, 190, 142, 60, "Neural networks", "theory + every net", "rnn", size=12)
+    sv.box(180, 190, 142, 60, "Synthetic data", "pages we draw", "op", size=12)
+    sv.box(180, 280, 142, 60, "Data sources", "real datasets", "op", size=12)
+    sv.arrow(251, 280, 251, 252)
+    sv.text(20, 300, "read alongside", size=12, color=MUTED, anchor="start")
+    out = IMG / "start"
+    out.mkdir(parents=True, exist_ok=True)
+    (out / "map.svg").write_text(_svg_text(sv))
+    print("wrote", out / "map.svg")
+
+
 TOPICS = {"skew": skew, "binarize": binarize, "segment": segment_figs, "tables": tables_figs,
-          "recognize": recognize_figs, "decode": decode_figs, "synth": synth_figs}
+          "recognize": recognize_figs, "decode": decode_figs, "synth": synth_figs, "hocr": hocr_figs,
+          "map": fig_learning_map}
 
 
 def main():

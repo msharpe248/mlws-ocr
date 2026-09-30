@@ -9,22 +9,7 @@ doing it, and what was tried and did not work.
 This page is the map. Follow the pipeline from pixels to text, or jump to
 the track that matches what you came for.
 
-```mermaid
-flowchart LR
-    A[ARCHITECTURE<br/>the whole system] --> S[SKEW_CORRECTION]
-    S --> B[BINARIZATION]
-    B --> G[SEGMENTATION]
-    G --> T[TABLES]
-    G --> R[RECOGNITION]
-    R --> D[DECODING]
-    N[NEURAL_NETWORK_THEORY] -.-> D
-    N -.-> T
-    Y[SYNTHETIC_DATA] -.-> R
-    Y -.-> N
-    DS[DATA_SOURCES] -.-> Y
-    D --> M[MEASUREMENT]
-    T --> M
-```
+![The teaching pages, in pipeline order](img/start/map.svg)
 
 ## The path, in pipeline order
 
@@ -37,7 +22,8 @@ flowchart LR
 | 5 | [TABLES.md](TABLES.md) | rows, columns and cells: ruled grids from rules, unruled tables from words, the junction mesh, checks, TEDS | the current frontier |
 | 6 | [RECOGNITION.md](RECOGNITION.md) | a glyph to candidate characters: 95 features, prototypes, the outline channel, skeleton graphs | the classic recognizer, the reference implementation |
 | 7 | [DECODING.md](DECODING.md) | candidates to words: beam search, language models, priors, the neural readers and the judge, adaptation, the noisy-channel corrector | where context turns shapes into text |
-| 8 | [MEASUREMENT.md](MEASUREMENT.md) | how every number is computed, and the lessons from the numbers that were wrong | how to know whether anything worked |
+| 8 | [HOCR.md](HOCR.md) | what comes out: the page's text with every block, line and word's box and confidence, and its tables | using the output in another program |
+| 9 | [MEASUREMENT.md](MEASUREMENT.md) | how every number is computed, and the lessons from the numbers that were wrong | how to know whether anything worked |
 
 Alongside, at any point:
 
@@ -49,26 +35,41 @@ Alongside, at any point:
 
 ## Tracks
 
-**"How does OCR work?"** — ARCHITECTURE §1–4, then SKEW_CORRECTION,
-BINARIZATION, SEGMENTATION §1–4, RECOGNITION §1–3, DECODING §1–2. About two
-hours; no machine learning needed.
+**"How does OCR work?"** About two hours; no machine learning needed:
 
-**"I want to understand neural networks."** — NEURAL_NETWORK_THEORY Part I
-(§1–7), then Part II §C (the line reader, with its real per-frame output),
-then §8–9 (fine-tuning, distillation, averaging) with this project's own
-history as the worked example. SYNTHETIC_DATA §3 shows what the readers
-train on.
+1. [ARCHITECTURE.md §1–4](ARCHITECTURE.md#1-the-system-at-a-glance) — the system and the pipeline
+2. [SKEW_CORRECTION.md](SKEW_CORRECTION.md) — turning the page level
+3. [BINARIZATION.md](BINARIZATION.md) — grey to ink
+4. [SEGMENTATION.md §1–4](SEGMENTATION.md#1-what-makes-it-hard) — blocks and reading order
+5. [RECOGNITION.md §1–3](RECOGNITION.md#1-what-recognition-receives) — glyphs to candidates
+6. [DECODING.md §1–2](DECODING.md#1-words-in-a-line) — candidates to words
+7. [HOCR.md](HOCR.md) — what comes out
 
-**"I want to extract tables."** — SEGMENTATION §2 (rules), TABLES, then
-NEURAL_NETWORK_THEORY §E–G (the three table networks) and MEASUREMENT §1
-and TABLES §8 (TEDS).
+**"I want to understand neural networks."**
 
-**"I want to change something and know whether it helped."** — MEASUREMENT
-in full, DATA_SOURCES §9–11, then the rows of [RESEARCH.md](RESEARCH.md)
-nearest your change — including the ones marked as not adopted.
+1. [NEURAL_NETWORK_THEORY.md Part I, §1–7](NEURAL_NETWORK_THEORY.md#part-i--the-theory) — the theory from one neuron up
+2. [§C, the CRNN readers](NEURAL_NETWORK_THEORY.md#c-the-crnn-readers--recognizeseqpy-the-word-scorer-and-the-line-reader) — a real network, with its real per-frame output
+3. [§8, fine-tuning and distillation](NEURAL_NETWORK_THEORY.md#8-fine-tuning-forgetting-and-distillation) and [§9, averaging](NEURAL_NETWORK_THEORY.md#9-averaging-ensembles-weight-averages-model-soups) — with this project's history as the worked example
+4. [SYNTHETIC_DATA.md §3](SYNTHETIC_DATA.md#3-training-windows-for-the-readers) — what the readers train on
 
-**"How does this compare with Tesseract?"** — [TESSERACT.md](TESSERACT.md),
-then RECOGNITION §9 and DECODING §8.
+**"I want to extract tables."**
+
+1. [SEGMENTATION.md §2](SEGMENTATION.md#2-before-the-blocks-pictures-and-rules-come-out) — rules found and taken out
+2. [TABLES.md](TABLES.md) — the whole table subsystem
+3. [NEURAL_NETWORK_THEORY.md §E–G](NEURAL_NETWORK_THEORY.md#e-the-table-separator-network--layoutsepnetpy-sepnet_v2npz) — the three table networks
+4. [TABLES.md §8](TABLES.md#8-measuring-tables) — how tables are scored (TEDS)
+
+**"I want to change something and know whether it helped."**
+
+1. [MEASUREMENT.md](MEASUREMENT.md) — every number and its pitfalls
+2. [DATA_SOURCES.md §9–11](DATA_SOURCES.md#9-which-data-feeds-which-model) — what trains and what measures
+3. [RESEARCH.md](RESEARCH.md) — the rows nearest your change, including the ones not adopted
+
+**"How does this compare with Tesseract?"**
+
+1. [TESSERACT.md](TESSERACT.md) — the numbers and the shared ideas
+2. [RECOGNITION.md §9](RECOGNITION.md#9-compared-with-tesseracts-legacy-engine) and [DECODING.md §8](DECODING.md#8-compared-with-tesseract) — engine to engine
+3. [HOCR.md §6](HOCR.md#6-hocr-and-its-relatives) — the output formats
 
 ## Going deeper
 
