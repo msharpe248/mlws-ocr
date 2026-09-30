@@ -131,9 +131,9 @@ def degrade(img: np.ndarray, theta: Degradation) -> np.ndarray:
         out = out * (1.0 - theta.illum_amplitude * f)
 
     if theta.downsample > 1.0:
-        # a low-resolution scan: average over downsample x downsample source
-        # pixels (the sensor integrates), then resample back to the rendering
-        # grid as a viewer or a 2x preprocessing step would
+        # a low-resolution scan: resample down by 1/downsample (linear
+        # interpolation, standing in for the sensor's integration), then back
+        # to the rendering grid as a viewer or a 2x preprocessing step would
         h, w = out.shape
         small = ndimage.zoom(out, 1.0 / theta.downsample, order=1)
         small = np.clip(small, 0.0, 1.0)

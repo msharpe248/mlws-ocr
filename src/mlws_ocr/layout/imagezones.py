@@ -4,7 +4,7 @@ Classic text/image segmentation (cf. Wong, Casey & Wahl's Document
 Analysis System, IBM JRD 1982; D. Bloomberg's halftone detection).  A
 photo or halftone bridges the whitespace channels that XY-cut depends on
 and swallows neighboring glyphs during component grouping, so it must
-leave the ink before layout begins.  Two detectors, union'd:
+leave the ink before layout begins.  Four rules, union'd:
 
 * giant components -- a connected blob far larger than any glyph
   (silhouettes, solid art, reversed-out panels);

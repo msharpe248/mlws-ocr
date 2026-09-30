@@ -82,7 +82,7 @@ grey once silently changed binarization and corrupted a paper figure.
 | deskew | `projection` (default), `hough` | Small scanner rotation is estimated by searching the angle that maximizes row-profile variance (text lines are horizontal when the profile is sharpest); Hough on text-row accumulation is the alternative (Hinds et al. 1990). |
 | illumination | `median_background` | Divide by a heavy median-blur estimate of the paper field; removes photocopier shading before thresholding. A scanner's dark frame (a dark region of the raw gray touching three of the four edges) is set to paper first: left in, the median background inside the frame is the frame, division turns it paper-white with speckle, and Sauvola binarises the speckle into hundreds of junk lines (`frame_dark`, 2026-09-22). |
 | binarize | `sauvola` (default), `otsu` | Local adaptive threshold (Sauvola & Pietikäinen 2000) survives shading and bleed-through; Otsu is the global baseline for comparison. |
-| despeckle | `components` | Connected components of one to a few pixels are scanner salt; dropped by size and shape. |
+| despeckle | `components` | Connected components of one to a few pixels are scanner salt; dropped by area (smaller than 5 px at 300 dpi). |
 
 ## 4. Layout
 
@@ -162,7 +162,7 @@ Two kinds of hypothesis are attached, never committed:
 
 `glyph/features.py` turns a crop into 95 numbers a human can point at:
 an 8×8 zoning grid of ink density (64), scanline crossing counts in both
-directions (8), row and column profile statistics (8), the seven Hu
+directions (8), left and right profiles -- the distance to the first ink from each side at four heights (8), the seven Hu
 moments, hole counts at three closing radii, skeleton endpoint and
 junction counts, aspect ratio, ink density and relative stroke width.
 Crops are deslanted and stroke-width-normalized first, so regular, bold
@@ -175,7 +175,7 @@ emits a ranked list of up to 14 candidate characters with *costs*. The
 list is produced by one channel and re-costed by two more:
 
 1. **Condensed nearest-prototype.** Z-scored 1-NN against a library of
-   6,600 vectors: 90 k-means prototypes per class (k-means++ seeding,
+   9,900 vectors: 90 k-means prototypes for each of the 110 classes (k-means++ seeding,
    best of three restarts) condensed from ~145k exemplars — clean and
    degraded renders of 29 pinned body faces (23 classic + 6 modern sans)
    and 6 display faces, plus the
@@ -197,7 +197,8 @@ list is produced by one channel and re-costed by two more:
 3. **Outline third opinion.** A re-derivation of Tesseract's static
    classifier (Smith 2007 §5): the glyph, moment-normalized, becomes a
    cloud of fixed-length oriented outline pieces; each class holds one
-   configuration of polygon segments per clean font render; evidence is a
+   configuration of polygon segments per clean font render, condensed to
+   about eleven per class (1,225 in all) by greedy coverage; evidence is a
    Gaussian in point-to-segment distance and angle; per-configuration
    rating = (best-prototype evidence per feature + best-L matches per
    prototype of length L) / (features + prototype length). It re-costs
@@ -249,7 +250,8 @@ geometry the classifier does not see:
   case twins likewise.
 
 Beam search (width 8) over characters scores each transition with the
-language model (§6.1): a character GRU trained on our corpus, weight 0.7,
+language model (§6.1): a character GRU trained on our corpus, weight 0.5 (0.7 was the
+trigram's weight; recalibrated when the GRU arrived),
 muted in digit mode. A lexicon pass then prefers a real word within a
 margin, weighted by corpus frequency, and every word records its
 confidence (score margin), lexicon endorsement and per-character
@@ -341,7 +343,7 @@ lists the commands and `docs/NETWORKS.md` describes every network, its
 training data and its trainer. Nothing is downloaded pre-trained; every
 model is trainable on the machine that runs the pipeline.
 
-**6.1 Language.** `build_langmodel.py data/corpus_en_plus data/lang_en.npz` builds the lexicon (814k forms with
+**6.1 Language.** `build_langmodel.py data/corpus_en_plus data/lang_en.npz` builds the lexicon (844k forms with
 regular inflections) and character trigrams from a corpus of public-domain
 text: Gutenberg novels plus modern US federal text (Congressional bills,
 Federal Register — 17 U.S.C. §105), 2.4M words. `train_charlm.py` trains
@@ -413,7 +415,8 @@ synthetic windows. The profile is `configs/neural_line.toml`;
   decoder's provenance, stored with truth label, decoded label, read kind,
   features, crop, pin and candidates — the set that lets the channels be
   measured on the pipeline's real mistakes. As training data it measured
-  mixed and is not merged by default (`build_prototypes.py --truth`).
+  mixed; the prototype build nevertheless merges it by default, tagged
+  "truth" (3,047 of the live 9,900 prototypes are truth glyphs).
 
 **Contamination guard.** Every harvester reproduces the evaluation draws
 (seed-1 and seed-2 shuffles, 30 pages each) and excludes those pages.
@@ -431,7 +434,7 @@ help on UNLV, whose TIFFs are already bitonal — recorded).
 | dev-8 | UNLV bus.3B, seed 1, 8 pages | tuning; never the headline |
 | broad-30 | UNLV bus.3B, seed 2, 30 pages | the headline |
 | legal-8 | UNLV legal.3B, seed 1 | second domain (typewriter) |
-| synthetic | 220-word Verdana page at three severities | held-out face, no real-scan noise |
+| synthetic | a 24-line Verdana page at three severities | held-out face, no real-scan noise |
 | modern | govinfo PDFs + templated invoices/payslips/letters in modern faces, three severities | today's documents (`make_modern_set.py`) |
 | business | templated invoices, payslips, receipts (monospace thermal roll), bank statements and purchase orders in modern faces, 60 pages, three severities | tabular business documents, reported per kind (`make_business_set.py`, `--by-kind`) |
 | news-8 / mag-8 | UNLV news.3B / mag.3B, seed 1, 8 pages | measured against Tesseract only |

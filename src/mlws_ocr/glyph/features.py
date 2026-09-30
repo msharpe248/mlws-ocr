@@ -24,7 +24,7 @@ SCANLINES = 4       # crossing counts along this many rows and columns
                     # (5 was tried for the e-bar at ~50% height: it
                     # lifted synthetic sev2 +6 word but cost the broad
                     # real-letter sample -0.9 word and destabilized
-                    # language detection -- reverted, see RESEARCH.md)
+                    # language detection -- reverted; recorded here only)
 HOLE_RADII = (0, 1, 2)  # closing radii for persistence-graded hole counts
 
 FEATURE_NAMES: list[str] = (

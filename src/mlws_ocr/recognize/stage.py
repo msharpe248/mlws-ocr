@@ -63,7 +63,8 @@ class PrototypeRecognize(Stage):
                                 # unguarded GED overrode correct confident
                                 # calls (synthetic sev2 crashed -13 word)
         "ged_top": 6,           # candidates rescored per glyph
-        "skeleton_bank": "data/skeletons.json",  # candidate depth: 5->8->10 gained +2 then +4 char
+        "skeleton_bank": "data/skeletons.json",  # the GED's stored graphs per class
+        # top_k above -- candidate depth: 5->8->10 gained +2 then +4 char
                       # on real scans (truth for unseen fonts sits deep
                       # in the ranking). Raised 10->14 when accented
                       # classes landed: accent variants crowd their base

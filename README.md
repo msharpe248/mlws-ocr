@@ -20,6 +20,24 @@ debug rendering for every step, and a research log that records where
 each algorithm comes from and what it measured — including everything
 that did not work.
 
+> **Please read the numbers below with care.** This project set out to beat
+> Tesseract, and on the evaluation sets below it now does on most kinds of
+> document. But it is a new project: a few weeks old, English only, with no
+> real-world users, no production deployments and no track record outside
+> the pages it has been measured on. Every comparison here is our own
+> measurement — on sets we chose, with scripts we wrote, by the people who
+> built the engine — while Tesseract has decades of use on millions of
+> documents in many languages. Treat these results as a laboratory report,
+> not a guarantee: the sets are small and the numbers move by a point or
+> more with the choice of pages; an engine tuned while being measured can
+> flatter itself however carefully held-out pages are kept apart; and
+> documents unlike ours — other scanners, languages, layouts, real handwriting —
+> have not been tried. Check any claim that matters to you on your own
+> documents before relying on it
+> ([docs/MEASUREMENT.md](docs/MEASUREMENT.md) explains how every number is
+> produced, and [docs/DATA_SOURCES.md](docs/DATA_SOURCES.md) how to
+> reproduce them), and please tell us where it fails.
+
 ## Results
 
 Character / word accuracy on real scanned pages, September 2026. Legacy

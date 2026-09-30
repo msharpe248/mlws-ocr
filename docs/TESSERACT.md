@@ -19,45 +19,53 @@ install carries (`tessdata_fast`).
 
 | set | what it is | mlws-ocr neural | Tesseract legacy | Tesseract LSTM | verdict |
 |---|---|---|---|---|---|
-| dev-8 | UNLV business letters, our tuning set | **97.3 / 94.6** | 95.0 / 91.7 | 95.5 / 93.1 | ahead of both |
-| broad-30 | UNLV business letters, the headline set | 95.3 / 91.6 | 95.5 / 91.7 | **96.0 / 92.7** | behind by 0.2 / 0.1 and 0.7 / 1.1 |
-| legal-8 | UNLV legal pleadings, typewriter | **94.5 / 90.7** | 90.4 / 88.7 | 90.3 / 86.9 | ahead of both by 4 characters |
-| modern | born-digital PDFs, templated letters | **94.0 / 90.2** | 75.4 / 70.8 | 74.2 / 66.6 | ahead of both by 19 characters |
-| business | invoices, payslips, receipts, statements, orders | **97.6 / 95.0** | 70.7 / 68.0 | 70.7 / 68.6 | ahead by 27 characters; level on bag-of-words recall (96.7 vs 97.5 / 98.0) |
-| news-8 | UNLV newspapers, measured only | 95.8 / 93.2 | 96.3 / 93.1 | **96.7 / 94.8** | behind by about 1 character |
-| mag-8 | UNLV magazines, measured only | 77.4 / 68.7 | 87.3 / 84.7 | **87.8 / 84.4** | behind, layout |
-| sroie | real scanned receipts, ICDAR 2019 (60) | **68.3** / 39.7; reader-only 70.5 / 42.4 | 56.2 / 29.4 | 64.0 / **40.3** | ahead in characters, level in words |
-| funsd | real scanned forms, FUNSD (50, at 2x) | 57.8 / 33.6 | 54.8 / 32.0 | **66.4 / 47.2** | behind by 13 characters: noise and layout |
-| legal reports | Library of Congress typescript and print (40, at their measured ~365 dpi) | **85.5 / 69.9** (100-page draw **85.7 / 72.7**) | | 78.8 / 66.3 (81.6 / 70.8) | ahead of the LSTM in both columns on both draws, since the three-seed ensemble reader (2026-09-23) |
-| blocks | broad-30's text zones read alone, no layout | 98.3 / 96.0 | 98.2 / 96.6 | **98.5 / 96.5** |
-| cord | photographed receipts, CORD test (100), cut to the receipt | 37.7 / 8.0 | | **46.7 / 21.1** | behind by 9 characters, 13 words: photos (blur, perspective, uneven light) are the widest gap | character parity, about a word behind |
+| dev-8 | UNLV business letters, our tuning set | **97.7 / 95.4** | 95.0 / 91.7 | 95.5 / 93.1 | ahead of both |
+| broad-30 | UNLV business letters, the headline set | 95.8 / **93.0** | 95.5 / 91.7 | **96.0** / 92.7 | ahead of both in words; 0.2 characters behind the LSTM |
+| letters, held out | 30 UNLV letters no decision has used | **93.9 / 91.1** | 92.4 / 88.8 | 93.1 / 90.6 | ahead of both |
+| legal-8 | UNLV legal pleadings, typewriter | **93.9 / 90.3** | 90.4 / 88.7 | 90.3 / 86.9 | ahead of both by 3.5 characters |
+| modern | born-digital PDFs, templated letters | **94.2 / 90.7** | 75.4 / 70.8 | 74.2 / 66.6 | ahead of both by 19 characters |
+| business | invoices, payslips, receipts, statements, orders | **98.0 / 96.8** | 70.7 / 68.0 | 70.7 / 68.6 | ahead by 27 characters |
+| news-8 | UNLV newspapers (the layout rules were tuned here) | **96.9** / 94.2 | 96.3 / 93.1 | 96.7 / **94.8** | level |
+| newspapers, held out | 30 UNLV newspaper pages | 86.7 / 81.6 | 87.1 / 82.4 | **87.7 / 84.2** | behind the LSTM by 1 character, 2.6 words: column layout |
+| mag-8 | UNLV magazines (the layout rules were tuned here) | 87.2 / 81.3 | 87.3 / **84.7** | **87.8** / 84.4 | behind in words |
+| magazines, held out | 30 UNLV magazine pages | **83.7 / 75.6** | 77.9 / 71.3 | 78.5 / 73.6 | ahead of both |
+| sroie | real scanned receipts, ICDAR 2019 (60) | **79.5 / 62.4** | 56.2 / 29.4 | 64.0 / 40.3 | ahead of both by 15 characters, 22 words |
+| funsd | real scanned forms, FUNSD (50, at 2x) | 65.9 / 44.3 | 54.8 / 32.0 | **66.4 / 47.2** | behind the LSTM by 0.5 characters, 2.9 words |
+| legal reports | Library of Congress typescript and print (40) | **87.5 / 73.7** | 57.5 / 42.8 | 78.8 / 66.3 | ahead of both |
+| cord | photographed receipts, CORD test (100), cut to the receipt | **53.5 / 31.1** | 42.1 / 19.5 | 46.7 / 21.1 | ahead of both by 7 characters, 10 words |
+| blocks | broad-30's text zones read alone, no layout | **98.6 / 97.2** | 98.2 / 96.6 | 98.5 / 96.5 | ahead of both |
+
+These are the README's figures (the neural profile, current release). Every
+row is the mean over its pages; small sets move by a point or more with the
+choice of pages (see [MEASUREMENT.md](MEASUREMENT.md)), which is why the
+held-out rows are shown beside the tuned ones.
 
 Reading the table honestly:
 
 - **Where we lead, we lead by a lot.** Typewriter pleadings, modern
-  documents and tabular business pages are four to twenty-seven character
-  points ahead of both Tesseract engines. Tesseract's page analysis is the
-  reason on all three: it reads text into ruled margins and hole punches
-  on the pleadings, breaks on templated letters and forms, and reads a
-  table by column blocks so its words are right but its lines are not.
-- **Where we trail, the gap is small and located.** On clean
-  single-column letters the neural profile is 0.2 characters behind
-  legacy and 0.7 behind the LSTM. The bare-block row says how much of that
-  is recognition: at character parity, about 1.6 word points of spacing
-  and punctuation. The rest is letterhead lines in display faces that the
-  reader still declines or misreads, 48% of the residual on that set.
-- **The press sets are a layout gap, not a recognition gap.** Newspapers
-  and magazines are measured and not tuned; the magazine loss is column
-  cuts, tinted panels and reading order.
+  documents, tabular business pages, receipts (scanned and photographed)
+  and the Library of Congress typescripts are 3.5 to 27 character points
+  ahead. Tesseract's page analysis is much of the reason on the documents:
+  it reads text into ruled margins and hole punches on the pleadings,
+  breaks on templated letters and forms, and reads a table by column blocks
+  so its words are right but its lines are not. On receipts the reason is
+  training data: the engine's readers were trained on real receipt lines.
+- **On clean letters it is close.** Ahead of both engines in words on the
+  headline set and on held-out letters; 0.2 characters behind the LSTM on
+  the headline set. Tesseract's decades of tuning on exactly this kind of
+  page show here more than anywhere.
+- **Where we trail, it is layout and forms.** Held-out newspapers trail the
+  LSTM by a character and 2.6 words (column layout; the magazines' held-out
+  row leads), and FUNSD forms trail it by 2.9 words.
 - **The LSTM is not a different engine on layout.** It shares Tesseract's
   page analysis, so it lands within a point of legacy wherever the layout
-  decides, and it is a better recognizer on clean type: about a word point
-  above legacy on letters, newspapers and blocks. On the typewriter set it
-  is *below* legacy, inserting text on the margins.
+  decides, and it is a better recognizer on clean type than legacy. On the
+  typewriter set it is *below* legacy, inserting text on the margins.
 
-So yes: competitive on the document kinds this project is for, ahead on
-most of them, and behind by under a character point on the one set where
-Tesseract's forty years of letter tuning show.
+So: ahead on most of the document kinds this project is for, close on
+clean letters, behind on newspaper columns and forms. The caveat on the
+README applies with full force: these are our measurements, on our
+choice of sets, by our scripts.
 
 ## History
 
@@ -128,23 +136,25 @@ has to be right everywhere.
   is scored on a convention; every adoption has a four-set row and a
   classic regression row; negatives are recorded. Tesseract's accuracy is
   reported by others.
-- **Legibility over coverage.** One language, Latin script, a 111-glyph
+- **Legibility over coverage.** One language, Latin script, a 110-glyph
   charset, no vertical text, no script detection, no PDF renderer of its
   own beyond page extraction. Tesseract reads a hundred languages.
 
 ## Where Tesseract is ahead, and what it would take
 
-- **Font breadth.** 4,500 fonts against our 615 in the word sets; the
+- **Font breadth.** 4,500 fonts against our 615 in the word scorer's sets (3,179 open faces were tried and did not help); the
   letterhead residual is display type. Our next step is real display lines
   harvested with truth (`harvest_lines.py --hard-out`), not more fonts,
   because a synthetic display-face fine-tune measured negative.
 - **Column layout.** Tab-stop detection and column finding are more
   mature than our block segmentation on newspapers and magazines. Measured
   only; not the project's target.
-- **Spacing on clean text.** 1.6 word points on bare blocks at character
-  parity: word-gap decisions on proportional type.
 - **Speed.** Tesseract reads a letter in about two seconds; the neural
-  profile takes ten to fifteen in numpy, less with torch on the GPU.
+  profile takes about seventeen in numpy on one core (recognition is half
+  of it), less with torch on a GPU, and batches across cores.
+- **Maturity.** Tesseract has decades of use on millions of documents in
+  many languages; this engine has been measured on the sets above and
+  little else. See the caveat on the README.
 
 ## How the comparison is run
 

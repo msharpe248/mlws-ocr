@@ -79,7 +79,7 @@ caps_page_repair = true        # business 90.3/79.7 -> 90.3/80.2 word; dev-8, br
 
 [stage.correct]
 impl = "noisy_channel"   # a learned OCR-aware dictionary pass over the unknown words (decode/correct.py):
-enabled = true           # classic broad-30 +0.43 word, modern +0.85, business +0.24; 1 wrong in 413 corrections
+enabled = true           # classic broad-30 +0.43 word, modern +0.85, business +0.24; 2 wrong in 899 corrections over eight sets at min_gain -1 (RESEARCH 2026-09-25)
 confusions_path = "data/confusions_classic.json"   # this engine's own confusions (scripts/harvest_confusions.py)
 seq_path = "data/seq_en.npz"   # the image check: the word scorer must not prefer the original spelling
 

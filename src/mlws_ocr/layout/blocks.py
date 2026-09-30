@@ -2,8 +2,8 @@
 
 The page's whitespace defines its structure: a column gutter is a tall
 empty band, a paragraph/section break a wide one.  Recursively split the
-page at its widest internal whitespace gaps -- alternating axes as gaps
-allow -- until no region contains a gap wide enough to matter.  The leaves
+page at its internal whitespace gaps -- at each level on the axis with the
+widest gap -- until no region contains a gap wide enough to matter.  The leaves
 are the text blocks, and the depth-first order of the recursion (top
 before bottom, left before right) *is* the reading order for column
 layouts, which is why this stage emits blocks already ordered.

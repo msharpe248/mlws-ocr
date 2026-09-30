@@ -1,8 +1,10 @@
 # The NEURAL-TABLE engine: configs/neural.toml for table documents -- payroll
 # forms, paystubs, timesheets, statements, invoices, receipts.  The neural
-# profile already reports table structure (the output-only table options);
-# this one adds the table options that also change what the reader sees,
-# kept out of neural so its measurements stand (the owner's decision,
+# profile already reports table structure with a fixed, measured set of table
+# options; this one adds the rest -- those that change what the reader sees
+# (grids kept from the picture zones, rules out of the grey, cells read
+# again) and the table-output options and networks -- kept out of neural so
+# its measurements stand (the owner's decision,
 # 2026-09-28):
 #   imagezones.keep_grids   a large ruled grid is a table, not a picture
 #   rulings.short_in_grid   rules too short for the length test that end on rules
