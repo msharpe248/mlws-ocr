@@ -64,12 +64,49 @@ def _covered(lo: float, hi: float, at: float, segs, axis: int, tol: float) -> fl
     return cov / max(hi - lo, 1e-6)
 
 
-def span_cells(rows, cols, hs, vs, tol, cover) -> list[dict]:
+def _broken_borders(rows, cols, vs, tol, cover, binary, gap) -> set:
+    """Column borders that are a BROKEN rule, not an open one: along the run
+    of rows where the border is unruled, some row holds text on both sides,
+    on one line, further apart than ``gap`` px -- '(5)' and '(6)' set apart
+    over a rule the form printed with a break.  A header spanning columns
+    ('(4) DAY AND DATE') crosses its borders a word space apart and is not
+    held apart."""
+    out = set()
+    if binary is None:
+        return out
+    nr, nc = len(rows) - 1, len(cols) - 1
+    for c in range(nc - 1):
+        x = cols[c + 1]
+        for r in range(nr):
+            if _covered(rows[r], rows[r + 1], x, vs, 0, tol) >= cover:
+                continue
+            y0, y1 = int(rows[r]) + 3, int(rows[r + 1]) - 3
+            lx0, rx1 = int(cols[c]) + 3, int(cols[c + 2]) - 3
+            if y1 - y0 < 4:
+                continue
+            band = binary[y0:y1, lx0:rx1]
+            xi = int(x) - lx0
+            # the rule's own stub (the part that is there) is left out: 8 px either side
+            left, right = band[:, :max(0, xi - 8)], band[:, xi + 8:]
+            if not left.any() or not right.any():
+                continue
+            lcols = np.nonzero(left.any(axis=0))[0]; rcols = np.nonzero(right.any(axis=0))[0]
+            lrows = np.nonzero(left.any(axis=1))[0]; rrows = np.nonzero(right.any(axis=1))[0]
+            same_line = min(lrows.max(), rrows.max()) > max(lrows.min(), rrows.min())
+            if same_line and (xi + 8 + rcols.min()) - lcols.max() > gap:
+                out.add(c + 1)
+                break
+    return out
+
+
+def span_cells(rows, cols, hs, vs, tol, cover, binary=None, gap: float = 0.0) -> list[dict]:
     """Grid cells merged across unruled borders (union-find), each merged
     region a cell with row, col, rowspan, colspan and its box.  A region
     that is not a rectangle (an L of unruled borders) is split back into
-    its rows, so every cell stays a rectangle."""
+    its rows, so every cell stays a rectangle.  With ``binary`` and ``gap``,
+    a column border found broken (_broken_borders) is never merged across."""
     nr, nc = len(rows) - 1, len(cols) - 1
+    broken = _broken_borders(rows, cols, vs, tol, cover, binary, gap) if gap > 0 else set()
     parent = list(range(nr * nc))
 
     def find(i):
@@ -80,7 +117,7 @@ def span_cells(rows, cols, hs, vs, tol, cover) -> list[dict]:
 
     for r in range(nr):
         for c in range(nc):
-            if c + 1 < nc and _covered(rows[r], rows[r + 1], cols[c + 1], vs, 0, tol) < cover:
+            if c + 1 < nc and (c + 1) not in broken and _covered(rows[r], rows[r + 1], cols[c + 1], vs, 0, tol) < cover:
                 parent[find(r * nc + c)] = find(r * nc + c + 1)
             if r + 1 < nr and _covered(cols[c], cols[c + 1], rows[r + 1], hs, 1, tol) < cover:
                 parent[find(r * nc + c)] = find((r + 1) * nc + c)
@@ -197,6 +234,9 @@ class GridTables(Stage):
         "join_tol_300dpi": 8,    # rules closer than this touch
         "level_tol_300dpi": 12,  # rule coordinates closer than this are
                                  # one row/column boundary
+        "broken_rules": False,   # a column border unruled only where its rule breaks: text on both
+                                 # sides of it, on one line, more than two text heights apart, is
+                                 # never merged across ('(5) TOTAL HOURS' beside '(6) RATE OF PAY')
         "spans": False,          # merge neighbouring grid cells whose shared border
                                  # carries no rule: a header spanning seven day
                                  # columns, a name cell spanning two sub-rows
@@ -267,7 +307,9 @@ class GridTables(Stage):
                 rows, cols = open_side_levels(rows, cols, hs, vs, self.params["open_min_300dpi"] * s)
             cells = []
             if self.params["spans"]:
-                cells = span_cells(rows, cols, hs, vs, ltol, self.params["border_cover"])
+                cells = span_cells(rows, cols, hs, vs, ltol, self.params["border_cover"],
+                                   page.binary if self.params["broken_rules"] else None,
+                                   60 * s if self.params["broken_rules"] else 0.0)
                 cell_boxes.extend(c["box"] for c in cells)
             else:
                 for ri in range(len(rows) - 1):
