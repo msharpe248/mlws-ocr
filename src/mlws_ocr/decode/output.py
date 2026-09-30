@@ -57,6 +57,27 @@ def _join_groups(recs: list[dict]) -> None:
 _FIGURE = re.compile(r"^[-+($]*\d[\d,.]*%?\)?$")
 
 
+def table_features(cells: list[dict], n_rows: int, n_cols: int) -> list[float]:
+    """A table's shape as numbers for the rules-or-network choice: empty-cell
+    share, share of cells holding two or more figures, rows, columns (log),
+    share of spanning cells, mean words a filled cell."""
+    n = max(1, len(cells))
+    texts = [(c.get("text") or "").split() for c in cells]
+    filled = [t for t in texts if t]
+    return [sum(1 for t in texts if not t) / n,
+            sum(1 for t in texts if sum(1 for w in t if _FIGURE.match(w)) >= 2) / n,
+            float(np.log1p(n_rows)), float(np.log1p(n_cols)),
+            sum(1 for c in cells if c.get("colspan", 1) > 1 or c.get("rowspan", 1) > 1) / n,
+            float(np.mean([len(t) for t in filled])) if filled else 0.0]
+
+
+def select_inputs(a: list[float], b: list[float]) -> np.ndarray:
+    """The chooser's inputs: the rules' table's features, the network's, and
+    their differences."""
+    a, b = np.asarray(a), np.asarray(b)
+    return np.concatenate([a, b, b - a])
+
+
 def _clean_separators(xs, ys, words, box):
     """A network's separators made consistent with the words: a column
     separator crossing a word (its x inside a word, the word in the table's
@@ -434,8 +455,18 @@ class TextOutput(Stage):
         """The structure network's table, or the rules' when it is chosen by
         ``table_split_select``."""
         nt = self._split_structure(t, page, words, whole)
-        if self.params["table_split_select"] != "empty" or nt is t or not t.get("cells"):
+        if not self.params["table_split_select"] or nt is t or not t.get("cells"):
             return nt
+        if self.params["table_split_select"].endswith(".npz") and whole:
+            # a learned choice (scripts/train_table_select.py): the two tables' shapes
+            key = ("select", self.params["table_split_select"])
+            if key not in self._nets:
+                z = np.load(self.params["table_split_select"])
+                self._nets[key] = (z["w"], float(z["b"]), z["mu"], z["sd"])
+            w, b, mu, sd = self._nets[key]
+            x = (select_inputs(table_features(t["cells"], t["n_rows"], t["n_cols"]),
+                               table_features(nt["cells"], nt["n_rows"], nt["n_cols"])) - mu) / sd
+            return nt if float(x @ w + b) > 0 else t
 
         def empty(x):
             cs = x.get("cells", [])

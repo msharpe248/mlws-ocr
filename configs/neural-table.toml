@@ -224,7 +224,8 @@ align_pair_min_rows = 2        # a text pair may form from two aligned rows (a t
 table_det_path = "data/tabledet_v1.npz"   # table profile: the self-trained table detector (layout/tabledet.py) ...
 table_det_mode = "complement"  # ...with the finders: its detections replace their fragments, side-by-side tables stay
 table_split_path = "data/splitnet_v2.npz" # table profile: the self-trained structure network (layout/splitnet.py) ...
-table_split_select = "empty"   # ...its table used when it leaves no more cells empty than the rules' (and merges no figures)
+table_split_select = "data/table_select.npz"  # ...on a table's crop the learned choice (train_table_select.py); on a
+                               # page the rule 'no more cells empty than the rules', merging no figures
 nest_side_by_side = true       # table profile: tables set side by side as the cells of one outer table
 cell_marks = true              # table profile: a one-letter cell of a case twin is a capital mark; stray single letters are noise
 dollar_s = true                # table profile: 'S 91.0' -> '$ 91.0' in a figure cell
