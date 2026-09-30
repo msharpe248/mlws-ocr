@@ -62,15 +62,16 @@ the options off, every set scores between 0.00 and 0.03.
 
 | set | what it is | classic | neural | legacy Tesseract | Tesseract LSTM |
 |---|---|---|---|---|---|
-| payroll forms | generated ruled payroll forms: spanned headers, two-row records, open sides; software, typewriter and hand-lettered entries (20 pages) | 0.600 / 0.854 * | **0.634 / 0.896** | no table output | no table output |
-| paystubs | generated: earnings and deductions nested in the stub, in five rule styles from full grid to whitespace (20 pages) | – | 0.849 / 0.887 | no table output | no table output |
-| invoices | generated: line items with spanned totals, five rule styles (20 pages) | – | 0.779 / 0.823 | no table output | no table output |
-| timesheets | generated: two-level spanned headers, five rule styles (20 pages) | – | 0.700 / 0.752 | no table output | no table output |
-| receipts | generated: thermal-roll receipts, whitespace or a header rule (20 pages) | – | 0.898 / 0.922 | no table output | no table output |
-| real receipts | CORD photographed receipts, their line items as the table (30 receipts) | – | 0.369 / 0.498 | no table output | no table output |
-| annual-report tables | real financial tables, FinTabNet.c, ruled by whitespace (60 tables) | 0.607 / 0.781 | **0.769 / 0.886** | no table output | no table output |
+| payroll forms | generated ruled payroll forms: spanned headers, two-row records, open sides; software, typewriter and hand-lettered entries (20 pages) | 0.600 / 0.854 * | **0.907 / 0.935** | no table output | no table output |
+| paystubs | generated: earnings and deductions nested in the stub, in five rule styles from full grid to whitespace (20 pages) | – | 0.919 / 0.938 | no table output | no table output |
+| invoices | generated: line items with spanned totals, five rule styles (20 pages) | – | 0.967 / 0.981 | no table output | no table output |
+| timesheets | generated: two-level spanned headers, five rule styles (20 pages) | – | 0.944 / 0.964 | no table output | no table output |
+| receipts | generated: thermal-roll receipts, whitespace or a header rule (20 pages) | – | 0.940 / 0.963 | no table output | no table output |
+| real receipts | CORD photographed receipts, their line items as the table (30 receipts) | – | 0.380 / 0.491 | no table output | no table output |
+| annual-report tables | real financial tables, FinTabNet.c, ruled by whitespace (60 tables) | 0.607 / 0.781 | **0.802 / 0.873** | no table output | no table output |
+| scientific tables | real tables from papers, PubTables-1M test crops (60 tables); page-level detection F1 0.967 at IoU 0.5 (40 pages) | – | 0.728 / 0.821 | no table output | no table output |
 
-\* measured before the open-sides and short-rule options and before the payroll truth held both amounts of each diagonal gross cell (the set was regenerated, 2026-09-28); – not measured.
+Neural-table as of v0.17.0 (2026-09-30); the generated sets' truth was corrected where it disagreed with its own images (timesheets, payroll forms). \* measured before the open-sides and short-rule options and before the payroll truth held both amounts of each diagonal gross cell (the set was regenerated, 2026-09-28); – not measured.
 
 **Held-out pages.** The eight-page sets flatter newspapers and magazines:
 on 30 fresh pages of each type, never used for any decision, the neural

@@ -47,6 +47,12 @@ MODELS = {
     "confusions_neural.json": "the neural engine's learned OCR confusions for the word corrector (harvest_confusions.py; 480 non-evaluation pages)",
     "sepnet_v1.npz": "table separator network v1, 44k parameters: row and column separator probabilities over a table region (train_sepnet.py; 6,000 rendered tables + 6,492 FinTabNet.c training tables); the previous row evidence",
     "sepnet_v2.npz": "table separator network v2: v1's recipe plus 308 CORD training receipts' line items (x3); the neural-table profile's row evidence (wrapped rows joined)",
+    "tabledet_v1.npz": "table detector, 190k parameters: inside-table and border band over a whole page (train_tabledet.py; PubTables-1M detection pages, drawn business pages, CORD receipts); the neural-table profile's detector",
+    "splitnet_v2.npz": "table structure network, 280k parameters: row and column separators and the table's extent from the grey crop and word mask (train_splitnet.py; PubTables-1M, FinTabNet.c, drawn and business tables, CORD); neural-table",
+    "table_select.npz": "logistic choice between the rules' table and the structure network's on a table's crop, 19 weights (train_table_select.py; 297 tables the network never saw)",
+    "seq_line_gray12_en.npz": "the neural-table profile's line reader, GREY strips, member 1 = seq_line_gray12 seed 3, EMA (seq_line_gray9_en fine-tuned 3 epochs with PubTables-1M and FinTabNet.c training table lines at weight 0.5, receipt photo lines weighted up, distilled from itself, L2-SP 1e-4)",
+    "seq_line_gray12_en_2.npz": "table line reader member 2 = seq_line_gray12 seed 2, EMA (from seq_line_gray9_en_2, same recipe)",
+    "seq_line_gray12_en_3.npz": "table line reader member 3 = seq_line_gray12 seed 1, EMA (from seq_line_gray9_en_3, same recipe)",
 }
 
 

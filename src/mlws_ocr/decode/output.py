@@ -208,6 +208,10 @@ class TextOutput(Stage):
                                          # empty cells are the best sign of a wrong grid)
         "table_split_clean": False,      # ...separators crossing a word dropped, empty bands joined
                                          # (measured: FinTabNet some tables better, PubTables 0.686 -> 0.610)
+        "table_split_keep_rows": False,  # ...the rules' table kept when the network's leaves out a whole
+                                         # row of it holding figures (a header of years, a totals row
+                                         # outside its extent) -- the learned choice, reading shapes,
+                                         # can flip on one cell's text
         "table_split_extent": "net",     # ...the table's extent: "net" (its inside outputs), "crop"
                                          # (the whole crop when the page is one table's crop)
         "table_det_mode": "replace",     # ...how: "replace" (its tables only); "merge": the ruled grids
@@ -458,6 +462,24 @@ class TextOutput(Stage):
         nt = self._split_structure(t, page, words, whole)
         if not self.params["table_split_select"] or nt is t or not t.get("cells"):
             return nt
+        if self.params["table_split_keep_rows"]:
+            # a row of the rules' table the network's leaves out whole -- two or more filled cells, a
+            # third of its words figures (two digits or more; not a note's sentence), none of those
+            # figures and under half its words in the network's table: a header of years or a totals
+            # row outside its extent (a figure or two read apart at the edge, a caption, a note, or a
+            # neighbouring column's words the rules took in, are not a row lost)
+            from collections import Counter
+            have = Counter(w for c in nt.get("cells", []) for w in (c.get("text") or "").split())
+            rows: dict = {}
+            for c in t["cells"]:
+                if (c.get("text") or "").strip():
+                    rows.setdefault(c["row"], []).append(c)
+            for cs in rows.values():
+                fs = [w for c in cs for w in c["text"].split() if _FIGURE.match(w) and sum(ch.isdigit() for ch in w) >= 2]
+                toks = [w for c in cs for w in c["text"].split()]
+                if len(cs) >= 2 and 3 * len(fs) >= len(toks) and not any(have[w] for w in fs) \
+                        and 2 * sum(1 for w in toks if have[w]) < len(toks):
+                    return t
         if self.params["table_split_select"].endswith(".npz") and whole:
             # a learned choice (scripts/train_table_select.py): the two tables' shapes
             key = ("select", self.params["table_split_select"])

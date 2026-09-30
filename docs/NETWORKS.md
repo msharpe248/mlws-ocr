@@ -17,6 +17,7 @@ judged before it went live. The measurements themselves are in
 | MLP second opinion | `mlp.npz` | 53k params | classic, neural (`recognize.mlp_path`) | `train_mlp.py` | exemplar pool: synthetic renders + real harvests |
 | Character GRU language model | `gru_en.npz` | 258k | classic, neural (`decode.char_lm`) | `train_charlm.py` | public-domain text corpus |
 | Word-strip CRNN scorer | `seq_en.npz` | 285k | neural (`decode.seq_path`) | `train_seq.py` | synthetic word windows + truth-labelled real word strips |
+| Line model for tables, grey strips (same CRNN) | `seq_line_gray12_en.npz`, `_2`, `_3` | 3 × 287k | neural-table (`decode.line_model_path`) | `train_seq.py` | the reader below fine-tuned with table lines cut from PubTables-1M and FinTabNet.c training crops at their PDF text, receipt photo lines weighted up; distilled from itself, L2-SP, EMA |
 | Line model, grey strips (same CRNN) | `seq_line_gray9_en.npz`, `_2`, `_3` | 3 × 287k | neural (`decode.line_model_path`, `decode.line_source = "gray"`) | `train_seq.py` | v0.14.0's reader (the v0.13.0 grey reader fine-tuned with SROIE and FUNSD box-cut training lines and more Legal Reports lines, held to its predecessor by L2-SP and distillation; EMA) with 8 more classes and a symbol-bearing synthetic set |
 | Line model, grey strips (v0.13.0) | `seq_line_gray_en.npz`, `_2`, `_3` | 3 × 285k | none since v0.14.0 (the teacher of the above) | `train_seq.py` | the binary line model fine-tuned on grey line strips (grey twins of harvested lines) plus binary real lines |
 | Line model, binary strips (previous) | `seq_line_en.npz`, `_2`, `_3` | 3 × 285k | none since 2026-09-26 (v17a) | `train_seq.py` | the above plus long windows and real whole lines |
@@ -26,7 +27,7 @@ judged before it went live. The measurements themselves are in
 | Segmenter judge | `segjudge.npz` | 32 weights | none yet (option `blocks.impl = "judged"`) | `segmenter_judge.py` | per-page accuracy of four segmenters read end to end on UNLV training-pool pages |
 | Glyph CNN | `cnn.npz` | 30k | none (kept off; `recognize.cnn_path`) | `train_cnn.py` | synthetic renders + truth-labelled real crops |
 | Table separator network | `sepnet_v2.npz` (`sepnet_v1.npz` the previous) | 44k | neural-table (`output.table_net_path`, row evidence: wrapped rows joined) | `train_sepnet.py` | 6,000 tables drawn by `factory/tablegen.py` with pixel-exact separators + 6,492 FinTabNet.c training tables |
-| Table structure network | `splitnet_v2.npz` (`splitnet_v1.npz` round one) | 280k | neural-table (`output.table_split_path`, chosen over the rules' table by `table_split_select = "empty"`) | `train_splitnet.py` | PubTables-1M structure training tables (100,000 of 758,849), FinTabNet.c training tables (78,537), 12,000 drawn tables, 2,550 tables of drawn business pages, 308 CORD receipts (`make_split_data.py`) |
+| Table structure network | `splitnet_v2.npz` (`splitnet_v1.npz` round one) | 280k | neural-table (`output.table_split_path`; on a table's crop chosen over the rules' table by `table_select.npz` unless it leaves out a whole figure row, `table_split_keep_rows`; on a page by the empty-cell rule) | `train_splitnet.py` | PubTables-1M structure training tables (100,000 of 758,849), FinTabNet.c training tables (78,537), 12,000 drawn tables, 2,550 tables of drawn business pages, 308 CORD receipts (`make_split_data.py`) |
 | Table structure choice | `table_select.npz` | 19 weights | neural-table (`output.table_split_select`: on a table's crop, the rules' table or the structure network's) | `train_table_select.py` | 297 tables the structure network never saw (FinTabNet.c validation, PubTables-1M training outside its draw), both tables' shapes and which scored higher |
 | Table detector | `tabledet_v1.npz` | 190k | neural-table (`output.table_det_path`, `table_det_mode = "complement"`) | `train_tabledet.py` | PubTables-1M detection training pages (60,000 of Part 1's 230,294) + 1,200 drawn business pages + 900 CORD training receipts (`make_det_data.py`) |
 
@@ -101,6 +102,7 @@ were trained on the public sources named below and on nothing else.
 | v0.13.0 (2026-09-26) | eighteen files: v0.12.0's fifteen plus the grey-strip line reader `seq_line_gray_en.npz`, `_2`, `_3` (= `seq_line_gray2` seeds 3, 2, 1), the neural profile's reader; the v17a files stay for the previous reader |
 | v0.15.0 (2026-09-27) | twenty-four files: v0.14.x's twenty-one plus the reader `seq_line_gray9_en.npz`, `_2`, `_3` (= `seq_line_gray9`, EMA), the v0.14.0 reader with the alphabet widened by ``* = + @ [ ] _ ` ``; v0.14.0's reader stays (its teacher) |
 | v0.16.0 (2026-09-28) | twenty-six files: v0.15.0's twenty-four plus the table separator networks `sepnet_v2.npz` (the neural-table profile's row evidence) and `sepnet_v1.npz` (its predecessor) |
+| v0.17.0 (2026-09-30) | thirty-two files: v0.16.0's twenty-six plus the neural-table profile's table networks `tabledet_v1.npz` (detector), `splitnet_v2.npz` (structure network), `table_select.npz` (the rules-or-network choice) and its line reader `seq_line_gray12_en.npz`, `_2`, `_3` (= `seq_line_gray12`, EMA); the neural profile keeps `seq_line_gray9` |
 | v0.14.0 (2026-09-27) | twenty-one files: v0.13.0's eighteen plus the reader `seq_line_gray7_en.npz`, `_2`, `_3` (= `seq_line_gray7` seeds 3, 2, 1, EMA weights), the neural profile's reader; the v0.13.0 grey reader stays (it is the new one's teacher and the way back) |
 
 ## Where the training data comes from
@@ -501,6 +503,34 @@ MLWS_EXTRA_CLASSES='*=+@[]_`' .venv/bin/python scripts/train_seq.py --backend to
     --out data/seq_line_gray9_s3.npz      # ships the _ema weights as seq_line_gray9_en.npz; _2, _3 likewise
 ```
 
+**v0.17.0: a reader for tables** (`seq_line_gray12`, neural-table only). The
+table sets' text is set in PDF faces the reader had seen little of, and a
+figure column misread shrinks a table (a lost header of years, a lost label
+column). Table lines were cut from PubTables-1M and FinTabNet.c TRAINING
+crops at their PDF words (`harvest_boxes.py --tables`: words grouped into
+lines by y, split at gaps wider than a word height; files `gray_tab_pt0-3`,
+`gray_tab_fin0-1`). Each `seq_line_gray9` member was trained 3 more epochs on
+its data plus these at weight 0.5, the CORD and SROIE receipt photo lines
+weighted up (x20, x8), distilled from itself with the table lines left out of
+the distillation, L2-SP 1e-4, EMA 0.999. Held-out real line word accuracy
+75.1 / 76.0 / 75.1% (the three members). Measured in neural-table (RESEARCH
+2026-09-30): PubTables-1M structure 0.692 -> 0.733, FinTabNet 0.788 -> 0.785
+(0.802 with `output.table_split_keep_rows`), receipts 0.929 -> 0.940,
+invoices, paystubs, payroll forms and timesheets up 0.003-0.008, CORD 0.396 ->
+0.380 (one receipt's table took in its subtotal row and lost its quantity
+column). The step before (`seq_line_gray11`, without the receipt weighting)
+lost FinTabNet 0.017 and CORD 0.018 and was not adopted; an ensemble of the
+gray9 and gray12 members (six) lost nothing but gained less, at twice the
+reading time.
+
+```sh
+MLWS_EXTRA_CLASSES='*=+@[]_`' .venv/bin/python scripts/train_seq.py --backend torch --device cuda --init data/seq_line_gray9_en.npz \
+    --l2sp 1e-4 --distill 1.0 --distill-skip sroie_box funsd_box tab_ --ema 0.999 --synth data/seq_synth_long2.npz data/seq_synth_sym1.npz \
+    --real-weight 3 --epochs 3 --batch 32 --seed 3 --lines <v0.15.0's line files> gray_tab_pt0-3.npz gray_tab_fin0-1.npz \
+    --weight <v0.15.0's weights, gray_sroie[0-9]=8 gray_cord_box=20> gray_tab_*=0.5 \
+    --out seq_line_gray12_1.npz            # ships the _ema weights as seq_line_gray12_en.npz; _2 (seed 2), _3 (seed 1) likewise
+```
+
 ### Word-confidence calibrator — `decode/wordconf.py`
 
 **Purpose.** A probability that an output word is right, from the
@@ -744,6 +774,8 @@ paystubs 0.852 -> 0.640): round one had seen no business table.  Not
 adopted; round two is the test.
 
 **Round two (`splitnet_v2.npz`, adopted with a choice).** From round one, 8 epochs of 80,000 draws over 193,334 tables (the full FinTabNet.c training split and the drawn business tables added): held-out F1 0.922.  Alone it wins on receipts and loses on paystubs and timesheets; so `table_split_select = "empty"`: its table is used when it leaves no more cells empty than the rules' and, for a table found on a page, merges no figures the rules kept apart.  Measured with the detector (RESEARCH 2026-09-29): PubTables-1M structure 0.452 -> 0.654, receipts 0.909 -> 0.929.
+
+**Guarding the choice (v0.17.0).** The learned choice reads the two tables' shapes, which include their text, so a better reading can flip it: with the table reader a FinTabNet crop whose '$100' read right chose the network's table, which leaves out the header of years. `table_split_keep_rows` keeps the rules' table when a figure row of it (two or more filled cells, a third of its words figures) is missing from the network's: FinTabNet 0.785 -> 0.802 (RESEARCH 2026-09-30). No model change.
 
 ### Table detector — `layout/tabledet.py` (neural-table)
 

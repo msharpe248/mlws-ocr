@@ -128,7 +128,14 @@ impl = "hybrid"                # the line reader beside the classic decoder (dec
                                # judge says so (2026-09-13: dev-8 91.9 -> 93.2 word, broad-30 87.5 -> 89.8,
                                # legal-8 84.4 -> 88.5, news-8 88.2 -> 90.2, blocks broad-30 91.1 -> 95.1).
                                # "beam" is the classic decoder alone.
-line_model_path = "data/seq_line_gray9_en.npz+data/seq_line_gray9_en_2.npz+data/seq_line_gray9_en_3.npz"
+line_model_path = "data/seq_line_gray12_en.npz+data/seq_line_gray12_en_2.npz+data/seq_line_gray12_en_3.npz"
+                               # table profile (2026-09-30, v0.17.0): = seq_line_gray12, each seq_line_gray9 member
+                               # fine-tuned 3 epochs with table lines cut from PubTables-1M and FinTabNet.c TRAINING
+                               # crops (weight 0.5) and the receipt photo lines weighted up (CORD x20, SROIE x8),
+                               # distilled from itself (table lines left out), L2-SP 1e-4, EMA: PubTables structure
+                               # 0.692 -> 0.733, receipts 0.929 -> 0.940, CORD 0.396 -> 0.380 (one receipt's table
+                               # grew a row); the neural profile keeps seq_line_gray9, below
+                               # neural: data/seq_line_gray9_en.npz+data/seq_line_gray9_en_2.npz+data/seq_line_gray9_en_3.npz
                                # = seq_line_gray9 (2026-09-27, v0.15.0): each v0.14.0 member below with the alphabet
                                # widened by * = + @ [ ] _ ` (output rows kept by name), 3 more epochs on its data plus a
                                # symbol-bearing synthetic set, distilled from itself (lines needing a new class not
@@ -229,6 +236,8 @@ table_det_mode = "complement"  # ...with the finders: its detections replace the
 table_split_path = "data/splitnet_v2.npz" # table profile: the self-trained structure network (layout/splitnet.py) ...
 table_split_select = "data/table_select.npz"  # ...on a table's crop the learned choice (train_table_select.py); on a
                                # page the rule 'no more cells empty than the rules', merging no figures
+table_split_keep_rows = true   # table profile: ...the rules' table kept when the network's leaves out a whole figure row
+                               # (a header of years, a totals row): FinTabNet 0.785 -> 0.802 with the table reader
 nest_side_by_side = true       # table profile: tables set side by side as the cells of one outer table
 cell_marks = true              # table profile: a one-letter cell of a case twin is a capital mark; stray single letters are noise
 dollar_s = true                # table profile: 'S 91.0' -> '$ 91.0' in a figure cell
