@@ -193,8 +193,13 @@ def compose(blocks: list, fonts: Fonts, width: int = 2550, height: int = 3300, m
             t = b[1]
             tw, th = size(t, fonts)
             x = margin if width - 2 * margin >= tw else max(10, (width - tw) // 2)
-            recs.append(draw(d, t, x, y, fonts))
-            htmls.append(table_html(t))
+            rec = draw(d, t, x, y, fonts)
+            # a one-row table drawn with no rules is, on the page, a line of text: its
+            # cells a word space apart, nothing marks one cell from the next -- the
+            # truth says what is drawn (2026-09-29, the owner's decision)
+            if not (t.style == "none" and len(t.rows) == 1):
+                recs.append(rec)
+                htmls.append(table_html(t))
             text += _table_text(t)
             y += th + fonts.line_h
         elif b[0] == "pair":

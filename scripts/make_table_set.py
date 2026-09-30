@@ -159,33 +159,38 @@ def payroll(rng: random.Random) -> dict:
     return f
 
 
-HEADER = ["NAME AND INDIVIDUAL IDENTIFYING NUMBER OF WORKER", "NO. OF WITHHOLDING EXEMPTIONS",
-          "WORK CLASSIFICATION", "OT. OR ST.", "DAY AND DATE", "TOTAL HOURS", "RATE OF PAY",
-          "GROSS AMOUNT EARNED", "DEDUCTIONS", "NET WAGES PAID FOR WEEK"]
+# the header cells' text as the form prints it, column numbers and the name's note
+# included (2026-09-29, the owner's decision: the truth is what is drawn)
+HEADER = ["(1) NAME AND INDIVIDUAL IDENTIFYING NUMBER (e.g., LAST FOUR DIGITS OF SOCIAL SECURITY NUMBER) OF WORKER",
+          "(2) NO. OF WITHHOLDING EXEMPTIONS", "(3) WORK CLASSIFICATION", "OT. OR ST.", "(4) DAY AND DATE",
+          "(5) TOTAL HOURS", "(6) RATE OF PAY", "(7) GROSS AMOUNT EARNED", "(8) DEDUCTIONS",
+          "(9) NET WAGES PAID FOR WEEK"]
 
 
 def truth_table(f: dict) -> list[dict]:
-    """The page-one grid as cells (row, col, rowspan, colspan, text): 3 header rows, then 2 rows a
+    """The page-one grid as cells (row, col, rowspan, colspan, text): 4 header rows (the day
+    columns' 'HOURS WORKED EACH DAY' under their letters and dates is the fourth), then 2 rows a
     worker for all 8 printed worker blocks.  Columns: 0 name, 1 exemptions, 2 classification,
     3 O/S, 4-10 the days, 11 total hours, 12 rate, 13 gross, 14 FICA, 15 withholding, 16-17 the
     two labelled deductions, 18 other, 19 total deductions, 20 net."""
     c = []
     add = lambda r, k, t, rs=1, cs=1: c.append({"row": r, "col": k, "rowspan": rs, "colspan": cs, "text": t})  # noqa: E731
     for k, t in zip((0, 1, 2, 3), HEADER[:4]):
-        add(0, k, t, rs=3)
+        add(0, k, t, rs=4)
     add(0, 4, HEADER[4], cs=7)
     for k, t in zip((11, 12, 13), HEADER[5:8]):
-        add(0, k, t, rs=3)
+        add(0, k, t, rs=4)
     add(0, 14, HEADER[8], cs=6)
-    add(0, 20, HEADER[9], rs=3)
+    add(0, 20, HEADER[9], rs=4)
     for i in range(7):
         add(1, 4 + i, f[f"day{i + 1}"])
         add(2, 4 + i, f[f"date{i + 1}"])
+    add(3, 4, "HOURS WORKED EACH DAY", cs=7)
     for k, t in zip(range(14, 20), ["FICA", "WITHHOLDING TAX", f["deductionLabel1"], f["deductionLabel2"],
                                      "OTHER", "TOTAL DEDUCTIONS"]):
-        add(1, k, t, rs=2)
+        add(1, k, t, rs=3)
     for e in range(1, 9):
-        r = 3 + 2 * (e - 1)
+        r = 4 + 2 * (e - 1)
         g = lambda k: f.get(f"{k}{e}", "")  # noqa: E731
         add(r, 0, g("nameAddrSSN").replace("\n", " "), rs=2)
         add(r, 1, g("noWithholdingExemptions"), rs=2)
