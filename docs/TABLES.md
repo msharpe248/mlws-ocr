@@ -272,7 +272,7 @@ The evaluation sets, and where they stand (neural-table, TEDS / TEDS-S):
 | paystubs (generated) | 20 | 0.791 | **0.919 / 0.938** |
 | payroll forms (generated) † | 20 | 0.717 | **0.907 / 0.935** |
 | annual-report tables (FinTabNet.c) | 60 | 0.763 | 0.806 / 0.873 |
-| scientific tables (PubTables-1M) | 60 | – | 0.723 / 0.815 |
+| scientific tables (PubTables-1M) | 60 | – | 0.732 / 0.827 |
 | scientific pages, detection F1 | 40 | – | 0.967 |
 | real receipts (CORD) | 30 | 0.327 | 0.466 / 0.553 |
 

@@ -91,9 +91,9 @@ between 0.00 and 0.03.
 | receipts | generated: thermal-roll receipts, whitespace or a header rule (20 pages) | – | 0.940 / 0.963 |
 | real receipts | CORD photographed receipts, their line items as the table (30 receipts) | – | 0.466 / 0.553 |
 | annual-report tables | real financial tables, FinTabNet.c, ruled by whitespace (60 tables) | 0.607 / 0.781 | **0.806 / 0.873** |
-| scientific tables | real tables from papers, PubTables-1M test crops (60 tables); page-level detection F1 0.967 at IoU 0.5 (40 pages, v0.17.0) | – | 0.723 / 0.815 |
+| scientific tables | real tables from papers, PubTables-1M test crops (60 tables); page-level detection F1 0.967 at IoU 0.5 (40 pages, v0.17.0) | – | 0.732 / 0.827 |
 
-Neural-table on main after v0.17.0 (2026-09-30: nil dashes read, a receipt's paper edge dropped, receipt item rows kept apart -- docs/RESEARCH.md); the generated sets' truth was corrected where it disagreed with its own images (timesheets, payroll forms). \* measured before the open-sides and short-rule options and before the payroll truth held both amounts of each diagonal gross cell (the set was regenerated, 2026-09-28); – not measured.
+Neural-table as of v0.17.1 (2026-09-30: nil dashes read, a receipt's paper edge dropped, receipt item rows kept apart, a frame round a table's crop not taken for the table -- docs/RESEARCH.md); the generated sets' truth was corrected where it disagreed with its own images (timesheets, payroll forms). \* measured before the open-sides and short-rule options and before the payroll truth held both amounts of each diagonal gross cell (the set was regenerated, 2026-09-28); – not measured.
 
 **Held-out pages.** The eight-page sets flatter newspapers and magazines:
 on 30 fresh pages of each type, never used for any decision, the neural
@@ -463,7 +463,7 @@ read alone; it trails the LSTM on held-out newspapers and on forms, where
 column layout and form structure are the open problems. Tables are the
 current focus ([docs/TABLES.md](docs/TABLES.md)): the generated business
 sets read at 0.91-0.97 TEDS, real financial tables at 0.81, scientific
-tables at 0.72 and photographed receipts at 0.47.
+tables at 0.73 and photographed receipts at 0.47.
 
 The small items left on the text side were measured and closed or
 recorded as residuals (the masked card numbers and the touching words on

@@ -103,6 +103,7 @@ were trained on the public sources named below and on nothing else.
 | v0.15.0 (2026-09-27) | twenty-four files: v0.14.x's twenty-one plus the reader `seq_line_gray9_en.npz`, `_2`, `_3` (= `seq_line_gray9`, EMA), the v0.14.0 reader with the alphabet widened by ``* = + @ [ ] _ ` ``; v0.14.0's reader stays (its teacher) |
 | v0.16.0 (2026-09-28) | twenty-six files: v0.15.0's twenty-four plus the table separator networks `sepnet_v2.npz` (the neural-table profile's row evidence) and `sepnet_v1.npz` (its predecessor) |
 | v0.17.0 (2026-09-30) | thirty-two files: v0.16.0's twenty-six plus the neural-table profile's table networks `tabledet_v1.npz` (detector), `splitnet_v2.npz` (structure network), `table_select.npz` (the rules-or-network choice) and its line reader `seq_line_gray12_en.npz`, `_2`, `_3` (= `seq_line_gray12`, EMA); the neural profile keeps `seq_line_gray9` |
+| v0.17.1 (2026-09-30) | the same thirty-two files as v0.17.0: this release is table-profile settings (nil dashes, a receipt's paper edge, receipt item rows, frames round table crops) |
 | v0.14.0 (2026-09-27) | twenty-one files: v0.13.0's eighteen plus the reader `seq_line_gray7_en.npz`, `_2`, `_3` (= `seq_line_gray7` seeds 3, 2, 1, EMA weights), the neural profile's reader; the v0.13.0 grey reader stays (it is the new one's teacher and the way back) |
 
 ## Where the training data comes from
