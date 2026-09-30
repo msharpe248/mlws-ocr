@@ -10,8 +10,10 @@ a word-strip scorer, a line reader, a per-line judge.
 language foundation model. Each network is small enough to read (the
 largest is under 290k parameters), trains on a laptop or its GPU in an evening
 from public data, and runs locally from one exported `.npz`.
-`docs/NETWORKS.md` describes every network: what it is for, how its
-training data is acquired, how it is trained.
+[docs/NEURAL_NETWORK_THEORY.md](docs/NEURAL_NETWORK_THEORY.md) teaches
+the theory from a single neuron up and draws each network's shape and the
+reasons for it; `docs/NETWORKS.md` records what each is for, how its
+training data is acquired and how it is trained.
 
 **Code legibility is a deliverable.** Small stages, explicit features, a
 debug rendering for every step, and a research log that records where
@@ -291,7 +293,7 @@ profile, kept as the reference; the neural profile is the accurate one.
 | **classic** | `configs/classic.toml` | the MLP second opinion (53k) and the character GRU (258k) | the feature engine: nearest-prototype, outline and MLP channels over explicit glyph features, a beam decoder with lexicon and language model, per-document adaptation. Its row is the regression guard after every neural adoption. |
 | **pure** | `configs/pure.toml` | none | classic with both networks off; what the feature engine reads on its own |
 | **neural** | `configs/neural.toml` | classic's, plus the word-strip CRNN+CTC scorer as the judge of the classic word variants, the line reader (every line read end to end by the line model), the fitted judge that decides each line between the two readings, and the word-confidence calibrator | the engine to use; reports table structure (spans, nesting, tables found on the page, figure columns, arithmetic checks) without changing the text |
-| **neural-table** | `configs/neural-table.toml` | neural's, with a line reader fine-tuned on table lines in place of neural's, plus the table separator network (wrapped rows joined), the table detector (190k), the table structure network (280k) and the fitted choice between the rules' table and the network's | neural plus the table options that also change what the reader sees (ruled grids kept from the picture zones, short grid rules, low-dpi crops magnified, rules taken out of the reader's strips, figure columns re-read as figures, turned cell text read): for payroll forms, paystubs, statements, invoices, receipts, and tables from reports and papers |
+| **neural-table** | `configs/neural-table.toml` | neural's, with a line reader fine-tuned on table lines in place of neural's, plus the table separator network (wrapped rows joined), the table detector (248k), the table structure network (277k) and the fitted choice between the rules' table and the network's | neural plus the table options that also change what the reader sees (ruled grids kept from the picture zones, short grid rules, low-dpi crops magnified, rules taken out of the reader's strips, figure columns re-read as figures, turned cell text read): for payroll forms, paystubs, statements, invoices, receipts, and tables from reports and papers |
 | **neural-line** | `configs/neural_line.toml` | the same, as the experiment profile for a new line model or choice rule | development |
 
 `tests/test_profiles.py` keeps the profiles honest (pure differs from
@@ -310,8 +312,9 @@ pinned font stock and any directory of open fonts (the Google Fonts
 checkout gives 3,179 faces past the shape gate), the UNLV/ISRI
 ground-truth scans with a guard that keeps every evaluated page out of
 every harvest, and a public-domain text corpus (Project Gutenberg plus US
-federal text). `docs/NETWORKS.md` has the full account per model; the
-short form:
+federal text). [docs/DATA_SOURCES.md](docs/DATA_SOURCES.md) says where to get each
+dataset and where it goes under `data/`; `docs/NETWORKS.md` has the full
+account per model; the short form:
 
 ```sh
 .venv/bin/python scripts/build_langmodel.py data/corpus_en_plus data/lang_en.npz   # lexicon + character trigrams
@@ -355,9 +358,9 @@ seconds.
 
 ## Architecture
 
-The pipeline is a sequence of **slots** (deskew, illumination, binarize,
-despeckle, image zones, rulings, blocks, tables, lines, components,
-recognize, decode, adapt, decode, output), each filled by one of possibly
+The pipeline is a sequence of **slots** (magnify, deskew, illumination,
+binarize, despeckle, image zones, rulings, blocks, tables, lines,
+components, recognize, decode, adapt, decode, correct, output), each filled by one of possibly
 many registered **implementations**, chosen per run by a TOML config.
 Every stage takes a `Page` and returns a new `Page` plus a `DebugBundle`
 (images, scalars, notes); the runner persists both at every stage
@@ -365,25 +368,29 @@ boundary under `runs/<doc-id>/`, and the inspector is a dependency-free
 local viewer over that tree. The full design — every stage, why it is
 shaped that way, the three recognition channels, the decoder's priors,
 the line reader, the models and how we measure — is in
-[docs/DESIGN.md](docs/DESIGN.md).
+[docs/DESIGN.md](docs/DESIGN.md); the diagrams (packages, stage contract,
+pipeline, profiles, where each model plugs in, the tables subsystem, the
+runtime surfaces, training and release) are in
+[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
 ```
 src/mlws_ocr/
   core/       Page artifact, Stage contract, registry, TOML config, runner, PDF and image I/O
-  cleanup/    deskew (projection | Hough), illumination, binarize (Sauvola | Otsu), despeckle
-  layout/     image zones, rulings, blocks (XY-cut | k-NN SCC | whitespace), tables, lines, table rows
+  cleanup/    magnify, deskew (projection | Hough), illumination, binarize (Sauvola | Otsu), despeckle
+  layout/     image zones, rulings, blocks (XY-cut | k-NN SCC | whitespace | judged), tables, lines;
+              whitespace and mesh table finders; the table separator, structure and detector networks
   glyph/      connected components and cuts, the 95-element feature vector, skeletons, line strips
   recognize/  nearest-prototype, MLP and outline channels; the CRNN sequence model (numpy + torch mirror) and CTC
   lang/       lexicon and character trigrams, the character GRU
-  decode/     the beam decoder, its post-passes and sequence-scorer terms, numeric formats and shape repairs, the line reader, the judge, word confidence, text and hOCR output
+  decode/     the beam decoder, its post-passes and sequence-scorer terms, numeric formats and shape repairs, the line reader, the judge, word confidence, the word corrector, text, hOCR and table output
   adapt/      per-document cluster refit
-  factory/    synthetic data: font stock, glyph and line rendering, the degradation model
+  factory/    synthetic data: font stock, glyph and line rendering, the degradation model, the table generator
   eval/       alignment of output to ground truth
   inspector/  the run browser and the segmentation lab (stdlib http.server + static HTML)
   workbench/  the interactive workbench: a session of per-stage snapshots, user corrections, its server and page
   service.py  the HTTP service (process pool, one page per worker)
-configs/      classic.toml (= default.toml), pure.toml, neural.toml, neural_line.toml, and layout variants
-scripts/      builders, trainers, harvesters and evaluators (41 scripts; each has a docstring saying what it is for)
+configs/      classic.toml (= default.toml), pure.toml, neural.toml, neural-table.toml, neural_line.toml, and layout variants
+scripts/      builders, trainers, harvesters and evaluators (70 scripts; each has a docstring saying what it is for)
 tests/        every stage against synthetic ground truth; profile structure; regression on the synthetic page
 ```
 
@@ -396,7 +403,10 @@ way?" by looking.
 ## Documentation
 
 - [docs/DESIGN.md](docs/DESIGN.md) — what the system is and why each part is shaped the way it is; the scoreboard.
+- [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) — the system in diagrams: packages, the stage contract, the pipeline, what a page carries, the profiles, where each model plugs in, decoding, tables, runs on disk, the service, the workbench, training and release.
+- [docs/NEURAL_NETWORK_THEORY.md](docs/NEURAL_NETWORK_THEORY.md) — neural networks from a single neuron up, then every network in the engine: its job, its exact shape and why, its training, with pictures of the real networks at work.
 - [docs/NETWORKS.md](docs/NETWORKS.md) — every network and learned model: purpose, data, training, rebuild order.
+- [docs/DATA_SOURCES.md](docs/DATA_SOURCES.md) — every dataset and document source: what it is, its licence, where to download it, where it goes under `data/`, what it trains or measures.
 - [docs/TESSERACT.md](docs/TESSERACT.md) — mlws-ocr against Tesseract's legacy and LSTM engines: the numbers, what is the same idea, what differs and why.
 - [docs/RESEARCH.md](docs/RESEARCH.md) — the provenance of every algorithm (papers, deviations, code) and the measurement behind every decision, negative results included. Nothing lands without an entry.
 - [docs/ROADMAP.md](docs/ROADMAP.md) — where the work stands and what comes next, ranked by measured evidence.

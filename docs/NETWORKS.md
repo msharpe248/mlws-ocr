@@ -21,15 +21,15 @@ judged before it went live. The measurements themselves are in
 | Line model, grey strips (same CRNN) | `seq_line_gray9_en.npz`, `_2`, `_3` | 3 × 287k | neural (`decode.line_model_path`, `decode.line_source = "gray"`) | `train_seq.py` | v0.14.0's reader (the v0.13.0 grey reader fine-tuned with SROIE and FUNSD box-cut training lines and more Legal Reports lines, held to its predecessor by L2-SP and distillation; EMA) with 8 more classes and a symbol-bearing synthetic set |
 | Line model, grey strips (v0.13.0) | `seq_line_gray_en.npz`, `_2`, `_3` | 3 × 285k | none since v0.14.0 (the teacher of the above) | `train_seq.py` | the binary line model fine-tuned on grey line strips (grey twins of harvested lines) plus binary real lines |
 | Line model, binary strips (previous) | `seq_line_en.npz`, `_2`, `_3` | 3 × 285k | none since 2026-09-26 (v17a) | `train_seq.py` | the above plus long windows and real whole lines |
-| Word-confidence calibrator | `wordconf.npz` | 15 weights | neural (`decode.conf_path`) | `train_wordconf.py` | truth-labelled words with the decoder's evidence |
-| Line-choice judge | `linechoice.npz` | 15 weights | neural (`decode.line_choice_path`) | `train_line_choice.py` | truth-labelled line pairs (classic reading vs line reading) |
+| Word-confidence calibrator | `wordconf.npz` | 17 weights | neural (`decode.conf_path`) | `train_wordconf.py` | truth-labelled words with the decoder's evidence |
+| Line-choice judge | `linechoice.npz` | 16 weights | neural (`decode.line_choice_path`) | `train_line_choice.py` | truth-labelled line pairs (classic reading vs line reading) |
 | knn_scc link rule (experimental) | `linkkeep_v1.npz` | 15 weights | none (option `blocks.link_model_path`) | `train_links.py` | knn_scc graph links labelled by UNLV zone truth |
-| Segmenter judge | `segjudge.npz` | 32 weights | none yet (option `blocks.impl = "judged"`) | `segmenter_judge.py` | per-page accuracy of four segmenters read end to end on UNLV training-pool pages |
+| Segmenter judge | `segjudge.npz` | 32 weights | neural, neural-table (`blocks.impl = "judged"`, newspapers and magazines) | `segmenter_judge.py` | per-page accuracy of four segmenters read end to end on UNLV training-pool pages |
 | Glyph CNN | `cnn.npz` | 30k | none (kept off; `recognize.cnn_path`) | `train_cnn.py` | synthetic renders + truth-labelled real crops |
 | Table separator network | `sepnet_v2.npz` (`sepnet_v1.npz` the previous) | 44k | neural-table (`output.table_net_path`, row evidence: wrapped rows joined) | `train_sepnet.py` | 6,000 tables drawn by `factory/tablegen.py` with pixel-exact separators + 6,492 FinTabNet.c training tables |
-| Table structure network | `splitnet_v2.npz` (`splitnet_v1.npz` round one) | 280k | neural-table (`output.table_split_path`; on a table's crop chosen over the rules' table by `table_select.npz` unless it leaves out a whole figure row, `table_split_keep_rows`; on a page by the empty-cell rule) | `train_splitnet.py` | PubTables-1M structure training tables (100,000 of 758,849), FinTabNet.c training tables (78,537), 12,000 drawn tables, 2,550 tables of drawn business pages, 308 CORD receipts (`make_split_data.py`) |
+| Table structure network | `splitnet_v2.npz` (`splitnet_v1.npz` round one) | 277k | neural-table (`output.table_split_path`; on a table's crop chosen over the rules' table by `table_select.npz` unless it leaves out a whole figure row, `table_split_keep_rows`; on a page by the empty-cell rule) | `train_splitnet.py` | PubTables-1M structure training tables (100,000 of 758,849), FinTabNet.c training tables (78,537), 12,000 drawn tables, 2,550 tables of drawn business pages, 308 CORD receipts (`make_split_data.py`) |
 | Table structure choice | `table_select.npz` | 19 weights | neural-table (`output.table_split_select`: on a table's crop, the rules' table or the structure network's) | `train_table_select.py` | 297 tables the structure network never saw (FinTabNet.c validation, PubTables-1M training outside its draw), both tables' shapes and which scored higher |
-| Table detector | `tabledet_v1.npz` | 190k | neural-table (`output.table_det_path`, `table_det_mode = "complement"`) | `train_tabledet.py` | PubTables-1M detection training pages (60,000 of Part 1's 230,294) + 1,200 drawn business pages + 900 CORD training receipts (`make_det_data.py`) |
+| Table detector | `tabledet_v1.npz` | 248k | neural-table (`output.table_det_path`, `table_det_mode = "complement"`) | `train_tabledet.py` | PubTables-1M detection training pages (60,000 of Part 1's 230,294) + 1,200 drawn business pages + 900 CORD training receipts (`make_det_data.py`) |
 
 The classic engine also builds three learned tables that are not networks
 but come from the same data: the condensed nearest-prototype pool
@@ -623,7 +623,7 @@ threshold variants (RESEARCH, 2026-09-25); no profile uses it.
 .venv/bin/python scripts/train_links.py data/links_*.npz --out data/linkkeep_v1.npz
 ```
 
-### Segmenter judge — `layout/segjudge.py` (option, not yet the default)
+### Segmenter judge — `layout/segjudge.py` (neural and neural-table, newspapers and magazines)
 
 **Purpose.** Pick the block segmenter per page before reading it: XY-cut
 (with or without the document-type hint), knn_scc tight + order, or the
@@ -742,7 +742,7 @@ inside a cell ('$  1,234') can be told from a gap between columns.  Two
 outputs per axis: a separator runs here, and here is inside the table (a
 crop carries a caption and running text).  Input at a quarter of 300 dpi;
 stem 3x3 conv 2 -> 16, stride-2 conv -> 48, six blocks (dilations 1, 2, 4,
-8, 1, 2), heads [mean, max] -> 1-D convs -> 4 (two sub-pixel pairs); 280k
+8, 1, 2), heads [mean, max] -> 1-D convs -> 4 (two sub-pixel pairs); 276,904
 parameters.  The numpy forward is the reference; `tests/test_splitnet.py`
 holds the torch mirror equal to it.
 
@@ -783,10 +783,13 @@ A fully convolutional segmenter over the whole page at an eighth of 300 dpi
 (a letter page 319 x 412), the same projection-pooling blocks, two outputs
 per pixel: inside a table, and on a table's border band (two tables
 touching are two components once the band is out).  Ink and words as the
-inputs; 190k parameters; `tests/test_tabledet.py` holds the mirror.
+inputs; 247,746 parameters (eight blocks; an earlier note said 190k, the size of six); `tests/test_tabledet.py` holds the mirror.
 Data (`make_det_data.py`): PubTables-1M detection training pages (60,000
-of Part 1's 230,294; their tables' boxes, the PDF words) and 1,500 drawn
-business pages (their tables' boxes, words found in the ink).  Used by
+of Part 1's 230,294; their tables' boxes, the PDF words) and drawn
+business pages (their tables' boxes, words found in the ink): 1,500 drawn,
+1,200 in the adopted training -- the payroll pages were left out, since
+their records keep no table boxes and taught the detector those pages had
+no table.  Used by
 `output.table_det_path`: a ruled grid is kept when a detected table covers
 it (a chart's grid has none), each other detection is a whitespace table
 of its words.

@@ -53,14 +53,19 @@ pipeline never changes as a side effect.
 `binary` (bool, True = ink), `dpi`, and `meta` (a dict holding `layout`,
 `text`, `doc_type` and stage outputs). Stages return `page.evolve(...)`.
 
-Default pipeline (`configs/default.toml`, mirrored by `PIPELINE` in
-`scripts/eval_pages.py`):
+Default pipeline (`configs/default.toml`; the evaluation scripts' built-in
+`PIPELINE` in `scripts/eval_pages.py`, used when no `--config` is given, is
+the same without `magnify` and `correct`):
 
 ```
-deskew → illumination → binarize → despeckle → imagezones → rulings
+magnify → deskew → illumination → binarize → despeckle → imagezones → rulings
 → blocks → tables → lines → components → recognize → decode
-→ adapt → decode → output
+→ adapt → decode → correct → output
 ```
+
+(`magnify` resamples a page whose type is small or whose dpi is low;
+`correct` is the learned noisy-channel word corrector, on in the classic
+profile. The diagrams of the whole pipeline are in ARCHITECTURE.md.)
 
 An optional `chop` slot sits between the two decode passes (§5.6).
 
