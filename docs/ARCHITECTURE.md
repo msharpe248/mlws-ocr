@@ -85,7 +85,7 @@ flowchart LR
     subgraph stages["the stages, in pipeline order"]
         direction TB
         cleanup["cleanup/<br/>magnify, deskew, illumination,<br/>binarize, despeckle"]
-        layout["layout/<br/>zones, rulings, blocks, tables,<br/>lines; the table networks"]
+        layout["layout/<br/>zones, rulings, blocks, tables,<br/>lines, the table networks"]
         glyph["glyph/<br/>components, features, strips"]
         recognize["recognize/<br/>prototypes, MLP, CRNN, CTC"]
         decode["decode/ + adapt/ + lang/<br/>beam, line reader, language models,<br/>document refit, correct, output"]
@@ -485,7 +485,8 @@ sequenceDiagram
     B->>H: POST /api/edits/k (deskew angle, specks, blocks, lines, words, table cells)
     B->>H: POST /api/run?from=k
     H->>S: re-run k..end from snapshot k-1, edits applied after each stage
-    B->>H: POST /api/save → .mlws.json; GET /api/export/text | hocr | toml
+    B->>H: POST /api/save (the session as .mlws.json)
+    B->>H: GET /api/export/text, hocr or toml
 ```
 
 The workbench keeps the page as it stood after every stage, so changing a
