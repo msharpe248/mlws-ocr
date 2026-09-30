@@ -100,7 +100,8 @@ builds grids from them:
    gross-amount cell holds two amounts, one each side of a slash) is found,
    the diagonal erased before reading, and the cell's words split into upper
    and lower (`diagonals`).
-8. **Charts are not tables.** A chart's axes and gridlines make perfect
+8. **A frame is not a table.** On a table's crop, a "grid" of one column or one row is the box drawn round the table; the crop's words are read as the table instead (`ws_table_thin_grids`; PubTables-1M 0.723 → 0.732).
+9. **Charts are not tables.** A chart's axes and gridlines make perfect
    grids of empty cells. A grid is kept only if some row's cells hold ink
    (`min_row_ink`; charts measured 0.00–0.04 cell ink, real tables
    0.06–0.10; PubTables detection F1 0.736 → 0.772).

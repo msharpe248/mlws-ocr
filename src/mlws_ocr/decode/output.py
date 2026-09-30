@@ -221,6 +221,8 @@ class TextOutput(Stage):
         "line_number_min": 6,            # this many short numerics in one
                                          # narrow x band, mostly ascending,
                                          # are a line-number column
+        "ws_table_thin_grids": False,    # ...on such a page, ruled "grids" of one column or one row (a frame
+                                         # round the table) are not the table: its words are read instead
         "ws_table_doc_types": "",        # doc types whose page IS one table, read by
                                          # whitespace when no ruled table was found;
                                          # "*" = every page
@@ -802,6 +804,13 @@ class TextOutput(Stage):
             tables_text.append(grid)
 
         ws_types = [t for t in self.params["ws_table_doc_types"].split(",") if t]
+        if (self.params["ws_table_thin_grids"] and layout.get("tables") and ("*" in ws_types or doc_type in ws_types)
+                and all(t.get("n_cols", 0) < 2 or t.get("n_rows", 0) < 2 for t in layout["tables"])):
+            # a table's crop whose only "grids" are one column or one row: the box drawn round the
+            # table (and the caption's rule), not a table -- as on a page, where page_tables drops
+            # them -- so the words are read as the table they are
+            layout = dict(layout, tables=[])
+            tables_text = []
         if not layout.get("tables") and ("*" in ws_types or doc_type in ws_types):
             words = [w for ln in layout["lines"] for w in ln.get("words", [])]
             t = whitespace_table(words, self.params["ws_phrase_gap"],
