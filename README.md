@@ -71,11 +71,11 @@ between 0.00 and 0.03.
 | invoices | generated: line items with spanned totals, five rule styles (20 pages) | – | 0.967 / 0.981 |
 | timesheets | generated: two-level spanned headers, five rule styles (20 pages) | – | 0.944 / 0.964 |
 | receipts | generated: thermal-roll receipts, whitespace or a header rule (20 pages) | – | 0.940 / 0.963 |
-| real receipts | CORD photographed receipts, their line items as the table (30 receipts) | – | 0.380 / 0.491 |
-| annual-report tables | real financial tables, FinTabNet.c, ruled by whitespace (60 tables) | 0.607 / 0.781 | **0.802 / 0.873** |
-| scientific tables | real tables from papers, PubTables-1M test crops (60 tables); page-level detection F1 0.967 at IoU 0.5 (40 pages) | – | 0.728 / 0.821 |
+| real receipts | CORD photographed receipts, their line items as the table (30 receipts) | – | 0.466 / 0.553 |
+| annual-report tables | real financial tables, FinTabNet.c, ruled by whitespace (60 tables) | 0.607 / 0.781 | **0.806 / 0.873** |
+| scientific tables | real tables from papers, PubTables-1M test crops (60 tables); page-level detection F1 0.967 at IoU 0.5 (40 pages, v0.17.0) | – | 0.723 / 0.815 |
 
-Neural-table as of v0.17.0 (2026-09-30); the generated sets' truth was corrected where it disagreed with its own images (timesheets, payroll forms). \* measured before the open-sides and short-rule options and before the payroll truth held both amounts of each diagonal gross cell (the set was regenerated, 2026-09-28); – not measured.
+Neural-table on main after v0.17.0 (2026-09-30: nil dashes read, a receipt's paper edge dropped, receipt item rows kept apart -- docs/RESEARCH.md); the generated sets' truth was corrected where it disagreed with its own images (timesheets, payroll forms). \* measured before the open-sides and short-rule options and before the payroll truth held both amounts of each diagonal gross cell (the set was regenerated, 2026-09-28); – not measured.
 
 **Held-out pages.** The eight-page sets flatter newspapers and magazines:
 on 30 fresh pages of each type, never used for any decision, the neural
@@ -408,6 +408,7 @@ way?" by looking.
 - [docs/BINARIZATION.md](docs/BINARIZATION.md) — from grey pixels to ink and paper: Otsu and Sauvola, flattening the light, scanner frames, dim photos, despeckle, and why the line reader reads grey.
 - [docs/SKEW_CORRECTION.md](docs/SKEW_CORRECTION.md) — finding how far a page is turned (projection profiles, Hough) and turning it back; the ways the search was fooled, and the fixes.
 - [docs/SEGMENTATION.md](docs/SEGMENTATION.md) — pictures and rules out, then blocks (RLSA, XY-cut, whitespace rectangles, k-NN + SCC, the per-page judge), reading order, lines, and how segmentation is measured.
+- [docs/TABLES.md](docs/TABLES.md) — table extraction: ruled grids from their rules, unruled tables from their words and the junction mesh, the table networks, reading and checking cells, the output records, TEDS.
 - [docs/NETWORKS.md](docs/NETWORKS.md) — every network and learned model: purpose, data, training, rebuild order.
 - [docs/DATA_SOURCES.md](docs/DATA_SOURCES.md) — every dataset and document source: what it is, its licence, where to download it, where it goes under `data/`, what it trains or measures.
 - [docs/TESSERACT.md](docs/TESSERACT.md) — mlws-ocr against Tesseract's legacy and LSTM engines: the numbers, what is the same idea, what differs and why.
