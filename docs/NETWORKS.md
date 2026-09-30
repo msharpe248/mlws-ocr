@@ -534,6 +534,8 @@ MLWS_EXTRA_CLASSES='*=+@[]_`' .venv/bin/python scripts/train_seq.py --backend to
 Trained on from gray12 for 3 more epochs with the table lines at weight 1.0
 (`seq_line_gray13`, 2026-09-30): report tables up (FinTabNet 0.816,
 PubTables-1M 0.729), receipts and forms down (receipts 0.930); not adopted.
+The same 3 epochs at gray12's own shares (`seq_line_gray14`): CORD 0.474,
+PubTables-1M 0.726, but receipts 0.926 and FinTabNet 0.802; not adopted.
 
 ### Word-confidence calibrator — `decode/wordconf.py`
 
