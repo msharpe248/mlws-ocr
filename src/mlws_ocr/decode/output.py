@@ -263,6 +263,9 @@ class TextOutput(Stage):
                                          # figure cell is the dollar sign the reader took for S
         "trim_notes": False,             # a table's crop: caption rows above and note rows below
                                          # trimmed (wstables.trim_caption_notes)
+        "table_wordrel_path": "",        # the word-relation network (layout/wordrel.py) on a table's crop ...
+        "table_wordrel_mode": "replace", # ... "replace": its table, built from the engine's words, in place of
+                                         # the rules' / structure network's (experimental, 2026-10-01)
         "table_cell_lines": False,       # a table's row read line by line, not by x alone: a wrapped
                                          # cell's lines no longer interleave (sepnet.grid_table; 2026-09-30)
         "table_label_rowspans": False,   # a table's crop: a first-column label spans the rows beneath it
@@ -538,6 +541,30 @@ class TextOutput(Stage):
                 t["box"] = [int(v) for v in b]
                 found.append(t)
         return keep, found
+
+    def _wordrel_table(self, lines: list[dict]) -> dict | None:
+        """The word-relation network's table over a crop's words (layout/wordrel.py).
+        Each word is given its text line's height, as a PDF's word boxes are (the
+        network learned from those): a dot leader's or a comma's ink-tight box
+        would sit at the line's foot, out of its row, and shrink the network's
+        unit, the median word height."""
+        from ..layout.wordrel import WordRel, table_from_relations
+        ws = []
+        for ln in lines:
+            for w in ln.get("words", []):
+                if (w.get("text") or "").strip():
+                    b = w["box"]
+                    ws.append(dict(w, box=[b[0], ln["box"][1], b[2], ln["box"][3]]))
+        if len(ws) < 2:
+            return None
+        key = ("wordrel", self.params["table_wordrel_path"])
+        net = self._nets.get(key)
+        if net is None:
+            net = self._nets[key] = WordRel(self.params["table_wordrel_path"])
+        boxes = np.array([w["box"] for w in ws], np.float32)
+        texts = [w["text"] for w in ws]
+        tok, pairs = net.predict(boxes, texts)
+        return table_from_relations(boxes, texts, tok, pairs)
 
     def _split_or_rules(self, t: dict, page: Page, words: list[dict], whole: bool = False) -> dict:
         """The structure network's table, or the rules' when it is chosen by
@@ -826,6 +853,10 @@ class TextOutput(Stage):
             if self.params["table_split_path"]:
                 t = self._split_or_rules(t or {"box": [0, 0, 1, 1]}, page, words, whole=True)
                 t = t if t.get("cells") else None
+            if self.params["table_wordrel_path"]:
+                wt = self._wordrel_table(layout["lines"])
+                if wt is not None and self.params["table_wordrel_mode"] == "replace":
+                    t = wt
             if t is not None and self.params["trim_notes"]:
                 from ..layout.wstables import trim_caption_notes
                 t = trim_caption_notes(t, whole_rows=self.params["trim_notes_rows"])

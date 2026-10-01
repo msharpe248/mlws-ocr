@@ -186,3 +186,83 @@ class WordRel:
         tok, pairs = forward(self.p, f, pair_geometry(np.asarray(boxes, np.float32), unit))
         sig = lambda v: 1 / (1 + np.exp(-v))  # noqa: E731
         return sig(tok), sig(pairs)
+
+
+def average_link(P: np.ndarray, thresh: float = 0.5) -> list[list[int]]:
+    """Agglomerative clustering of items under pairwise probabilities P (N, N),
+    average linkage: the two clusters whose mean pairwise probability is
+    highest merge while it exceeds ``thresh``.  Average linkage, not single:
+    a word spanning two rows agrees with both, and single linkage would chain
+    the two rows through it into one."""
+    n = len(P)
+    clusters = [[i] for i in range(n)]
+    S = P.astype(np.float64).copy()                   # S[a, b] = sum of P over the two clusters' pairs
+    np.fill_diagonal(S, -np.inf)
+    size = np.ones(n)
+    alive = np.ones(n, bool)
+    while alive.sum() > 1:
+        A = S / (size[:, None] * size[None, :])
+        A[~alive] = -np.inf
+        A[:, ~alive] = -np.inf
+        a, b = np.unravel_index(np.argmax(A), A.shape)
+        if A[a, b] <= thresh:
+            break
+        clusters[a] += clusters[b]
+        S[a] += S[b]
+        S[:, a] += S[:, b]
+        S[a, a] = -np.inf
+        size[a] += size[b]
+        alive[b] = False
+    return [clusters[i] for i in range(n) if alive[i]]
+
+
+def table_from_relations(boxes, texts, tok_p: np.ndarray, pair_p: np.ndarray,
+                         in_thresh: float = 0.5) -> dict | None:
+    """A table (the engine's dict: cells with row, col, rowspan, colspan, text,
+    box) from the network's probabilities.  Rows are average-linkage clusters
+    of same-row, ordered by height; columns of same-column, ordered by x;
+    cells clusters of same-cell.  A cell covers the row and column clusters
+    its words agree with on average (> 0.5) -- a spanning header covers the
+    columns beneath it -- and at least those its words were put in.  Words
+    the network places outside the table (a caption, a note) are left out."""
+    b = np.asarray(boxes, np.float32).reshape(-1, 4)
+    keep = np.nonzero(tok_p[:, 0] > in_thresh)[0]
+    if len(keep) < 2:
+        return None
+    b, texts = b[keep], [texts[i] for i in keep]
+    R, C, E = (pair_p[k][np.ix_(keep, keep)] for k in range(3))
+    rows = sorted(average_link(R), key=lambda c: float(np.mean((b[c, 1] + b[c, 3]) / 2)))
+    cols = sorted(average_link(C), key=lambda c: float(np.mean((b[c, 0] + b[c, 2]) / 2)))
+    if len(cols) < 2 or len(rows) < 1:
+        return None
+    row_of = {i: k for k, c in enumerate(rows) for i in c}
+    col_of = {i: k for k, c in enumerate(cols) for i in c}
+    cells, taken = [], set()
+    for cl in sorted(average_link(E), key=lambda c: (min(row_of[i] for i in c), min(col_of[i] for i in c))):
+        rs = sorted({row_of[i] for i in cl} | {k for k, c in enumerate(rows) if R[np.ix_(cl, c)].mean() > 0.5})
+        cs = sorted({col_of[i] for i in cl} | {k for k, c in enumerate(cols) if C[np.ix_(cl, c)].mean() > 0.5})
+        r0, r1, c0, c1 = rs[0], rs[-1], cs[0], cs[-1]
+        slots = {(r, c) for r in range(r0, r1 + 1) for c in range(c0, c1 + 1)}
+        if slots & taken:                              # overlaps a cell already placed: its own slot only
+            r0 = r1 = min(row_of[i] for i in cl)
+            c0 = c1 = min(col_of[i] for i in cl)
+            slots = {(r0, c0)}
+            if slots & taken:
+                cell = next(x for x in cells if x["row"] <= r0 < x["row"] + x["rowspan"]
+                            and x["col"] <= c0 < x["col"] + x["colspan"])
+                order = sorted(cl, key=lambda i: (row_of[i], b[i, 0]))
+                cell["text"] += " " + " ".join(texts[i] for i in order)
+                continue
+        taken |= slots
+        order = sorted(cl, key=lambda i: ((b[i, 1] + b[i, 3]) / 2 // max(1.0, float(np.median(b[:, 3] - b[:, 1]))), b[i, 0]))
+        cells.append({"row": r0, "col": c0, "rowspan": r1 - r0 + 1, "colspan": c1 - c0 + 1,
+                      "text": " ".join(texts[i] for i in order),
+                      "box": [int(b[cl, 0].min()), int(b[cl, 1].min()), int(b[cl, 2].max()), int(b[cl, 3].max())]})
+    nr, nc = len(rows), len(cols)
+    for r in range(nr):
+        for c in range(nc):
+            if (r, c) not in taken:
+                cells.append({"row": r, "col": c, "rowspan": 1, "colspan": 1, "text": "", "box": [0, 0, 0, 0]})
+    cells.sort(key=lambda x: (x["row"], x["col"]))
+    return {"box": [int(b[:, 0].min()), int(b[:, 1].min()), int(b[:, 2].max()), int(b[:, 3].max())],
+            "n_rows": nr, "n_cols": nc, "cells": cells, "source": "wordrel"}

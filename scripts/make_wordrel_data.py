@@ -50,10 +50,16 @@ def _overlap(a0, a1, b0, b1):
 
 
 def table_labels(xml_path: Path, words_path: Path):
-    """(words, labels) for one table, or None.  words: [x0, y0, x1, y1, text];
-    labels per word: row mask, column mask (as index lists), cell id, header,
-    in-table."""
-    root = ET.parse(xml_path).getroot()
+    """(words, labels) for one table, or None, from the dataset's own words."""
+    ws = [w for w in json.loads(words_path.read_text()) if w.get("text", "").strip()]
+    return label_words(ET.parse(xml_path).getroot(), ws)
+
+
+def label_words(root, ws: list[dict]):
+    """(words, labels) for one table's annotation and any words over it (the
+    dataset's, or the engine's in the crop's frame: {'bbox', 'text'}), or None.
+    words: [x0, y0, x1, y1, text]; labels per word: rows and columns (index
+    lists), cell id, header, in-table."""
     tables = _boxes(root, "table")
     if len(tables) != 1:
         return None
@@ -64,7 +70,6 @@ def table_labels(xml_path: Path, words_path: Path):
     heads = _boxes(root, "table column header")
     prh = _boxes(root, "table projected row header")
     spans = _boxes(root, "table spanning cell")
-    ws = [w for w in json.loads(words_path.read_text()) if w.get("text", "").strip()]
     if not ws or len(ws) > MAX_WORDS:
         return None
     out_words, out_rows, out_cols, cell, head, intab = [], [], [], [], [], []
@@ -109,6 +114,24 @@ def _one(args):
     return None if r is None else (xml.stem, r)
 
 
+def save(res, out):
+    """Write [(name, labels)] in the file format train_wordrel.py reads."""
+    # flat arrays: words of all tables end to end, offsets per table; a word's rows and columns are
+    # a contiguous run, kept as first and last index (-1 when the word is in none)
+    names, offs, boxes, texts, rmask, cmask, cells, heads, intab = [], [0], [], [], [], [], [], [], []
+    for name, (ws, rs, cs, ce, he, it) in res:
+        names.append(name)
+        for w, r, c, e, h, t in zip(ws, rs, cs, ce, he, it):
+            boxes.append(w[:4]); texts.append(w[4])
+            rmask.append([min(r), max(r)] if r else [-1, -1]); cmask.append([min(c), max(c)] if c else [-1, -1])
+            cells.append(e); heads.append(h); intab.append(t)
+        offs.append(len(boxes))
+    np.savez_compressed(out, names=np.array(names), offsets=np.array(offs, np.int64),
+                        boxes=np.array(boxes, np.float32), texts=np.array(texts, dtype=object),
+                        rows=np.array(rmask, np.int32), cols=np.array(cmask, np.int32),
+                        cells=np.array(cells, np.int64), header=np.array(heads), in_table=np.array(intab))
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     ap.add_argument("root", type=Path)
@@ -124,21 +147,8 @@ def main():
         xmls = [xmls[i] for i in sorted(rng.choice(len(xmls), args.n, replace=False))]
     with Pool(args.workers) as pool:
         res = [r for r in pool.imap(_one, [(x, args.root / "words") for x in xmls], chunksize=64) if r]
-    # flat arrays: words of all tables end to end, offsets per table; a word's rows and columns are
-    # a contiguous run, kept as first and last index (-1 when the word is in none)
-    names, offs, boxes, texts, rmask, cmask, cells, heads, intab = [], [0], [], [], [], [], [], [], []
-    for name, (ws, rs, cs, ce, he, it) in res:
-        names.append(name)
-        for w, r, c, e, h, t in zip(ws, rs, cs, ce, he, it):
-            boxes.append(w[:4]); texts.append(w[4])
-            rmask.append([min(r), max(r)] if r else [-1, -1]); cmask.append([min(c), max(c)] if c else [-1, -1])
-            cells.append(e); heads.append(h); intab.append(t)
-        offs.append(len(boxes))
-    np.savez_compressed(args.out, names=np.array(names), offsets=np.array(offs, np.int64),
-                        boxes=np.array(boxes, np.float32), texts=np.array(texts, dtype=object),
-                        rows=np.array(rmask, np.int32), cols=np.array(cmask, np.int32),
-                        cells=np.array(cells, np.int64), header=np.array(heads), in_table=np.array(intab))
-    print(f"wrote {args.out}: {len(names)} tables of {len(xmls)}, {len(boxes)} words")
+    save(res, args.out)
+    print(f"wrote {args.out}: {len(res)} tables of {len(xmls)}")
 
 
 if __name__ == "__main__":
