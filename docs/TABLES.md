@@ -223,6 +223,16 @@ witness beside an explicit rule, never an unexamined replacement.
 Cells are harder to read than running text: short, often numbers, crowded
 by rules. The table profile adds:
 
+- **A reader for tables.** The table profile's line reader was trained
+  on top of the neural one with lines cut from real tables (PubTables-1M and
+  FinTabNet.c training crops, at their PDF text), and it can write the
+  tables' own symbols — ± − – — × ° μ < > ≤ ≥ ’ “ ” † ‡ · •, nineteen classes
+  the neural reader lacks (before them, every '±' in its training trained as
+  '?'). On the PubTables-1M test crops it writes 85 of the 97 '±'; the minus
+  sign and the en dash it still reads as hyphens, near-identical at 72 dpi
+  (`seq_line_gray15`; PubTables-1M 0.787 → 0.797, CORD 0.476 → 0.493). A
+  reading run across an empty stretch wider than a word space by far — two
+  columns' words joined — is split there (`line_gap_split`).
 - **Rules out of the grey.** The line reader reads the grey page, where the
   rules removed from the binary are still drawn; they are painted out of the
   grey too, or a border reads as '1' or 'l' (`line_gray_rules_out`; payroll
@@ -280,14 +290,14 @@ The evaluation sets, and where they stand (neural-table, TEDS / TEDS-S):
 | set | pages | v0.16.0 | now |
 |---|---|---|---|
 | invoices (generated) | 20 | 0.764 | **0.967 / 0.981** |
-| timesheets (generated) † | 20 | 0.612 | **0.944 / 0.964** |
-| receipts (generated) | 20 | 0.625 | **0.940 / 0.963** |
+| timesheets (generated) † | 20 | 0.612 | **0.942 / 0.964** |
+| receipts (generated) | 20 | 0.625 | **0.929 / 0.953** |
 | paystubs (generated) | 20 | 0.791 | **0.940 / 0.952** |
-| payroll forms (generated) † | 20 | 0.717 | **0.914 / 0.940** |
-| annual-report tables (FinTabNet.c) | 60 | 0.763 | 0.810 / 0.874 |
-| scientific tables (PubTables-1M) | 60 | – | 0.787 / 0.868 |
+| payroll forms (generated) † | 20 | 0.717 | **0.913 / 0.939** |
+| annual-report tables (FinTabNet.c) | 60 | 0.763 | 0.815 / 0.876 |
+| scientific tables (PubTables-1M) | 60 | – | 0.797 / 0.876 |
 | scientific pages, detection F1 | 40 | – | 0.967 |
-| real receipts (CORD) | 30 | 0.327 | 0.476 / 0.559 |
+| real receipts (CORD) | 30 | 0.327 | 0.493 / 0.575 |
 
 † Part of these two sets' gain came from correcting the generated truth
 where it disagreed with its own images (the images are byte-identical);

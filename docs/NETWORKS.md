@@ -17,7 +17,7 @@ judged before it went live. The measurements themselves are in
 | MLP second opinion | `mlp.npz` | 53k params | classic, neural (`recognize.mlp_path`) | `train_mlp.py` | exemplar pool: synthetic renders + real harvests |
 | Character GRU language model | `gru_en.npz` | 258k | classic, neural (`decode.char_lm`) | `train_charlm.py` | public-domain text corpus |
 | Word-strip CRNN scorer | `seq_en.npz` | 285k | neural (`decode.seq_path`) | `train_seq.py` | synthetic word windows + truth-labelled real word strips |
-| Line model for tables, grey strips (same CRNN) | `seq_line_gray12_en.npz`, `_2`, `_3` | 3 × 287k | neural-table (`decode.line_model_path`) | `train_seq.py` | the reader below fine-tuned with table lines cut from PubTables-1M and FinTabNet.c training crops at their PDF text, receipt photo lines weighted up; distilled from itself, L2-SP, EMA |
+| Line model for tables, grey strips (same CRNN, 139 classes) | `seq_line_gray15_en.npz`, `_2`, `_3` | 3 × 291k | neural-table (`decode.line_model_path`) | `train_seq.py` | the reader below fine-tuned with table lines cut from PubTables-1M and FinTabNet.c training crops at their PDF text, receipt photo lines weighted up, the tables' symbols (± − – — × ° μ < > ≤ ≥ ’ ‘ “ ” † ‡ · •) as classes with a symbol-rich synthetic set; distilled from itself, L2-SP, EMA |
 | Line model, grey strips (same CRNN) | `seq_line_gray9_en.npz`, `_2`, `_3` | 3 × 287k | neural (`decode.line_model_path`, `decode.line_source = "gray"`) | `train_seq.py` | v0.14.0's reader (the v0.13.0 grey reader fine-tuned with SROIE and FUNSD box-cut training lines and more Legal Reports lines, held to its predecessor by L2-SP and distillation; EMA) with 8 more classes and a symbol-bearing synthetic set |
 | Line model, grey strips (v0.13.0) | `seq_line_gray_en.npz`, `_2`, `_3` | 3 × 285k | none since v0.14.0 (the teacher of the above) | `train_seq.py` | the binary line model fine-tuned on grey line strips (grey twins of harvested lines) plus binary real lines |
 | Line model, binary strips (previous) | `seq_line_en.npz`, `_2`, `_3` | 3 × 285k | none since 2026-09-26 (v17a) | `train_seq.py` | the above plus long windows and real whole lines |
@@ -104,6 +104,7 @@ were trained on the public sources named below and on nothing else.
 | v0.16.0 (2026-09-28) | twenty-six files: v0.15.0's twenty-four plus the table separator networks `sepnet_v2.npz` (the neural-table profile's row evidence) and `sepnet_v1.npz` (its predecessor) |
 | v0.17.0 (2026-09-30) | thirty-two files: v0.16.0's twenty-six plus the neural-table profile's table networks `tabledet_v1.npz` (detector), `splitnet_v2.npz` (structure network), `table_select.npz` (the rules-or-network choice) and its line reader `seq_line_gray12_en.npz`, `_2`, `_3` (= `seq_line_gray12`, EMA); the neural profile keeps `seq_line_gray9` |
 | v0.17.1 (2026-09-30) | the same thirty-two files as v0.17.0: this release is table-profile settings (nil dashes, a receipt's paper edge, receipt item rows, frames round table crops) |
+| v0.17.2 (2026-10-01) | thirty-two files: v0.17.1's with the neural-table reader `seq_line_gray12_en*.npz` replaced by `seq_line_gray15_en.npz`, `_2`, `_3` (= `seq_line_gray15`, EMA: the tables' symbols as classes) |
 | v0.14.0 (2026-09-27) | twenty-one files: v0.13.0's eighteen plus the reader `seq_line_gray7_en.npz`, `_2`, `_3` (= `seq_line_gray7` seeds 3, 2, 1, EMA weights), the neural profile's reader; the v0.13.0 grey reader stays (it is the new one's teacher and the way back) |
 
 ## Where the training data comes from
@@ -538,10 +539,10 @@ PubTables-1M 0.729), receipts and forms down (receipts 0.930); not adopted.
 The same 3 epochs at gray12's own shares (`seq_line_gray14`): CORD 0.474,
 PubTables-1M 0.726, but receipts 0.926 and FinTabNet 0.802; not adopted.
 
-**The tables' symbols as classes** (`seq_line_gray15`, 2026-10-01; measured, not
-yet adopted). gray12's recipe exactly -- from the gray9 EMA members, the same
+**v0.17.2: the tables' symbols as classes** (`seq_line_gray15`, 2026-10-01; the
+neural-table reader since v0.17.2, the owner's decision). gray12's recipe exactly -- from the gray9 EMA members, the same
 seeds, data and shares -- with 19 more classes (± − – — × ° μ < > ≤ ≥ ’ ‘ “ ” † ‡
-· •; 138 in all), training labels folded before the unknown class (`SeqNet.encode`:
+· •; 139 in all, with the blank), training labels folded before the unknown class (`SeqNet.encode`:
 'ﬁ' -> 'fi', no-break space -> ' ', 'µ' -> 'μ'; before, every ± and – in the
 harvested table lines trained as '?'), and a symbol-rich synthetic set
 (`seq_synth_sym2`, 60k lines, each rendered only in a face that draws every
@@ -550,7 +551,10 @@ character in it, `synth.font_has`). Held-out real line word accuracy 78.8 / 77.9
 FinTabNet 0.810 -> 0.813, CORD 0.464 -> 0.484, but receipts 0.940 -> 0.929 (one
 page, its columns split by shifted word boxes), timesheets 0.944 -> 0.942, payroll
 forms 0.914 -> 0.913. On PubTables it writes 85 of the truth's 97 '±', but 2 of 126
-'−' and 5 of 60 '–' (a hyphen at 72 dpi), no '×' or '°'.
+'−' and 5 of 60 '–' (a hyphen at 72 dpi), no '×' or '°'. With `decode.line_gap_split`
+(adopted the same day): PubTables-1M 0.787 -> 0.797, FinTabNet 0.810 -> 0.815, CORD 0.476 -> 0.493,
+receipts 0.940 -> 0.929, timesheets 0.944 -> 0.942, payroll forms 0.914 -> 0.913 -- adopted, the
+receipt page the stated cost.
 
 ```sh
 MLWS_EXTRA_CLASSES='*=+@[]_`±−–—×°μ<>≤≥’‘“”†‡·•' .venv/bin/python scripts/make_seq_data.py --out data/seq_synth_sym2.npz \

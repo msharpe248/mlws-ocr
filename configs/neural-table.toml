@@ -137,8 +137,12 @@ impl = "hybrid"                # the line reader beside the classic decoder (dec
                                # judge says so (2026-09-13: dev-8 91.9 -> 93.2 word, broad-30 87.5 -> 89.8,
                                # legal-8 84.4 -> 88.5, news-8 88.2 -> 90.2, blocks broad-30 91.1 -> 95.1).
                                # "beam" is the classic decoder alone.
-line_model_path = "data/seq_line_gray12_en.npz+data/seq_line_gray12_en_2.npz+data/seq_line_gray12_en_3.npz"
-                               # table profile (2026-09-30, v0.17.0): = seq_line_gray12, each seq_line_gray9 member
+line_model_path = "data/seq_line_gray15_en.npz+data/seq_line_gray15_en_2.npz+data/seq_line_gray15_en_3.npz"
+                               # table profile (2026-10-01, v0.17.2): = seq_line_gray15 -- seq_line_gray12's recipe with
+                               # the tables' symbols as 19 more classes (± − – — × ° μ < > ≤ ≥ ’ ‘ “ ” † ‡ · •) and a
+                               # symbol-rich synthetic set: PubTables-1M 0.787 -> 0.797, FinTabNet 0.810 -> 0.815, CORD
+                               # 0.476 -> 0.493, receipts 0.940 -> 0.929 (one page), the owner's decision. gray12 was:
+                               # (2026-09-30, v0.17.0) each seq_line_gray9 member
                                # fine-tuned 3 epochs with table lines cut from PubTables-1M and FinTabNet.c TRAINING
                                # crops (weight 0.5) and the receipt photo lines weighted up (CORD x20, SROIE x8),
                                # distilled from itself (table lines left out), L2-SP 1e-4, EMA: PubTables structure

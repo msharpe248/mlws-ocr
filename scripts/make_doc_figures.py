@@ -675,7 +675,7 @@ def fig_line_reader(clean, final):
     xh = ln.get("x_height") or (ln["box"][3] - ln["box"][1]) * 0.45
     strip, _, _, _ = line_strip(clean.binary, ln, xh, gray=clean.gray)
     ink = 1.0 - strip
-    path = "data/seq_line_gray12_en.npz"
+    path = "data/seq_line_gray15_en.npz"
     net = load_scorer(str(ROOT / path), backend="numpy")
     net = getattr(net, "net", net)
     lp = net.log_probs([ink])[0]
