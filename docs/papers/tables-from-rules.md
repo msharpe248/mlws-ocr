@@ -42,9 +42,9 @@ The steps, most of them rules:
   tables' other symbols. None of them replaced the rules.
 
 Whole-page structure similarity (TEDS) on the generated sets went from
-0.02 to 0.91–0.97, on real annual-report tables from 0.03 to 0.82, on
-scientific tables to 0.80, and on photographed receipts from 0.08 to
-0.49.
+0.02 to 0.91–0.97, on real annual-report tables from 0.03 to 0.81, on
+scientific tables to 0.76 (both on 240 held-out tables), and on
+photographed receipts from 0.08 to 0.49.
 
 ## Abstract
 
@@ -62,8 +62,8 @@ with high precision. Four small networks trained from scratch — a
 separator network, a table detector, a structure network and a table
 line reader — each enter as evidence beside the rules, never in their
 place. Whole-page TEDS on the generated sets rises from about 0.02 to
-0.91–0.97; FinTabNet.c from 0.03 to 0.82; PubTables-1M crops from 0.45
-to 0.80; CORD from 0.08 to 0.49. A census of the remaining error finds
+0.91–0.97; FinTabNet.c from 0.03 to 0.81 and PubTables-1M crops to 0.76
+on 240 held-out tables each; CORD from 0.08 to 0.49. A census of the remaining error finds
 it in reading and in whole-table structure failures, not in words joined
 across cells. Each negative result is reported with its measurement.
 
@@ -444,6 +444,16 @@ for timesheets and payroll forms the two differ by more than the engine.
 | PubTables-1M crops (real, 60) | – | – | 0.797 / 0.876 |
 
 PubTables-1M page detection, 40 test pages, IoU ≥ 0.5: F1 0.967 (precision 0.936, recall 1.000).
+
+Most of the PubTables-1M repairs were found by looking at failing tables
+among the 60 scored, so the other 240 of the same 300-table draw were
+read as a held-out check, with the release before them and this one:
+PubTables-1M 0.716 → 0.759 (TEDS-S 0.814 → 0.847; 164 tables up, 49
+down), FinTabNet.c 0.802 → 0.810. The gains hold — FinTabNet.c's in
+full, PubTables-1M's at two thirds of the +0.065 measured on the 60,
+which are also an easier draw. The held-out figures are the ones to
+quote: **0.759** on scientific tables, **0.810** on annual-report
+tables.
 The neural profile reports the same structure without the options that
 change what the reader sees; its text is unchanged. Neither Tesseract
 engine outputs table structure.
@@ -462,7 +472,9 @@ The generated sets are ours, and a rule tuned on them may fit their
 habits; FinTabNet.c, PubTables-1M and CORD are the checks against that,
 and every threshold was chosen on a tuning subset and confirmed on
 held-out tables. The real sets are small samples (60, 60, 30 tables;
-40 pages), and differences of 0.005 are a table or two. Photographed
+40 pages), and differences of 0.005 are a table or two; the 240 held-out
+tables of each table set (§9) show the 60 flatter PubTables-1M by about
+0.04. Photographed
 receipts remain hard (0.49): the reading, not only the structure, limits
 them. On scientific tables, 72-dpi reading caps the text half of the
 score — a minus sign and an en dash are hyphens to the reader.

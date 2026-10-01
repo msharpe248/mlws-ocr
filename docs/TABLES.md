@@ -299,6 +299,8 @@ The evaluation sets, and where they stand (neural-table, TEDS / TEDS-S):
 | scientific pages, detection F1 | 40 | – | 0.967 |
 | real receipts (CORD) | 30 | 0.327 | 0.493 / 0.575 |
 
+The two real crop sets were also read on the 240 held-out tables of the same draws, none of which any decision looked at: PubTables-1M 0.759 / 0.847, FinTabNet.c 0.810 / 0.873 — the 60 flatter PubTables-1M by about 0.04 ([MEASUREMENT.md §4](MEASUREMENT.md)).
+
 † Part of these two sets' gain came from correcting the generated truth
 where it disagreed with its own images (the images are byte-identical);
 RESEARCH.md records each correction. Every row above is re-measured with

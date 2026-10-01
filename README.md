@@ -90,8 +90,8 @@ between 0.00 and 0.03.
 | timesheets | generated: two-level spanned headers, five rule styles (20 pages) | – | 0.942 / 0.964 |
 | receipts | generated: thermal-roll receipts, whitespace or a header rule (20 pages) | – | 0.929 / 0.953 |
 | real receipts | CORD photographed receipts, their line items as the table (30 receipts) | – | 0.493 / 0.575 |
-| annual-report tables | real financial tables, FinTabNet.c, ruled by whitespace (60 tables) | 0.607 / 0.781 | **0.815 / 0.876** |
-| scientific tables | real tables from papers, PubTables-1M test crops (60 tables); page-level detection F1 0.967 at IoU 0.5 (40 pages, v0.17.2) | – | 0.797 / 0.876 |
+| annual-report tables | real financial tables, FinTabNet.c, ruled by whitespace (60 tables; on 240 held-out ones 0.810 / 0.873) | 0.607 / 0.781 | **0.815 / 0.876** |
+| scientific tables | real tables from papers, PubTables-1M test crops (60 tables; on 240 held-out ones 0.759 / 0.847); page-level detection F1 0.967 at IoU 0.5 (40 pages, v0.17.2) | – | 0.797 / 0.876 |
 
 Neural-table as of v0.17.2 (2026-10-01: nil dashes read, a receipt's paper edge dropped, receipt item rows kept apart, a frame round a table's crop not taken for the table, light-grey rules found in the grey page, captions and notes trimmed by whole rows, wrapped cells read line by line, row labels spanning their sub-rows, a word read across a column gap split, a table reader that writes ± and the tables' other symbols -- docs/RESEARCH.md); the generated sets' truth was corrected where it disagreed with its own images (timesheets, payroll forms). \* measured before the open-sides and short-rule options and before the payroll truth held both amounts of each diagonal gross cell (the set was regenerated, 2026-09-28); – not measured.
 
