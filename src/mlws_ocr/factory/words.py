@@ -317,12 +317,15 @@ def corpus_words(corpus_dirs, cap: int = 60000, temper: float = 0.5):
     return words, p / p.sum()
 
 
+TABLE_SYMBOLS = "±−–—×°μ<>≤≥’‘“”†‡·•"   # the tables' symbols, as classes when MLWS_EXTRA_CLASSES names them
+
+
 def numeric_token(rng: np.random.Generator) -> str:
     """Amounts, dates, phone numbers, ZIP codes, citations: the shapes
     ``decode/formats.py`` endorses, so the model has seen digits in the
     contexts real documents put them in."""
     d = lambda n: "".join(str(rng.integers(0, 10)) for _ in range(n))  # noqa: E731
-    syms = [c for c in "*=+[_`" if c in CHARSET]    # extra classes (MLWS_EXTRA_CLASSES)
+    syms = [c for c in "*=+[_`" + TABLE_SYMBOLS if c in CHARSET]    # extra classes (MLWS_EXTRA_CLASSES)
     kind = rng.integers(0, (10 if "@" in CHARSET else 8) + len(syms))
     if kind >= (10 if "@" in CHARSET else 8):
         return str(symbol_token(rng, syms[int(kind) - (10 if "@" in CHARSET else 8)], d))
@@ -368,6 +371,41 @@ def symbol_token(rng: np.random.Generator, sym: str, d) -> str:
         return rng.choice(["_" * int(rng.integers(3, 12)), f"{w}_{w}", f"{d(2)}_"])
     if sym == "`":
         return rng.choice([f"``{w}", f"`{w}'", "``"])
+    # the scientific and financial tables' symbols (2026-09-30)
+    f = lambda a, b: f"{d(int(rng.integers(1, a + 1)))}.{d(int(rng.integers(1, b + 1)))}"  # noqa: E731
+    n = lambda: d(int(rng.integers(1, 4)))  # noqa: E731
+    if sym == "±":
+        return rng.choice([f"{f(2, 2)} ± {f(1, 2)}", f"{f(2, 1)}±{f(1, 2)}", f"±{f(1, 2)}", "±"])
+    if sym == "−":
+        return rng.choice([f"−{f(1, 2)}", f"(−{f(1, 2)}, {f(1, 2)})", f"−{n()}", "−"])
+    if sym == "–":
+        return rng.choice([f"{f(1, 2)}–{f(1, 2)}", f"{n()}–{n()}", f"({f(1, 2)}–{f(1, 2)})", f"{w}–{w}", "–"])
+    if sym == "—":
+        return rng.choice(["—", f"{w}—{w}", "——", f"{w} — {w}"])
+    if sym == "×":
+        return rng.choice([f"{n()} × {n()}", f"{f(1, 1)}×10", f"{n()}×", "×"])
+    if sym == "°":
+        return rng.choice([f"{n()} °C", f"{n()}°", f"{f(2, 1)}°F", "°"])
+    if sym == "μ":
+        return rng.choice([f"{n()} μg", f"{n()} μm", "μL", f"{f(2, 1)} μmol/L", "μ"])
+    if sym in "<>":
+        return rng.choice([f"{sym}{f(1, 3)}", f"{sym} {n()}", f"p {sym} {f(1, 3)}", sym])
+    if sym in "≤≥":
+        return rng.choice([f"{sym}{n()}", f"{sym} {f(1, 1)}", f"{w} {sym} {n()}", sym])
+    if sym == "’":
+        return rng.choice([f"{w}’s", f"{w}’", f"{w}’t", f"’{d(2)}"])
+    if sym == "‘":
+        return rng.choice([f"‘{w}’", f"‘{w}", f"‘{d(2)}"])
+    if sym == "“":
+        return rng.choice([f"“{w}”", f"“{w}", f"“{w},”"])
+    if sym == "”":
+        return rng.choice([f"{w}”", f"“{w}”", f"{w}.”"])
+    if sym in "†‡":
+        return rng.choice([f"{w}{sym}", f"{f(1, 2)}{sym}", sym, f"{sym}{w}"])
+    if sym == "·":
+        return rng.choice([f"{f(1, 1)} · 10", f"{w}·{w}", f"{n()}·{n()}", "·"])
+    if sym == "•":
+        return rng.choice([f"• {w}", "•", f"{w} •"])
     return sym
 
 

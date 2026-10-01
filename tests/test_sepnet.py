@@ -50,3 +50,19 @@ def test_grid_reads_a_wrapped_cell_line_by_line():
     text = lambda t: next(c["text"] for c in t["cells"] if (c["row"], c["col"]) == (1, 0))  # noqa: E731
     assert text(old) == "We to lawsuits are subject"          # x alone interleaves the lines
     assert text(new) == "We are subject to lawsuits"
+
+
+def test_seq_labels_fold_compatibility_forms_and_spaces_before_the_unknown_class():
+    from mlws_ocr.recognize.seq import SeqNet, default_classes
+    net = SeqNet(default_classes(), hidden=8)
+    read = lambda t: "".join(net.classes[i] for i in net.encode(t))  # noqa: E731
+    assert read("ﬁnal") == "final"            # the 'fi' ligature
+    assert read("5\xa0kg\tx") == "5 kg x"          # no-break space, tab
+    assert read("x≤y") == "x?y"               # no class and no fold: the unknown class
+
+
+def test_font_has_tells_a_real_glyph_from_the_notdef_box():
+    from mlws_ocr.factory.synth import font_has
+    from mlws_ocr.factory.words import stock_fonts
+    f = stock_fonts()[0]
+    assert font_has(f, "a") and not font_has(f, "\U0001F600")

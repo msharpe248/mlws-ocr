@@ -90,6 +90,27 @@ def glyph_available(char: str, font_path, px_height: int = 48) -> bool:
     return a.sum() > 50 and 0.6 * wb < wa < 1.2 * wb
 
 
+_HAS: dict = {}
+
+
+def font_has(font_path, char: str, px_height: int = 40) -> bool:
+    """Does the face draw ``char`` itself?  A character it lacks draws
+    nothing, or exactly what an unassigned code point draws (the notdef
+    box) -- either way a training label would name a shape that is not
+    the character's.  Cached per face and character."""
+    key = (str(font_path), char)
+    if key not in _HAS:
+        from PIL import ImageFont
+        font = ImageFont.truetype(str(font_path), px_height)
+
+        def mask(c):
+            m = font.getmask(c)
+            return m.size, bytes(m)
+        a = mask(char)
+        _HAS[key] = bool(any(a[1])) and a != mask("\uE000") and a != mask("\U0010FFFD")
+    return _HAS[key]
+
+
 def render_text_page(lines: list[str], font_path, px_height: int = 32,
                      line_spacing: float = 1.6, margin: int = 60,
                      page_width: int | None = None) -> np.ndarray:

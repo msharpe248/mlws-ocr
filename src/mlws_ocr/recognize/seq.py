@@ -104,13 +104,26 @@ class SeqNet:
         return sum(int(v.size) for v in self.params.values())
 
     # ------------------------------------------------------------ batching
+    _FOLD = {"\u2217": "*", "\u02da": "\u00b0"}     # asterisk operator, ring above -> '*', degree
+
     def encode(self, text: str) -> list[int]:
-        """Class ids; characters outside the alphabet map to the unknown
-        class ('?') when present, else are dropped."""
+        """Class ids.  A character outside the alphabet is folded first --
+        any space to ' ', a compatibility form to its expansion ('ﬁ' -> 'fi',
+        'µ' -> 'μ'), two look-alikes by hand -- and only then maps to the
+        unknown class ('?') when present, else is dropped.  (Before the fold,
+        2026-09-30, every 'ﬁ' and no-break space in the harvested table lines
+        trained as '?'.)"""
+        import unicodedata
         unk = self.index.get("?")
         out = []
         for ch in text:
-            i = self.index.get(ch, unk)
+            i = self.index.get(ch)
+            if i is None:
+                sub = " " if ch.isspace() else self._FOLD.get(ch) or unicodedata.normalize("NFKC", ch)
+                if sub != ch and all(c in self.index for c in sub):
+                    out.extend(self.index[c] for c in sub)
+                    continue
+                i = unk
             if i is not None:
                 out.append(i)
         return out

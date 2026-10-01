@@ -26,6 +26,7 @@ import numpy as np
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 from mlws_ocr.factory.fonts import font_family  # noqa: E402
+from mlws_ocr.factory.synth import font_has  # noqa: E402
 from mlws_ocr.factory.words import (X_HEIGHT_WEIGHTS, X_HEIGHTS, corpus_words,  # noqa: E402
                                     render_word_window, sample_theta,
                                     sample_tracking, sample_words, stock_fonts)
@@ -62,6 +63,8 @@ def _chunk(args):
         xh = float(rng.choice(_G["xh"], p=_G["xw"]))
         n_words = int(rng.integers(_G["nwords"][0], _G["nwords"][1] + 1))
         words = sample_words(rng, _G["words"], _G["probs"], n_words, caps_frac=_G.get("caps_frac", 0.10))
+        if not all(font_has(font, c) for c in set("".join(words)) if ord(c) > 0x7E):
+            continue        # the face lacks a symbol: it would draw its notdef box under that label
         tracking = sample_tracking(rng, _G["italic"][fi])
         theta = sample_theta(rng, xh)
         wg = _G.get("word_gap")
