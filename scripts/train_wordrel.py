@@ -40,14 +40,14 @@ def load(paths, workers=16):
     tables = []
     for path in paths:
         z = np.load(path, allow_pickle=True)
-        off = z["offsets"]
+        # each array read ONCE: an NpzFile decompresses the whole array on every z[key]
+        off, B, T = z["offsets"], z["boxes"], z["texts"]
+        Rw, Cw, Ce, He, It = z["rows"], z["cols"], z["cells"], z["header"], z["in_table"]
         spans = [(int(off[i]), int(off[i + 1])) for i in range(len(off) - 1) if off[i + 1] - off[i] >= 2]
-        B, T = z["boxes"], z["texts"]
         with Pool(workers) as pool:
-            feats = pool.map(_feats, [(B[a:b], T[a:b]) for a, b in spans], chunksize=256)
-        for (a, b), (f, unit) in zip(spans, feats):
-            tables.append((f, B[a:b], z["rows"][a:b], z["cols"][a:b], z["cells"][a:b],
-                           z["header"][a:b], z["in_table"][a:b], unit))
+            feats = pool.imap((_feats), ((B[a:b], T[a:b]) for a, b in spans), chunksize=256)
+            for (a, b), (f, unit) in zip(spans, feats):
+                tables.append((f, B[a:b], Rw[a:b], Cw[a:b], Ce[a:b], He[a:b], It[a:b], unit))
         print(f"{path}: {len(spans)} tables", flush=True)
     return tables
 
