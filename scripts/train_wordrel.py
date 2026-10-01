@@ -130,13 +130,13 @@ def main():
     ap.add_argument("--out", type=Path, required=True)
     ap.add_argument("--smoke", type=int, default=0, help="train on this many tables, one epoch")
     args = ap.parse_args()
+    rng = np.random.default_rng(args.seed)
+    t0 = time.time()
+    tables = load(args.data)          # before torch is imported: forking after it can deadlock
+    print(f"{len(tables)} tables, features in {time.time() - t0:.0f} s", flush=True)
     import torch
     from mlws_ocr.layout.wordrel_torch import WordRelT
     torch.manual_seed(args.seed)
-    rng = np.random.default_rng(args.seed)
-    t0 = time.time()
-    tables = load(args.data)
-    print(f"{len(tables)} tables, features in {time.time() - t0:.0f} s", flush=True)
     perm = rng.permutation(len(tables))
     n_hold = max(50, len(tables) // 50)
     hold, train = perm[:n_hold], perm[n_hold:]
