@@ -122,7 +122,8 @@ def targets(R, C, E, It, M, torch):
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
-    ap.add_argument("--data", nargs="+", required=True)
+    ap.add_argument("--data", nargs="+", required=True, help="files; FILE:N repeats a file's tables N times "
+                    "(the engine-word harvests are few beside the PDF-word sets)")
     ap.add_argument("--epochs", type=int, default=8)
     ap.add_argument("--lr", type=float, default=1e-3)
     ap.add_argument("--seed", type=int, default=1)
@@ -132,7 +133,12 @@ def main():
     args = ap.parse_args()
     rng = np.random.default_rng(args.seed)
     t0 = time.time()
-    tables = load(args.data)          # before torch is imported: forking after it can deadlock
+    tables, reps = [], []
+    for item in args.data:            # before torch is imported: forking after it can deadlock
+        path, _, rep = item.partition(":")
+        t = load([path])
+        tables += t
+        reps += [int(rep or 1)] * len(t)
     print(f"{len(tables)} tables, features in {time.time() - t0:.0f} s", flush=True)
     import torch
     from mlws_ocr.layout.wordrel_torch import WordRelT
@@ -140,6 +146,7 @@ def main():
     perm = rng.permutation(len(tables))
     n_hold = max(50, len(tables) // 50)
     hold, train = perm[:n_hold], perm[n_hold:]
+    train = np.array([i for i in train for _ in range(reps[i])])     # repeats after the split: none held
     if args.smoke:
         train, hold, args.epochs = train[:args.smoke], hold[:200], 1
     device = torch.device(args.device if args.device != "cuda" or torch.cuda.is_available() else "cpu")
