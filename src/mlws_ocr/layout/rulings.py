@@ -104,6 +104,44 @@ def dashed_rules(b: np.ndarray, length: int, dpi: float, gap_300: float,
     return out & b
 
 
+def faint_rules(gray: np.ndarray, length: int, dpi: float, depth: float,
+                thick_300: float, axis: int, paper: float = 0.9) -> np.ndarray:
+    """Rules too faint for the binarizer: a light-grey hairline, anti-aliased
+    and enlarged from a 72-dpi figure, is a band some 0.84 grey that Sauvola
+    keeps as ink in only a few per cent of its pixels, so the opening finds
+    no run and the grid loses a row or column rule.  Here a pixel is on a
+    rule when it is at least ``depth`` darker than the grey ``thick_300``/2
+    + 2 px (at 300 dpi) away on BOTH sides across the rule, and that grey is
+    paper (at least ``paper``) -- a thin dark ridge on paper, which the edge
+    of a text row, a shaded band or a blurred word is not -- and the
+    ridge pixels are then held to the same long-run test as solid rules.
+    Line detection on the grey image rather than a binarized one, after the
+    ridge (valley) detectors of line-drawing and road extraction
+    (e.g. Steger, "An unbiased detector of curvilinear structures", PAMI
+    1998), reduced to the axis-aligned case.  ``axis`` 1 = horizontal."""
+    if axis == 0:
+        return faint_rules(gray.T, length, dpi, depth, thick_300, 1, paper).T
+    k = max(2, int(round((thick_300 / 2 + 2) * dpi / 300.0)))
+    g = gray.astype(np.float32)
+    up = np.ones_like(g)
+    dn = np.ones_like(g)
+    up[k:] = g[:-k]
+    dn[:-k] = g[k:]
+    side = np.minimum(up, dn)
+    # both sides must be paper: a word enlarged from 72 dpi blurs into a grey
+    # blob darkest along its middle, a ridge whose sides are still grey
+    ridge = ((side - g) >= depth) & (side >= paper)
+    # where a rule crosses the other way the grey beside it is dark too, so the
+    # ridge breaks there: gaps up to 2k + the thickness are closed along the
+    # rule -- through grey or ink (a crossing), never paper (the gap
+    # between two letters' thin strokes)
+    gap = 2 * k + max(2, int(round(thick_300 * dpi / 300.0)))
+    closed = ndimage.binary_closing(ridge, structure=np.ones((1, gap), bool))
+    ridge = ridge | (closed & (g < paper))
+    fat = ndimage.binary_dilation(ridge, structure=np.ones((3, 1), bool))
+    return open_with_line(fat, length, 1) & ridge
+
+
 def edge_bars(b: np.ndarray) -> np.ndarray:
     """The tall thin marks at the image's left or right edge: a component
     within 2% of the width from either side, at least 2.5 glyph heights
@@ -182,6 +220,9 @@ class MorphologicalRulings(Stage):
                                  # edges (edge_bars: a photographed receipt's paper edge or shadow)
         "dash_min_cover": 0.7,   # a dashed rule's ink must cover this share of its span (a receipt's
                                  # separator of 13-px dashes 7 px apart covers 0.67)
+        "faint_depth": 0.0,      # > 0: also find rules too faint for the binarizer in the GREY page
+                                 # (faint_rules): thin ridges this much darker than the grey on both
+                                 # sides, as long as a rule.  0 = off (2026-09-30)
         "short_in_grid_300dpi": 0,  # > 0: also keep rules this long or longer (and
                                  # shorter than min_len) whose BOTH ends meet a
                                  # rule -- a table's inner dividers under a
@@ -214,6 +255,15 @@ class MorphologicalRulings(Stage):
             horiz = horiz | dashed_rules(b, L, page.dpi, self.params["dash_gap_300dpi"],
                                          self.params["dash_max_thick_300dpi"],
                                          self.params["dash_min_cover"])
+        n_faint = 0
+        if self.params["faint_depth"] > 0 and page.gray is not None:
+            fh = faint_rules(page.gray, L, page.dpi, self.params["faint_depth"],
+                             self.params["dash_max_thick_300dpi"], 1) & ~horiz
+            fv = faint_rules(page.gray, L, page.dpi, self.params["faint_depth"],
+                             self.params["dash_max_thick_300dpi"], 0) & ~vert
+            n_faint = int(fh.sum() + fv.sum())
+            horiz, vert = horiz | fh, vert | fv
+            b = b | fh | fv      # so the grid's short-rule test and the removal see them
         Ls = int(self.params["short_in_grid_300dpi"] * page.dpi / 300.0)
         if 0 < Ls < L:
             src_h = open_with_line(fat_h, Ls, 1) & bridged if self.params["tolerant"] else open_with_line(b, Ls, 1)
@@ -255,6 +305,6 @@ class MorphologicalRulings(Stage):
             images={"rules_overlay": overlay_mask(page.gray, rules),
                     "text_only": text_only},
             scalars={"h_rules": len(out.meta["layout"]["rules_h"]),
-                     "v_rules": len(out.meta["layout"]["rules_v"]), "edge_bars": n_bars},
+                     "v_rules": len(out.meta["layout"]["rules_v"]), "edge_bars": n_bars, "faint_px": n_faint},
         )
         return out, debug

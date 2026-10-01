@@ -69,7 +69,11 @@ The engine computes the opening as run lengths (17× faster than the
 textbook morphology, identical output), tolerates a pixel of break and of
 waviness, finds dashed rules by closing their gaps first, and removes the
 rules with a two-pixel margin so no stub reads as an 'I' (Yu & Jain, 1996).
-The rules are kept as segments (`layout.rules_h`, `rules_v`) for the table
+In the table profile it also looks for rules **in the grey page** that the
+binarizer dropped (`faint_depth`): a pixel at least 0.06 darker than the
+paper a few pixels to either side across the line, kept when such pixels
+run as long as a rule. Requiring paper on both sides is what tells a faint
+rule from the edge of a shaded band or a blurred word. The rules are kept as segments (`layout.rules_h`, `rules_v`) for the table
 finder.
 
 ![Rules found and removed](img/segment/rulings.png)
@@ -296,7 +300,7 @@ read with that segmenter, on the evaluation sets (`eval_unlv.py --blocks
 | stage | impl | key parameters | profiles |
 |---|---|---|---|
 | imagezones | `density` | `density_thresh` 0.45, `protect_text_rows` on, `keep_grids` (neural-table) | every profile |
-| rulings | `morphological` | `min_len_300dpi` 150, `tolerant` on, `dash_gap_300dpi` 12, `short_in_grid_300dpi` 40 and `edge_bars` (neural-table) | every profile |
+| rulings | `morphological` | `min_len_300dpi` 150, `tolerant` on, `dash_gap_300dpi` 12, `short_in_grid_300dpi` 40, `edge_bars` and `faint_depth` 0.06 (neural-table) | every profile |
 | blocks | `xycut` | `min_gap_x_300dpi` 36, `min_gap_y_300dpi` 30, document-type priors | classic, pure |
 | | `judged` | `model_path` `data/segjudge.npz`, newspapers and magazines judged | neural, neural-table |
 | | `whitespace`, `knn_scc` | see the code and the papers | layout profiles for comparison |

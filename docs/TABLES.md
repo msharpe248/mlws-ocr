@@ -75,7 +75,12 @@ top-left slot), and `ocr_table` elements in the hOCR.
 ## 3. Ruled tables: from rules to cells
 
 The rulings stage has already found every rule and taken it out of the page
-([SEGMENTATION.md §2](SEGMENTATION.md)). The tables stage (`tables.grid`)
+([SEGMENTATION.md §2](SEGMENTATION.md)). In the table profile that includes
+rules too faint for the binarizer: a light-grey hairline enlarged from a
+72-dpi figure is about 0.84 grey, Sauvola keeps 3% of it as ink, and the
+grid loses a row or column rule. They are found in the grey page as thin
+ridges with paper on both sides (`rulings.faint_depth`; PubTables-1M
+0.732 → 0.755, one table 0.161 → 0.703). The tables stage (`tables.grid`)
 builds grids from them:
 
 1. **Frames.** Rules that touch (within 8 pixels at 300 dpi) belong to one
@@ -269,12 +274,12 @@ The evaluation sets, and where they stand (neural-table, TEDS / TEDS-S):
 | invoices (generated) | 20 | 0.764 | **0.967 / 0.981** |
 | timesheets (generated) † | 20 | 0.612 | **0.944 / 0.964** |
 | receipts (generated) | 20 | 0.625 | **0.940 / 0.963** |
-| paystubs (generated) | 20 | 0.791 | **0.919 / 0.938** |
-| payroll forms (generated) † | 20 | 0.717 | **0.907 / 0.935** |
-| annual-report tables (FinTabNet.c) | 60 | 0.763 | 0.806 / 0.873 |
-| scientific tables (PubTables-1M) | 60 | – | 0.732 / 0.827 |
+| paystubs (generated) | 20 | 0.791 | **0.937 / 0.950** |
+| payroll forms (generated) † | 20 | 0.717 | **0.914 / 0.940** |
+| annual-report tables (FinTabNet.c) | 60 | 0.763 | 0.807 / 0.873 |
+| scientific tables (PubTables-1M) | 60 | – | 0.755 / 0.847 |
 | scientific pages, detection F1 | 40 | – | 0.967 |
-| real receipts (CORD) | 30 | 0.327 | 0.466 / 0.553 |
+| real receipts (CORD) | 30 | 0.327 | 0.464 / 0.552 |
 
 † Part of these two sets' gain came from correcting the generated truth
 where it disagreed with its own images (the images are byte-identical);

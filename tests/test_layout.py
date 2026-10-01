@@ -109,3 +109,23 @@ def test_dashed_rules_off_by_default():
     page = Page(gray=(~b).astype(np.float32), binary=b, dpi=300.0, meta={})
     assert MorphologicalRulings().run(page)[0].binary.sum() == b.sum()
     assert MorphologicalRulings(dash_gap_300dpi=12).run(page)[0].binary.sum() == 0
+
+
+def test_faint_rules_find_a_light_grey_hairline_not_a_text_row_or_a_shaded_band():
+    from mlws_ocr.layout.rulings import MorphologicalRulings, faint_rules
+    g = np.ones((200, 700), np.float32)
+    g[40:44, 20:680] = 0.84                      # a light-grey rule the binarizer drops
+    for x in range(20, 660, 34):                 # a row of black letters
+        g[80:110, x:x + 20] = 0.1
+    g[140:180, 20:680] = 0.85                    # a shaded band: an edge, not a ridge
+    for i, v in enumerate([0.8, 0.6, 0.45, 0.35, 0.3, 0.35, 0.45, 0.6, 0.8]):
+        g[186 + i, 20:680] = v                   # a blurred word: a ridge whose sides are grey
+    got = faint_rules(g, 150, 300.0, 0.06, 5, 1)
+    assert got[40:44].mean() > 0.9
+    assert not got[60:].any()
+    b = g < 0.5
+    b[186:195] = False                           # the binarizer keeps a word, not a bar
+    page = Page(gray=g, binary=b, dpi=300.0, meta={})
+    assert MorphologicalRulings().run(page)[0].meta["layout"]["rules_h"] == []
+    rules = MorphologicalRulings(faint_depth=0.06).run(page)[0].meta["layout"]["rules_h"]
+    assert len(rules) == 1 and rules[0][1] == 40

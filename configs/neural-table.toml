@@ -8,6 +8,7 @@
 # 2026-09-28):
 #   imagezones.keep_grids   a large ruled grid is a table, not a picture
 #   rulings.short_in_grid   rules too short for the length test that end on rules
+#   rulings.faint_depth     light-grey rules the binarizer drops, found in the grey page
 #   magnify.max_scale 4.2   a 72-dpi table crop is brought up to 300 dpi
 #   output.table_net_path   the self-trained separator network joins wrapped rows
 #   tables.diagonals        a diagonal rule in a cell erased, the cell's words split upper / lower
@@ -88,6 +89,10 @@ dash_gap_300dpi = 12           # dashed and fax-broken rules too (form fill-in l
                                # (2026-09-26)
 edge_bars = true               # table profile: tall thin marks at the image's left and right edges dropped (a
                                # photographed receipt's paper edge joined its item lines): CORD 0.380 -> 0.395
+faint_depth = 0.06             # table profile: rules too faint for the binarizer found in the grey (a light-grey
+                               # hairline enlarged from 72 dpi): PubTables-1M 0.732 -> 0.755, paystubs 0.919 ->
+                               # 0.937, payroll 0.907 -> 0.914, FinTabNet 0.806 -> 0.807, CORD 0.466 -> 0.464
+                               # (one page), the rest level (2026-09-30)
 
 [stage.tables]
 impl = "grid"
