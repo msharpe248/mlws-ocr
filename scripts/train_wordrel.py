@@ -28,21 +28,27 @@ PAIR_BUDGET = 600_000      # batch x words^2 per step
 POS_WEIGHT = (3.0, 3.0, 10.0)
 
 
-def load(paths):
-    """Tables as (features, boxes, rows, cols, cells, header, in_table, unit)."""
+def _feats(args):
+    boxes, texts = args
+    return word_features(boxes, texts)
+
+
+def load(paths, workers=16):
+    """Tables as (features, boxes, rows, cols, cells, header, in_table, unit);
+    the word features computed in a process pool (22M words)."""
+    from multiprocessing import Pool
     tables = []
     for path in paths:
         z = np.load(path, allow_pickle=True)
         off = z["offsets"]
-        for i in range(len(off) - 1):
-            a, b = int(off[i]), int(off[i + 1])
-            if b - a < 2:
-                continue
-            boxes = z["boxes"][a:b]
-            f, unit = word_features(boxes, z["texts"][a:b])
-            tables.append((f, boxes, z["rows"][a:b], z["cols"][a:b], z["cells"][a:b],
+        spans = [(int(off[i]), int(off[i + 1])) for i in range(len(off) - 1) if off[i + 1] - off[i] >= 2]
+        B, T = z["boxes"], z["texts"]
+        with Pool(workers) as pool:
+            feats = pool.map(_feats, [(B[a:b], T[a:b]) for a, b in spans], chunksize=256)
+        for (a, b), (f, unit) in zip(spans, feats):
+            tables.append((f, B[a:b], z["rows"][a:b], z["cols"][a:b], z["cells"][a:b],
                            z["header"][a:b], z["in_table"][a:b], unit))
-        print(f"{path}: {len(off) - 1} tables", flush=True)
+        print(f"{path}: {len(spans)} tables", flush=True)
     return tables
 
 
