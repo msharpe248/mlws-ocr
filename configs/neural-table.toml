@@ -167,6 +167,9 @@ line_model_path = "data/seq_line_gray12_en.npz+data/seq_line_gray12_en_2.npz+dat
 rotated_cells = true           # table profile: a tall ruled cell of unknown words read again turned a quarter turn
 figure_cells = true            # table profile: a ruled table's figure column's non-figures read again, digits only
 line_gray_rules_out = true     # table profile: the rules painted out of the grey strips too (payroll forms 0.609 -> 0.738)
+line_gap_split = 1.2           # table profile: a word read across an empty stretch 1.2 x-heights wide is two words (a
+                               # reading run across two table columns): PubTables-1M 0.779 -> 0.787, CORD 0.464 -> 0.476,
+                               # paystubs 0.937 -> 0.940, the rest level (2026-10-01)
 line_source = "gray"           # the reader's strips cut from the flattened grey page, contrast-normalised
                                # (glyph/strip.py gray_contrast): faint thermal and dot-matrix print survives
 line_mode = "choose"

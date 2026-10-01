@@ -66,3 +66,14 @@ def test_font_has_tells_a_real_glyph_from_the_notdef_box():
     from mlws_ocr.factory.words import stock_fonts
     f = stock_fonts()[0]
     assert font_has(f, "a") and not font_has(f, "\U0001F600")
+
+
+def test_a_word_read_across_a_wide_empty_stretch_is_split_there():
+    import numpy as np
+    from mlws_ocr.decode.lineread import _split_at_gaps
+    ink = np.zeros((32, 200), np.float32)
+    ink[:, 10:20] = 1; ink[:, 22:30] = 1; ink[:, 120:130] = 1      # '1' '2', a column gap, '('
+    em = [("1", 7, 0.0), ("2", 12, 0.0), ("(", 62, 0.0)]
+    got = "".join(c for c, _, _ in _split_at_gaps(em, ink, 30))
+    assert got == "12 ("                                            # the letter gap stays, the column gap splits
+    assert "".join(c for c, _, _ in _split_at_gaps(em, ink, 100)) == "12("

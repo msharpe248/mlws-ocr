@@ -282,12 +282,12 @@ The evaluation sets, and where they stand (neural-table, TEDS / TEDS-S):
 | invoices (generated) | 20 | 0.764 | **0.967 / 0.981** |
 | timesheets (generated) † | 20 | 0.612 | **0.944 / 0.964** |
 | receipts (generated) | 20 | 0.625 | **0.940 / 0.963** |
-| paystubs (generated) | 20 | 0.791 | **0.937 / 0.950** |
+| paystubs (generated) | 20 | 0.791 | **0.940 / 0.952** |
 | payroll forms (generated) † | 20 | 0.717 | **0.914 / 0.940** |
 | annual-report tables (FinTabNet.c) | 60 | 0.763 | 0.810 / 0.874 |
-| scientific tables (PubTables-1M) | 60 | – | 0.779 / 0.862 |
+| scientific tables (PubTables-1M) | 60 | – | 0.787 / 0.868 |
 | scientific pages, detection F1 | 40 | – | 0.967 |
-| real receipts (CORD) | 30 | 0.327 | 0.464 / 0.552 |
+| real receipts (CORD) | 30 | 0.327 | 0.476 / 0.559 |
 
 † Part of these two sets' gain came from correcting the generated truth
 where it disagreed with its own images (the images are byte-identical);

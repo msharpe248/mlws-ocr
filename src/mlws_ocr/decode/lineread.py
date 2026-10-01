@@ -59,6 +59,27 @@ def _chunk_columns(ink_cols: np.ndarray, max_cols: int, min_cols: int = 64) -> l
     return spans
 
 
+def _split_at_gaps(emitted: list, ink: np.ndarray, min_gap: float) -> list:
+    """A space put between two consecutive characters (no space between them
+    already) when the strip is empty for ``min_gap`` columns or more somewhere
+    between their frames: a gap that wide is a word break whatever the reader
+    said ('1(4)' read across the gap between two table columns).  Frames are
+    2 columns each; ink is the strip's (H, W) ink."""
+    empty = ink.max(axis=0) < 0.35          # no pixel in the column darker than light grey
+    out = []
+    for k, item in enumerate(emitted):
+        if out and item[0] != " " and out[-1][0] != " ":
+            a, b = 2 * out[-1][1], 2 * item[1]
+            run = best = 0
+            for v in empty[max(0, a):max(0, b)]:
+                run = run + 1 if v else 0
+                best = max(best, run)
+            if best >= min_gap:
+                out.append((" ", (out[-1][1] + item[1]) // 2, 0.0))
+        out.append(item)
+    return out
+
+
 def _rules_out(gray: np.ndarray, binary: np.ndarray, segs, pad: int) -> np.ndarray:
     """A copy of the grey page with the rules painted out: inside each rule
     segment's box (grown ``pad`` px), every pixel the text-only binary does
@@ -123,6 +144,9 @@ class HybridDecode(BeamDecode):
         "line_choice_thresh": 0.5,
         "line_keep_alt": False,    # keep both readings and their evidence on the line
                                    # (ln["line_alt"]) for scripts/harvest_line_choice.py
+        "line_gap_split": 0.0,     # > 0: a word the reader ran across an empty stretch of the strip this
+                                   # many x-heights wide is two words (a column gap is several x-heights,
+                                   # a word space about half of one); 0 = off (2026-10-01)
         "line_min_conf": 0.35,     # a reading whose mean emission probability is
         "line_drop_declined": 0.0,    # a line the reader declines (no geometry, a strip too
                                       # narrow, nothing emitted, or confidence under
@@ -558,6 +582,8 @@ class HybridDecode(BeamDecode):
                 # columns, so a boundary is a word gap
                 emitted.append((" ", c0 // 2, 0.0))
             emitted.extend((ch, c0 // 2 + f, e) for ch, f, e in read)
+        if p.get("line_gap_split", 0) > 0:
+            emitted = _split_at_gaps(emitted, ink, p["line_gap_split"] * ln["x_height"] * scale)
         # words at the space emissions, placed by their frames (2 px a frame)
         words, cur = [], []
         y0, y1 = ln["box"][1], ln["box"][3]

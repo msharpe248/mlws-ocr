@@ -144,7 +144,13 @@ In the neural profiles two networks join the decoder
   logistic regression over 15 pieces of evidence (how many words each
   reading makes that are known, how confident each is, how much they agree,
   how likely the reader finds each). The judge exists because the reader's
-  own likelihood "prefers its own reading by construction".
+  own likelihood "prefers its own reading by construction". The reader
+  decides the spaces itself, and once in a while runs two words together
+  across a wide gap — in a table, across the gap between two columns, which
+  then merge. In the table profile, wherever the strip is empty for 1.2
+  x-heights or more between two characters the reader joined, a space goes
+  in (`line_gap_split`; PubTables-1M 0.779 → 0.787): a word space is about
+  half an x-height, a column gap several.
 
 The judge's history holds a lesson worth repeating: until 2026-09-18 a chain
 of `if` / `elif` fell through, and the judge never decided a single line.
