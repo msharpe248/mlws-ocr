@@ -126,11 +126,36 @@ def separators(p: np.ndarray, factor: float, thresh: float = 0.5, min_run: int =
     return out
 
 
-def grid_table(box, xs: list[float], ys: list[float], words: list[dict]) -> dict | None:
+def _line_order(ws: list[dict]) -> list[dict]:
+    """A row's words in reading order: text line by text line, each line left
+    to right.  A word joins the current line when it overlaps the line's
+    vertical extent by half the smaller of their heights (centres alone split
+    'Employee ID': the descenders lower one word's centre).  Sorting a row by
+    x alone interleaves the lines of a cell that wraps ('We product,
+    investigations ...')."""
+    out, line, top, bot = [], [], 0.0, 0.0
+    for w in sorted(ws, key=lambda w: (w["box"][1] + w["box"][3]) / 2):
+        y0, y1 = w["box"][1], w["box"][3]
+        if line and min(y1, bot) - max(y0, top) < 0.5 * min(y1 - y0, bot - top):
+            out.extend(sorted(line, key=lambda v: v["box"][0]))
+            line = []
+        if not line:
+            top, bot = y0, y1
+        else:
+            top, bot = min(top, y0), max(bot, y1)
+        line.append(w)
+    out.extend(sorted(line, key=lambda v: v["box"][0]))
+    return out
+
+
+def grid_table(box, xs: list[float], ys: list[float], words: list[dict],
+               line_order: bool = False) -> dict | None:
     """A table from separator positions inside ``box`` (page pixels) and the
     words within it.  Header rows (above the first row with a figure after
     its first column) keep a phrase spanning columns as one cell; body words
-    go to the column holding their centre."""
+    go to the column holding their centre.  ``line_order``: a row's words are
+    taken line by line (``_line_order``), not by x alone, so a wrapped cell's
+    text reads in order."""
     import re
     xb = [box[0]] + [x for x in sorted(xs) if box[0] < x < box[2]] + [box[2]]
     yb = [box[1]] + [y for y in sorted(ys) if box[1] < y < box[3]] + [box[3]]
@@ -149,12 +174,13 @@ def grid_table(box, xs: list[float], ys: list[float], words: list[dict]) -> dict
                                                       for w in rows[r])), 0)
     cells, taken = [], set()
     for r in range(nr):
-        ws = sorted(rows.get(r, []), key=lambda w: w["box"][0])
+        ws = _line_order(rows.get(r, [])) if line_order else sorted(rows.get(r, []), key=lambda w: w["box"][0])
         groups: list[list[dict]] = []
         if r < first_body:          # header: phrases (gap under a word height) may span columns
             for w in ws:
                 h = w["box"][3] - w["box"][1]
-                if groups and w["box"][0] - groups[-1][-1]["box"][2] <= 0.8 * h:
+                gap = w["box"][0] - groups[-1][-1]["box"][2] if groups else 0
+                if groups and gap <= 0.8 * h and (gap >= 0 or not line_order):   # a new line, not a phrase
                     groups[-1].append(w)
                 else:
                     groups.append([w])

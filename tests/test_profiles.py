@@ -120,7 +120,7 @@ def test_neural_table_is_neural_plus_the_table_options():
                "tables": {"diagonals", "min_row_ink", "broken_rules"}, "decode": {"line_gray_rules_out", "figure_cells", "rotated_cells", "line_model_path"}, "lines": {"in_cells"},
                "output": {"table_net_path", "table_net_row_join", "table_net_figure_rows", "ws_detector", "ws_mesh_min_spines", "cell_order_by_line",
                           "table_det_path", "table_det_mode", "table_split_path", "table_split_select", "table_split_keep_rows", "table_dashes", "ws_table_thin_grids", "span_labels",
-                          "nest_side_by_side", "join_digit_groups", "dollar_s", "trim_notes", "cell_marks"}}
+                          "nest_side_by_side", "join_digit_groups", "dollar_s", "trim_notes", "cell_marks", "trim_notes_rows", "table_cell_lines", "table_label_rowspans"}}
     a, b = _specs("neural-table.toml"), _specs("neural.toml")
     assert list(a) == list(b)
     for key in a:

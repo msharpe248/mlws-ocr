@@ -181,7 +181,15 @@ unruled tables are found by the same test (paystubs 0.804 → 0.849, receipts
 0.836 → 0.898).
 
 **Tidying.** A caption row ("Table 3. …") at the top and a paragraph of
-notes at the bottom are trimmed; a total whose label is set to the right
+notes at the bottom are trimmed — tested on the whole row, so a caption
+the columns cut into pieces, or one whose "Table" was misread ("laule z"),
+goes too (`trim_notes_rows`); a wrapped cell's words are taken line by
+line, not left to right across its lines ("We product, investigations …"
+was "We are subject to lawsuits, investigations …"; `table_cell_lines`);
+on a table's crop a first-column label spans the rows of sub-labels beneath
+it ("Sex, n (%)" over Men and Women; `table_label_rowspans`), the
+PubTables-1M convention, though not a total row or a wrapped line beneath
+it. The three: PubTables-1M 0.755 → 0.779, FinTabNet 0.807 → 0.810. A total whose label is set to the right
 ("Subtotal", "Total Due") becomes one cell spanning to its figures (invoices
 0.847 → 0.958); tables side by side (a paystub's earnings beside its
 deductions) are nested into one layout.
@@ -276,8 +284,8 @@ The evaluation sets, and where they stand (neural-table, TEDS / TEDS-S):
 | receipts (generated) | 20 | 0.625 | **0.940 / 0.963** |
 | paystubs (generated) | 20 | 0.791 | **0.937 / 0.950** |
 | payroll forms (generated) † | 20 | 0.717 | **0.914 / 0.940** |
-| annual-report tables (FinTabNet.c) | 60 | 0.763 | 0.807 / 0.873 |
-| scientific tables (PubTables-1M) | 60 | – | 0.755 / 0.847 |
+| annual-report tables (FinTabNet.c) | 60 | 0.763 | 0.810 / 0.874 |
+| scientific tables (PubTables-1M) | 60 | – | 0.779 / 0.862 |
 | scientific pages, detection F1 | 40 | – | 0.967 |
 | real receipts (CORD) | 30 | 0.327 | 0.464 / 0.552 |
 

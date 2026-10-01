@@ -934,12 +934,38 @@ def _merge_stacked(tagged: list[tuple[list[dict], bool]]) -> list[tuple[list[dic
     return [([w for i in m for w in groups[i]], any(tagged[i][1] for i in m)) for m in merged]
 
 
-def trim_caption_notes(t: dict) -> dict:
+def _caption_like(text: str) -> bool:
+    """'Table N' -- or its word misread by at most two letters ('laule z' for
+    'Table 2'), followed by a short number-like token."""
+    if _CAPTION.match(text):
+        return True
+    toks = text.split()
+    if len(toks) < 2 or not 4 <= len(toks[0]) <= 6:
+        return False
+    from ..eval.align import edit_distance
+    num = toks[1].strip(".:")
+    return (edit_distance(toks[0].lower(), "table") <= 2 and 0 < len(num) <= 3
+            and all(ch.isdigit() or ch in "zZsSlIoOiV" for ch in num))
+
+
+def _note_like(text: str, n_filled: int, n_cols: int) -> bool:
+    """A note row split across cells: five words or more, not a full row, few
+    figures (a data row holds numbers) -- or a doi or a link."""
+    words = text.split()
+    if re.search(r"\bdoi\b|doi:|https?:", text, re.I):
+        return True
+    figs = sum(1 for w in words if re.search(r"\d", w))
+    return len(words) >= 5 and n_filled < n_cols and figs <= 0.2 * len(words)
+
+
+def trim_caption_notes(t: dict, whole_rows: bool = False) -> dict:
     """A table cut from its page with its caption above and its notes below
     ('Table 2 Walkability ...', 'Data are expressed as mean ...', a doi):
     leading and trailing rows whose one filled cell is running text (five
     words or more) or opens with 'Table N' are not the table's.  The rows
-    left are renumbered; a table left with fewer than two rows is kept whole."""
+    left are renumbered; a table left with fewer than two rows is kept whole.
+    ``whole_rows``: a caption or a note split across several cells is tested
+    as its row's text (``_caption_like``, ``_note_like``)."""
     cells = t.get("cells", [])
     if not cells:
         return t
@@ -958,6 +984,16 @@ def trim_caption_notes(t: dict) -> dict:
         lo += 1
     while hi > lo and one(order[hi - 1]) and (len(one(order[hi - 1]).split()) >= 5 or _CAPTION.match(one(order[hi - 1]))):
         hi -= 1
+    if whole_rows:
+        n_cols = t.get("n_cols") or max(c["col"] + c.get("colspan", 1) for c in cells)
+
+        def row_text(r):
+            filled = sorted((c for c in rows[r] if (c.get("text") or "").strip()), key=lambda c: c["col"])
+            return " ".join(c["text"].strip() for c in filled), len(filled)
+        while lo < hi and row_text(order[lo])[0] and _caption_like(row_text(order[lo])[0]):
+            lo += 1
+        while hi > lo and row_text(order[hi - 1])[0] and _note_like(*row_text(order[hi - 1]), n_cols):
+            hi -= 1
     keep = order[lo:hi]
     if len(keep) < 2 or (lo == 0 and hi == len(order)):
         return t
@@ -969,6 +1005,61 @@ def trim_caption_notes(t: dict) -> dict:
 
 SPAN_LEFT_LABELS = [False]  # a first-column label followed by empty figure columns spans them too (measured:
                             # paystubs +0.016, receipts -0.059 -- their truths disagree on the convention)
+
+
+def span_row_labels(t: dict) -> dict:
+    """A first-column label that spans the rows beneath it ('Sex, n (%)' over
+    the Men and Women rows, a scan protocol over its six parameter rows): a
+    filled first cell whose row holds more than the label, followed by rows
+    whose first cell is empty and whose other cells are not, is one cell
+    spanning them all -- the convention of the PubTables-1M annotations
+    (B. Smock, R. Pesala & R. Abraham, "PubTables-1M: towards comprehensive
+    table extraction from unstructured documents", CVPR 2022: 289 such spans
+    in 300 test tables).  A label alone in its row is a section heading and
+    spans nothing.  Cells already spanning are left as they are."""
+    cells = t.get("cells", [])
+    if not cells:
+        return t
+    at = {(c["row"], c["col"]): c for c in cells}
+    nr = t.get("n_rows") or 1 + max(c["row"] for c in cells)
+    filled = lambda c: bool(c and (c.get("text") or "").strip())  # noqa: E731
+
+
+    def others(r):
+        # the row holds a sub-label after the first column: its first filled cell there has
+        # letters (an unlabelled total row beneath 'Thereafter' holds a figure, and spans nothing)
+        # -- and something beside it (a wrapped line's continuation is one cell, and is no row)
+        rest = [at[(r, cc)] for cc in sorted(cc for (rr, cc) in at if rr == r and cc > 0) if filled(at[(r, cc)])]
+        return len(rest) >= 2 and len(re.findall(r"[A-Za-z]", rest[0]["text"])) >= 2
+
+    def word(c):
+        letters, digits = len(re.findall(r"[A-Za-z]", c["text"])), len(re.findall(r"\d", c["text"]))
+        return letters >= 2 and letters > digits
+    # header rows span nothing: the body starts at the first row with a figure after its first column
+    body = next((r for r in range(nr) if any(filled(c) and re.search(r"\d", c["text"])
+                                               for (rr, cc), c in at.items() if rr == r and cc > 0)), nr)
+    drop = set()
+    r = body
+    while r < nr:
+        c0 = at.get((r, 0))
+        if not (filled(c0) and word(c0) and c0.get("rowspan", 1) == 1 and c0.get("colspan", 1) == 1 and others(r)):
+            r += 1
+            continue
+        k = r + 1
+        while k < nr:
+            b = at.get((k, 0))
+            if b is None or filled(b) or b.get("rowspan", 1) != 1 or b.get("colspan", 1) != 1 or not others(k):
+                break
+            k += 1
+        if k > r + 1:
+            c0["rowspan"] = k - r
+            if c0.get("box") and at[(k - 1, 0)].get("box"):
+                c0["box"] = [c0["box"][0], c0["box"][1], c0["box"][2], at[(k - 1, 0)]["box"][3]]
+            drop.update((q, 0) for q in range(r + 1, k))
+        r = k
+    if not drop:
+        return t
+    return dict(t, cells=[c for c in cells if (c["row"], c["col"]) not in drop])
 
 
 def span_set_right_labels(t: dict) -> dict:

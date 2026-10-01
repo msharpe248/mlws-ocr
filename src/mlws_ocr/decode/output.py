@@ -263,6 +263,12 @@ class TextOutput(Stage):
                                          # figure cell is the dollar sign the reader took for S
         "trim_notes": False,             # a table's crop: caption rows above and note rows below
                                          # trimmed (wstables.trim_caption_notes)
+        "table_cell_lines": False,       # a table's row read line by line, not by x alone: a wrapped
+                                         # cell's lines no longer interleave (sepnet.grid_table; 2026-09-30)
+        "table_label_rowspans": False,   # a table's crop: a first-column label spans the rows beneath it
+                                         # with an empty first cell (wstables.span_row_labels; 2026-09-30)
+        "trim_notes_rows": False,        # ...and a caption or note split across cells, or 'Table' misread,
+                                         # tested on its whole row (2026-09-30)
         "span_labels": False,            # a total row's label set to the right under the figure
                                          # columns made one cell spanning to its figures
                                          # (wstables.span_set_right_labels)
@@ -436,7 +442,7 @@ class TextOutput(Stage):
                                           self.params["table_net_figure_rows"])
         xs = [x0 + v for v in separators(pc, f)]
         ys = [y0 + v for v in separators(pr, f)]
-        nt = grid_table([x0, y0, x1, y1], xs, ys, words)
+        nt = grid_table([x0, y0, x1, y1], xs, ys, words, self.params["table_cell_lines"])
         return nt if nt is not None else t
 
     def _det_complement(self, page: Page, words: list[dict], ruled: list[dict], keep: list[int],
@@ -636,7 +642,7 @@ class TextOutput(Stage):
         tw = [w for w in inw if box[0] <= (w["box"][0] + w["box"][2]) / 2 <= box[2] and box[1] <= (w["box"][1] + w["box"][3]) / 2 <= box[3]]
         if self.params["table_split_clean"]:
             xs, ys = _clean_separators(xs, ys, tw, box)
-        nt = grid_table(box, xs, ys, inw)
+        nt = grid_table(box, xs, ys, inw, self.params["table_cell_lines"])
         return nt if nt is not None else t
 
     def run(self, page: Page) -> tuple[Page, DebugBundle]:
@@ -822,7 +828,10 @@ class TextOutput(Stage):
                 t = t if t.get("cells") else None
             if t is not None and self.params["trim_notes"]:
                 from ..layout.wstables import trim_caption_notes
-                t = trim_caption_notes(t)
+                t = trim_caption_notes(t, whole_rows=self.params["trim_notes_rows"])
+            if t is not None and self.params["table_label_rowspans"]:
+                from ..layout.wstables import span_row_labels
+                t = span_row_labels(t)
             if t is not None:
                 # a new layout dict: the incoming page's stays as its stage left it
                 layout = dict(layout, tables=[t])

@@ -34,3 +34,19 @@ def test_grid_from_separators_spans_header_splits_body():
     got = [(c["row"], c["col"], c["colspan"], c["text"]) for c in t["cells"]]
     assert (0, 1, 2, "Year Ended") in got and (2, 2, 1, "88.50") in got
     assert (t["n_rows"], t["n_cols"]) == (3, 3)
+
+
+def test_grid_reads_a_wrapped_cell_line_by_line():
+    from mlws_ocr.layout.sepnet import grid_table
+
+    def w(t, x0, y, x1):
+        return {"text": t, "box": [x0, y, x1, y + 20]}
+    # one body row: a cell wrapped over two lines beside a figure
+    words = [w("Head", 5, 5, 60), w("2010", 220, 5, 270),
+             w("We", 5, 35, 30), w("are", 35, 35, 70), w("subject", 75, 35, 140),
+             w("to", 5, 60, 25), w("lawsuits", 30, 60, 120), w("12", 220, 35, 250)]
+    old = grid_table([0, 0, 300, 90], [200], [30], words)
+    new = grid_table([0, 0, 300, 90], [200], [30], words, line_order=True)
+    text = lambda t: next(c["text"] for c in t["cells"] if (c["row"], c["col"]) == (1, 0))  # noqa: E731
+    assert text(old) == "We to lawsuits are subject"          # x alone interleaves the lines
+    assert text(new) == "We are subject to lawsuits"

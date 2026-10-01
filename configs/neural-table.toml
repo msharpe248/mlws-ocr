@@ -256,6 +256,13 @@ cell_marks = true              # table profile: a one-letter cell of a case twin
 dollar_s = true                # table profile: 'S 91.0' -> '$ 91.0' in a figure cell
 join_digit_groups = true       # table profile: '1, 428.80' -> '1,428.80' in a figure cell
 trim_notes = true              # table profile: a table's crop: a 'Table N' caption above and running-text notes below trimmed
+trim_notes_rows = true         # table profile: ...and a caption or note split across cells, or 'Table' misread ('laule z'),
+                               # tested on its whole row: PubTables-1M +0.005, FinTabNet +0.001 (2026-09-30)
+table_cell_lines = true        # table profile: a row's words read line by line in the split network's grid (a wrapped cell
+                               # read 'We product, investigations'): PubTables-1M +0.011, FinTabNet +0.002 (2026-09-30)
+table_label_rowspans = true    # table profile: a table's crop: a first-column label spans the rows of sub-labels beneath it
+                               # (the PubTables-1M convention). The three together: PubTables-1M 0.755 -> 0.779,
+                               # FinTabNet 0.807 -> 0.810, the business sets and CORD level (2026-09-30)
 span_labels = true             # table profile: a total row's label set right under the figure columns spans to its figures
 cell_order_by_line = true      # table profile: a cell's words in line order, then left to right ('Date Pay' -> 'Pay Date')
 ws_mesh_min_spines = 2         # table profile: a mesh must close a cell (two spines sharing two row lines)

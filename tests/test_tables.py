@@ -269,3 +269,44 @@ def test_lines_found_cell_by_cell_inside_a_ruled_table():
     lines = _lines_by_cell(b, joined, [table], [[0, 0, 200, 100]], 0.002)
     boxes = sorted(ln["box"] for ln in lines)
     assert len(boxes) == 2 and boxes[0][2] <= 100 <= boxes[1][0]
+
+
+def _table(rows):
+    cells = [{"row": r, "col": c, "rowspan": 1, "colspan": 1, "text": t}
+             for r, row in enumerate(rows) for c, t in enumerate(row)]
+    return {"n_rows": len(rows), "n_cols": len(rows[0]), "cells": cells}
+
+
+def test_trim_whole_rows_takes_a_split_caption_and_note_off_a_crop():
+    from mlws_ocr.layout.wstables import trim_caption_notes
+    rows = [["Table 2: Clinical", "features of the", "patients"],
+            ["", "Non-NASH", "NASH"],
+            ["Age", "51", "48"],
+            ["BMI", "27.1", "29.4"],
+            ["Values are expressed", "as mean and SD", ""]]
+    assert trim_caption_notes(_table(rows))["n_rows"] == 5            # one filled cell only: left alone
+    t = trim_caption_notes(_table(rows), whole_rows=True)
+    assert t["n_rows"] == 3 and {c["text"] for c in t["cells"] if c["row"] == 0} == {"", "Non-NASH", "NASH"}
+    misread = [["laule z", "", ""]] + rows[1:4]
+    assert trim_caption_notes(_table(misread), whole_rows=True)["n_rows"] == 3
+
+
+def test_row_labels_span_the_rows_beneath_them_but_headings_do_not():
+    from mlws_ocr.layout.wstables import span_row_labels
+    t = span_row_labels(_table([["Sex, n (%)", "Men", "216"],
+                                ["", "Women", "140"],
+                                ["Smoking", "", ""],
+                                ["", "Never", "144"]]))
+    got = {(c["row"], c["col"]): c.get("rowspan", 1) for c in t["cells"]}
+    assert got[(0, 0)] == 2 and (1, 0) not in got                       # the label spans its two rows
+    assert got[(2, 0)] == 1 and (3, 0) in got                           # a heading alone in its row does not
+
+
+def test_a_total_row_or_a_wrapped_line_is_not_spanned_by_the_label_above():
+    from mlws_ocr.layout.wstables import span_row_labels
+    t = span_row_labels(_table([["Year", "Amount", "Note"],
+                                ["Thereafter", "27,119", ""],
+                                ["", "52,103", ""],
+                                ["*3(i)a", "Restated Articles of", "X"],
+                                ["", "incorporation dated", ""]]))
+    assert all(c.get("rowspan", 1) == 1 for c in t["cells"])
