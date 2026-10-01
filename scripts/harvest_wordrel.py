@@ -95,6 +95,8 @@ def main():
                 res.append(r)
             if (k + 1) % 500 == 0:
                 print(f"  {k + 1}/{len(jobs)} read, {len(res)} labelled", flush=True)
+                from make_wordrel_data import save
+                save(res, args.out)          # a checkpoint: an interrupted harvest keeps what it read
     from make_wordrel_data import save
     save(res, args.out)
     print(f"wrote {args.out}: {len(res)} tables of {len(jobs)}")
