@@ -538,6 +538,27 @@ PubTables-1M 0.729), receipts and forms down (receipts 0.930); not adopted.
 The same 3 epochs at gray12's own shares (`seq_line_gray14`): CORD 0.474,
 PubTables-1M 0.726, but receipts 0.926 and FinTabNet 0.802; not adopted.
 
+**The tables' symbols as classes** (`seq_line_gray15`, 2026-10-01; measured, not
+yet adopted). gray12's recipe exactly -- from the gray9 EMA members, the same
+seeds, data and shares -- with 19 more classes (± − – — × ° μ < > ≤ ≥ ’ ‘ “ ” † ‡
+· •; 138 in all), training labels folded before the unknown class (`SeqNet.encode`:
+'ﬁ' -> 'fi', no-break space -> ' ', 'µ' -> 'μ'; before, every ± and – in the
+harvested table lines trained as '?'), and a symbol-rich synthetic set
+(`seq_synth_sym2`, 60k lines, each rendered only in a face that draws every
+character in it, `synth.font_has`). Held-out real line word accuracy 78.8 / 77.9 /
+78.4% (gray12 75.1 / 76.0 / 75.1). In neural-table: PubTables-1M 0.779 -> 0.785,
+FinTabNet 0.810 -> 0.813, CORD 0.464 -> 0.484, but receipts 0.940 -> 0.929 (one
+page, its columns split by shifted word boxes), timesheets 0.944 -> 0.942, payroll
+forms 0.914 -> 0.913. On PubTables it writes 85 of the truth's 97 '±', but 2 of 126
+'−' and 5 of 60 '–' (a hyphen at 72 dpi), no '×' or '°'.
+
+```sh
+MLWS_EXTRA_CLASSES='*=+@[]_`±−–—×°μ<>≤≥’‘“”†‡·•' .venv/bin/python scripts/make_seq_data.py --out data/seq_synth_sym2.npz \
+    --n 60000 --seed 95 --words 4 10 --take 3 7
+# then gray12's command with the same MLWS_EXTRA_CLASSES, --init seq_line_gray9_<k>_ema.npz, and
+# --synth data/seq_synth_long2.npz data/seq_synth_sym1.npz data/seq_synth_sym2.npz   (ai01: box_gray_ens15.sh)
+```
+
 ### Word-confidence calibrator — `decode/wordconf.py`
 
 **Purpose.** A probability that an output word is right, from the
