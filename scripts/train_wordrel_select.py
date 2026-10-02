@@ -56,10 +56,13 @@ def main():
     ap.add_argument("--dump", type=Path, required=True, help="the network run's --dump directory")
     ap.add_argument("--out", type=Path, required=True)
     ap.add_argument("--l2", type=float, default=1e-2)
+    ap.add_argument("--inputs", type=int, default=0, help="use only the first N inputs (0: all)")
     args = ap.parse_args()
     eng, net = scores(args.eng), scores(args.net)
     names = sorted(n for n in eng if n in net and (args.dump / f"{n}.wrel.json").exists())
     X = np.array([json.loads((args.dump / f"{n}.wrel.json").read_text()) for n in names], float)
+    if args.inputs:
+        X = X[:, :args.inputs]
     a = np.array([eng[n][0] for n in names]); b = np.array([net[n][0] for n in names])
     tag = np.array([eng[n][1] for n in names])
     y = (b > a).astype(float); w = np.abs(b - a) + 1e-3
