@@ -52,8 +52,8 @@ def _one(args):
     try:
         gray, _ = load_gray(img)
         page = run_stages(Page(gray=gray, dpi=72.0, meta={"doc_type": "table"}), _G["pipeline"], _G["over"])
-    except Exception:
-        return None
+    except Exception as e:                  # reported, not swallowed: a missing model failed 88% of a harvest
+        return ("error", f"{xml.stem}: {type(e).__name__}: {e}")
     scale = float(page.meta.get("magnify_scale") or 1.0)
     ws = []
     for ln in page.meta.get("layout", {}).get("lines", []):
@@ -95,7 +95,15 @@ def main():
             jobs.append((x, img))
     res = []
     with Pool(args.workers, initializer=_init, initargs=(args.config, args.set)) as pool:
+        errors = 0
         for k, r in enumerate(pool.imap_unordered(_one, jobs, chunksize=4)):
+            if r and r[0] == "error":
+                errors += 1
+                if errors <= 3 or errors % 100 == 0:
+                    print(f"  ERROR ({errors}) {r[1]}", flush=True)
+                if errors >= 50 and errors > 0.2 * (k + 1):
+                    raise SystemExit(f"{errors} of {k + 1} crops failed -- stopping (see the errors above)")
+                continue
             if r:
                 res.append(r)
             if (k + 1) % 500 == 0:
