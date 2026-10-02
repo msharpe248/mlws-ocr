@@ -74,10 +74,18 @@ def table_features(cells: list[dict], n_rows: int, n_cols: int) -> list[float]:
 
 def wordrel_choice_inputs(t: dict, wt: dict) -> np.ndarray:
     """The rules-or-word-network choice's inputs: both tables' shapes, their
-    differences, and the network's confidence (wordrel.table_from_relations)."""
+    differences, and the network's confidence (wordrel.table_from_relations)
+    -- 23 numbers -- then how far each table agrees with the network's pair
+    judgments (wordrel.agreement) and the differences -- 9 more."""
+    from ..layout.wordrel import agreement
     a = table_features(t["cells"], t["n_rows"], t["n_cols"])
     b = table_features(wt["cells"], wt["n_rows"], wt["n_cols"])
-    return np.concatenate([select_inputs(a, b), np.asarray(wt.get("stats", [0.0] * 5), float)])
+    x = np.concatenate([select_inputs(a, b), np.asarray(wt.get("stats", [0.0] * 5), float)])
+    if "_judge" in wt:
+        boxes, tok, pairs = wt["_judge"]
+        ga, gb = np.asarray(agreement(t, boxes, tok, pairs)), np.asarray(agreement(wt, boxes, tok, pairs))
+        x = np.concatenate([x, ga, gb, gb - ga])
+    return x
 
 
 def select_inputs(a: list[float], b: list[float]) -> np.ndarray:
@@ -574,7 +582,10 @@ class TextOutput(Stage):
         boxes = np.array([w["box"] for w in ws], np.float32)
         texts = [w["text"] for w in ws]
         tok, pairs = net.predict(boxes, texts)
-        return table_from_relations(boxes, texts, tok, pairs)
+        wt = table_from_relations(boxes, texts, tok, pairs)
+        if wt is not None:
+            wt["_judge"] = (boxes, tok, pairs)       # for wordrel_choice_inputs: the network judges both tables
+        return wt
 
     def _split_or_rules(self, t: dict, page: Page, words: list[dict], whole: bool = False) -> dict:
         """The structure network's table, or the rules' when it is chosen by
@@ -879,8 +890,11 @@ class TextOutput(Stage):
                         z = np.load(self.params["table_wordrel_select"])
                         self._nets[key] = (z["w"], float(z["b"]), z["mu"], z["sd"])
                     w, b0, mu, sd = self._nets[key]
-                    if float(((np.asarray(wrel_x) - mu) / sd) @ w + b0) > 0:
+                    xx = np.asarray(wrel_x)[: len(mu)]          # a choice fitted on fewer inputs reads the first ones
+                    if float(((xx - mu) / sd) @ w + b0) > 0:
                         t = wt
+            if t is not None:
+                t.pop("_judge", None)
             if t is not None and self.params["trim_notes"]:
                 from ..layout.wstables import trim_caption_notes
                 t = trim_caption_notes(t, whole_rows=self.params["trim_notes_rows"])

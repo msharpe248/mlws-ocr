@@ -279,3 +279,34 @@ def table_from_relations(boxes, texts, tok_p: np.ndarray, pair_p: np.ndarray,
              float(np.log1p(len(keep)))]
     return {"box": [int(b[:, 0].min()), int(b[:, 1].min()), int(b[:, 2].max()), int(b[:, 3].max())],
             "n_rows": nr, "n_cols": nc, "cells": cells, "source": "wordrel", "stats": stats}
+
+
+def agreement(table: dict, boxes, tok_p: np.ndarray, pair_p: np.ndarray) -> list[float]:
+    """How far a table -- any table, the engine's or the network's own -- agrees
+    with the network's pair judgments: each word is placed in the cell whose box
+    holds its centre, and the table's answer for every pair of placed words
+    (same row? same column?) is scored by the mean log-likelihood under the
+    network's probabilities.  With the share of the words the network keeps in
+    the table that the table covers.  The network as a judge of a table it did
+    not build (the per-table choice, decode/output.py)."""
+    b = np.asarray(boxes, np.float32).reshape(-1, 4)
+    cx, cy = (b[:, 0] + b[:, 2]) / 2, (b[:, 1] + b[:, 3]) / 2
+    r0 = np.full(len(b), -1); r1 = r0.copy(); c0 = r0.copy(); c1 = r0.copy()
+    for c in table.get("cells", []):
+        x0, y0, x1, y1 = c.get("box") or (0, 0, 0, 0)
+        if x1 <= x0 or y1 <= y0:
+            continue
+        inside = (cx >= x0) & (cx <= x1) & (cy >= y0) & (cy <= y1) & (r0 < 0)
+        r0[inside], r1[inside] = c["row"], c["row"] + c.get("rowspan", 1) - 1
+        c0[inside], c1[inside] = c["col"], c["col"] + c.get("colspan", 1) - 1
+    placed = np.nonzero(r0 >= 0)[0]
+    kept = tok_p[:, 0] > 0.5
+    cover = float(kept[placed].sum() / max(1, kept.sum()))
+    if len(placed) < 2:
+        return [-1.0, -1.0, cover]
+    iu = np.triu_indices(len(placed), 1)
+    i, j = placed[iu[0]], placed[iu[1]]
+    same_r = (r0[i] <= r1[j]) & (r0[j] <= r1[i])
+    same_c = (c0[i] <= c1[j]) & (c0[j] <= c1[i])
+    ll = lambda P, y: float(np.mean(np.log(np.clip(np.where(y, P[i, j], 1 - P[i, j]), 1e-4, 1))))  # noqa: E731
+    return [ll(pair_p[0], same_r), ll(pair_p[1], same_c), cover]
