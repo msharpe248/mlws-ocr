@@ -198,8 +198,8 @@ deductions) are nested into one layout.
 
 ## 5. The networks, in the table profile
 
-Three self-trained networks join the rules (their shapes and training:
-[NEURAL_NETWORK_THEORY.md §E–G](NEURAL_NETWORK_THEORY.md)):
+Four self-trained networks join the rules (their shapes and training:
+[NEURAL_NETWORK_THEORY.md §E–H](NEURAL_NETWORK_THEORY.md)):
 
 - **The detector** looks at the whole page and says where tables are. In
   **complement** mode its detections replace the finders' fragments inside
@@ -214,6 +214,16 @@ Three self-trained networks join the rules (their shapes and training:
 - **The separator network** is evidence for joining a wrapped row: two rows
   join where it sees no row separator between them — unless each holds a
   cell of figures of its own in the same column (a receipt's item lines).
+- **The word-relation network**, a small transformer, reads a table crop's
+  words — their boxes and a few facts about their text, no pixels — and
+  says for every pair whether they share a row, a column, a cell. Rows and
+  columns are clustered from those answers and a table is built where they
+  cross. It and the engine fail on different tables, so a fitted choice
+  over both tables' shapes and the network's confidence keeps one or the
+  other (240 held-out tables each: PubTables-1M 0.759 → 0.795,
+  FinTabNet.c 0.810 → 0.849). It learned from the datasets' PDF words and
+  from the engine's own words on the same kind of crop: trained on the
+  PDF words alone, it lost to the engine on the engine's words.
 
 The pattern is the engine's usual one: the network is a candidate or a
 witness beside an explicit rule, never an unexamined replacement.
@@ -294,12 +304,12 @@ The evaluation sets, and where they stand (neural-table, TEDS / TEDS-S):
 | receipts (generated) | 20 | 0.625 | **0.929 / 0.953** |
 | paystubs (generated) | 20 | 0.791 | **0.940 / 0.952** |
 | payroll forms (generated) † | 20 | 0.717 | **0.913 / 0.939** |
-| annual-report tables (FinTabNet.c) | 60 | 0.763 | 0.815 / 0.876 |
-| scientific tables (PubTables-1M) | 60 | – | 0.797 / 0.876 |
+| annual-report tables (FinTabNet.c) | 60 | 0.763 | 0.839 / 0.896 |
+| scientific tables (PubTables-1M) | 60 | – | 0.797 / 0.877 |
 | scientific pages, detection F1 | 40 | – | 0.967 |
 | real receipts (CORD) | 30 | 0.327 | 0.493 / 0.575 |
 
-The two real crop sets were also read on the 240 held-out tables of the same draws, none of which any decision looked at: PubTables-1M 0.759 / 0.847, FinTabNet.c 0.810 / 0.873 — the 60 flatter PubTables-1M by about 0.04 ([MEASUREMENT.md §4](MEASUREMENT.md)).
+The two real crop sets were also read on the 240 held-out tables of the same draws, none of which any decision looked at: PubTables-1M 0.795 / 0.881, FinTabNet.c 0.849 / 0.911 (v0.18.0; 0.759 and 0.810 before the word-relation network) — the 60 flatter PubTables-1M ([MEASUREMENT.md §4](MEASUREMENT.md)).
 
 † Part of these two sets' gain came from correcting the generated truth
 where it disagreed with its own images (the images are byte-identical);

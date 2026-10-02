@@ -354,6 +354,8 @@ flowchart LR
 | table detector | `output.table_det_path` | neural-table |
 | table structure network | `output.table_split_path` | neural-table |
 | rules-or-network choice | `output.table_split_select` | neural-table |
+| word-relation network (a small transformer over a crop's words) | `output.table_wordrel_path` | neural-table |
+| engine-or-word-network choice | `output.table_wordrel_select` | neural-table |
 | table separator network | `output.table_net_path` | neural-table |
 
 What each network is and why it has the shape it has:

@@ -793,7 +793,7 @@ symbols (v0.15), table lines (v0.17, table profile).
 **Where it runs.** The word scorer in `decode.seq_path` (neural,
 neural-table; classic uses it only to veto a correction the pixels
 contradict). The line reader in `decode.line_model_path`, with the
-line-choice judge (§H) deciding per line between its reading and the
+line-choice judge (§I) deciding per line between its reading and the
 classic decoder's.
 
 **Measured.** The line reader was the engine's largest single gain:
@@ -917,7 +917,7 @@ with a one-cycle schedule. Held-out separator F1 0.922 after two rounds.
 **Where it runs.** `output.table_split_path` in neural-table. Its table is
 one of two candidates; the rules' table is the other. On a table's crop,
 the rules' table stands if the network's leaves out a whole row of figures
-(a header of years, a totals row); otherwise the fitted table choice (§H)
+(a header of years, a totals row); otherwise the fitted table choice (§I)
 decides. On a table found on a page, the network's table is used only if
 it leaves no more cells empty than the rules' and merges no figures the
 rules kept apart.
@@ -966,7 +966,72 @@ the word-alignment finder alone 0.772, the detector alone 0.989; in
 complement mode, with the business sets' ruled grids and side-by-side
 tables kept, the released table profile scores 0.967 (v0.17.0).
 
-## H. The judges — small fitted models over named evidence
+## H. The word-relation network — a small transformer — `layout/wordrel.py`, `wordrel_v3.npz`
+
+**The job.** Given the words on a table's crop, say for every pair of words
+whether they share a **row**, a **column** and a **cell**, and for every
+word whether it is in the table at all (the crop carries its caption and
+notes) and in its header. It reads no pixels: the reader has already found
+the words, and the questions left are about how they belong together.
+
+**Attention, in one paragraph.** Every network so far looks at a fixed
+neighbourhood: a convolution at the pixels around it, a recurrent layer
+along a line. A table's question is not local: whether this '12.4' starts
+a column depends on what lines up above and below it, however far away.
+**Self-attention** (Vaswani et al., 2017) lets every item look at every
+other. Each word makes three vectors from its features: a **query** (what
+I am looking for), a **key** (what I offer) and a **value** (what I pass
+on). Word *i*'s new representation is the average of all the values,
+each weighted by how well its key matches *i*'s query (a softmax over the
+dot products). Four such **heads** run side by side, each free to learn a
+different kind of match (same height, same left edge, both figures, the
+header above), and a small feed-forward layer follows. A stack of these
+**transformer encoder layers** gives each word a representation that knows
+its context. The set has no order — the words come in any order, and
+their positions are features like any other.
+
+**The shape.** **321k** parameters. Each word's 24 numbers (its box in the
+crop's frame and in units of the median word height; twelve facts about
+its text — length, shares of digits, letters, capitals and punctuation, a
+figure's shape, brackets, %, currency, a trailing colon, footnote marks)
+go through a linear layer to 96 dimensions, then **four encoder layers**
+(4 heads; feed-forward 192; layer normalisation before each part, a
+residual connection round it). Per word, two outputs: in the table, in the
+header. Per pair and per relation, a **bilinear** score — the two words'
+vectors projected to 32 dimensions and multiplied — plus a small network
+over ten numbers about the pair's geometry (the offsets of their edges and
+centres, how much they overlap across and down), made symmetric. A
+4-hundred-word table is 160,000 pairs, which is why the pair score is a
+cheap product rather than a network over two full vectors.
+
+**From pairs to a table.** Rows are clusters of words that agree they
+share a row — **average linkage**, so a word spanning two rows, which
+agrees with both, does not chain them into one — ordered top to bottom;
+columns likewise, left to right. A cell is where a row and a column
+cross, and a word covers every row and column it agrees with on average
+(a spanning header covers its columns).
+
+**Training.** `scripts/train_wordrel.py` on a GPU: masked binary
+cross-entropy over the pairs, AdamW, one-cycle, 20 epochs in about 45
+minutes. The labels come from the PubTables-1M and FinTabNet.c structure
+annotations — each word's row, column and spanning cell from the boxes it
+falls in. **The lesson of its training:** trained on the datasets' own PDF
+words (166,000 tables), it beat the engine's structure on those words but
+lost to it on the engine's own — our reader's words are split, joined and
+misread, a dot leader is one word '....' instead of a word per dot. So the
+engine read 6,600 more training crops and its words were labelled the same
+way (`harvest_wordrel.py`); trained on both, weighted toward ours, it
+gained on the engine's words too. A network should be trained on what it
+will be given.
+
+**Where it runs.** `output.table_wordrel_path` in neural-table, on a
+table's crop: it builds a table, and a **fitted choice** (§I; 23 weights
+over both tables' shapes and the network's own confidence) keeps its table
+or the engine's. They fail on different tables; on 240 held-out tables of
+each set the choice took PubTables-1M 0.759 → 0.795 and FinTabNet.c 0.810
+→ 0.849.
+
+## I. The judges — small fitted models over named evidence
 
 | judge | file | model | inputs | decides |
 |---|---|---|---|---|
@@ -991,7 +1056,7 @@ labelled by the truth: `harvest_line_choice.py` → `train_line_choice.py`,
 network never saw → `train_table_select.py` (each table weighted by how much
 the choice mattered), UNLV training-pool pages → `segmenter_judge.py`.
 
-## I. Learned, but not networks
+## J. Learned, but not networks
 
 - **Glyph prototypes** (`recognize/nearest.py`, `prototypes.npz`): 90
   stored examples of each of 110 characters, chosen by k-means per class
@@ -1018,20 +1083,25 @@ the choice mattered), UNLV training-pool pages → `segmenter_judge.py`.
 | table separator network | dilated CNN + axis heads | table crop, 75 dpi | P(separator) per x, per y | 44,162 | neural-table |
 | table structure network | dilated CNN + projection pooling | crop + word mask, 75 dpi | separator and inside per x, per y | 276,904 | neural-table |
 | table detector | dilated CNN + projection pooling + skip | page + word mask, 37.5 dpi | inside / border per pixel | 247,746 | neural-table |
-| line choice, word confidence, table choice, segmenter judge, link rule | logistic / ridge | named features | a probability or a score | 15–32 | as in §H |
+| word-relation network | transformer encoder (4 layers) + pair heads | a table crop's words: boxes and text facts | same row / column / cell per pair; in table, header per word | 320,997 | neural-table |
+| line choice, word confidence, table choice, segmenter judge, link rule | logistic / ridge | named features | a probability or a score | 15–32 | as in §I |
 
 **What we deliberately do not use, and why**
 
 - **Pre-trained weights or foundation models.** The point of the project is
   an engine whose every learned number was learned here, from data anyone
   can obtain ([DATA_SOURCES.md](DATA_SOURCES.md)), and can be relearned.
-- **Transformers.** At this scale a GRU does the recurrent jobs with a
-  constant-size state per beam hypothesis; the image jobs are local or
-  axis-aligned, which convolutions and projection pooling handle directly.
-- **Batch or layer normalisation, dropout.** The inputs are normalised
-  before they enter, the networks are small, and held-out selection plus
-  weight decay (or L2-SP) regularise enough; each layer stays a few lines
-  of numpy.
+- **Transformers, except where the question is not local.** At this
+  scale a GRU does the recurrent jobs with a constant-size state per beam
+  hypothesis, and the image jobs are local or axis-aligned, which
+  convolutions and projection pooling handle directly. The one
+  transformer (§H) works on a table's words, where whether two words
+  belong together depends on everything else on the crop.
+- **Batch normalisation, dropout.** The inputs are normalised before they
+  enter, the networks are small, and held-out selection plus weight decay
+  (or L2-SP) regularise enough; each layer stays a few lines of numpy. (The
+  transformer, §H, uses layer normalisation, as transformers must to train
+  stably — a few lines of numpy too.)
 - **Anchor-box object detectors** for tables. Tables are axis-aligned
   rectangles on a page: per-pixel segmentation with a border band is
   simpler and measured well.

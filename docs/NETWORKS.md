@@ -30,6 +30,8 @@ judged before it went live. The measurements themselves are in
 | Table structure network | `splitnet_v2.npz` (`splitnet_v1.npz` round one) | 277k | neural-table (`output.table_split_path`; on a table's crop chosen over the rules' table by `table_select.npz` unless it leaves out a whole figure row, `table_split_keep_rows`; on a page by the empty-cell rule) | `train_splitnet.py` | PubTables-1M structure training tables (100,000 of 758,849), FinTabNet.c training tables (78,537), 12,000 drawn tables, 2,550 tables of drawn business pages, 308 CORD receipts (`make_split_data.py`) |
 | Table structure choice | `table_select.npz` | 19 weights | neural-table (`output.table_split_select`: on a table's crop, the rules' table or the structure network's) | `train_table_select.py` | 297 tables the structure network never saw (FinTabNet.c validation, PubTables-1M training outside its draw), both tables' shapes and which scored higher |
 | Table detector | `tabledet_v1.npz` | 248k | neural-table (`output.table_det_path`, `table_det_mode = "complement"`) | `train_tabledet.py` | PubTables-1M detection training pages (60,000 of Part 1's 230,294) + 1,200 drawn business pages + 900 CORD training receipts (`make_det_data.py`) |
+| Word-relation network | `wordrel_v3.npz` | 321k | neural-table (`output.table_wordrel_path`; on a table's crop, its table or the engine's by `wordrel_select.npz`) | `train_wordrel.py` | the PDF words of 97,165 PubTables-1M and 68,733 FinTabNet.c training tables (`make_wordrel_data.py`) + the ENGINE's words on 3,906 + 2,713 more (`harvest_wordrel.py`, x10) |
+| Word-relation choice | `wordrel_select.npz` | 23 weights | neural-table (`output.table_wordrel_select`) | `train_wordrel_select.py` | 257 tables no table network saw (FinTabNet.c validation, PubTables-1M training outside every draw): both tables' shapes, the network's confidence, which scored higher |
 
 The classic engine also builds three learned tables that are not networks
 but come from the same data: the condensed nearest-prototype pool
@@ -105,6 +107,7 @@ were trained on the public sources named below and on nothing else.
 | v0.17.0 (2026-09-30) | thirty-two files: v0.16.0's twenty-six plus the neural-table profile's table networks `tabledet_v1.npz` (detector), `splitnet_v2.npz` (structure network), `table_select.npz` (the rules-or-network choice) and its line reader `seq_line_gray12_en.npz`, `_2`, `_3` (= `seq_line_gray12`, EMA); the neural profile keeps `seq_line_gray9` |
 | v0.17.1 (2026-09-30) | the same thirty-two files as v0.17.0: this release is table-profile settings (nil dashes, a receipt's paper edge, receipt item rows, frames round table crops) |
 | v0.17.2 (2026-10-01) | thirty-two files: v0.17.1's with the neural-table reader `seq_line_gray12_en*.npz` replaced by `seq_line_gray15_en.npz`, `_2`, `_3` (= `seq_line_gray15`, EMA: the tables' symbols as classes) |
+| v0.18.0 (2026-10-02) | thirty-four files: v0.17.2's thirty-two plus the neural-table profile's word-relation network `wordrel_v3.npz` and its choice `wordrel_select.npz` |
 | v0.14.0 (2026-09-27) | twenty-one files: v0.13.0's eighteen plus the reader `seq_line_gray7_en.npz`, `_2`, `_3` (= `seq_line_gray7` seeds 3, 2, 1, EMA weights), the neural profile's reader; the v0.13.0 grey reader stays (it is the new one's teacher and the way back) |
 
 ## Where the training data comes from
@@ -835,6 +838,77 @@ receipts cut as the evaluation cuts them, weight 16, 4 more epochs (0.974):
 `tabledet_v1.npz`.  In neural-table as `table_det_mode = "complement"`
 (RESEARCH 2026-09-29): PubTables-1M detection F1 0.685 -> 0.957, paystubs
 0.861 -> 0.890, invoices 0.787 -> 0.847.
+
+### Word-relation network — `layout/wordrel.py` (neural-table)
+
+**Purpose.** On a table's crop, which of its words share a row, a column,
+a cell -- the judgments the structure census found the remaining failures
+to be (wrapped cells made rows, spans missed, columns split or merged).
+It reads words, never pixels: each word as its box (in the crop's frame
+and in median word heights) and twelve facts about its text (length,
+shares of digits, letters, capitals and punctuation, a figure's shape,
+brackets, %, currency, a trailing colon, footnote marks); each pair as ten
+geometric relations (offsets of their edges and centres, overlaps, which
+is above or left).
+
+**Shape.** 321k parameters: a linear embedding (24 -> 96), four
+pre-norm transformer encoder layers (4 heads, feed-forward 192), per-word
+heads (in the table; in the column header) and, per relation (row,
+column, cell), a bilinear pair score plus a small MLP over the pair's
+geometry, symmetrised.  The numpy forward is the reference; `wordrel_torch.py`
+mirrors it for training and `tests/test_wordrel.py` holds them equal.
+
+**Decoding** (`table_from_relations`). Rows and columns are average-linkage
+clusters of the pair probabilities (average, not single, linkage: a word
+spanning two rows agrees with both), ordered by position; a cell is where
+a row and a column cross; a word covers every row and column cluster it
+agrees with above 0.8 (a spanning header over its columns); words the
+network places outside the table (a caption, a note) are left out.
+Clustering cells as well only cost (RESEARCH 2026-10-01).
+
+**Data.** `make_wordrel_data.py` labels every word of a structure training
+table from the annotation boxes (rows and columns its centre falls in, its
+spanning cell or projected row header, the header, the table):
+97,165 PubTables-1M (100,000 drawn of 758,849, seed 7) and 68,733
+FinTabNet.c (its training split) tables.  A network trained on those PDF
+words lost 0.06-0.09 TEDS-S on the engine's own: `harvest_wordrel.py` reads
+training crops with the table profile and labels ITS words the same way
+(3,906 PubTables-1M tables outside the first draw on ai01, 2,713 FinTabNet.c
+on the Mac; about 43 CPU-seconds a crop).
+
+**Training.** `train_wordrel.py`, AdamW 1e-3 one-cycle, batches bounded by
+600,000 word pairs, masked BCE (positives weighted 3 / 3 / 10 for row /
+column / cell), boxes jittered by a tenth of a word height and 3% of words
+dropped; 20 epochs, about 45 minutes on the RTX 3080 Ti:
+
+```sh
+.venv/bin/python scripts/make_wordrel_data.py ~/pubtables1m/s --n 100000 --out wordrel_pt.npz
+.venv/bin/python scripts/make_wordrel_data.py ~/pubtables1m/fin/FinTabNet.c-Structure --n 80000 --out wordrel_fin.npz
+OMP_NUM_THREADS=1 .venv/bin/python scripts/harvest_wordrel.py ~/pubtables1m/s --n 4000 --skip wordrel_pt.npz --out wordrel_pt_eng.npz
+OMP_NUM_THREADS=1 .venv/bin/python scripts/harvest_wordrel.py <FinTabNet.c 3,000 training tables> --set magnify.min_dpi=150 --out wordrel_fin_eng.npz
+.venv/bin/python scripts/train_wordrel.py --data wordrel_pt.npz wordrel_fin.npz wordrel_pt_eng.npz:10 wordrel_fin_eng.npz:10 \
+    --epochs 20 --out data/wordrel_v3.npz
+```
+
+Held-back word pairs: F1 row 0.962, column 0.983, cell 0.930.
+
+**The choice** (`wordrel_select.npz`). The network's table is not always
+the better: it and the engine fail on different tables (the better of
+the two per table is worth +0.05-0.06).  A logistic regression of 23
+weights over both tables' shapes (`table_features`), their differences and
+the network's confidence (decisiveness of its row and column judgments,
+the share and number of words it kept), trained on 257 tables no table
+network saw, each weighted by how much the choice mattered:
+
+```sh
+scripts/eval_tables.py <the 274 tables> ... --dump D                                    # the engine's table
+scripts/eval_tables.py <the 274 tables> ... --set output.table_wordrel_path=data/wordrel_v3.npz --dump D2
+.venv/bin/python scripts/train_wordrel_select.py --eng 'eng_*.txt' --net 'net_*.txt' --dump D2 --out data/wordrel_select.npz
+```
+
+5-fold: PubTables-1M 0.805 -> 0.836, FinTabNet.c 0.832 -> 0.864.  In
+neural-table on the 240 held-out tables of each set: PubTables-1M 0.759 ->
+0.795, FinTabNet.c 0.810 -> 0.849 (RESEARCH 2026-10-01).
 
 ## Rebuilding everything from scratch
 

@@ -90,10 +90,10 @@ between 0.00 and 0.03.
 | timesheets | generated: two-level spanned headers, five rule styles (20 pages) | – | 0.942 / 0.964 |
 | receipts | generated: thermal-roll receipts, whitespace or a header rule (20 pages) | – | 0.929 / 0.953 |
 | real receipts | CORD photographed receipts, their line items as the table (30 receipts) | – | 0.493 / 0.575 |
-| annual-report tables | real financial tables, FinTabNet.c, ruled by whitespace (60 tables; on 240 held-out ones 0.810 / 0.873) | 0.607 / 0.781 | **0.815 / 0.876** |
-| scientific tables | real tables from papers, PubTables-1M test crops (60 tables; on 240 held-out ones 0.759 / 0.847); page-level detection F1 0.967 at IoU 0.5 (40 pages, v0.17.2) | – | 0.797 / 0.876 |
+| annual-report tables | real financial tables, FinTabNet.c, ruled by whitespace (60 tables; on 240 held-out ones 0.849 / 0.911) | 0.607 / 0.781 | **0.839 / 0.896** |
+| scientific tables | real tables from papers, PubTables-1M test crops (60 tables; on 240 held-out ones 0.795 / 0.881); page-level detection F1 0.967 at IoU 0.5 (40 pages, v0.17.2) | – | 0.797 / 0.877 |
 
-Neural-table as of v0.17.2 (2026-10-01: nil dashes read, a receipt's paper edge dropped, receipt item rows kept apart, a frame round a table's crop not taken for the table, light-grey rules found in the grey page, captions and notes trimmed by whole rows, wrapped cells read line by line, row labels spanning their sub-rows, a word read across a column gap split, a table reader that writes ± and the tables' other symbols -- docs/RESEARCH.md); the generated sets' truth was corrected where it disagreed with its own images (timesheets, payroll forms). \* measured before the open-sides and short-rule options and before the payroll truth held both amounts of each diagonal gross cell (the set was regenerated, 2026-09-28); – not measured.
+Neural-table as of v0.18.0 (2026-10-02: nil dashes read, a receipt's paper edge dropped, receipt item rows kept apart, a frame round a table's crop not taken for the table, light-grey rules found in the grey page, captions and notes trimmed by whole rows, wrapped cells read line by line, row labels spanning their sub-rows, a word read across a column gap split, a table reader that writes ± and the tables' other symbols, a small transformer over a table crop's words whose table a fitted choice keeps when it is the better -- docs/RESEARCH.md); the generated sets' truth was corrected where it disagreed with its own images (timesheets, payroll forms). \* measured before the open-sides and short-rule options and before the payroll truth held both amounts of each diagonal gross cell (the set was regenerated, 2026-09-28); – not measured.
 
 **Held-out pages.** The eight-page sets flatter newspapers and magazines:
 on 30 fresh pages of each type, never used for any decision, the neural
@@ -462,8 +462,9 @@ photographed receipts, the Library of Congress typescripts and a paragraph
 read alone; it trails the LSTM on held-out newspapers and on forms, where
 column layout and form structure are the open problems. Tables are the
 current focus ([docs/TABLES.md](docs/TABLES.md)): the generated business
-sets read at 0.91-0.97 TEDS, real financial tables at 0.82, scientific
-tables at 0.80 and photographed receipts at 0.49.
+sets read at 0.91-0.97 TEDS, real financial tables at 0.85 and scientific
+tables at 0.80 (on tables no decision looked at), and photographed receipts
+at 0.49.
 
 The small items left on the text side were measured and closed or
 recorded as residuals (the masked card numbers and the touching words on
