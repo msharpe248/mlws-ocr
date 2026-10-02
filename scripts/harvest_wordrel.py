@@ -16,8 +16,9 @@ has make_wordrel_data.py's format, so train_wordrel.py reads both.
     OMP_NUM_THREADS=1 scripts/harvest_wordrel.py ~/pubtables1m/fin/FinTabNet.c-Structure --n 8000 \\
         --set magnify.min_dpi=150 --out wordrel_fin_eng.npz --workers 16
 
-Only TRAINING tables; ``--skip`` leaves out the tables of an earlier file
-(e.g. the PDF-word sample), so the two sets add up rather than repeat.
+Only TRAINING tables; ``--skip`` leaves out the tables of earlier files
+(the PDF-word sample, an earlier harvest, the per-table choice's tables), so
+the sets add up rather than repeat and the choice's tables stay unseen.
 """
 from __future__ import annotations
 
@@ -70,14 +71,18 @@ def main():
     ap.add_argument("root", type=Path)
     ap.add_argument("--n", type=int, default=10000)
     ap.add_argument("--seed", type=int, default=11)
-    ap.add_argument("--skip", type=Path, default=None, help="a wordrel npz whose tables are left out")
+    ap.add_argument("--skip", type=Path, nargs="*", default=[],
+                    help="wordrel npz files or name lists (.txt, one a line) whose tables are left out")
     ap.add_argument("--config", default=str(ROOT / "configs/neural-table.toml"))
     ap.add_argument("--set", action="append", default=[])
     ap.add_argument("--out", type=Path, required=True)
     ap.add_argument("--workers", type=int, default=16)
     args = ap.parse_args()
     xmls = sorted((args.root / "train").glob("*.xml"))
-    skip = set(np.load(args.skip, allow_pickle=True)["names"]) if args.skip else set()
+    skip = set()
+    for f in args.skip:
+        skip |= (set(f.read_text().split()) if f.suffix == ".txt"
+                 else set(np.load(f, allow_pickle=True)["names"]))
     xmls = [x for x in xmls if x.stem not in skip]
     rng = np.random.default_rng(args.seed)
     if len(xmls) > args.n:
