@@ -24,6 +24,7 @@ from __future__ import annotations
 
 import argparse
 import html
+import json
 import random
 import re
 import sys
@@ -243,6 +244,9 @@ def main():
         scores.append(s); structs.append(st)
         if args.dump:
             (args.dump / f"{stem}.pred.html").write_text(pred)
+            lay = page.meta.get("layout", {})
+            if "wordrel_x" in lay:                 # the word-network choice's inputs (train_wordrel_select.py)
+                (args.dump / f"{stem}.wrel.json").write_text(json.dumps(lay["wordrel_x"]))
         print(f"  {stem}: TEDS {s:.3f}  TEDS-S {st:.3f}", flush=True)
     print(f"\nMEAN over {len(scores)} pages: TEDS {np.mean(scores):.3f}  TEDS-S {np.mean(structs):.3f}")
 

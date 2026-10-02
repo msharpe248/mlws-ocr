@@ -270,5 +270,12 @@ def table_from_relations(boxes, texts, tok_p: np.ndarray, pair_p: np.ndarray,
             if (r, c) not in taken:
                 cells.append({"row": r, "col": c, "rowspan": 1, "colspan": 1, "text": "", "box": [0, 0, 0, 0]})
     cells.sort(key=lambda x: (x["row"], x["col"]))
+    # how sure the network was: decisiveness of its row and column judgments over the table's
+    # word pairs (mean |2p - 1|), the share of the words it kept, their mean in-table probability,
+    # and how many there were -- the per-table choice's view of this table (decode/output.py)
+    iu = np.triu_indices(len(keep), 1)
+    dec = lambda M: float(np.mean(np.abs(2 * M[iu] - 1))) if len(iu[0]) else 0.0  # noqa: E731
+    stats = [dec(R), dec(C), len(keep) / max(1, len(tok_p)), float(np.mean(tok_p[keep, 0])),
+             float(np.log1p(len(keep)))]
     return {"box": [int(b[:, 0].min()), int(b[:, 1].min()), int(b[:, 2].max()), int(b[:, 3].max())],
-            "n_rows": nr, "n_cols": nc, "cells": cells, "source": "wordrel"}
+            "n_rows": nr, "n_cols": nc, "cells": cells, "source": "wordrel", "stats": stats}

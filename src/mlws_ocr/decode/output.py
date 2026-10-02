@@ -72,6 +72,14 @@ def table_features(cells: list[dict], n_rows: int, n_cols: int) -> list[float]:
             float(np.mean([len(t) for t in filled])) if filled else 0.0]
 
 
+def wordrel_choice_inputs(t: dict, wt: dict) -> np.ndarray:
+    """The rules-or-word-network choice's inputs: both tables' shapes, their
+    differences, and the network's confidence (wordrel.table_from_relations)."""
+    a = table_features(t["cells"], t["n_rows"], t["n_cols"])
+    b = table_features(wt["cells"], wt["n_rows"], wt["n_cols"])
+    return np.concatenate([select_inputs(a, b), np.asarray(wt.get("stats", [0.0] * 5), float)])
+
+
 def select_inputs(a: list[float], b: list[float]) -> np.ndarray:
     """The chooser's inputs: the rules' table's features, the network's, and
     their differences."""
@@ -265,7 +273,9 @@ class TextOutput(Stage):
                                          # trimmed (wstables.trim_caption_notes)
         "table_wordrel_path": "",        # the word-relation network (layout/wordrel.py) on a table's crop ...
         "table_wordrel_mode": "replace", # ... "replace": its table, built from the engine's words, in place of
-                                         # the rules' / structure network's (experimental, 2026-10-01)
+                                         # the rules' / structure network's; "select": the one a learned choice
+                                         # (table_wordrel_select, train_wordrel_select.py) prefers (2026-10-01)
+        "table_wordrel_select": "",
         "table_cell_lines": False,       # a table's row read line by line, not by x alone: a wrapped
                                          # cell's lines no longer interleave (sepnet.grid_table; 2026-09-30)
         "table_label_rowspans": False,   # a table's crop: a first-column label spans the rows beneath it
@@ -853,10 +863,24 @@ class TextOutput(Stage):
             if self.params["table_split_path"]:
                 t = self._split_or_rules(t or {"box": [0, 0, 1, 1]}, page, words, whole=True)
                 t = t if t.get("cells") else None
+            wrel_x = None
             if self.params["table_wordrel_path"]:
                 wt = self._wordrel_table(layout["lines"])
-                if wt is not None and self.params["table_wordrel_mode"] == "replace":
+                if wt is not None and t is not None and t.get("cells"):
+                    # the choice's inputs, at the moment of choosing: both tables' shapes and the network's
+                    # confidence (kept in the layout, so an evaluation can learn the choice from them)
+                    wrel_x = list(map(float, wordrel_choice_inputs(t, wt)))
+                if wt is not None and (t is None or not t.get("cells")
+                                       or self.params["table_wordrel_mode"] == "replace"):
                     t = wt
+                elif wt is not None and self.params["table_wordrel_mode"] == "select" and self.params["table_wordrel_select"]:
+                    key = ("wrel_select", self.params["table_wordrel_select"])
+                    if key not in self._nets:
+                        z = np.load(self.params["table_wordrel_select"])
+                        self._nets[key] = (z["w"], float(z["b"]), z["mu"], z["sd"])
+                    w, b0, mu, sd = self._nets[key]
+                    if float(((np.asarray(wrel_x) - mu) / sd) @ w + b0) > 0:
+                        t = wt
             if t is not None and self.params["trim_notes"]:
                 from ..layout.wstables import trim_caption_notes
                 t = trim_caption_notes(t, whole_rows=self.params["trim_notes_rows"])
@@ -866,6 +890,8 @@ class TextOutput(Stage):
             if t is not None:
                 # a new layout dict: the incoming page's stays as its stage left it
                 layout = dict(layout, tables=[t])
+                if wrel_x is not None:
+                    layout["wordrel_x"] = wrel_x
                 grid = [["" for _ in range(t["n_cols"])] for _ in range(t["n_rows"])]
                 for c in t["cells"]:
                     grid[c["row"]][c["col"]] = c["text"]
