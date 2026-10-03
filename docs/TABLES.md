@@ -301,13 +301,11 @@ The evaluation sets, and where they stand (neural-table, TEDS / TEDS-S):
 |---|---|---|---|
 | invoices (generated) | 20 | 0.764 | **0.967 / 0.981** |
 | timesheets (generated) † | 20 | 0.612 | **0.942 / 0.964** |
-| receipts (generated) | 20 | 0.625 | **0.929 / 0.953** |
 | paystubs (generated) | 20 | 0.791 | **0.940 / 0.952** |
 | payroll forms (generated) † | 20 | 0.717 | **0.913 / 0.939** |
 | annual-report tables (FinTabNet.c) | 60 | 0.763 | 0.840 / 0.896 |
 | scientific tables (PubTables-1M) | 60 | – | 0.813 / 0.881 |
 | scientific pages, detection F1 | 40 | – | 0.967 |
-| real receipts (CORD) | 30 | 0.327 | 0.518 / 0.612 |
 
 The two real crop sets were also read on the 240 held-out tables of the same draws, none of which any decision looked at: PubTables-1M 0.804 / 0.882, FinTabNet.c 0.853 / 0.909 (v0.18.1; 0.759 and 0.810 before the word-relation network) — the 60 flatter PubTables-1M ([MEASUREMENT.md §4](MEASUREMENT.md)).
 
@@ -319,9 +317,11 @@ command lines).
 
 **Where the rest is lost.** FinTabNet's and PubTables' structure scores are
 well above their full scores — reading, not structure, is most of the gap.
-CORD's photographed receipts fail first at the image (dark, tiny, curved
-photos), and its truth builds each menu item from separate printed lines,
-which no layout rule sees.
+Receipts — the generated receipt set and CORD's photographed ones — are out
+of scope for now: the engine targets business-quality print and
+screenshots, and receipts wait for a profile that can assume it is reading
+a receipt ([ROADMAP.md](ROADMAP.md)); their figures stay in
+[RESEARCH.md](RESEARCH.md).
 
 ## 9. What was tried and not kept
 

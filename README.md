@@ -45,8 +45,10 @@ Tesseract (`--oem 0`) is the reference, measured with the same scripts on
 the same pages; the LSTM column is Tesseract 5.5.3 with its default English
 model; bold marks the row's leader. The held-out rows are pages no tuning,
 training or evaluation decision has used (`eval_unlv.py --heldout`,
-`eval_tesseract.py --heldout`). Classic's CORD word score is below zero (it
-inserts more words than a camera receipt holds) and is left out. The full
+`eval_tesseract.py --heldout`). Receipts are out of scope for now: the
+engine targets documents from business-quality printers and screenshots,
+and photographed or thermal receipts wait for a profile of their own
+(`docs/ROADMAP.md`); their measurements stay in `docs/RESEARCH.md`. The full
 scoreboard and its history are in `docs/DESIGN.md` §8.
 
 | set | what it is | classic | neural | legacy Tesseract | Tesseract LSTM |
@@ -61,10 +63,8 @@ scoreboard and its history are in `docs/DESIGN.md` §8.
 | newspapers, held out | 30 UNLV newspaper pages no decision has used | 76.5 / 63.4 | 86.7 / 81.6 | 87.1 / 82.4 | **87.7 / 84.2** |
 | magazines, held out | 30 UNLV magazine pages no decision has used | 68.3 / 50.7 | **83.7 / 75.6** | 77.9 / 71.3 | 78.5 / 73.6 |
 | letters, held out | 30 UNLV business letters no decision has used | 90.7 / 83.1 | **93.9 / 91.1** | 92.4 / 88.8 | 93.1 / 90.6 |
-| sroie | real scanned receipts, ICDAR 2019 | 48.0 / 13.6 | **79.5 / 62.4** | 56.2 / 29.4 | 64.0 / 40.3 |
 | funsd | real scanned forms, FUNSD, at 2x | 37.4 / 12.7 | 65.9 / 44.3 | 54.8 / 32.0 | **66.4 / 47.2** |
 | legal reports | real typescript and printed office pages, Library of Congress | 70.5 / 47.3 | **87.5 / 73.7** | 57.5 / 42.8 | 78.8 / 66.3 |
-| cord | photographed receipts, CORD, cut to the receipt | 30.7 / – | **53.5 / 31.1** | 42.1 / 19.5 | 46.7 / 21.1 |
 | blocks | a paragraph handed in alone, no layout (broad-30's text zones) | 94.4 / 85.8 | **98.6 / 97.2** | 98.2 / 96.6 | 98.5 / 96.5 |
 
 
@@ -88,8 +88,6 @@ between 0.00 and 0.03.
 | paystubs | generated: earnings and deductions nested in the stub, in five rule styles from full grid to whitespace (20 pages) | – | 0.940 / 0.952 |
 | invoices | generated: line items with spanned totals, five rule styles (20 pages) | – | 0.967 / 0.981 |
 | timesheets | generated: two-level spanned headers, five rule styles (20 pages) | – | 0.942 / 0.964 |
-| receipts | generated: thermal-roll receipts, whitespace or a header rule (20 pages) | – | 0.929 / 0.953 |
-| real receipts | CORD photographed receipts, their line items as the table (30 receipts) | – | 0.518 / 0.612 |
 | annual-report tables | real financial tables, FinTabNet.c, ruled by whitespace (60 tables; on 240 held-out ones 0.853 / 0.909) | 0.607 / 0.781 | **0.840 / 0.896** |
 | scientific tables | real tables from papers, PubTables-1M test crops (60 tables; on 240 held-out ones 0.804 / 0.882); page-level detection F1 0.967 at IoU 0.5 (40 pages, v0.17.2) | – | 0.813 / 0.881 |
 
@@ -154,10 +152,9 @@ Reports 2.1 / 4.3, SROIE 3.9 words; legal-8 gave back half a point.
 
 On the tabular business pages Tesseract reads by column and pays the
 edit distance for the order; there, the bag-of-words recall is the
-recognition comparison (neural 97.7, legacy 97.5). The two real corpora
-are hard for every engine — faded dot-matrix receipts, 72-dpi faxed
-forms — and are where the work now is; `docs/TESSERACT.md` has the
-detail. The whole run of
+recognition comparison (neural 97.7, legacy 97.5). Real forms — 72-dpi
+faxed scans — are hard for every engine and are where the text work is;
+`docs/TESSERACT.md` has the detail. The whole run of
 measurements, and every mechanism that was tried and turned down, is in
 `docs/RESEARCH.md`.
 
@@ -175,8 +172,6 @@ of the numbers, the shared ideas and the differences. The short form:
   and a paragraph read alone. Tesseract's page analysis is much of the
   reason on the documents: margins and hole punches read as text,
   templated letters broken, tables read by column.
-- **Receipts, scanned and photographed**: ahead of both -- SROIE by 15.5
-  characters and 22 words over the LSTM, CORD by 6.8 and 10.
 - **Behind** on newspapers (held out: 86.7 / 81.6 against the LSTM's
   87.7 / 84.2) and on forms (FUNSD: 0.5 characters and 2.9 words behind
   the LSTM). Newspapers are measured, not tuned; the loss is column layout.
@@ -457,14 +452,13 @@ keep their own licences; `docs/NETWORKS.md` names each source.
 ## Where the work stands
 
 The neural profile leads both Tesseract engines on letters (in words),
-typewriter pleadings, modern documents, business pages, scanned and
-photographed receipts, the Library of Congress typescripts and a paragraph
-read alone; it trails the LSTM on held-out newspapers and on forms, where
+typewriter pleadings, modern documents, business pages, the Library of
+Congress typescripts and a paragraph read alone; it trails the LSTM on held-out newspapers and on forms, where
 column layout and form structure are the open problems. Tables are the
 current focus ([docs/TABLES.md](docs/TABLES.md)): the generated business
 sets read at 0.91-0.97 TEDS, real financial tables at 0.85 and scientific
-tables at 0.80 (on tables no decision looked at), and photographed receipts
-at 0.52.
+tables at 0.80 (on tables no decision looked at). Receipts are parked for a
+receipt profile of their own.
 
 The small items left on the text side were measured and closed or
 recorded as residuals (the masked card numbers and the touching words on

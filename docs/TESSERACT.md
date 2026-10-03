@@ -29,10 +29,8 @@ install carries (`tessdata_fast`).
 | newspapers, held out | 30 UNLV newspaper pages | 86.7 / 81.6 | 87.1 / 82.4 | **87.7 / 84.2** | behind the LSTM by 1 character, 2.6 words: column layout |
 | mag-8 | UNLV magazines (the layout rules were tuned here) | 87.2 / 81.3 | 87.3 / **84.7** | **87.8** / 84.4 | behind in words |
 | magazines, held out | 30 UNLV magazine pages | **83.7 / 75.6** | 77.9 / 71.3 | 78.5 / 73.6 | ahead of both |
-| sroie | real scanned receipts, ICDAR 2019 (60) | **79.5 / 62.4** | 56.2 / 29.4 | 64.0 / 40.3 | ahead of both by 15 characters, 22 words |
 | funsd | real scanned forms, FUNSD (50, at 2x) | 65.9 / 44.3 | 54.8 / 32.0 | **66.4 / 47.2** | behind the LSTM by 0.5 characters, 2.9 words |
 | legal reports | Library of Congress typescript and print (40) | **87.5 / 73.7** | 57.5 / 42.8 | 78.8 / 66.3 | ahead of both |
-| cord | photographed receipts, CORD test (100), cut to the receipt | **53.5 / 31.1** | 42.1 / 19.5 | 46.7 / 21.1 | ahead of both by 7 characters, 10 words |
 | blocks | broad-30's text zones read alone, no layout | **98.6 / 97.2** | 98.2 / 96.6 | 98.5 / 96.5 | ahead of both |
 
 These are the README's figures (the neural profile, current release). Every
@@ -43,13 +41,14 @@ held-out rows are shown beside the tuned ones.
 Reading the table honestly:
 
 - **Where we lead, we lead by a lot.** Typewriter pleadings, modern
-  documents, tabular business pages, receipts (scanned and photographed)
-  and the Library of Congress typescripts are 3.5 to 27 character points
-  ahead. Tesseract's page analysis is much of the reason on the documents:
-  it reads text into ruled margins and hole punches on the pleadings,
-  breaks on templated letters and forms, and reads a table by column blocks
-  so its words are right but its lines are not. On receipts the reason is
-  training data: the engine's readers were trained on real receipt lines.
+  documents, tabular business pages and the Library of Congress
+  typescripts are 3.5 to 27 character points ahead. Tesseract's page
+  analysis is much of the reason: it reads text into ruled margins and hole
+  punches on the pleadings, breaks on templated letters and forms, and
+  reads a table by column blocks so its words are right but its lines are
+  not. (Receipts are out of scope for now -- the engine targets
+  business-quality print and screenshots; their comparisons stay in
+  [RESEARCH.md](RESEARCH.md).)
 - **On clean letters it is close.** Ahead of both engines in words on the
   headline set and on held-out letters; 0.2 characters behind the LSTM on
   the headline set. Tesseract's decades of tuning on exactly this kind of

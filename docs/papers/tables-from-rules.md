@@ -45,8 +45,7 @@ The steps, most of them rules:
 
 Whole-page structure similarity (TEDS) on the generated sets went from
 0.02 to 0.91–0.97, on real annual-report tables from 0.03 to 0.85, on
-scientific tables to 0.80 (both on 240 held-out tables), and on
-photographed receipts from 0.08 to 0.52.
+scientific tables to 0.80 (both on 240 held-out tables).
 
 ## Abstract
 
@@ -65,7 +64,7 @@ separator network, a table detector, a structure network, a table line
 reader and a transformer over a table's words — each enter as evidence
 or a candidate beside the rules, never in their place. Whole-page TEDS on the generated sets rises from about 0.02 to
 0.91–0.97; FinTabNet.c from 0.03 to 0.85 and PubTables-1M crops to 0.80
-on 240 held-out tables each; CORD from 0.08 to 0.52. A census of the remaining error finds
+on 240 held-out tables each. A census of the remaining error finds
 it in reading and in whole-table structure failures, not in words joined
 across cells. Each negative result is reported with its measurement.
 
@@ -493,8 +492,6 @@ for timesheets and payroll forms the two differ by more than the engine.
 | paystubs (generated, 20) | 0.020 | 0.791 / 0.859 | 0.940 / 0.952 |
 | invoices (generated, 20) | 0.015 | 0.764 / 0.807 | 0.967 / 0.981 |
 | timesheets (generated, 20) | 0.015 | 0.612 / 0.735 | 0.942 / 0.964 |
-| receipts (generated, 20) | 0.022 | 0.625 / 0.651 | 0.929 / 0.953 |
-| CORD receipts (real, 30) | 0.076 | 0.327 / 0.440 | 0.518 / 0.612 |
 | FinTabNet.c (real, 60) | 0.032 | 0.763 / 0.879 | 0.840 / 0.896 |
 | PubTables-1M crops (real, 60) | – | – | 0.813 / 0.881 |
 
@@ -527,14 +524,18 @@ parameters.
 ## 10. Limitations
 
 The generated sets are ours, and a rule tuned on them may fit their
-habits; FinTabNet.c, PubTables-1M and CORD are the checks against that,
+habits; FinTabNet.c and PubTables-1M are the checks against that,
 and every threshold was chosen on a tuning subset and confirmed on
-held-out tables. The real sets are small samples (60, 60, 30 tables;
+held-out tables. The real sets are small samples (60 and 60 tables;
 40 pages), and differences of 0.005 are a table or two; the 240 held-out
 tables of each table set (§9) show the 60 flatter PubTables-1M by about
-0.04. Photographed
-receipts remain hard (0.52): the reading, not only the structure, limits
-them. On scientific tables, 72-dpi reading caps the text half of the
+0.04. Receipts — the generated set and CORD's photographs — are out of
+the results: the engine now targets business-quality print and
+screenshots, and receipts wait for a profile that can assume what a
+receipt is (faint thermal and dot-matrix print, the paper a bright
+quadrilateral in a photo, a fixed output schema); the methods measured on
+them are described above, their figures kept in the project's research
+log. On scientific tables, 72-dpi reading caps the text half of the
 score — a minus sign and an en dash are hyphens to the reader.
 
 ## 11. Conclusion
