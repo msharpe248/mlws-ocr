@@ -88,9 +88,9 @@ between 0.00 and 0.03.
 | paystubs | generated: earnings and deductions nested in the stub, in five rule styles from full grid to whitespace (20 pages) | – | 0.940 / 0.952 |
 | invoices | generated: line items with spanned totals, five rule styles (20 pages) | – | 0.967 / 0.981 |
 | timesheets | generated: two-level spanned headers, five rule styles (20 pages) | – | 0.942 / 0.964 |
-| annual-report tables | real financial tables, FinTabNet.c, ruled by whitespace (60 tables; on 240 held-out ones 0.853 / 0.909) | 0.607 / 0.781 | **0.840 / 0.896** |
-| scientific tables | real tables from papers, PubTables-1M test crops (60 tables; on 240 held-out ones 0.804 / 0.882); page-level detection F1 0.967 at IoU 0.5 (40 pages, v0.17.2) | – | 0.813 / 0.881 |
-| screenshots | tables drawn as web pages by a browser -- plain, grid, zebra, dark mode, coloured header, spreadsheet -- at 96 and 192 dpi (80 tables) | – | 0.860 / 0.922 |
+| annual-report tables | real financial tables, FinTabNet.c, ruled by whitespace (60 tables; on 240 held-out ones 0.866 / 0.914) | 0.607 / 0.781 | **0.850 / 0.901** |
+| scientific tables | real tables from papers, PubTables-1M test crops (60 tables; on 240 held-out ones 0.803 / 0.882); page-level detection F1 0.967 at IoU 0.5 (40 pages, v0.17.2) | – | 0.813 / 0.881 |
+| screenshots | tables drawn as web pages by a browser -- plain, grid, zebra, dark mode, coloured header, spreadsheet -- at 96 and 192 dpi (80 tables) | – | 0.898 / 0.933 |
 
 Neural-table as of v0.18.1 (2026-10-03: nil dashes read, a receipt's paper edge dropped, receipt item rows kept apart, a frame round a table's crop not taken for the table, light-grey rules found in the grey page, captions and notes trimmed by whole rows, wrapped cells read line by line, row labels spanning their sub-rows, a word read across a column gap split, a table reader that writes ± and the tables' other symbols, a small transformer over a table crop's words whose table a fitted choice keeps when it is the better, a reader for table crops trained harder on table lines -- docs/RESEARCH.md); the generated sets' truth was corrected where it disagreed with its own images (timesheets, payroll forms). \* measured before the open-sides and short-rule options and before the payroll truth held both amounts of each diagonal gross cell (the set was regenerated, 2026-09-28); – not measured.
 
@@ -457,7 +457,7 @@ typewriter pleadings, modern documents, business pages, the Library of
 Congress typescripts and a paragraph read alone; it trails the LSTM on held-out newspapers and on forms, where
 column layout and form structure are the open problems. Tables are the
 current focus ([docs/TABLES.md](docs/TABLES.md)): the generated business
-sets read at 0.91-0.97 TEDS, real financial tables at 0.85 and scientific
+sets read at 0.91-0.97 TEDS, real financial tables at 0.87 and scientific
 tables at 0.80 (on tables no decision looked at). Receipts are parked for a
 receipt profile of their own.
 

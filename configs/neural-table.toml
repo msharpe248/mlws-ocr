@@ -120,6 +120,9 @@ in_cells = true                # table profile: inside a ruled table of 2+ colum
 
 [stage.components]
 impl = "overlap"
+dotted_rule_text = 2           # table profile: a line with 2+ groups larger than a dot holds text and is not a dotted rule
+                               # -- a row label with its dot leaders ('2019 . . . .') had lost its label: FinTabNet.c
+                               # 0.840 -> 0.850, screenshots 0.860 -> 0.893, the rest unchanged (2026-10-03)
 
 [stage.recognize]
 impl = "prototypes"
@@ -281,6 +284,8 @@ table_wordrel_select = "data/wordrel_select.npz"
                                # 240 held-out tables each: PubTables-1M 0.759 -> 0.795, FinTabNet.c 0.810 -> 0.849;
                                # the 60 scored 0.797 -> 0.797, 0.815 -> 0.839; business sets and CORD unchanged
                                # (2026-10-02)
+table_paren_columns = true     # table profile: a column of parenthesised figures beside a figure column joined into it
+                               # ('18.8 (6)' one cell): screenshots 0.893 -> 0.898, the rest unchanged (2026-10-03)
 table_item_rows = true         # table profile: a receipt's two-line items (the name on its own line, then quantity /
                                # price / amount, or the other way round) one row each, the name in its own column:
                                # CORD 0.493 -> 0.518; business sets level (timesheets 0.944 -> 0.942) (2026-10-03)

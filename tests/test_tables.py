@@ -335,3 +335,16 @@ def test_a_receipts_totals_block_is_split_off_and_marked():
     parts = split_totals(_table([["Coke", "5,000"], ["Tea", "3,000"], ["5UBTU:HL", "8,000"], ["CASH", "10,000"]]))
     assert [p["n_rows"] for p in parts] == [2, 2] and parts[1]["role"] == "totals"
     assert _is_total("Sbtotal") and _is_total("otal") and not _is_total("Coke") and not _is_total("tote")
+
+
+def test_a_column_of_counts_joins_the_values_beside_it():
+    from mlws_ocr.layout.wstables import merge_paren_columns
+    t = _table([["Item", "High % (n)", "", "Low"], ["A", "18.8", "(6)", "25.0"], ["B", "12.5", "(4)", "21.9"]])
+    t["cells"][1]["colspan"] = 2                                  # the header spans the value and its count
+    t["cells"] = [c for c in t["cells"] if (c["row"], c["col"]) != (0, 2)]
+    m = merge_paren_columns(t)
+    assert m["n_cols"] == 3
+    assert [c["text"] for c in m["cells"] if c["row"] == 1] == ["A", "18.8 (6)", "25.0"]
+    assert next(c for c in m["cells"] if c["row"] == 0 and c["col"] == 1)["colspan"] == 1
+    words = _table([["Name", "Code"], ["Smith", "(A)"], ["Jones", "(B)"]])
+    assert merge_paren_columns(words)["n_cols"] == 2               # not counts, not beside figures: kept

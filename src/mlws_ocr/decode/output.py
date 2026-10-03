@@ -284,6 +284,8 @@ class TextOutput(Stage):
                                          # the rules' / structure network's; "select": the one a learned choice
                                          # (table_wordrel_select, train_wordrel_select.py) prefers (2026-10-01)
         "table_wordrel_select": "",
+        "table_paren_columns": False,    # a column of parenthesised figures beside a column of figures joined
+                                         # into it: '18.8 (6)' one cell (wstables.merge_paren_columns; 2026-10-03)
         "table_totals_split": False,     # a receipt's totals block (SUBTOTAL, TAX, CASH ...) a table of its
                                          # own, apart from the items (wstables.split_totals; 2026-10-03)
         "table_item_rows": False,        # a receipt's two-line items (name, then quantity / price / amount)
@@ -903,6 +905,9 @@ class TextOutput(Stage):
             if t is not None and self.params["trim_notes"]:
                 from ..layout.wstables import trim_caption_notes
                 t = trim_caption_notes(t, whole_rows=self.params["trim_notes_rows"])
+            if t is not None and self.params["table_paren_columns"]:
+                from ..layout.wstables import merge_paren_columns
+                t = merge_paren_columns(t)
             if t is not None and self.params["table_label_rowspans"]:
                 from ..layout.wstables import span_row_labels
                 t = span_row_labels(t)
@@ -935,6 +940,9 @@ class TextOutput(Stage):
             if self.params["table_totals_split"]:
                 from ..layout.wstables import split_totals
                 found = [p for t in found for p in split_totals(t)]
+            if self.params["table_paren_columns"]:
+                from ..layout.wstables import merge_paren_columns
+                found = [merge_paren_columns(t) for t in found]
             if self.params["table_item_rows"]:
                 from ..layout.wstables import merge_item_rows
                 found = [merge_item_rows(t) for t in found]

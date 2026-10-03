@@ -182,6 +182,9 @@ class OverlapComponents(Stage):
         "merge_max_gap_frac": 0.22, # ...and the pieces nearly touch
         "merge_max_pieces": 3,      # longest run of pieces offered as one
                                     # character (Smith 2007 §4.2 associator)
+        "dotted_rule_text": 0,   # > 0: a line with at least this many groups larger than a dot holds
+                                 # text and is not a dotted rule -- a row label with its dot leaders
+                                 # ('2019 . . . . .') lost its label to the filter below (2026-10-03)
         "dotted_rule_min": 20,   # a "line" of this many DOT-sized groups is
                                  # a perforation/dotted rule, not text (one
                                  # receipt tear-off line emitted 313 junk
@@ -306,7 +309,9 @@ class OverlapComponents(Stage):
             if len(merged) >= self.params["dotted_rule_min"]:
                 ws = sorted(g["box"][2] - g["box"][0] for g in merged)
                 hs = sorted(g["box"][3] - g["box"][1] for g in merged)
-                if ws[len(ws) // 2] <= dot and hs[len(hs) // 2] <= dot:
+                big = sum(1 for g in merged if g["box"][3] - g["box"][1] > 2 * dot)
+                text = self.params["dotted_rule_text"] and big >= self.params["dotted_rule_text"]
+                if ws[len(ws) // 2] <= dot and hs[len(hs) // 2] <= dot and not text:
                     ln["dotted_rule"] = True
                     merged = []
             # Touching-character suspects: a group much wider than its

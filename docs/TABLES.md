@@ -189,7 +189,7 @@ was "We are subject to lawsuits, investigations …"; `table_cell_lines`);
 on a table's crop a first-column label spans the rows of sub-labels beneath
 it ("Sex, n (%)" over Men and Women; `table_label_rowspans`), the
 PubTables-1M convention, though not a total row or a wrapped line beneath
-it. A receipt's two-line items — the name on its own line (wrapped over two when long), the quantity, price and amount on the next, or the figures first — are one row each, the name in its own column (`table_item_rows`; CORD 0.493 → 0.518). The three: PubTables-1M 0.755 → 0.779, FinTabNet 0.807 → 0.810. A total whose label is set to the right
+it. A receipt's two-line items — the name on its own line (wrapped over two when long), the quantity, price and amount on the next, or the figures first — are one row each, the name in its own column (`table_item_rows`; CORD 0.493 → 0.518). A value and its count set apart — '18.8  (6)', the counts lined up in their own column — are one cell again (`table_paren_columns`). And a row label followed by dot leaders is not taken for a dotted rule and dropped, as it had been wherever the dots were crisp: annual reports and screenshots (`components.dotted_rule_text`; FinTabNet.c 0.840 → 0.850). The three: PubTables-1M 0.755 → 0.779, FinTabNet 0.807 → 0.810. A total whose label is set to the right
 ("Subtotal", "Total Due") becomes one cell spanning to its figures (invoices
 0.847 → 0.958); tables side by side (a paystub's earnings beside its
 deductions) are nested into one layout.
@@ -303,12 +303,12 @@ The evaluation sets, and where they stand (neural-table, TEDS / TEDS-S):
 | timesheets (generated) † | 20 | 0.612 | **0.942 / 0.964** |
 | paystubs (generated) | 20 | 0.791 | **0.940 / 0.952** |
 | payroll forms (generated) † | 20 | 0.717 | **0.913 / 0.939** |
-| annual-report tables (FinTabNet.c) | 60 | 0.763 | 0.840 / 0.896 |
+| annual-report tables (FinTabNet.c) | 60 | 0.763 | 0.850 / 0.901 |
 | scientific tables (PubTables-1M) | 60 | – | 0.813 / 0.881 |
-| screenshots (FinTabNet.c and PubTables-1M structures drawn by a browser, six styles) | 80 | – | 0.860 / 0.922 |
+| screenshots (FinTabNet.c and PubTables-1M structures drawn by a browser, six styles) | 80 | – | 0.898 / 0.933 |
 | scientific pages, detection F1 | 40 | – | 0.967 |
 
-The two real crop sets were also read on the 240 held-out tables of the same draws, none of which any decision looked at: PubTables-1M 0.804 / 0.882, FinTabNet.c 0.853 / 0.909 (v0.18.1; 0.759 and 0.810 before the word-relation network) — the 60 flatter PubTables-1M ([MEASUREMENT.md §4](MEASUREMENT.md)).
+The two real crop sets were also read on the 240 held-out tables of the same draws, none of which any decision looked at: PubTables-1M 0.803 / 0.882, FinTabNet.c 0.866 / 0.914 (2026-10-03; 0.759 and 0.810 before the word-relation network) — the 60 flatter PubTables-1M ([MEASUREMENT.md §4](MEASUREMENT.md)).
 
 † Part of these two sets' gain came from correcting the generated truth
 where it disagreed with its own images (the images are byte-identical);

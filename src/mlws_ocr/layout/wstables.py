@@ -1153,6 +1153,62 @@ def merge_item_rows(t: dict, min_share: float = 0.6) -> dict:
     return dict(t, cells=out, n_rows=row, n_cols=nc)
 
 
+_PAREN_FIG = re.compile(r"^\(\s*[-+]?[\d.,]*\d[\d.,]*\s*%?\)[*∗†‡a-z]?$")
+_ANY_FIG = re.compile(r"^[-+−–($€£]*[\d.,]*\d[\d.,]*%?\)?[*∗†‡a-z]?$")
+
+
+def merge_paren_columns(t: dict, min_share: float = 0.6) -> dict:
+    """A value and its count in one cell -- '18.8 (6)', '125 (43.2%)' -- as
+    the table means it.  The counts line up in their own vertical run, and
+    the column finder makes them a column of their own beside the values'.
+    A column whose every filled cell is a parenthesised figure, filled on at
+    least ``min_share`` of the rows where the column to its left holds a
+    figure, and only where it does, is joined into that column, cell by cell
+    ('18.8' + '(6)').  A spanning cell over both (a header over the value and
+    its count) loses one column of span; one starting at the count's column
+    or ending at the value's leaves the pair apart."""
+    cells = t.get("cells", [])
+    if not cells:
+        return t
+    nc = t.get("n_cols") or 1 + max(c["col"] + c.get("colspan", 1) - 1 for c in cells)
+    cells = [dict(c) for c in cells]
+    at = {(c["row"], c["col"]): c for c in cells}
+    txt = lambda r, k: ((at.get((r, k)) or {}).get("text") or "").strip()  # noqa: E731
+    rows = sorted({c["row"] for c in cells})
+    for k in range(nc - 1, 0, -1):
+        right = [r for r in rows if txt(r, k)]
+        left_fig = [r for r in rows if _ANY_FIG.match(txt(r, k - 1).split()[-1] if txt(r, k - 1) else "")]
+        if not right or not left_fig:
+            continue
+        if not all(_PAREN_FIG.match(txt(r, k)) and r in left_fig for r in right):
+            continue
+        if len(right) < min_share * len(left_fig):
+            continue
+        # a spanning cell may cover both columns (a header over the value and its count: it
+        # loses one column of span) but not start at the count's column or end at the value's
+        if any(c.get("colspan", 1) > 1 and (c["col"] == k or c["col"] + c.get("colspan", 1) - 1 == k - 1)
+               for c in cells):
+            continue
+        for r in rows:
+            a, b = at.get((r, k - 1)), at.get((r, k))
+            if a is not None and b is not None and txt(r, k):
+                a["text"] = (txt(r, k - 1) + " " + txt(r, k)).strip()
+                if a.get("box") and b.get("box"):
+                    a["box"] = [min(a["box"][0], b["box"][0]), min(a["box"][1], b["box"][1]),
+                                max(a["box"][2], b["box"][2]), max(a["box"][3], b["box"][3])]
+        cells = [c for c in cells if c["col"] != k]
+        for c in cells:
+            if c["col"] > k:
+                c["col"] -= 1
+            elif c["col"] < k <= c["col"] + c.get("colspan", 1) - 1:
+                c["colspan"] -= 1
+        at = {(c["row"], c["col"]): c for c in cells}
+        nc -= 1
+    if nc == (t.get("n_cols") or nc):
+        return t
+    return dict(t, cells=cells, n_cols=nc)
+
+
 SPAN_LEFT_LABELS = [False]  # a first-column label followed by empty figure columns spans them too (measured:
                             # paystubs +0.016, receipts -0.059 -- their truths disagree on the convention)
 

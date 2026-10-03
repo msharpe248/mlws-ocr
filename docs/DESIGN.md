@@ -140,7 +140,9 @@ Connected components inside each line become glyph *groups*. Components
 whose x-spans overlap by more than half the narrower one are unioned, so
 an i-dot joins its stem and a broken letter's pieces stay together (a
 one-base-only rule for dots was measured and reverted). Lines of dot-sized
-groups are perforations, not text.
+groups are perforations, not text -- unless (the table profile,
+`dotted_rule_text`) two or more groups are larger than a dot: a row label
+with its dot leaders, '2019 . . . . .', is text.
 
 Two kinds of hypothesis are attached, never committed:
 
