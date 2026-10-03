@@ -6,6 +6,21 @@ the motivation still holds before spending the effort.
 
 ## Now: tables (from 2026-09-28, the current focus)
 
+**Scope (the owner's decision, 2026-10-03): photographed receipts are parked.**
+The general engine works on documents from business-quality printers on good
+paper, and on screenshots; photographed receipts (CORD: faint thermal and
+dot-matrix print, blur, skew, desks and shadows) are left to a future RECEIPT
+PROFILE that knows ahead of time it is reading a receipt and can assume what a
+general engine cannot: the paper is the bright quadrilateral (find it, correct
+perspective, crop), the paper's edges give the skew, one narrow column of short
+lines in a few known blocks (header, items, totals, payment), monospace type in
+a narrow size range (magnify to a fixed size: `magnify.target_px` with
+`max_page_px`), a reader trained mostly on receipt photos, item lines in a few
+patterns, money figures whose arithmetic must hold (items -> subtotal, + tax ->
+total: corrections, not only flags), and a fixed output schema (items, totals,
+payment), which also settles CORD's totals convention. CORD stays in the table
+evaluation as a check (neural-table 0.518), not a target.
+
 The owner's direction: tables are the focus -- payroll forms, paystubs,
 timesheets, statements, invoices, receipts; tables inside tables; tables
 ruled by whitespace alone -- with the structure as output (JSON / HTML /

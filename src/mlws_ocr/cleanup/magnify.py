@@ -87,6 +87,10 @@ class XHeightMagnify(Stage):
         "max_scale": 3.0,      # never more than this
         "min_scale": 1.2,      # a smaller ratio is not worth a resample
         "min_dpi": 0,          # a page declared below this dpi is resampled to to_dpi; 0 = off
+        "max_page_px": 0,      # > 0: magnify by type size (target_px) only an image whose longer side is
+                               # at most this -- a crop or a phone photo of a receipt, not a full 300-dpi
+                               # page whose small print merely looks small (payroll forms 0.907 -> 0.441
+                               # when every page was magnified); 0 = every page (2026-10-03)
         "to_dpi": 300,
     }
 
@@ -94,7 +98,8 @@ class XHeightMagnify(Stage):
         if page.gray is None:
             raise ValueError("magnify runs on the grayscale page, before binarize")
         target = float(self.params["target_px"])
-        size = type_size_px(page.gray) if target > 0 else None
+        small = not self.params["max_page_px"] or max(page.gray.shape) <= self.params["max_page_px"]
+        size = type_size_px(page.gray) if target > 0 and small else None
         scale = 1.0
         if size is not None and size < target:
             scale = target / size
