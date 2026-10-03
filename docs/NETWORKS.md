@@ -111,6 +111,7 @@ were trained on the public sources named below and on nothing else.
 | v0.18.0 (2026-10-02) | thirty-four files: v0.17.2's thirty-two plus the neural-table profile's word-relation network `wordrel_v3.npz` and its choice `wordrel_select.npz` |
 | v0.18.1 (2026-10-03) | thirty-seven files: v0.18.0's thirty-four plus the neural-table profile's reader for table crops `seq_line_gray16_en.npz`, `_2`, `_3` |
 | v0.18.2 (2026-10-03) | the same thirty-seven files as v0.18.1: this release is profile and code (light text on a dark ground inverted, row labels with dot leaders kept, a value's count one cell with it) |
+| v0.18.3 (2026-10-03) | the same thirty-seven files as v0.18.1: this release is profile and code (photographs found on the grey page and kept out of the dark-ground inversion, a ground required to fill 95% of its box, pictures cut from the original image and named in the hOCR) |
 | v0.14.0 (2026-09-27) | twenty-one files: v0.13.0's eighteen plus the reader `seq_line_gray7_en.npz`, `_2`, `_3` (= `seq_line_gray7` seeds 3, 2, 1, EMA weights), the neural profile's reader; the v0.13.0 grey reader stays (it is the new one's teacher and the way back) |
 
 ## Where the training data comes from

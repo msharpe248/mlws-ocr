@@ -493,7 +493,7 @@ for timesheets and payroll forms the two differ by more than the engine.
 | invoices (generated, 20) | 0.015 | 0.764 / 0.807 | 0.967 / 0.981 |
 | timesheets (generated, 20) | 0.015 | 0.612 / 0.735 | 0.942 / 0.964 |
 | FinTabNet.c (real, 60) | 0.032 | 0.763 / 0.879 | 0.840 / 0.896 |
-| PubTables-1M crops (real, 60) | – | – | 0.813 / 0.881 |
+| PubTables-1M crops (real, 60) | – | – | 0.811 / 0.879 |
 
 PubTables-1M page detection, 40 test pages, IoU ≥ 0.5: F1 0.967 (precision 0.936, recall 1.000).
 

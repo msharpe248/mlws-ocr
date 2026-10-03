@@ -304,11 +304,11 @@ The evaluation sets, and where they stand (neural-table, TEDS / TEDS-S):
 | paystubs (generated) | 20 | 0.791 | **0.940 / 0.952** |
 | payroll forms (generated) † | 20 | 0.717 | **0.913 / 0.939** |
 | annual-report tables (FinTabNet.c) | 60 | 0.763 | 0.850 / 0.901 |
-| scientific tables (PubTables-1M) | 60 | – | 0.813 / 0.881 |
+| scientific tables (PubTables-1M) | 60 | – | 0.811 / 0.879 |
 | screenshots (FinTabNet.c and PubTables-1M structures drawn by a browser, six styles) | 80 | – | 0.898 / 0.933 |
 | scientific pages, detection F1 | 40 | – | 0.967 |
 
-The two real crop sets were also read on the 240 held-out tables of the same draws, none of which any decision looked at: PubTables-1M 0.803 / 0.882, FinTabNet.c 0.866 / 0.914 (2026-10-03; 0.759 and 0.810 before the word-relation network) — the 60 flatter PubTables-1M ([MEASUREMENT.md §4](MEASUREMENT.md)).
+The two real crop sets were also read on the 240 held-out tables of the same draws, none of which any decision looked at: PubTables-1M 0.802 / 0.882, FinTabNet.c 0.866 / 0.914 (2026-10-03, v0.18.3; 0.759 and 0.810 before the word-relation network) — the 60 flatter PubTables-1M ([MEASUREMENT.md §4](MEASUREMENT.md)).
 
 † Part of these two sets' gain came from correcting the generated truth
 where it disagreed with its own images (the images are byte-identical);
