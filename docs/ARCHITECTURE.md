@@ -348,7 +348,7 @@ flowchart LR
 | MLP second opinion | `recognize.mlp_path` | classic, neural, neural-table |
 | character GRU | `decode.char_lm` | classic, neural, neural-table |
 | word-strip CRNN scorer | `decode.seq_path` (and `correct.seq_path`) | neural, neural-table (classic: the corrector's pixel check) |
-| line reader (3-member ensemble) | `decode.line_model_path` | neural (`seq_line_gray9`), neural-table (`seq_line_gray15`) |
+| line reader (3-member ensemble) | `decode.line_model_path` | neural (`seq_line_gray9`), neural-table (`seq_line_gray15`; on a table's crop `seq_line_gray16`, `decode.line_model_path_table`) |
 | line-choice judge | `decode.line_choice_path` | neural, neural-table |
 | word-confidence calibrator | `decode.conf_path` | neural, neural-table |
 | table detector | `output.table_det_path` | neural-table |

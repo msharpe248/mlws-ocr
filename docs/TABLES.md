@@ -240,7 +240,7 @@ by rules. The table profile adds:
   the neural reader lacks (before them, every '±' in its training trained as
   '?'). On the PubTables-1M test crops it writes 85 of the 97 '±'; the minus
   sign and the en dash it still reads as hyphens, near-identical at 72 dpi
-  (`seq_line_gray15`; PubTables-1M 0.787 → 0.797, CORD 0.476 → 0.493). A
+  (`seq_line_gray15`; PubTables-1M 0.787 → 0.797, CORD 0.476 → 0.493). On a table's crop a second reader takes over, trained harder still on real table lines — the cost of that training, worse receipts, cannot reach a crop (`line_model_path_table`, `seq_line_gray16`; held out, PubTables-1M 0.795 → 0.804). A
   reading run across an empty stretch wider than a word space by far — two
   columns' words joined — is split there (`line_gap_split`).
 - **Rules out of the grey.** The line reader reads the grey page, where the
@@ -304,12 +304,12 @@ The evaluation sets, and where they stand (neural-table, TEDS / TEDS-S):
 | receipts (generated) | 20 | 0.625 | **0.929 / 0.953** |
 | paystubs (generated) | 20 | 0.791 | **0.940 / 0.952** |
 | payroll forms (generated) † | 20 | 0.717 | **0.913 / 0.939** |
-| annual-report tables (FinTabNet.c) | 60 | 0.763 | 0.839 / 0.896 |
-| scientific tables (PubTables-1M) | 60 | – | 0.797 / 0.877 |
+| annual-report tables (FinTabNet.c) | 60 | 0.763 | 0.840 / 0.896 |
+| scientific tables (PubTables-1M) | 60 | – | 0.813 / 0.881 |
 | scientific pages, detection F1 | 40 | – | 0.967 |
 | real receipts (CORD) | 30 | 0.327 | 0.493 / 0.575 |
 
-The two real crop sets were also read on the 240 held-out tables of the same draws, none of which any decision looked at: PubTables-1M 0.795 / 0.881, FinTabNet.c 0.849 / 0.911 (v0.18.0; 0.759 and 0.810 before the word-relation network) — the 60 flatter PubTables-1M ([MEASUREMENT.md §4](MEASUREMENT.md)).
+The two real crop sets were also read on the 240 held-out tables of the same draws, none of which any decision looked at: PubTables-1M 0.804 / 0.882, FinTabNet.c 0.853 / 0.909 (v0.18.1; 0.759 and 0.810 before the word-relation network) — the 60 flatter PubTables-1M ([MEASUREMENT.md §4](MEASUREMENT.md)).
 
 † Part of these two sets' gain came from correcting the generated truth
 where it disagreed with its own images (the images are byte-identical);

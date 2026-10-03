@@ -500,6 +500,7 @@ flowchart LR
     g9 -.->|"table lines x0.5,<br/>no receipt weighting"| g11["gray11<br/>not adopted"]
     g12 -.->|"3 more epochs,<br/>table lines x1.0"| g13["gray13<br/>not adopted"]
     g9 -->|"gray12's recipe + 19 symbol<br/>classes (± – × ° ...)"| g15["gray15<br/>v0.17.2<br/>neural-table profile"]
+    g15 -->|"all table lines,<br/>full weight, 3 epochs"| g16["gray16<br/>v0.18.1<br/>table crops only"]
 ```
 
 Every arrow is a fine-tune with the remedies above; every box was measured
@@ -731,7 +732,7 @@ One architecture, trained twice for two jobs:
 - the **word-strip scorer** (`seq_en.npz`) reads a word's window and says
   how likely each of the decoder's candidate spellings is;
 - the **line reader** (`seq_line_gray9_en*.npz` in the neural profile,
-  `seq_line_gray15_en*.npz` in neural-table; three members each) reads a
+  `seq_line_gray15_en*.npz` in neural-table, `seq_line_gray16_en*.npz` on its table crops; three members each) reads a
   whole line end to end, as a second reading beside the classic decoder's.
 
 **The shape.** A **CRNN** (convolutional recurrent network; Shi, Bai & Yao,
@@ -1078,7 +1079,7 @@ the choice mattered), UNLV training-pool pages → `segmenter_judge.py`.
 | MLP second opinion | fully connected, 1 hidden layer | 95 glyph features | 110 characters | 52,846 | classic, neural, neural-table |
 | character language model | embedding + GRU | previous characters | next character (78) | 258,030 | classic, neural, neural-table |
 | word-strip scorer | CRNN + CTC | 32-row word strip | per-frame 112 classes | 285,744 | neural, neural-table |
-| line reader (×3) | CRNN + CTC | 32-row grey line strip | per-frame 120 classes (neural), 139 (neural-table: the tables' symbols) | 287,288 / 290,955 each | neural (gray9), neural-table (gray15) |
+| line reader (×3) | CRNN + CTC | 32-row grey line strip | per-frame 120 classes (neural), 139 (neural-table: the tables' symbols) | 287,288 / 290,955 each | neural (gray9), neural-table (gray15; gray16 on table crops) |
 | glyph CNN | CNN | 32×32 glyph | 110 characters | 30,446 | off |
 | table separator network | dilated CNN + axis heads | table crop, 75 dpi | P(separator) per x, per y | 44,162 | neural-table |
 | table structure network | dilated CNN + projection pooling | crop + word mask, 75 dpi | separator and inside per x, per y | 276,904 | neural-table |

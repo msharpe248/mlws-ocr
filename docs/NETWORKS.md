@@ -18,6 +18,7 @@ judged before it went live. The measurements themselves are in
 | Character GRU language model | `gru_en.npz` | 258k | classic, neural (`decode.char_lm`) | `train_charlm.py` | public-domain text corpus |
 | Word-strip CRNN scorer | `seq_en.npz` | 285k | neural (`decode.seq_path`) | `train_seq.py` | synthetic word windows + truth-labelled real word strips |
 | Line model for tables, grey strips (same CRNN, 139 classes) | `seq_line_gray15_en.npz`, `_2`, `_3` | 3 × 291k | neural-table (`decode.line_model_path`) | `train_seq.py` | the reader below fine-tuned with table lines cut from PubTables-1M and FinTabNet.c training crops at their PDF text, receipt photo lines weighted up, the tables' symbols (± − – — × ° μ < > ≤ ≥ ’ ‘ “ ” † ‡ · •) as classes with a symbol-rich synthetic set; distilled from itself, L2-SP, EMA |
+| Line model for table crops, grey strips (same CRNN, 139 classes) | `seq_line_gray16_en.npz`, `_2`, `_3` | 3 × 291k | neural-table, on a table's crop only (`decode.line_model_path_table`) | `train_seq.py` | the table reader above trained 3 more epochs with all the harvested table lines (PubTables-1M pt0-7, FinTabNet.c fin0-3) at full weight |
 | Line model, grey strips (same CRNN) | `seq_line_gray9_en.npz`, `_2`, `_3` | 3 × 287k | neural (`decode.line_model_path`, `decode.line_source = "gray"`) | `train_seq.py` | v0.14.0's reader (the v0.13.0 grey reader fine-tuned with SROIE and FUNSD box-cut training lines and more Legal Reports lines, held to its predecessor by L2-SP and distillation; EMA) with 8 more classes and a symbol-bearing synthetic set |
 | Line model, grey strips (v0.13.0) | `seq_line_gray_en.npz`, `_2`, `_3` | 3 × 285k | none since v0.14.0 (the teacher of the above) | `train_seq.py` | the binary line model fine-tuned on grey line strips (grey twins of harvested lines) plus binary real lines |
 | Line model, binary strips (previous) | `seq_line_en.npz`, `_2`, `_3` | 3 × 285k | none since 2026-09-26 (v17a) | `train_seq.py` | the above plus long windows and real whole lines |
@@ -108,6 +109,7 @@ were trained on the public sources named below and on nothing else.
 | v0.17.1 (2026-09-30) | the same thirty-two files as v0.17.0: this release is table-profile settings (nil dashes, a receipt's paper edge, receipt item rows, frames round table crops) |
 | v0.17.2 (2026-10-01) | thirty-two files: v0.17.1's with the neural-table reader `seq_line_gray12_en*.npz` replaced by `seq_line_gray15_en.npz`, `_2`, `_3` (= `seq_line_gray15`, EMA: the tables' symbols as classes) |
 | v0.18.0 (2026-10-02) | thirty-four files: v0.17.2's thirty-two plus the neural-table profile's word-relation network `wordrel_v3.npz` and its choice `wordrel_select.npz` |
+| v0.18.1 (2026-10-03) | thirty-seven files: v0.18.0's thirty-four plus the neural-table profile's reader for table crops `seq_line_gray16_en.npz`, `_2`, `_3` |
 | v0.14.0 (2026-09-27) | twenty-one files: v0.13.0's eighteen plus the reader `seq_line_gray7_en.npz`, `_2`, `_3` (= `seq_line_gray7` seeds 3, 2, 1, EMA weights), the neural profile's reader; the v0.13.0 grey reader stays (it is the new one's teacher and the way back) |
 
 ## Where the training data comes from
@@ -558,6 +560,22 @@ forms 0.914 -> 0.913. On PubTables it writes 85 of the truth's 97 '±', but 2 of
 (adopted the same day): PubTables-1M 0.787 -> 0.797, FinTabNet 0.810 -> 0.815, CORD 0.476 -> 0.493,
 receipts 0.940 -> 0.929, timesheets 0.944 -> 0.942, payroll forms 0.914 -> 0.913 -- adopted, the
 receipt page the stated cost.
+
+**v0.18.1: a reader for table crops only** (`seq_line_gray16`, 2026-10-03;
+`decode.line_model_path_table`, used when the page is a table's crop -- the
+`table` layout hint -- so whole pages, receipts among them, keep gray15).
+Training on the table lines harder (gray13, at full weight) had won the report
+tables and lost receipts; with receipts out of its reach, each gray15 member
+was trained 3 more epochs with ALL the harvested table lines (twelve files:
+PubTables-1M `gray_tab_pt0-7`, FinTabNet.c `gray_tab_fin0-3`, six never used
+before) at weight 1.0, gray15's data and shares otherwise, distilled from
+itself with the table lines left out, L2-SP 1e-4, EMA (ai01:
+`box_gray_ens16.sh`). Held-out real line word accuracy 84.9 / 82.5 / 82.8%
+(its held-out lines now include the new table lines). In neural-table, on the
+240 held-out tables each: PubTables-1M 0.795 -> 0.804 (169 tables up, 38 down),
+FinTabNet.c 0.849 -> 0.853 (94 up, 27 down); the 60 scored: 0.797 -> 0.813 and
+0.839 -> 0.840. The business sets and CORD do not take the hint and are
+unchanged.
 
 ```sh
 MLWS_EXTRA_CLASSES='*=+@[]_`±−–—×°μ<>≤≥’‘“”†‡·•' .venv/bin/python scripts/make_seq_data.py --out data/seq_synth_sym2.npz \

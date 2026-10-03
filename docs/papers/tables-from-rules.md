@@ -2,7 +2,7 @@
 
 **Michael Sharpe** — an empirical study in the mlws-ocr project (2026).
 
-*Working draft; measurements use mlws-ocr release v0.18.0 unless marked otherwise (the first draft reported v0.16.0), kept current as the engine improves. Figures are in the [HTML edition](https://msharpe248.github.io/mlws-ocr/docs/papers/tables-from-rules.html); this text refers to them by number.*
+*Working draft; measurements use mlws-ocr release v0.18.1 unless marked otherwise (the first draft reported v0.16.0), kept current as the engine improves. Figures are in the [HTML edition](https://msharpe248.github.io/mlws-ocr/docs/papers/tables-from-rules.html); this text refers to them by number.*
 
 ## In brief
 
@@ -383,6 +383,15 @@ x-heights wide — two columns' words joined — is split there. PubTables-1M
 of one generated receipt whose item names split into two columns
 (receipts 0.940 → 0.929), the owner's decision.
 
+Training the reader harder on table lines had won the report tables and
+lost receipts every time. A table's crop is never a receipt: a second
+reader, used only when the page is a table's crop, takes the gain without
+the cost. Each member was trained three more epochs with every harvested
+table line at full weight (twelve files, six never used before): on the
+240 held-out tables of each set PubTables-1M 0.795 → 0.804 (169 tables up,
+38 down — reading, not structure) and FinTabNet.c 0.849 → 0.853; the 60
+scored PubTables-1M tables 0.797 → 0.813.
+
 ### 6.5 A transformer over the words, chosen table by table
 
 The census (§7) found the remaining structure failures to be judgments of
@@ -471,7 +480,7 @@ The neural-table profile, TEDS / TEDS-S. The generated sets' v0.16.0
 column is on their first truth; v0.17.2 on the corrected truth (§2.2), so
 for timesheets and payroll forms the two differ by more than the engine.
 
-| set | before (v0.15.1) | v0.16.0 | v0.18.0 |
+| set | before (v0.15.1) | v0.16.0 | v0.18.1 |
 |---|---|---|---|
 | payroll forms (generated, 20) | 0.003 | 0.717 / 0.896 | 0.913 / 0.939 |
 | paystubs (generated, 20) | 0.020 | 0.791 / 0.859 | 0.940 / 0.952 |
@@ -479,8 +488,8 @@ for timesheets and payroll forms the two differ by more than the engine.
 | timesheets (generated, 20) | 0.015 | 0.612 / 0.735 | 0.942 / 0.964 |
 | receipts (generated, 20) | 0.022 | 0.625 / 0.651 | 0.929 / 0.953 |
 | CORD receipts (real, 30) | 0.076 | 0.327 / 0.440 | 0.493 / 0.575 |
-| FinTabNet.c (real, 60) | 0.032 | 0.763 / 0.879 | 0.839 / 0.896 |
-| PubTables-1M crops (real, 60) | – | – | 0.797 / 0.877 |
+| FinTabNet.c (real, 60) | 0.032 | 0.763 / 0.879 | 0.840 / 0.896 |
+| PubTables-1M crops (real, 60) | – | – | 0.813 / 0.881 |
 
 PubTables-1M page detection, 40 test pages, IoU ≥ 0.5: F1 0.967 (precision 0.936, recall 1.000).
 
@@ -493,8 +502,9 @@ in full, PubTables-1M's at two thirds of the +0.065 measured on the 60,
 which are also an easier draw. The word-relation network and its choice
 (§6.5) then took the held-out tables to 0.795 (TEDS-S 0.881) and 0.849
 (0.911), while PubTables-1M's 60 — the tables the rules had been found on
-— did not move. The held-out figures are the ones to quote: **0.795** on
-scientific tables, **0.849** on annual-report tables.
+— did not move; the table-crop reader (§6.4) then 0.804 and 0.853. The
+held-out figures are the ones to quote: **0.804** on scientific tables,
+**0.853** on annual-report tables.
 The neural profile reports the same structure without the options that
 change what the reader sees; its text is unchanged. Neither Tesseract
 engine outputs table structure.

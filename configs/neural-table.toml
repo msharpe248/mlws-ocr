@@ -138,6 +138,12 @@ impl = "hybrid"                # the line reader beside the classic decoder (dec
                                # legal-8 84.4 -> 88.5, news-8 88.2 -> 90.2, blocks broad-30 91.1 -> 95.1).
                                # "beam" is the classic decoder alone.
 line_model_path = "data/seq_line_gray15_en.npz+data/seq_line_gray15_en_2.npz+data/seq_line_gray15_en_3.npz"
+line_model_path_table = "data/seq_line_gray16_en.npz+data/seq_line_gray16_en_2.npz+data/seq_line_gray16_en_3.npz"
+                               # table profile, on a table's CROP only (the 'table' hint; whole pages keep gray15):
+                               # = seq_line_gray16, each gray15 member 3 more epochs with all the harvested table
+                               # lines at full weight (gray13's direction, which won report tables and lost receipts;
+                               # receipts never reach it). 240 held-out tables each: PubTables-1M 0.795 -> 0.804,
+                               # FinTabNet.c 0.849 -> 0.853; the 60 scored 0.797 -> 0.813, 0.839 -> 0.840 (2026-10-03)
                                # table profile (2026-10-01, v0.17.2): = seq_line_gray15 -- seq_line_gray12's recipe with
                                # the tables' symbols as 19 more classes (± − – — × ° μ < > ≤ ≥ ’ ‘ “ ” † ‡ · •) and a
                                # symbol-rich synthetic set: PubTables-1M 0.787 -> 0.797, FinTabNet 0.810 -> 0.815, CORD

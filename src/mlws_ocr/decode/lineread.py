@@ -106,6 +106,9 @@ class HybridDecode(BeamDecode):
     defaults = {
         **BeamDecode.defaults,
         "line_model_path": "",     # the line reader's weights; "" = the seq_path scorer
+        "line_model_path_table": "",  # another reader for a table's crop (the 'table' layout hint): one
+                                      # trained harder on table lines, kept off whole pages, whose
+                                      # receipts it reads worse (2026-10-03); "" = line_model_path
         "line_source": "binary",   # the reader's strips: "binary" (as trained) or "gray" --
                                    # the flattened grey page, contrast-normalised, for a
                                    # reader trained on grey strips (2026-09-26 pilot)
@@ -186,8 +189,9 @@ class HybridDecode(BeamDecode):
         p = self.params
         if p["line_mode"] == "off" or page.binary is None:
             return out, debug
-        model = self._load_seq(p["line_model_path"] or p["seq_path"], p["seq_backend"]) \
-            if (p["line_model_path"] or p["seq_path"]) else None
+        path = (p["line_model_path_table"] if p["line_model_path_table"] and page.meta.get("doc_type") == "table"
+                else p["line_model_path"])
+        model = self._load_seq(path or p["seq_path"], p["seq_backend"]) if (path or p["seq_path"]) else None
         if model is None:
             return out, debug
         layout = out.meta["layout"]
