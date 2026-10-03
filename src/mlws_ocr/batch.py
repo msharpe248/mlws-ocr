@@ -8,7 +8,9 @@ Inputs are image files, directories of them (not recursive unless
 ``--recursive``), and PDFs (every page, or ``--pdf-pages``). Each page
 writes ``<out>/<name>.txt`` and ``<name>.hocr`` (``<name>`` = the file stem,
 plus ``_p<N>`` for a PDF page) -- with ``<name>.tables.html`` and
-``<name>.tables.json`` and ``<name>.tables.csv`` when the page has tables -- and a ``batch.json`` summary lists every
+``<name>.tables.json`` and ``<name>.tables.csv`` when the page has tables, and
+``<name>.picture_N.png`` for each picture zone with ``output.pictures`` on --
+and a ``batch.json`` summary lists every
 page with its time, word count and mean word confidence.
 """
 from __future__ import annotations
@@ -51,7 +53,12 @@ def _read_one(path: str, pdf_page: int, name: str, out_dir: str, doc_type: str |
     res = service.read_gray(gray, dpi, doc_type)
     out = Path(out_dir)
     (out / f"{name}.txt").write_text(res["text"])
-    (out / f"{name}.hocr").write_text(res["hocr"])
+    hocr = res["hocr"]
+    if res.get("pictures"):     # each picture cut from the original (in colour) as <name>.picture_N.png
+        from .core.pictures import export
+        export(res["pictures"], gray if path.lower().endswith(".pdf") else path, out, prefix=f"{name}.")
+        hocr = hocr.replace('image "picture_', f'image "{name}.picture_')
+    (out / f"{name}.hocr").write_text(hocr)
     if res.get("tables"):
         (out / f"{name}.tables.html").write_text(res["tables_html"])
         (out / f"{name}.tables.json").write_text(json.dumps(res["tables"], indent=1))

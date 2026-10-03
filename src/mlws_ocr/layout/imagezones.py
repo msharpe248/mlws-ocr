@@ -200,6 +200,11 @@ class DensityImageZones(Stage):
                                   # (2026-09-28: a payroll form's grid was taken for a
                                   # picture, 47.7% of the page's ink, and no table found)
         "grid_run_frac": 0.6,     # ...at least this share of its pixels on such runs
+        "display_height": 0.0,    # > 0: DISPLAY type -- solid letters at least this many times the
+                                  # median glyph's height, a logo's or a letterhead's -- a picture zone
+                                  # too (display_zones), exported with output.pictures (2026-10-03);
+                                  # 0 = off
+        "display_keep_text": True,  # ... its ink still read as text as well (the zone only names it)
     }
 
     def run(self, page: Page) -> tuple[Page, DebugBundle]:
@@ -322,6 +327,27 @@ class DensityImageZones(Stage):
                         break
         if p["protect_text_rows"] and n and zone.any():
             zone = zone & ~text_rows(labels, slices, zone, int(p["row_min_chars"]))
+        # pictures found on the grey page (illumination.grey_pictures): whatever ink
+        # binarization scattered over them is picture, and they are picture zones
+        for x0, y0, x1, y1 in page.meta.get("picture_boxes") or []:
+            zone[y0:y1, x0:x1] = b[y0:y1, x0:x1]
+            for zb in zone_boxes:      # the same picture found on the binary page too: one zone
+                ix = min(zb[2], x1) - max(zb[0], x0)
+                iy = min(zb[3], y1) - max(zb[1], y0)
+                if ix > 0 and iy > 0 and ix * iy >= 0.5 * min((zb[2] - zb[0]) * (zb[3] - zb[1]),
+                                                             (x1 - x0) * (y1 - y0)):
+                    zb[:] = [min(zb[0], x0), min(zb[1], y0), max(zb[2], x1), max(zb[3], y1)]
+                    break
+            else:
+                zone_boxes.append([int(x0), int(y0), int(x1), int(y1)])
+        n_display = 0
+        if p["display_height"] > 0 and n:
+            disp, dboxes = display_zones(labels, slices, areas, scale, float(p["display_height"]),
+                                         float(p["max_aspect"]), zone)
+            n_display = len(dboxes)
+            zone_boxes += dboxes
+            if not p["display_keep_text"]:
+                zone |= disp
         text_only = b & ~zone
 
         out = page.evolve(binary=text_only)
@@ -329,7 +355,44 @@ class DensityImageZones(Stage):
         debug = DebugBundle(
             images={"zones_overlay": overlay_mask(page.gray, zone),
                     "text_only": text_only},
-            scalars={"n_zones": len(zone_boxes),
+            scalars={"n_zones": len(zone_boxes), "display_zones": n_display,
                      "zone_ink_frac": round(float(zone.sum() / max(b.sum(), 1)), 3)},
         )
         return out, debug
+
+
+def display_zones(labels, slices, areas, scale: float, k: float, max_aspect: float,
+                  zone, min_fill: float = 0.25):
+    """DISPLAY type as picture zones, as (mask, boxes): the solid components
+    at least ``k`` times the median glyph's height (a logo's bold letters,
+    a letterhead's name), not long and thin (a rule, a bar: aspect under
+    ``max_aspect``), not hollow (a box, a frame: ink filling ``min_fill`` of
+    the box) and not already a zone, grouped with their neighbours within a
+    median glyph's height.  Size is the classic cue for display type --
+    components far above the average text height set apart as headline
+    or graphic (Fletcher & Kasturi, "A robust algorithm for text string
+    separation from mixed text/graphics images", PAMI 1988)."""
+    hs = np.array([sl[0].stop - sl[0].start for sl in slices
+                   if sl is not None and sl[0].stop - sl[0].start >= 6 * scale])
+    mask = np.zeros(labels.shape, bool)
+    if hs.size < 20:                        # too few glyphs for a body size
+        return mask, []
+    med = float(np.median(hs))
+    for lab, sl in enumerate(slices, 1):
+        if sl is None:
+            continue
+        h, w = sl[0].stop - sl[0].start, sl[1].stop - sl[1].start
+        if (h >= k * med and max(h, w) <= max_aspect * max(1, min(h, w))
+                and areas[lab] >= min_fill * h * w):
+            m = labels[sl] == lab
+            if not (m & zone[sl]).any():
+                mask[sl] |= m
+    if not mask.any():
+        return mask, []
+    gl, _ = ndimage.label(ndimage.binary_dilation(mask, iterations=max(1, int(med))))
+    boxes = []
+    for i, sl in enumerate(ndimage.find_objects(gl), 1):   # the box of the display ink, not its dilation
+        ys, xs = np.nonzero(mask[sl] & (gl[sl] == i))
+        boxes.append([int(sl[1].start + xs.min()), int(sl[0].start + ys.min()),
+                      int(sl[1].start + xs.max() + 1), int(sl[0].start + ys.max() + 1)])
+    return mask, boxes

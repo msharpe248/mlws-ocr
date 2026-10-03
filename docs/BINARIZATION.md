@@ -149,6 +149,18 @@ dark mode 0.14 / 0.08 → 0.71 / 0.83 TEDS, coloured headers 0.61 / 0.71 → 0.8
 form's large, bold logo is dense enough to pass for a ground and is
 inverted (payroll forms 0.913 → 0.910).
 
+**Pictures first (options, 2026-10-03).** A photograph is neither: mostly
+mid-tones, which a threshold scatters into speckle (a mid-grey photo comes
+out nearly white) and which the dark-ground test takes for a band when the
+photo is dark (inverted to nothing). `illumination.grey_pictures` finds
+them on the grey page before either — half of a line-sized window mid-grey
+relative to the page's paper, varied rather than one flat grey, at most
+half paper inside — keeps them out of the inversion and hands them to the
+picture zones. It also keeps the payroll logo, whose stripes are grey, from
+being inverted (0.910 → 0.913); `invert_rect` 0.95 asks a ground to fill its
+box (bands fill 0.98–1.00, the logo 0.85). The pictures can then be cut
+from the original and put back ([HOCR.md §6](HOCR.md)).
+
 ## 4. One threshold per neighbourhood: Sauvola
 
 Flattening removes slow changes in the light; it cannot remove everything —

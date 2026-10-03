@@ -284,6 +284,10 @@ class TextOutput(Stage):
                                          # the rules' / structure network's; "select": the one a learned choice
                                          # (table_wordrel_select, train_wordrel_select.py) prefers (2026-10-01)
         "table_wordrel_select": "",
+        "pictures": False,               # each picture zone named as a file (picture_N.png) in the hOCR's
+                                         # ocr_photo and meta["pictures"], with its box in the original image's
+                                         # frame, for the writers to cut it out and a consumer to put it back
+                                         # (core/pictures.py; 2026-10-03)
         "table_paren_columns": False,    # a column of parenthesised figures beside a column of figures joined
                                          # into it: '18.8 (6)' one cell (wstables.merge_paren_columns; 2026-10-03)
         "table_totals_split": False,     # a receipt's totals block (SUBTOTAL, TAX, CASH ...) a table of its
@@ -963,7 +967,14 @@ class TextOutput(Stage):
         out = page.evolve()
         out.meta["layout"] = layout
         out.meta["text"] = full
-        out.meta["hocr"] = hocr_document(layout, page)
+        if self.params["pictures"]:
+            from ..core.pictures import merge_boxes, to_source
+            shape = page.gray.shape if page.gray is not None else page.binary.shape
+            boxes = merge_boxes(layout.get("image_zones", []), 0.1 * (page.dpi or 300.0))
+            out.meta["pictures"] = [{"file": f"picture_{zi}.png", "bbox": z,
+                                     "bbox_source": to_source(z, page.meta, shape)}
+                                    for zi, z in enumerate(boxes, 1)]
+        out.meta["hocr"] = hocr_document(layout, page, out.meta.get("pictures"))
         out.meta["tables_text"] = tables_text
         # the tables as data (JSON records, nested tables inside their
         # cells) and as HTML with rowspan / colspan
@@ -1051,7 +1062,7 @@ def _esc(t: str) -> str:
              .replace('"', "&quot;"))
 
 
-def hocr_document(layout: dict, page) -> str:
+def hocr_document(layout: dict, page, pictures: list | None = None) -> str:
     """The page as hOCR (T. Breuel, "The hOCR Microformat for OCR Workflow
     and Results", ICDAR 2007; hOCR 1.2), with the structure the layout
     stages found:
@@ -1063,7 +1074,11 @@ def hocr_document(layout: dict, page) -> str:
                 ocrx_word bbox, x_wconf (calibrated p_correct as a percentage,
                           else the beam margin), x_conf (raw)
           ocr_table   a ruled table's box, holding the lines inside it
-          ocr_photo   an image zone (no text)
+          ocr_photo   an image zone (no text); with ``pictures`` (core/pictures.py:
+                      the zones, near ones merged) also ``image "picture_N.png"``
+                      (hOCR's image property, the
+                      file the writers cut) and ``x_source_bbox`` (its box in the
+                      original image, where it goes back)
           ocr_separator  a ruling
 
     A line belongs to the block its ``block`` index names; lines with no
@@ -1193,8 +1208,11 @@ def hocr_document(layout: dict, page) -> str:
             emit_area(blocks[bi], by_block[bi])
     if orphans:
         emit_area(union(orphans), orphans)
-    for zi, z in enumerate(layout.get("image_zones", []), 1):
-        out.append(f'<div class="ocr_photo" id="image_1_{zi}" title="bbox {bb(z)}"></div>')
+    photos = ([(p["bbox"], f'; image "{p["file"]}"; x_source_bbox {bb(p["bbox_source"])}') for p in pictures]
+              if pictures is not None else [(z, "") for z in layout.get("image_zones", [])])
+    for zi, (z, extra) in enumerate(photos, 1):
+        # single-quoted: the image property's file name is in double quotes (hOCR 1.2)
+        out.append(f'<div class="ocr_photo" id="image_1_{zi}" title=\'bbox {bb(z)}{extra}\'></div>')
     for ri, r in enumerate(list(layout.get("rules_h", [])) + list(layout.get("rules_v", [])), 1):
         if isinstance(r, (list, tuple)) and len(r) == 4:
             out.append(f'<div class="ocr_separator" id="separator_1_{ri}" title="bbox {bb(r)}"></div>')

@@ -6,7 +6,8 @@
                          {"text", "hocr", "words": [{text, box, p_correct}],
                           "tables": [{box, n_rows, n_cols, source, cells: [{row,
                           col, rowspan, colspan, box, text, tables?}]}],
-                          "tables_html", "summary": {...}, "ms"}
+                          "tables_html", "pictures": [{file, bbox, bbox_source}]
+                          (with output.pictures), "summary": {...}, "ms"}
     GET  /health         {"ok": true, "config", "workers"}
 
 Same standard-library server as the inspector (no framework dependency);
@@ -84,6 +85,7 @@ def read_gray(gray, dpi, doc_type: str | None = None, t0: float | None = None) -
     return {"text": page.meta.get("text", ""), "hocr": page.meta.get("hocr", ""),
             "words": words, "tables": page.meta.get("tables", []),
             "tables_html": page.meta.get("tables_html", ""), "tables_csv": page.meta.get("tables_csv", ""),
+            "pictures": page.meta.get("pictures", []),
             "summary": summary,
             "ms": round(1000 * (time.perf_counter() - t0))}
 

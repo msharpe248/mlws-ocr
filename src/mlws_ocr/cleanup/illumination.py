@@ -42,6 +42,17 @@ class MedianBackgroundIllumination(Stage):
                                # header band with white text, a black title bar -- turned to dark on
                                # light before anything else (dark_ground), as print never needs; also
                                # keeps a dark page from being taken for a scanner frame (2026-10-03)
+        "grey_pictures": False,  # pictures found on the GREY page first (grey_pictures): a photograph's
+                                 # varied mid-tones, which binarization scatters (a mid-grey photo comes
+                                 # out nearly white, its edge a dotted frame) and the dark-ground test
+                                 # takes for a band (a dark photo inverted to nothing).  They are kept
+                                 # out of the inversion and handed to imagezones as picture zones
+                                 # (meta["picture_boxes"]; 2026-10-03)
+        "invert_rect": 0.85,     # a dark region is a ground only if it fills this much of its box; 0.95
+                                 # keeps a logo's bold letters (0.85 after deskew on the payroll forms)
+                                 # from being inverted, where a band or a dark page fills 0.98-1.00
+                                 # (measured on the screenshot set's dark and coloured-header tables,
+                                 # 2026-10-03)
         "frame_blur_300dpi": 15,
         "frame_min_edges": 3,  # a frame touches at least three of the image's four edges
                                # (a surround touches four, a lid's strip three); a dark
@@ -55,8 +66,13 @@ class MedianBackgroundIllumination(Stage):
         p = self.params
         gray = page.gray
         inverted = 0
+        pictures, pic_boxes = None, []
+        if p["grey_pictures"]:
+            pictures, pic_boxes = grey_pictures(gray, page.dpi or 300.0)
         if p["invert_dark"]:
-            region = dark_ground(gray, page.dpi or 300.0)
+            region = dark_ground(gray, page.dpi or 300.0, rect=float(p["invert_rect"]))
+            if pictures is not None:
+                region &= ~pictures
             inverted = int(region.sum())
             if inverted:
                 gray = invert_regions(gray, region, float(p["invert_mid"]))
@@ -86,12 +102,15 @@ class MedianBackgroundIllumination(Stage):
 
         out = page.evolve(gray=corrected)
         out.meta.setdefault("corrections", {})["illumination"] = "median_background"
+        if p["grey_pictures"]:
+            out.meta["picture_boxes"] = pic_boxes
         debug = DebugBundle(
             images={"input": gray, "background": background, "corrected": corrected},
             scalars={"background_min": round(float(background.min()), 3),
                      "background_max": round(float(background.max()), 3),
                      "frame_pixels": frame_px, "stretch_gain": stretched,
-                     "inverted_share": round(inverted / max(1, gray.size), 3)},
+                     "inverted_share": round(inverted / max(1, gray.size), 3),
+                     "grey_pictures": len(pic_boxes)},
         )
         return out, debug
 
@@ -114,6 +133,60 @@ def invert_regions(gray: np.ndarray, region: np.ndarray, mid: float = 0.0) -> np
     ring = ndimage.binary_dilation(region, iterations=2) & ~region & (gray < 0.95)
     out[ring] = 1.0
     return out
+
+
+def grey_pictures(gray: np.ndarray, dpi: float, lo: float = 0.12, hi: float = 0.88,
+                  share: float = 0.5, flat: float = 0.5, min_in: float = 0.4, max_page: float = 0.6,
+                  max_paper: float = 0.5):
+    """PICTURES on the grey page -- photographs, shaded artwork -- as (mask, boxes).
+
+    Print is two-toned: paper and ink, mid-tones only on a stroke's
+    anti-aliased edge, so over a window about a text line tall (40 px at
+    300 dpi) at most a small share of a text region is mid-grey.  A
+    photograph is mostly mid-tones.  Where at least ``share`` of the window
+    is between ``lo`` and ``hi`` is a picture's core, grown through the
+    non-paper pixels it touches; a region at least ``min_in`` inch on both
+    sides, under ``max_page`` of the page and at most ``max_paper`` paper
+    inside its box (blurred small type is mid-grey strokes on paper), is
+    kept when it is VARIED -- under ``flat`` of its non-paper pixels
+    within 0.03 of their median -- because a coloured header band or a grey
+    fill is mid-grey too, but one grey with letters on it (they are the
+    dark-ground test's).  The tone-texture rule of the classic
+    text / halftone / graphics block classifiers (Wahl, Wong & Casey, "Block
+    segmentation and text extraction in mixed text/image documents", CGIP
+    1982; Wang & Srihari, "Classification of newspaper image blocks using
+    texture analysis", CVGIP 1989), here on grey levels before binarization
+    rather than on the binary runs after it.  Levels are taken relative to
+    the page's paper (its 90th percentile)."""
+    w = max(9, int(round(40 * dpi / 300.0)) | 1)
+    # levels relative to the page's own paper (a grey or dim scan's paper sits at 0.85 and its
+    # noise is mid-tone: unscaled, a whole invoice page was one 'picture')
+    paper = max(0.3, float(np.percentile(gray, 90)))
+    gray = np.clip(gray / paper, 0.0, 1.0)
+    mid = (gray > lo) & (gray < hi)
+    core = ndimage.uniform_filter(mid.astype(np.float32), size=w) >= share
+    keep = np.zeros(gray.shape, bool)
+    boxes: list[list[int]] = []
+    if not core.any():
+        return keep, boxes
+    grown = ndimage.binary_propagation(core, mask=gray < hi)
+    lab, n = ndimage.label(ndimage.binary_closing(grown, iterations=3))
+    side = min_in * dpi
+    for i, sl in enumerate(ndimage.find_objects(lab), 1):
+        if sl[0].stop - sl[0].start < side or sl[1].stop - sl[1].start < side:
+            continue
+        if (sl[0].stop - sl[0].start) * (sl[1].stop - sl[1].start) > max_page * gray.size:
+            continue                       # most of the page: a shaded or dim page, not a picture on it
+        if (gray[sl] >= hi).mean() > max_paper:
+            continue                       # mostly paper: small blurred type (a 72-dpi crop magnified
+                                           # is mid-grey strokes on paper, 0.85 of its box), not a photo (0.0)
+        m = lab[sl] == i
+        v = gray[sl][m & (gray[sl] < hi)]
+        if v.size == 0 or np.mean(np.abs(v - np.median(v)) < 0.03) >= flat:
+            continue
+        keep[sl] = True                    # the whole box: a picture's light parts are picture too
+        boxes.append([int(sl[1].start), int(sl[0].start), int(sl[1].stop), int(sl[0].stop)])
+    return keep, boxes
 
 
 def dark_ground(gray: np.ndarray, dpi: float, dark: float = 0.45, share: float = 0.6,

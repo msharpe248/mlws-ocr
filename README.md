@@ -205,7 +205,10 @@ python3 -m venv .venv && .venv/bin/pip install -e ".[dev]"
 Every run writes `text.txt` and `page.hocr` — hOCR with the page's
 structure (blocks in reading order, lines, words with boxes and a
 calibrated probability each, tables, image zones, rulings) — beside the
-persisted page. The service returns
+persisted page. With `--set output.pictures=true` each picture (a photograph, a logo) is also
+cut from the original image as `picture_N.png`, and its `ocr_photo` names
+the file and its box in the original, so it can be put back
+([docs/HOCR.md §6](docs/HOCR.md)). The service returns
 the same as JSON, one page per worker process, so a machine with N cores
 reads about N pages at once (`scripts/service_load.py` is its load test).
 `mlws-ocr batch` does the same for files, directories and whole PDFs: 16

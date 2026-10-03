@@ -29,7 +29,7 @@ from .imgio import load_gray, save_image
 from .stage import DebugBundle
 
 
-def _persist_page(page: Page, into: Path) -> None:
+def _persist_page(page: Page, into: Path, source=None) -> None:
     into.mkdir(parents=True, exist_ok=True)
     state = {"dpi": page.dpi, "meta": page.meta, "arrays": []}
     if page.gray is not None:
@@ -48,6 +48,9 @@ def _persist_page(page: Page, into: Path) -> None:
         (into / "tables.html").write_text(page.meta["tables_html"])
         (into / "tables.json").write_text(json.dumps(page.meta["tables"], indent=1))
         (into / "tables.csv").write_text(page.meta.get("tables_csv", ""))
+    if page.meta.get("pictures") and source is not None:
+        from .pictures import export
+        export(page.meta["pictures"], source, into)
 
 
 def _persist_debug(debug: DebugBundle, params: dict, duration_ms: float,
@@ -83,6 +86,7 @@ def run_pipeline(config: RunConfig, image_path: str | Path,
     if doc_type:
         meta["doc_type"] = doc_type
     page = Page(gray=gray, dpi=dpi, meta=meta)
+    source = gray if image_path.suffix.lower() == ".pdf" else image_path   # where pictures are cut from
     _persist_page(page, run_dir / "00_ingest" / "page")
 
     manifest = {"source": str(image_path), "config": config.source, "stages": []}
@@ -92,7 +96,7 @@ def run_pipeline(config: RunConfig, image_path: str | Path,
         page, debug = stage.run(page)
         dt_ms = (time.perf_counter() - t0) * 1000
         stage_dir = run_dir / f"{i:02d}_{spec.slot}.{spec.impl}"
-        _persist_page(page, stage_dir / "page")
+        _persist_page(page, stage_dir / "page", source)
         _persist_debug(debug, stage.params, dt_ms, stage_dir)
         manifest["stages"].append(
             {"index": i, "slot": spec.slot, "impl": spec.impl,

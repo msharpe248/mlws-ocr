@@ -57,7 +57,8 @@ ocr_page            the whole page:  bbox 0 0 W H; ppageno 0
 ├── ocr_table       a table, where it falls in reading order
 │   └── <tr> / <td rowspan colspan title="bbox …">   the cells
 │       └── ocr_line → ocrx_word                     the words in each cell
-├── ocr_photo       a picture zone (no text inside)
+├── ocr_photo       a picture zone (no text inside); with output.pictures also
+│                   image "picture_N.png" and x_source_bbox (§6)
 └── ocr_separator   a rule found on the page
 ```
 
@@ -71,6 +72,8 @@ The properties:
 | `x_wconf` | `ocrx_word` | the word's **confidence, 0–100**: the calibrated probability that it is right, as a percentage (the neural profile), or the decoder's margin (the classic one) |
 | `x_conf` | `ocrx_word` | the decoder's own raw confidence, kept beside the calibrated one |
 | `ppageno` | `ocr_page` | the page number, from 0 |
+| `image "file"` | `ocr_photo` | with `output.pictures`: the file the picture was cut into, beside the hOCR (§6) |
+| `x_source_bbox x0 y0 x1 y1` | `ocr_photo` | with `output.pictures`: the picture's box in the **original** image (§4, §6) |
 
 **Confidence you can act on.** In the neural profile `x_wconf` is a
 *calibrated* probability ([DECODING.md §4](DECODING.md)): of the words
@@ -121,6 +124,8 @@ image, scale by the magnify factor and rotate back by the deskew angle —
 both recorded in a run's `page.json` (`meta.magnify_scale` and
 `meta.corrections.deskew_deg`). The `ocr_page` box gives the processed
 page's size.
+`core/pictures.py` `to_source` does exactly that, and pictures carry the
+result as `x_source_bbox` (§6).
 
 ## 5. Reading it
 
@@ -161,7 +166,44 @@ Other tools that read hOCR:
   browser.
 - Any HTML or XML library (`lxml`, BeautifulSoup, a browser's DOM).
 
-## 6. hOCR and its relatives
+## 6. Pictures out, and back in
+
+With `--set output.pictures=true` each picture zone is cut out of the
+**original** image — in its colour, at its resolution — and saved beside the
+hOCR, and the hOCR says where it went and where it goes back:
+
+```html
+<div class="ocr_photo" id="image_1_1"
+     title='bbox 2831 53 3214 196; image "picture_1.png"; x_source_bbox 2853 78 3240 230'></div>
+```
+
+`bbox` is the processed page's frame, like every other box (§4);
+`x_source_bbox` is the same picture mapped back to the original image —
+the deskew turn undone about the page centre, then the magnification — so
+a consumer can paste `picture_1.png` back into a rebuilt page at that box.
+Picture zones lying within a tenth of an inch of each other are one
+picture (a logo's separate letters). The run writes `picture_N.png` in the
+output stage's directory; `batch` writes `<name>.picture_N.png` (and names
+it so in the hOCR); the service returns the boxes as `"pictures"`. A PDF
+page is cut from its rendering, in grey.
+
+What becomes a picture zone (`imagezones`, [SEGMENTATION.md](SEGMENTATION.md)):
+solid or dense ink too big for type, and two options added for this
+(2026-10-03):
+
+- `illumination.grey_pictures` — photographs found on the **grey** page,
+  before binarization scatters them: mostly mid-tones over a line-sized
+  window, and varied (a flat coloured band with letters on it is not a
+  picture). They are kept out of the dark-ground inversion, which had taken
+  a dark photo for a dark-mode band and inverted it to nothing.
+- `imagezones.display_height` — display type, solid letters several times
+  the body glyph's height (a logo's lettering), named as a picture zone;
+  `display_keep_text` (on) still reads its letters as text too.
+
+And `illumination.invert_rect` raises the bar a dark region must clear to be
+inverted as a ground, so that a bold logo stays a logo.
+
+## 7. hOCR and its relatives
 
 | format | shape | who uses it |
 |---|---|---|
