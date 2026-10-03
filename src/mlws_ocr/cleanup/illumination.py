@@ -34,6 +34,10 @@ class MedianBackgroundIllumination(Stage):
                              # is stretched so that level is black -- Sauvola found 0.4% of a
                              # CORD receipt's page as ink and no line (2026-09-29).  0 = off
         "stretch_max_gain": 5.0,
+        "invert_mid": 0.0,     # > 0: in a dark region only the extremes are inverted -- below this and
+                               # above 1 - this -- the middle tones kept (lightness flipped where it is
+                               # ground or letters, left where it is an image, an icon, a grey fill;
+                               # the owner's idea, 2026-10-03); 0 = the whole region inverted
         "invert_dark": False,  # light text on a dark ground -- a screenshot in dark mode, a coloured
                                # header band with white text, a black title bar -- turned to dark on
                                # light before anything else (dark_ground), as print never needs; also
@@ -55,7 +59,7 @@ class MedianBackgroundIllumination(Stage):
             region = dark_ground(gray, page.dpi or 300.0)
             inverted = int(region.sum())
             if inverted:
-                gray = invert_regions(gray, region)
+                gray = invert_regions(gray, region, float(p["invert_mid"]))
 
         small = ndimage.zoom(gray, 1.0 / p["downsample"], order=1)
         bg_small = ndimage.median_filter(small, size=p["window"], mode="nearest")
@@ -92,7 +96,7 @@ class MedianBackgroundIllumination(Stage):
         return out, debug
 
 
-def invert_regions(gray: np.ndarray, region: np.ndarray) -> np.ndarray:
+def invert_regions(gray: np.ndarray, region: np.ndarray, mid: float = 0.0) -> np.ndarray:
     """Each connected dark-ground region inverted and scaled so that its own
     ground becomes paper (a mid-grey header band inverts to light grey, not
     white, and its edge then reads as a rule), and the anti-aliased ring of
@@ -102,7 +106,11 @@ def invert_regions(gray: np.ndarray, region: np.ndarray) -> np.ndarray:
     for i, sl in enumerate(ndimage.find_objects(lab), 1):
         m = lab[sl] == i
         ground = float(np.median(gray[sl][m]))          # the band's own grey (its letters are few)
-        out[sl][m] = np.clip((1.0 - gray[sl][m]) / max(1e-3, 1.0 - ground), 0.0, 1.0)
+        v = gray[sl][m]
+        inv = np.clip((1.0 - v) / max(1e-3, 1.0 - ground), 0.0, 1.0)
+        if mid > 0:                                      # only the extremes: ground and letters
+            inv = np.where((v < mid) | (v > 1.0 - mid), inv, v)
+        out[sl][m] = inv
     ring = ndimage.binary_dilation(region, iterations=2) & ~region & (gray < 0.95)
     out[ring] = 1.0
     return out
