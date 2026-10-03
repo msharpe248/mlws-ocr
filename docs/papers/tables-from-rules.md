@@ -226,7 +226,8 @@ measured on cached words:
   and each item is one row (CORD 0.493 → 0.518). Splitting the totals
   block off as well would take CORD to 0.581, but the generated sets'
   truth keeps totals in the table and CORD's leaves them out — a
-  convention conflict, left unresolved.
+  convention conflict, left off: neither truth nor scoring is bent to
+  suit one set.
 
 ### 4.2 On the page: one graph of rules and whitespace
 
