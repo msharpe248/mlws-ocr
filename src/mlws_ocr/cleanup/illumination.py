@@ -34,6 +34,10 @@ class MedianBackgroundIllumination(Stage):
                              # is stretched so that level is black -- Sauvola found 0.4% of a
                              # CORD receipt's page as ink and no line (2026-09-29).  0 = off
         "stretch_max_gain": 5.0,
+        "invert_dark": False,  # light text on a dark ground -- a screenshot in dark mode, a coloured
+                               # header band with white text, a black title bar -- turned to dark on
+                               # light before anything else (dark_ground), as print never needs; also
+                               # keeps a dark page from being taken for a scanner frame (2026-10-03)
         "frame_blur_300dpi": 15,
         "frame_min_edges": 3,  # a frame touches at least three of the image's four edges
                                # (a surround touches four, a lid's strip three); a dark
@@ -46,6 +50,12 @@ class MedianBackgroundIllumination(Stage):
     def run(self, page: Page) -> tuple[Page, DebugBundle]:
         p = self.params
         gray = page.gray
+        inverted = 0
+        if p["invert_dark"]:
+            region = dark_ground(gray, page.dpi or 300.0)
+            inverted = int(region.sum())
+            if inverted:
+                gray = invert_regions(gray, region)
 
         small = ndimage.zoom(gray, 1.0 / p["downsample"], order=1)
         bg_small = ndimage.median_filter(small, size=p["window"], mode="nearest")
@@ -76,9 +86,60 @@ class MedianBackgroundIllumination(Stage):
             images={"input": gray, "background": background, "corrected": corrected},
             scalars={"background_min": round(float(background.min()), 3),
                      "background_max": round(float(background.max()), 3),
-                     "frame_pixels": frame_px, "stretch_gain": stretched},
+                     "frame_pixels": frame_px, "stretch_gain": stretched,
+                     "inverted_share": round(inverted / max(1, gray.size), 3)},
         )
         return out, debug
+
+
+def invert_regions(gray: np.ndarray, region: np.ndarray) -> np.ndarray:
+    """Each connected dark-ground region inverted and scaled so that its own
+    ground becomes paper (a mid-grey header band inverts to light grey, not
+    white, and its edge then reads as a rule), and the anti-aliased ring of
+    edge pixels just outside it set to paper too."""
+    out = gray.astype(np.float32).copy()
+    lab, n = ndimage.label(region)
+    for i, sl in enumerate(ndimage.find_objects(lab), 1):
+        m = lab[sl] == i
+        ground = float(np.median(gray[sl][m]))          # the band's own grey (its letters are few)
+        out[sl][m] = np.clip((1.0 - gray[sl][m]) / max(1e-3, 1.0 - ground), 0.0, 1.0)
+    ring = ndimage.binary_dilation(region, iterations=2) & ~region & (gray < 0.95)
+    out[ring] = 1.0
+    return out
+
+
+def dark_ground(gray: np.ndarray, dpi: float, dark: float = 0.45, share: float = 0.6,
+                rect: float = 0.85) -> np.ndarray:
+    """The pixels on a DARK GROUND, to be inverted: light text on a dark page or
+    band.  Over a window about a text line tall (40 px at 300 dpi) a share of
+    at least ``share`` of the pixels darker than ``dark`` is ground, not ink --
+    strokes, however bold, never fill most of a line-sized window -- and the
+    region is that core grown through the darkish pixels it touches (not into
+    the white page round a band) with everything it encloses (the light letters
+    on it); and only a region filling ``rect`` of its bounding box is a ground
+    (a page, a band, a bar), where a logo's huge bold letters are ragged.  Inverse
+    text detection by local polarity: the document-image rule that text is
+    darker than its own surround, applied region by region (cf. Kasar, Kumar &
+    Ramakrishnan, "Font and background color independent text binarization",
+    CBDAR 2007, which binarizes each component against its own polarity)."""
+    w = max(9, int(round(40 * dpi / 300.0)) | 1)
+    frac = ndimage.uniform_filter((gray < dark).astype(np.float32), size=w)
+    core = frac >= share
+    if not core.any():
+        return core
+    # grown only through darkish pixels (the band, not the white page round it, which would
+    # turn into a black frame), then closed over what it encloses (the light letters on it,
+    # which a smoothed test had left out, so they came back hollow)
+    grown = ndimage.binary_fill_holes(ndimage.binary_propagation(core, mask=gray < 0.6))
+    # a ground is a rectangle -- a dark page, a header band, a title bar -- filling its box;
+    # very large bold type (a logo's 'WHD') also fills line-sized windows but is ragged
+    lab, n = ndimage.label(grown)
+    keep = np.zeros_like(grown)
+    for i, sl in enumerate(ndimage.find_objects(lab), 1):
+        m = lab[sl] == i
+        if m.sum() >= rect * m.size:
+            keep[sl] |= m
+    return keep
 
 
 def scanner_frame(gray: np.ndarray, dark: float, size: int, min_edges: int = 3) -> np.ndarray:

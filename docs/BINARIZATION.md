@@ -124,6 +124,31 @@ becomes black (`illumination.stretch_low = 0.35`, neural-table):
 Measured on the table sets: FinTabNet.c 0.766 → **0.789** TEDS (a header in
 pale grey now read), CORD structure 0.487 → 0.541 (RESEARCH, 2026-09-29).
 
+### Light text on a dark ground
+
+Print is dark ink on light paper, and every threshold here assumes it. A
+screenshot need not be: a page in dark mode is light text on near-black, and
+a table's coloured header bar carries white letters. Thresholded as they are,
+the dark ground becomes "ink" and the letters holes in it — and a dark page
+touching every edge looks exactly like a scanner's black frame, which the
+step above paints white, text and all.
+
+So the table profile turns such regions round first
+(`illumination.invert_dark`, `dark_ground`). Over a window about a text line
+tall (40 px at 300 dpi), if most of the pixels are dark, that is ground, not
+ink: strokes never fill most of a line-sized window. The region grows
+through the darkish pixels it touches, takes in what it encloses (the light
+letters on it), and must be close to a rectangle — a page, a band, a bar —
+filling 85% of its box. Each region is inverted and scaled so that its own
+ground becomes paper, and the anti-aliased ring at its edge is set to paper
+too, or it reads as a rule.
+
+Measured on the screenshot set (80 tables drawn by a browser, six styles):
+dark mode 0.14 / 0.08 → 0.71 / 0.83 TEDS, coloured headers 0.61 / 0.71 → 0.87
+/ 0.79, the set 0.725 → 0.860; printed sets unchanged but one: a payroll
+form's large, bold logo is dense enough to pass for a ground and is
+inverted (payroll forms 0.913 → 0.910).
+
 ## 4. One threshold per neighbourhood: Sauvola
 
 Flattening removes slow changes in the light; it cannot remove everything —

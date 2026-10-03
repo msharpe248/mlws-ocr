@@ -129,3 +129,27 @@ def test_faint_rules_find_a_light_grey_hairline_not_a_text_row_or_a_shaded_band(
     assert MorphologicalRulings().run(page)[0].meta["layout"]["rules_h"] == []
     rules = MorphologicalRulings(faint_depth=0.06).run(page)[0].meta["layout"]["rules_h"]
     assert len(rules) == 1 and rules[0][1] == 40
+
+
+def test_dark_ground_finds_a_dark_band_and_its_light_letters_but_not_black_text():
+    from mlws_ocr.cleanup.illumination import dark_ground
+    g = np.ones((300, 600), np.float32)
+    g[40:100, 20:580] = 0.3                      # a dark header band ...
+    for x in range(40, 540, 40):
+        g[60:80, x:x + 18] = 0.95                # ... with light letters on it
+    for x in range(40, 540, 30):
+        g[180:210, x:x + 4] = 0.05               # ordinary black text on the page
+    r = dark_ground(g, 300.0)
+    assert r[40:100, 20:580].mean() > 0.95       # the band, letters included (filled)
+    assert not r[150:300].any()                  # black text on white is not dark ground
+    assert not r[:30].any() and not r[110:140].any()   # the white page round the band stays
+
+
+def test_dark_ground_leaves_a_logos_huge_bold_letters():
+    from mlws_ocr.cleanup.illumination import dark_ground
+    g = np.ones((300, 600), np.float32)
+    for x0 in (40, 200, 360):                     # three huge bold letters: ragged, not a band
+        g[40:240, x0:x0 + 120] = 0.05
+        g[100:180, x0 + 40:x0 + 80] = 1.0         # a counter
+        g[40:140, x0 + 60:x0 + 120] = 1.0         # a notch: the shape is not a rectangle
+    assert not dark_ground(g, 300.0).any()

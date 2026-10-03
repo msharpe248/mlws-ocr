@@ -181,6 +181,17 @@ and the data makers read them from any path
 Payroll forms, paystubs, invoices, timesheets and receipts, drawn by the
 project itself with exact nested truth — see §7.
 
+### The screenshot set
+
+`data/tables/screens`: 80 tables as a screen shows them. Real structures and
+text — the HTML truth of 40 FinTabNet.c and 40 PubTables-1M test tables
+already in `data/tables/` — drawn as web pages in six styles (plain, a light
+grid, zebra stripes, dark mode, a coloured header, spreadsheet gridlines) and
+captured by headless Chrome at 96 and 192 dpi; the truth is exactly the HTML
+drawn. Made by `scripts/make_screen_set.py --n 80` (needs Google Chrome).
+Measured with `eval_tables.py data/tables/screens --pages 80 --doc-type table
+--config configs/neural-table.toml --set output.ws_table_doc_types=table`.
+
 ## 5. Text
 
 ### Project Gutenberg (public-domain books)

@@ -88,6 +88,7 @@ run".
 | **blocks** | the text zones of the letter and legal sets, each read alone | recognition with the layout question removed |
 | **synthetic** | one page in the held-out Verdana, three severities | the regression guard |
 | **table sets** | see [TABLES.md §8](TABLES.md) | table structure (TEDS) |
+| **screens** | 80 tables drawn by a browser in six styles, 96 / 192 dpi | screenshots: anti-aliased type, colour, dark mode |
 
 The exact command line for each is in [DATA_SOURCES.md §10](DATA_SOURCES.md).
 One rule applies to all of them: **pass `--config`**. Without it the
