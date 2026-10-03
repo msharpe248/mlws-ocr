@@ -89,7 +89,7 @@ between 0.00 and 0.03.
 | invoices | generated: line items with spanned totals, five rule styles (20 pages) | – | 0.967 / 0.981 |
 | timesheets | generated: two-level spanned headers, five rule styles (20 pages) | – | 0.942 / 0.964 |
 | receipts | generated: thermal-roll receipts, whitespace or a header rule (20 pages) | – | 0.929 / 0.953 |
-| real receipts | CORD photographed receipts, their line items as the table (30 receipts) | – | 0.493 / 0.575 |
+| real receipts | CORD photographed receipts, their line items as the table (30 receipts) | – | 0.518 / 0.612 |
 | annual-report tables | real financial tables, FinTabNet.c, ruled by whitespace (60 tables; on 240 held-out ones 0.853 / 0.909) | 0.607 / 0.781 | **0.840 / 0.896** |
 | scientific tables | real tables from papers, PubTables-1M test crops (60 tables; on 240 held-out ones 0.804 / 0.882); page-level detection F1 0.967 at IoU 0.5 (40 pages, v0.17.2) | – | 0.813 / 0.881 |
 
@@ -464,7 +464,7 @@ column layout and form structure are the open problems. Tables are the
 current focus ([docs/TABLES.md](docs/TABLES.md)): the generated business
 sets read at 0.91-0.97 TEDS, real financial tables at 0.85 and scientific
 tables at 0.80 (on tables no decision looked at), and photographed receipts
-at 0.49.
+at 0.52.
 
 The small items left on the text side were measured and closed or
 recorded as residuals (the masked card numbers and the touching words on

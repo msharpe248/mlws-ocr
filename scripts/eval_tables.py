@@ -196,12 +196,16 @@ def teds(pred: str, truth: str, structure_only: bool = False) -> float:
 
 def engine_table_html(page: Page) -> str:
     """The page's largest table as HTML: the stage's cells (with their spans when it
-    records them) and the words the output placed in them."""
+    records them) and the words the output placed in them.  A table the engine
+    marks as a receipt's totals block (``role: "totals"``, wstables.split_totals)
+    is a key-value summary, not the page's table, and is passed over while
+    another table is there (2026-10-03)."""
     tables = page.meta.get("layout", {}).get("tables", [])
     grids = page.meta.get("tables_text", [])
     if not tables:
         return "<table></table>"
-    k = max(range(len(tables)), key=lambda i: len(tables[i]["cells"]))
+    cand = [i for i in range(len(tables)) if tables[i].get("role") != "totals"] or list(range(len(tables)))
+    k = max(cand, key=lambda i: len(tables[i]["cells"]))
     t, grid = tables[k], grids[k] if k < len(grids) else None
     cells = []
     for c in t["cells"]:

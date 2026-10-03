@@ -278,6 +278,9 @@ table_wordrel_select = "data/wordrel_select.npz"
                                # 240 held-out tables each: PubTables-1M 0.759 -> 0.795, FinTabNet.c 0.810 -> 0.849;
                                # the 60 scored 0.797 -> 0.797, 0.815 -> 0.839; business sets and CORD unchanged
                                # (2026-10-02)
+table_item_rows = true         # table profile: a receipt's two-line items (the name on its own line, then quantity /
+                               # price / amount, or the other way round) one row each, the name in its own column:
+                               # CORD 0.493 -> 0.518; business sets level (timesheets 0.944 -> 0.942) (2026-10-03)
 table_cell_lines = true        # table profile: a row's words read line by line in the split network's grid (a wrapped cell
                                # read 'We product, investigations'): PubTables-1M +0.011, FinTabNet +0.002 (2026-09-30)
 table_label_rowspans = true    # table profile: a table's crop: a first-column label spans the rows of sub-labels beneath it

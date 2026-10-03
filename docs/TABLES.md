@@ -189,7 +189,7 @@ was "We are subject to lawsuits, investigations …"; `table_cell_lines`);
 on a table's crop a first-column label spans the rows of sub-labels beneath
 it ("Sex, n (%)" over Men and Women; `table_label_rowspans`), the
 PubTables-1M convention, though not a total row or a wrapped line beneath
-it. The three: PubTables-1M 0.755 → 0.779, FinTabNet 0.807 → 0.810. A total whose label is set to the right
+it. A receipt's two-line items — the name on its own line (wrapped over two when long), the quantity, price and amount on the next, or the figures first — are one row each, the name in its own column (`table_item_rows`; CORD 0.493 → 0.518). The three: PubTables-1M 0.755 → 0.779, FinTabNet 0.807 → 0.810. A total whose label is set to the right
 ("Subtotal", "Total Due") becomes one cell spanning to its figures (invoices
 0.847 → 0.958); tables side by side (a paystub's earnings beside its
 deductions) are nested into one layout.
@@ -307,7 +307,7 @@ The evaluation sets, and where they stand (neural-table, TEDS / TEDS-S):
 | annual-report tables (FinTabNet.c) | 60 | 0.763 | 0.840 / 0.896 |
 | scientific tables (PubTables-1M) | 60 | – | 0.813 / 0.881 |
 | scientific pages, detection F1 | 40 | – | 0.967 |
-| real receipts (CORD) | 30 | 0.327 | 0.493 / 0.575 |
+| real receipts (CORD) | 30 | 0.327 | 0.518 / 0.612 |
 
 The two real crop sets were also read on the 240 held-out tables of the same draws, none of which any decision looked at: PubTables-1M 0.804 / 0.882, FinTabNet.c 0.853 / 0.909 (v0.18.1; 0.759 and 0.810 before the word-relation network) — the 60 flatter PubTables-1M ([MEASUREMENT.md §4](MEASUREMENT.md)).
 

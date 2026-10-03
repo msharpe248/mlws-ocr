@@ -284,6 +284,11 @@ class TextOutput(Stage):
                                          # the rules' / structure network's; "select": the one a learned choice
                                          # (table_wordrel_select, train_wordrel_select.py) prefers (2026-10-01)
         "table_wordrel_select": "",
+        "table_totals_split": False,     # a receipt's totals block (SUBTOTAL, TAX, CASH ...) a table of its
+                                         # own, apart from the items (wstables.split_totals; 2026-10-03)
+        "table_item_rows": False,        # a receipt's two-line items (name, then quantity / price / amount)
+                                         # one row each, the name in its own column (wstables.merge_item_rows;
+                                         # tables found on a page; 2026-10-03)
         "table_cell_lines": False,       # a table's row read line by line, not by x alone: a wrapped
                                          # cell's lines no longer interleave (sepnet.grid_table; 2026-09-30)
         "table_label_rowspans": False,   # a table's crop: a first-column label spans the rows beneath it
@@ -927,6 +932,12 @@ class TextOutput(Stage):
                 found = [self._net_structure(t, page, words) for t in found]
             if self.params["table_split_path"]:
                 found = [self._split_or_rules(t, page, words) for t in found]
+            if self.params["table_totals_split"]:
+                from ..layout.wstables import split_totals
+                found = [p for t in found for p in split_totals(t)]
+            if self.params["table_item_rows"]:
+                from ..layout.wstables import merge_item_rows
+                found = [merge_item_rows(t) for t in found]
             if self.params["span_labels"]:
                 from ..layout.wstables import span_set_right_labels
                 found = [span_set_right_labels(t) for t in found]

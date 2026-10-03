@@ -46,7 +46,7 @@ The steps, most of them rules:
 Whole-page structure similarity (TEDS) on the generated sets went from
 0.02 to 0.91–0.97, on real annual-report tables from 0.03 to 0.85, on
 scientific tables to 0.80 (both on 240 held-out tables), and on
-photographed receipts from 0.08 to 0.49.
+photographed receipts from 0.08 to 0.52.
 
 ## Abstract
 
@@ -65,7 +65,7 @@ separator network, a table detector, a structure network, a table line
 reader and a transformer over a table's words — each enter as evidence
 or a candidate beside the rules, never in their place. Whole-page TEDS on the generated sets rises from about 0.02 to
 0.91–0.97; FinTabNet.c from 0.03 to 0.85 and PubTables-1M crops to 0.80
-on 240 held-out tables each; CORD from 0.08 to 0.49. A census of the remaining error finds
+on 240 held-out tables each; CORD from 0.08 to 0.52. A census of the remaining error finds
 it in reading and in whole-table structure failures, not in words joined
 across cells. Each negative result is reported with its measurement.
 
@@ -220,7 +220,13 @@ measured on cached words:
   no cell holds figures and the spacing is single.
 - A column of lone non-digit characters is the currency signs of the
   amounts to its right, read as '$', 's', 'S' or 'o'.
-- An item's name on its own line joins the figures on the next.
+- An item's name on its own line joins the figures on the next — and on
+  a photographed receipt, where the quantity sits under the name's first
+  letters (or the figures come first), the name takes a column of its own
+  and each item is one row (CORD 0.493 → 0.518). Splitting the totals
+  block off as well would take CORD to 0.581, but the generated sets'
+  truth keeps totals in the table and CORD's leaves them out — a
+  convention conflict, left unresolved.
 
 ### 4.2 On the page: one graph of rules and whitespace
 
@@ -487,7 +493,7 @@ for timesheets and payroll forms the two differ by more than the engine.
 | invoices (generated, 20) | 0.015 | 0.764 / 0.807 | 0.967 / 0.981 |
 | timesheets (generated, 20) | 0.015 | 0.612 / 0.735 | 0.942 / 0.964 |
 | receipts (generated, 20) | 0.022 | 0.625 / 0.651 | 0.929 / 0.953 |
-| CORD receipts (real, 30) | 0.076 | 0.327 / 0.440 | 0.493 / 0.575 |
+| CORD receipts (real, 30) | 0.076 | 0.327 / 0.440 | 0.518 / 0.612 |
 | FinTabNet.c (real, 60) | 0.032 | 0.763 / 0.879 | 0.840 / 0.896 |
 | PubTables-1M crops (real, 60) | – | – | 0.813 / 0.881 |
 
@@ -526,7 +532,7 @@ held-out tables. The real sets are small samples (60, 60, 30 tables;
 40 pages), and differences of 0.005 are a table or two; the 240 held-out
 tables of each table set (§9) show the 60 flatter PubTables-1M by about
 0.04. Photographed
-receipts remain hard (0.49): the reading, not only the structure, limits
+receipts remain hard (0.52): the reading, not only the structure, limits
 them. On scientific tables, 72-dpi reading caps the text half of the
 score — a minus sign and an en dash are hyphens to the reader.
 

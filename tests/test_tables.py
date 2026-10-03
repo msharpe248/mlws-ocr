@@ -310,3 +310,28 @@ def test_a_total_row_or_a_wrapped_line_is_not_spanned_by_the_label_above():
                                 ["*3(i)a", "Restated Articles of", "X"],
                                 ["", "incorporation dated", ""]]))
     assert all(c.get("rowspan", 1) == 1 for c in t["cells"])
+
+
+def test_receipt_two_line_items_become_one_row_each():
+    from mlws_ocr.layout.wstables import merge_item_rows
+    t = merge_item_rows(_table([["Snack Lestari All", "", ""],
+                                ["2", "27,000", "54,000"],
+                                ["Bakery Aneka", "", ""],
+                                ["2", "7,000", "14,000"]]))
+    rows = {}
+    for c in t["cells"]:
+        rows.setdefault(c["row"], {})[c["col"]] = c["text"]
+    assert (t["n_rows"], t["n_cols"]) == (2, 4)
+    assert [rows[0][k] for k in range(4)] == ["Snack Lestari All", "2", "27,000", "54,000"]
+    figs_first = merge_item_rows(_table([["1", "35.000", "Rp35.000"], ["NASI GOR", "", ""],
+                                         ["1", "3.000", "Rp3.000"], ["ES TEH", "", ""]]))
+    assert figs_first["n_rows"] == 2
+    plain = _table([["Item", "Qty", "Amount"], ["Coke", "2", "5.00"], ["Tea", "1", "3.00"]])
+    assert merge_item_rows(plain)["n_rows"] == 3                      # ordinary rows: untouched
+
+
+def test_a_receipts_totals_block_is_split_off_and_marked():
+    from mlws_ocr.layout.wstables import _is_total, split_totals
+    parts = split_totals(_table([["Coke", "5,000"], ["Tea", "3,000"], ["5UBTU:HL", "8,000"], ["CASH", "10,000"]]))
+    assert [p["n_rows"] for p in parts] == [2, 2] and parts[1]["role"] == "totals"
+    assert _is_total("Sbtotal") and _is_total("otal") and not _is_total("Coke") and not _is_total("tote")

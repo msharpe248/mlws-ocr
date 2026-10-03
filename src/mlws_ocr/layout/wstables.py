@@ -1003,6 +1003,156 @@ def trim_caption_notes(t: dict, whole_rows: bool = False) -> dict:
     return dict(t, cells=out, n_rows=len(keep))
 
 
+_ITEM_FIG = re.compile(r"^(rp\.?|idr|usd)?[-+($@€£]*[\d.,:/]*\d[\d.,:/]*%?\)?[xX]?$|^[@xX]$|^(rp\.?|idr)$", re.I)
+
+
+_TOTALS = re.compile(r"^\W*(sub\s*-?\s*t(o)?t(a)?l|subtotal|grand\s*total|total|tax|ppn|pb\s*1|service|svc|disc(ount)?|"
+                     r"cash|change|kembali(an)?|tunai|debit|credit|card|rounding|net|amount\s*due|balance)\b", re.I)
+
+
+_TOTAL_WORDS = ("subtotal", "total", "grandtotal", "service", "discount", "change", "kembali", "kembalian",
+                "tunai", "rounding", "balance", "amountdue")
+_LOOKALIKE = str.maketrans("501861|", "solbgil")
+
+
+def _is_total(label: str) -> bool:
+    """A totals row's label, read as printed or as the reader misreads it: the
+    pattern, or the first word -- digits taken for their look-alike letters
+    (5 -> s, 0 -> o, 1 -> l), punctuation dropped -- within a few edits of a
+    totals word: a third of its length for a long one (seven letters or
+    more), one for a short one ('5UBTU:HL' for SUBTOTAL, 'otal' for TOTAL)."""
+    if _TOTALS.match(label):
+        return True
+    from ..eval.align import edit_distance
+    w = re.sub(r"[^a-z]", "", (label.split() or [""])[0].lower().translate(_LOOKALIKE))
+    return len(w) >= 4 and any(edit_distance(w, k) <= (round(0.35 * len(k)) if len(k) >= 7 else 1) for k in _TOTAL_WORDS)
+
+
+def split_totals(t: dict) -> list[dict]:
+    """A receipt's items and its totals block as two tables: the rows from
+    the first one whose label (its first filled cell) names a total --
+    SUBTOTAL, TOTAL, TAX, SERVICE, DISCOUNT, CASH, CHANGE and their usual
+    Indonesian and abbreviated forms -- after at least one other row, are a
+    table of their own.  The items are the table a receipt is read for
+    (CORD's line items); the totals are a key-value block below them."""
+    cells = t.get("cells", [])
+    rows: dict[int, list] = {}
+    for c in cells:
+        rows.setdefault(c["row"], []).append(c)
+    order = sorted(rows)
+
+    def label(r):
+        f = sorted((c for c in rows[r] if (c.get("text") or "").strip()), key=lambda c: c["col"])
+        return f[0]["text"].strip() if f else ""
+    cut = next((k for k, r in enumerate(order) if k > 0 and _is_total(label(r))), None)
+    if cut is None or any(c.get("rowspan", 1) > 1 and c["row"] < order[cut] < c["row"] + c["rowspan"] for c in cells):
+        return [t]
+    out = []
+    for part in (order[:cut], order[cut:]):
+        new = {r: i for i, r in enumerate(part)}
+        cs = [dict(c, row=new[c["row"]]) for c in cells if c["row"] in new]
+        bs = [c["box"] for c in cs if c.get("box") and c["box"][2] > c["box"][0]]
+        box = [min(b[0] for b in bs), min(b[1] for b in bs), max(b[2] for b in bs), max(b[3] for b in bs)] if bs else t.get("box")
+        out.append(dict(t, cells=cs, n_rows=len(part), box=box))
+    out[1]["role"] = "totals"            # a key-value summary below the items, said so in the output
+    return out
+
+
+def merge_item_rows(t: dict, min_share: float = 0.6) -> dict:
+    """A receipt's two-line items as one row each.  Many receipts print an
+    item's name on its own line (wrapped over two when long) and its
+    quantity, price and amount on the next, the quantity under the name's
+    first letters -- so the column finder puts the name into the figure
+    columns and makes two rows of one item.  When at least ``min_share`` of
+    the table's rows (and two or more items) are text-only rows (one to
+    three) followed by a row of figures only -- or a row of figures followed
+    by its name, whichever order covers more rows -- each item is one row: the
+    name, its lines joined in reading order, in a new first column, then
+    the figures.  Rows outside the pattern keep their cells, a text-only one
+    moved into the new column.  Spans are not kept."""
+    cells = t.get("cells", [])
+    if not cells:
+        return t
+    rows: dict[int, list] = {}
+    for c in cells:
+        rows.setdefault(c["row"], []).append(c)
+    order = sorted(rows)
+    filled = lambda r: [c for c in rows[r] if (c.get("text") or "").strip()]  # noqa: E731
+    is_fig = lambda r: bool(filled(r)) and all(_ITEM_FIG.match(tok) for c in filled(r) for tok in c["text"].split())  # noqa: E731
+    is_txt = lambda r: bool(filled(r)) and not is_fig(r)  # noqa: E731
+    def pair(figs_first: bool):
+        items, k = [], 0
+        while k < len(order):
+            if figs_first:          # some receipts print the figures, then the name under them
+                if is_fig(order[k]):
+                    j = k + 1
+                    while j < len(order) and j - k <= 3 and is_txt(order[j]):
+                        j += 1
+                    if j > k + 1:
+                        items.append((order[k + 1:j], order[k]))
+                        k = j
+                        continue
+                k += 1
+                continue
+            j = k
+            while j < len(order) and j - k < 3 and is_txt(order[j]):
+                j += 1
+            if j > k and j < len(order) and is_fig(order[j]):
+                items.append((order[k:j], order[j]))
+                k = j + 1
+            else:
+                k += 1
+        return items
+    a_items, b_items = pair(False), pair(True)
+    cov = lambda its: sum(len(a) + 1 for a, _ in its)  # noqa: E731
+    items = a_items if cov(a_items) >= cov(b_items) else b_items
+    covered = cov(items)
+    if len(items) < 2 or covered < min_share * len([r for r in order if filled(r)]):
+        return t
+    in_item = {r: n for n, (a, b) in enumerate(items) for r in a + [b]}
+    nc = (t.get("n_cols") or 1 + max(c["col"] + c.get("colspan", 1) - 1 for c in cells)) + 1
+    out, row, done = [], 0, set()
+
+    def name_of(rs):
+        cs = sorted((c for r in rs for c in filled(r)),
+                    key=lambda c: ((c.get("box") or [0, 0])[1] // 8, (c.get("box") or [0])[0]))
+        return " ".join(c["text"].strip() for c in cs)
+
+    def box_of(rs):
+        bs = [c["box"] for r in rs for c in rows[r] if c.get("box")]
+        return ([min(b[0] for b in bs), min(b[1] for b in bs), max(b[2] for b in bs), max(b[3] for b in bs)]
+                if bs else [0, 0, 0, 0])
+    for r in order:
+        if r in in_item:
+            n = in_item[r]
+            if n in done:
+                continue
+            done.add(n)
+            a, b = items[n]
+            out.append({"row": row, "col": 0, "rowspan": 1, "colspan": 1, "text": name_of(a), "box": box_of(a)})
+            for c in rows[b]:
+                out.append(dict(c, row=row, col=c["col"] + 1, rowspan=1))
+        elif is_txt(r) and not any(_ITEM_FIG.match(tok) for c in filled(r) for tok in c["text"].split()):
+            out.append({"row": row, "col": 0, "rowspan": 1, "colspan": 1, "text": name_of([r]), "box": box_of([r])})
+        else:
+            for c in rows[r]:
+                out.append(dict(c, row=row, col=c["col"] + 1, rowspan=1))
+        row += 1
+    taken = {(c["row"], c["col"] + k) for c in out for k in range(c.get("colspan", 1))}
+    rbox = {}
+    for c in out:
+        b = c.get("box")
+        if b and b[2] > b[0]:
+            o = rbox.get(c["row"])
+            rbox[c["row"]] = b if o is None else [min(o[0], b[0]), min(o[1], b[1]), max(o[2], b[2]), max(o[3], b[3])]
+    out += [{"row": r, "col": c, "rowspan": 1, "colspan": 1, "text": "", "box": rbox.get(r, t.get("box", [0, 0, 0, 0]))}
+            for r in range(row) for c in range(nc) if (r, c) not in taken]
+    for c in out:
+        c.setdefault("box", rbox.get(c["row"], t.get("box", [0, 0, 0, 0])))
+    out.sort(key=lambda c: (c["row"], c["col"]))
+    return dict(t, cells=out, n_rows=row, n_cols=nc)
+
+
 SPAN_LEFT_LABELS = [False]  # a first-column label followed by empty figure columns spans them too (measured:
                             # paystubs +0.016, receipts -0.059 -- their truths disagree on the convention)
 
