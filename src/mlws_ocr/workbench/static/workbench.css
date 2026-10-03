@@ -135,3 +135,10 @@ dialog .dlghead { display: flex; justify-content: space-between; align-items: ce
 #browserList li .count { color: var(--muted); }
 #browserList li.note { color: var(--muted); font-style: italic; cursor: default; }
 #browserList li.note:hover { background: none; }
+
+/* pictures: put back in the rendered page, and the gallery */
+.hpicture { position: absolute; object-fit: fill; opacity: 0.95; pointer-events: none; }
+.pgallery { display: flex; flex-wrap: wrap; gap: 16px; padding: 12px; }
+.pcard { margin: 0; border: 1px solid var(--line, #ccc); border-radius: 6px; padding: 8px; max-width: 420px; background: var(--panel, #fff); }
+.pcard img { max-width: 400px; max-height: 300px; display: block; background: repeating-conic-gradient(#eee 0 25%, #fff 0 50%) 0 0 / 16px 16px; }
+.pcard figcaption { font-size: 12px; margin-top: 6px; font-family: ui-monospace, monospace; }

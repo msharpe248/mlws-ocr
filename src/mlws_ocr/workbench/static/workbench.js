@@ -201,7 +201,8 @@ async function showResult() {
     el("button", { class: S.resultMode === "text" ? "on" : "", onclick: () => { S.resultMode = "text"; showResult(); } }, "Text"),
     el("button", { class: S.resultMode === "hocr" ? "on" : "", onclick: () => { S.resultMode = "hocr"; showResult(); } }, "hOCR"),
     el("button", { class: S.resultMode === "render" ? "on" : "", onclick: () => { S.resultMode = "render"; showResult(); } }, "Rendered"),
-    el("button", { class: S.resultMode === "tables" ? "on" : "", onclick: () => { S.resultMode = "tables"; showResult(); } }, "Tables"));
+    el("button", { class: S.resultMode === "tables" ? "on" : "", onclick: () => { S.resultMode = "tables"; showResult(); } }, "Tables"),
+    el("button", { class: S.resultMode === "pictures" ? "on" : "", onclick: () => { S.resultMode = "pictures"; showResult(); } }, "Pictures"));
   // the render-only checkboxes are null in the other modes: the DOM's own append
   // would print each null as the text "null", so they are filtered out
   tb.append(...[seg, el("span", { class: "sep" }),
@@ -211,19 +212,27 @@ async function showResult() {
       onchange: (e) => { S.renderBoxes = e.target.checked; showResult(); } }), "structure") : null,
     S.resultMode === "render" ? el("label", {}, el("input", { type: "checkbox", ...(S.renderSide ? { checked: "" } : {}),
       onchange: (e) => { S.renderSide = e.target.checked; showResult(); } }), "side by side") : null,
+    S.resultMode === "render" ? el("label", { title: "each picture (output.pictures) put back at its box, cut from the original image" },
+      el("input", { type: "checkbox", ...(S.renderPictures !== false ? { checked: "" } : {}),
+      onchange: (e) => { S.renderPictures = e.target.checked; showResult(); } }), "pictures") : null,
     el("button", { onclick: async () => { await navigator.clipboard.writeText(S.resultMode === "text" ? R.text : S.resultMode === "tables" ? R.tables_html : R.hocr); status("copied"); } }, "Copy"),
     el("button", { onclick: () => { window.location = "/api/export/" + (S.resultMode === "text" ? "text" : S.resultMode === "tables" ? "tables" : "hocr"); } },
       S.resultMode === "text" ? "Download .txt" : S.resultMode === "tables" ? "Download tables .html" : "Download .hocr"),
-    S.resultMode === "tables" ? el("button", { onclick: () => { window.location = "/api/export/tables_csv"; } }, "Download .csv") : null].filter((x) => x != null));
+    S.resultMode === "tables" ? el("button", { onclick: () => { window.location = "/api/export/tables_csv"; } }, "Download .csv") : null,
+    S.resultMode === "pictures" || S.resultMode === "render" || S.resultMode === "hocr"
+      ? el("button", { title: "the hOCR and its picture_N.png files together, as a run writes them",
+                       onclick: () => { window.location = "/api/export/pictures"; } }, "Download hOCR + pictures (.zip)") : null].filter((x) => x != null));
   // side panel: a summary of the page
   $("stageHead").innerHTML = ""; $("tools").innerHTML = ""; $("params").innerHTML = "";
   $("stageHead").append(el("h2", {}, "Result"), el("div", {}, S.resultMode === "text"
     ? "The page's text, as the output stage wrote it (reading order, table rows aligned)."
     : S.resultMode === "tables"
     ? "The page's tables as structure: rows, columns and spanned cells (rowspan / colspan, tinted), a table found inside another's cell shown inside it — each beside the scan, cropped to the table; hover a cell on either side to see its partner. The switches above turn the three table options on and off and re-run the page."
+    : S.resultMode === "pictures"
+    ? "The page's pictures — photographs, logos, artwork — cut from the ORIGINAL image, in its colour and resolution, as the hOCR names them (ocr_photo: image \"picture_N.png\", and x_source_bbox, the box in the original where it goes back). The switches above turn the picture options on and off and re-run the page."
     : S.resultMode === "hocr"
     ? "hOCR: the page's structure — blocks in reading order, lines, words with boxes and confidence, tables, images, rulings."
-    : "The page redrawn from the hOCR file alone: every word at its box, blocks numbered in reading order, tables, images and rulings. Red words are low-confidence, green ones were corrected; hover for the confidence."
+    : "The page redrawn from the hOCR file alone (and its picture files): every word at its box, blocks numbered in reading order, tables, pictures put back where they were, and rulings. Red words are low-confidence, green ones were corrected; hover for the confidence."
       + (S.renderSide ? " Side by side: the scan on the left, the redrawn page on the right; hovering a word marks its box on the scan." : "")));
   const pre = $("resultText");
   if (!R || !R.ready) { pre.className = ""; pre.textContent = "(the page is still being read)"; $("scalars").innerHTML = ""; return; }
@@ -233,9 +242,11 @@ async function showResult() {
                         ["corrected by the dictionary pass", sm.corrected_words], ["corrected by hand", sm.edited_words]])
     t.append(el("tr", {}, el("td", {}, k), el("td", {}, v == null ? "—" : String(v))));
   $("scalars").innerHTML = ""; $("scalars").append(t);
-  $("resultRender").hidden = S.resultMode !== "render" && S.resultMode !== "tables";
-  pre.hidden = S.resultMode === "render" || S.resultMode === "tables";
+  const visual = S.resultMode === "render" || S.resultMode === "tables" || S.resultMode === "pictures";
+  $("resultRender").hidden = !visual;
+  pre.hidden = visual;
   if (S.resultMode === "tables") { renderTables(R); return; }
+  if (S.resultMode === "pictures") { renderPictures(R); return; }
   if (S.resultMode === "text") { pre.className = ""; pre.textContent = R.text; return; }
   if (S.resultMode === "render") { renderHocr(R.hocr); return; }
   pre.className = "hocr"; pre.innerHTML = "";
@@ -508,6 +519,60 @@ function tableTools(t, s, k) {
   if (!tabs.length) { t.append(el("div", { class: "empty" }, "No ruled table on this page at this stage.")); return; }
   tabs.forEach((tb, i) => t.append(el("div", { class: "corr", title: "show it", onclick: () => { centerOn(tb.box); draw(); } }, tableCaption(tb, i))));
   $("hint").textContent = "Tinted cells span several rows or columns. The Result tab's Tables view shows each table beside the scan.";
+}
+// ------------------------------------------------------------------ pictures
+// The picture options (2026-10-03): photographs found on the grey page and kept
+// out of the dark-ground inversion, the bar a dark region must clear to be
+// inverted, display type as a picture, and the export itself.
+const PICTURE_SWITCHES = [
+  { slot: "output", key: "pictures", on: true, off: false, label: "Cut out pictures",
+    title: "each picture zone cut from the original image as picture_N.png and named in the hOCR with its box in the original" },
+  { slot: "illumination", key: "grey_pictures", on: true, off: false, label: "Photographs on the grey page",
+    title: "photographs found on the grey page before binarization (mostly mid-tones, varied) and kept out of the dark-ground inversion" },
+  { slot: "illumination", key: "invert_rect", on: 0.95, off: 0.85, label: "Strict dark grounds",
+    title: "a dark region is inverted only if it fills 95% of its box (bands and dark pages do; a bold logo does not)" },
+  { slot: "imagezones", key: "display_height", on: 4, off: 0, label: "Display type is a picture",
+    title: "solid letters four times the body glyph's height (a logo's lettering) named as a picture zone; their text is still read" },
+];
+function pictureSwitches() {
+  const box = el("div", { class: "tswitches" });
+  for (const sw of PICTURE_SWITCHES) {
+    const st = S.st.stages.find((t) => t.slot === sw.slot);
+    const v = st ? (sw.key in st.params ? st.params[sw.key] : st.defaults[sw.key]) : null;
+    const on = typeof sw.on === "number" ? Number(v) === sw.on || (sw.off === 0 && Number(v) > 0) : !!v;
+    const cb = el("input", { type: "checkbox", ...(on ? { checked: "" } : {}), ...(st ? {} : { disabled: "" }),
+      onchange: async (e) => {
+        await api(`/api/stage/${st.index}`, { params: { [sw.key]: e.target.checked ? sw.on : sw.off } });
+        status(`${sw.slot}.${sw.key} = ${JSON.stringify(e.target.checked ? sw.on : sw.off)}; re-running`);
+        S.resultKey = null; await poll(true); } });
+    box.append(el("label", { title: st ? sw.title : `this profile has no ${sw.slot} stage` }, cb, sw.label));
+  }
+  return box;
+}
+function renderPictures(R) {
+  const host = $("resultRender"); host.innerHTML = "";
+  host.append(pictureSwitches());
+  const pics = R.pictures;
+  if (!pics) {
+    host.append(el("div", { class: "tablesView" }, el("p", {}, `${(R.image_zones || []).length} picture zone(s) found; ` +
+      "turn on 'Cut out pictures' to cut them from the original image and name them in the hOCR.")));
+    return;
+  }
+  if (!pics.length) {
+    host.append(el("div", { class: "tablesView" }, el("p", {},
+      "No pictures on this page. A photograph is found on the grey page ('Photographs on the grey page'); solid art and halftones by the picture-zone stage; a logo's large lettering with 'Display type is a picture'.")));
+    return;
+  }
+  const grid = el("div", { class: "pgallery" });
+  for (const p of pics) {
+    grid.append(el("figure", { class: "pcard" },
+      el("a", { href: `/api/picture/${encodeURIComponent(p.file)}?v=${S.resultKey}`, target: "_blank" },
+        el("img", { src: `/api/picture/${encodeURIComponent(p.file)}?v=${S.resultKey}`, alt: p.file })),
+      el("figcaption", {}, el("b", {}, p.file),
+        el("div", {}, `bbox ${p.bbox.join(" ")}  (the processed page)`),
+        el("div", {}, `x_source_bbox ${p.bbox_source.join(" ")}  (the original image)`))));
+  }
+  host.append(grid);
 }
 function renderTables(R) {
   const host = $("resultRender"); host.innerHTML = "";
@@ -992,7 +1057,15 @@ function renderHocr(hocr) {
       else if (cls === "ocr_table") box(b, "htable", "table");
       else if (e.tagName.toLowerCase() === "td") box(b, "hcell");
       else if (cls === "ocr_photo") box(b, "hphoto", "image");
-      else if (cls === "ocr_separator") box(b, "hsep");
+    }
+    // a picture named in the hOCR (image "picture_N.png") put back at its box
+    const pic = cls === "ocr_photo" && /image "([^"]+)"/.exec(e.getAttribute("title") || "");
+    if (pic && S.renderPictures !== false) {
+      page.append(el("img", { src: `/api/picture/${encodeURIComponent(pic[1])}?v=${S.resultKey}`, class: "hpicture",
+        title: pic[1], style: `left:${(b[0] - pb[0]) * sc}px;top:${(b[1] - pb[1]) * sc}px;width:${(b[2] - b[0]) * sc}px;height:${(b[3] - b[1]) * sc}px` }));
+    }
+    if (S.renderBoxes !== false) {
+      if (cls === "ocr_separator") box(b, "hsep");
     }
     if (cls === "ocrx_word") {
       const conf = hocrProp(e.getAttribute("title"), "x_wconf");

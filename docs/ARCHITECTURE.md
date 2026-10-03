@@ -470,7 +470,8 @@ sequenceDiagram
 (`_worker_init`) and reads pages in memory, without the per-stage
 persistence of a run. `mlws-ocr batch` (`batch.py`) uses the same worker
 setup over a directory or a PDF and writes `<name>.txt`, `.hocr`,
-`.tables.{html,json,csv}` and `batch.json`.
+`.tables.{html,json,csv}`, `.picture_N.png` with `output.pictures` (cut from
+the original by `core/pictures.py`) and `batch.json`.
 
 ## 12. The workbench
 
@@ -488,14 +489,17 @@ sequenceDiagram
     B->>H: POST /api/run?from=k
     H->>S: re-run k..end from snapshot k-1, edits applied after each stage
     B->>H: POST /api/save (the session as .mlws.json)
-    B->>H: GET /api/export/text, hocr or toml
+    B->>H: GET /api/export/text, hocr, pictures (zip) or toml
+    B->>H: GET /api/picture/picture_N.png (cut from the original image)
 ```
 
 The workbench keeps the page as it stood after every stage, so changing a
 stage's algorithm or correcting its result re-runs only what comes after.
 Corrections are data (`workbench/edits.py`) applied after their stage, so
 they survive a re-run of the stages above them; a session saves as
-`.mlws.json` and the tuned settings export as a profile.
+`.mlws.json` and the tuned settings export as a profile. The result tab
+shows the text, the hOCR, the page redrawn from the hOCR (its pictures put
+back from the files it names), the tables and the pictures.
 
 ## 13. Training, measuring, releasing
 

@@ -111,7 +111,8 @@ Every way of running the engine produces it:
 curl --data-binary @page.png http://127.0.0.1:8340/ocr     # the service: "hocr" in the JSON
 ```
 
-and the workbench exports it (`/api/export/hocr`).
+and the workbench exports it (`/api/export/hocr`, or with its pictures as a zip,
+`/api/export/pictures`).
 
 ## 4. The coordinates are the processed page's
 

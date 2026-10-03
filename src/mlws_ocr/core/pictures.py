@@ -60,26 +60,40 @@ def to_source(box, meta: dict, shape) -> list[int]:
             int(math.ceil(pts[:, 0].max())), int(math.ceil(pts[:, 1].max()))]
 
 
+def open_source(source):
+    """The original image as PIL: a file (in its colour) or the loaded page
+    (grey, [0, 1], e.g. a PDF page)."""
+    from PIL import Image
+    if isinstance(source, np.ndarray):
+        return Image.fromarray((np.clip(source, 0, 1) * 255).astype(np.uint8))
+    im = Image.open(source)
+    return im.convert("RGB") if im.mode not in ("L", "RGB") else im
+
+
+def crop(picture: dict, im):
+    """One picture cut from the opened original (``open_source``), or None
+    when its box falls outside the image."""
+    x0, y0, x1, y1 = picture["bbox_source"]
+    box = (max(0, x0), max(0, y0), min(im.width, x1), min(im.height, y1))
+    if box[2] <= box[0] or box[3] <= box[1]:
+        return None
+    return im.crop(box)
+
+
 def export(pictures: list[dict], source, dest: Path, prefix: str = "") -> list[str]:
     """Cut each picture (``bbox_source``) from the original image -- a file
     (in its colour) or the loaded page (grey, [0, 1], e.g. a PDF page) -- and
     save it as ``dest/<prefix><file>``; returns the files written."""
-    from PIL import Image
     if not pictures:
         return []
-    if isinstance(source, np.ndarray):
-        im = Image.fromarray((np.clip(source, 0, 1) * 255).astype(np.uint8))
-    else:
-        im = Image.open(source)
-        im = im.convert("RGB") if im.mode not in ("L", "RGB") else im
+    im = open_source(source)
     dest.mkdir(parents=True, exist_ok=True)
     out = []
     for p in pictures:
-        x0, y0, x1, y1 = p["bbox_source"]
-        box = (max(0, x0), max(0, y0), min(im.width, x1), min(im.height, y1))
-        if box[2] <= box[0] or box[3] <= box[1]:
+        c = crop(p, im)
+        if c is None:
             continue
         f = dest / f"{prefix}{p['file']}"
-        im.crop(box).save(f)
+        c.save(f)
         out.append(str(f))
     return out

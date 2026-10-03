@@ -88,3 +88,39 @@ def test_errors_are_reported_not_raised(server):
     port, _, _ = server
     status, err = call(port, "POST", "/api/open", {"path": "/no/such/file.tif"})
     assert status == 400 and "error" in err
+
+
+def test_pictures_cut_out_and_zipped(server):
+    """A photo pasted into a page: with the picture options switched on, the
+    result names it, /api/picture serves its crop from the original (in
+    colour) and the zip holds the hOCR and the picture."""
+    import io
+    import zipfile
+
+    import numpy as np
+    port, crop, tmp = server
+    im = Image.open(crop).convert("RGB")
+    a = np.asarray(im).copy()
+    rng = np.random.default_rng(0)
+    yy, xx = np.mgrid[0:300, 0:400]
+    a[100:400, 400:800] = np.clip(np.stack([xx * 0.6, yy * 0.8, 120 + 0 * xx], -1)
+                                  + rng.integers(-40, 40, (300, 400, 3)), 0, 255).astype(np.uint8)
+    page = tmp / "photo.png"
+    Image.fromarray(a).save(page, dpi=(300, 300))
+    status, _ = call(port, "POST", "/api/open", {"path": str(page), "config": "configs/classic.toml"})
+    assert status == 200
+    st = wait_done(port, timeout=300)
+    k = {s["slot"]: s["index"] for s in st["stages"]}
+    call(port, "POST", f"/api/stage/{k['output']}", {"params": {"pictures": True}})
+    call(port, "POST", f"/api/stage/{k['illumination']}", {"params": {"grey_pictures": True}})
+    wait_done(port, timeout=300)
+    status, res = call(port, "GET", "/api/result")
+    assert status == 200 and res["pictures"], res.get("pictures")
+    pic = res["pictures"][0]
+    x0, y0, x1, y1 = pic["bbox_source"]
+    assert x0 <= 410 and y0 <= 110 and x1 >= 790 and y1 >= 390
+    status, png = call(port, "GET", f"/api/picture/{pic['file']}")
+    assert status == 200 and Image.open(io.BytesIO(png)).mode == "RGB"
+    status, z = call(port, "GET", "/api/export/pictures")
+    names = zipfile.ZipFile(io.BytesIO(z)).namelist()
+    assert "photo.hocr" in names and pic["file"] in names

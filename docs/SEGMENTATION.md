@@ -61,6 +61,17 @@ glyphs of similar height on one baseline is text, even inside a dark panel
 profile **a ruled grid is not a picture** (`keep_grids`). Without this stage
 a page's photo silhouettes made XY-cut "collapse to one mega-block".
 
+Two picture options came later (2026-10-03; the first is on in the table
+profile). **Photographs found on the grey page**
+(`illumination.grey_pictures`): a threshold scatters a photograph's
+mid-tones (a mid-grey photo binarizes to almost nothing), so it is found
+before binarization, as a region mostly mid-grey and varied, and handed to
+this stage as a zone ([BINARIZATION.md](BINARIZATION.md)). **Display type**
+(`imagezones.display_height`, off): solid letters several times the body
+glyph's height named as a zone, their text still read. The zones can be cut
+from the original image and put back from the hOCR
+([HOCR.md §6](HOCR.md)).
+
 **Rules** (`rulings.morphological`). A horizontal rule is a run of ink much
 longer than any letter is wide. Morphologically, it survives an **opening**
 with a long horizontal line: keep only ink that belongs to a run at least

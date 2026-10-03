@@ -19,7 +19,9 @@ Standard library only, like the run inspector (``inspector/server.py``): a
     GET  /api/layout/<k>         the layout after stage k (blocks, lines, words, ...) + text
     POST /api/save  {path}       the session file (.mlws.json)
     POST /api/load  {path}
-    GET  /api/export/<kind>      text | hocr | tables | tables_csv | json | png | toml, as a download
+    GET  /api/picture/<file>     one picture (output.pictures) cut from the original image, PNG
+    GET  /api/export/<kind>      text | hocr | tables | tables_csv | json | png | toml | pictures (a zip:
+                                 the hOCR and its picture_N.png files), as a download
     (the read-only run inspector stays at `mlws-ocr inspect`)
 """
 from __future__ import annotations
@@ -128,6 +130,8 @@ def make_handler(wb: Workbench):
                     return self._layout(int(parts[2]))
                 if parts[:2] == ["api", "result"]:
                     return self._result()
+                if parts[:2] == ["api", "picture"] and len(parts) == 3:
+                    return self._picture(parts[2])
                 if parts[:2] == ["api", "export"] and len(parts) == 3:
                     return self._export(parts[2])
                 return self._error("not found", 404)
@@ -272,6 +276,8 @@ def make_handler(wb: Workbench):
                 "ready": True, "text": final.meta.get("text", ""), "hocr": final.meta.get("hocr", ""),
                 "tables_html": final.meta.get("tables_html", ""),
                 "tables": final.meta.get("tables", []),
+                "pictures": final.meta.get("pictures"),
+                "image_zones": final.meta.get("layout", {}).get("image_zones", []),
                 "summary": {"words": len(words), "lines": sum(1 for ln in final.meta.get("layout", {}).get("lines", [])
                                                                if ln.get("words")),
                             "mean_confidence": round(sum(conf) / len(conf), 3) if conf else None,
@@ -279,6 +285,25 @@ def make_handler(wb: Workbench):
                             "corrected_words": sum(1 for w in words if w.get("corrected_from")),
                             "edited_words": sum(1 for w in words if w.get("edited")),
                             "characters": len(final.meta.get("text", ""))}})
+
+        def _source(self):
+            """The original image the pictures are cut from: the file, or a PDF page's rendering."""
+            sess = self._sess()
+            return sess.ingest.gray if sess.image_path.suffix.lower() == ".pdf" else sess.image_path
+
+        def _picture(self, name: str):
+            from ..core.pictures import crop, open_source
+            final = self._sess().final()
+            pics = (final.meta.get("pictures") or []) if final is not None else []
+            pic = next((p for p in pics if p["file"] == name), None)
+            if pic is None:
+                raise KeyError(name)
+            im = crop(pic, open_source(self._source()))
+            if im is None:
+                raise KeyError(name)
+            buf = io.BytesIO()
+            im.save(buf, format="PNG")
+            return self._send(200, buf.getvalue(), "image/png")
 
         def _export(self, kind: str):
             sess = self._sess()
@@ -309,6 +334,22 @@ def make_handler(wb: Workbench):
                 body = json.dumps(_jsonable({"dpi": final.dpi, "meta": final.meta}), indent=1, default=str).encode()
                 return self._send(200, body, "application/json",
                                   {"Content-Disposition": f'attachment; filename="{stem}.page.json"'})
+            if kind == "pictures":
+                # the hOCR with its pictures beside it, as a consumer receives them from a run
+                import zipfile
+                from ..core.pictures import crop, open_source
+                buf = io.BytesIO()
+                with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as z:
+                    z.writestr(f"{stem}.hocr", final.meta.get("hocr") or "")
+                    im = open_source(self._source()) if final.meta.get("pictures") else None
+                    for p in final.meta.get("pictures") or []:
+                        c = crop(p, im)
+                        if c is not None:
+                            b = io.BytesIO()
+                            c.save(b, format="PNG")
+                            z.writestr(p["file"], b.getvalue())
+                return self._send(200, buf.getvalue(), "application/zip",
+                                  {"Content-Disposition": f'attachment; filename="{stem}.pictures.zip"'})
             if kind == "png":
                 k = next((i for i, s in enumerate(sess.stages) if s.slot == "despeckle"), len(sess.stages) - 1)
                 page = sess.stages[k].page or final

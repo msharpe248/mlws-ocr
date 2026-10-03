@@ -275,6 +275,18 @@ faint copy of the scan or side by side with it (hovering a word marks
 its box on the scan). It shows at a glance what the file carries and
 what the page lost (a line never read, a headline taken for a picture).
 
+**Pictures** — photographs, logos, artwork — have a view of their own in
+the result tab: each one cut from the **original** image, in its colour,
+with its box on the processed page and `x_source_bbox`, its box in the
+original, where it goes back. The rendered page puts each picture back at
+its box, from the files the hOCR names. Switches turn the picture options
+on and off and re-run the page (cutting them out, photographs found on the
+grey page, strict dark grounds, display type as a picture), and
+"Download hOCR + pictures" gives the hOCR with its `picture_N.png` files
+in one zip ([docs/HOCR.md §6](docs/HOCR.md)).
+
+![The Pictures view: the payroll form's WHD logo cut from the original scan, with both of its boxes](docs/img/workbench_pictures.png)
+
 **Tables** get their own view in the result tab: each table beside the scan
 cropped to it (above it, for a wide table), rows, columns and spanned
 cells tinted, a nested table inside its cell; hover a cell on either side
@@ -289,7 +301,7 @@ dashed, each labelled with its size.
 
 Sessions save to a `.mlws.json` file (image, profile, every choice and
 correction) and reload; the page exports as text, hOCR, page JSON, the
-cleaned image, or the session's settings as a profile TOML. Standard
+cleaned image, the hOCR with its pictures (a zip), or the session's settings as a profile TOML. Standard
 library server, plain JavaScript and canvas, no build step
 (`src/mlws_ocr/workbench/`).
 
