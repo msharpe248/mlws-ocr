@@ -247,6 +247,7 @@ images are the project's own to publish.
 | modern training pages | `scripts/make_modern_train.py` | `data/modern_train/` | other pages of the Federal Register issue |
 | business | `scripts/make_business_set.py` (seed 11) | `data/business/sev{0,1,2}/` | invoices, payslips, receipts, statements, purchase orders at three degradation levels; seed 101 → `data/business_train`, seed 303 → `data/business_heldout` |
 | tables | `scripts/make_table_set.py --template {payroll_form,paystub,invoice,timesheet,receipt} --n 40 --seed 1 --out data/tables/<template>` (`--styles` picks the rule styles) | `data/tables/<template>/<name>.png, .table.html, .txt, .json` | five rule styles from full grid to whitespace; seed 101 → `data/tables_train/` for training. The payroll form fills a blank US Department of Labor WH-347 (public domain; a fillable copy published by the Texas Department of Housing and Community Affairs), placed at `data/raw/payroll_form/wh347_tx.pdf` |
+| equations | `scripts/make_equation_set.py --n 40 --seed 3` | `data/equations/<name>.png, .eq.json` | article pages typeset by LaTeX (`tectonic`) from the corpus's public-domain text with inline maths and numbered, aligned and unnumbered display equations, one or two columns, three type families; typeset twice, the second time each equation's body red and its number blue, so the truth is the typesetting itself; 33 of 40 documents typeset (the rest failed in TeX). Needs tectonic and poppler |
 
 ## 8. Tesseract, for comparison
 
@@ -313,6 +314,7 @@ pipeline) and name the profile with any figure you report.
 | payroll forms, paystubs, invoices, timesheets, receipts | `data/tables/<set>` | `eval_tables.py data/tables/<set> --pages 20 --whole-page --config configs/neural-table.toml` |
 | real receipts | `data/tables/cord` | `eval_tables.py data/tables/cord --pages 30 --config configs/neural-table.toml` |
 | annual-report tables, scientific tables | `data/tables/fintabnet`, `data/tables/pubtables` | §4 |
+| display equations | `data/equations` | `eval_equations.py data/equations --config configs/neural.toml` (finding only: P / R / F1 at IoU 0.5, and of the numbers) |
 
 ## 11. Keeping evaluation data out of training
 

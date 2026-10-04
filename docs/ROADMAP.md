@@ -21,6 +21,19 @@ total: corrections, not only flags), and a fixed output schema (items, totals,
 payment), which also settles CORD's totals convention. CORD stays in the table
 evaluation as a check (neural-table 0.518), not a target.
 
+**Next (2026-10-03, from the census of the worst held-out scientific tables):**
+1. A cell centred on the rows it spans that the row finder put in the row
+   above or below (its offset from its row, the neighbouring row empty in its
+   column): the 336 body row spans and the 163 two-level-header ones.
+2. The table reader's dashes and symbols: '–' read 128 times of 428, '−' 43
+   of 154, '×' 2 of 74, '°' 2 of 46 -- a fine-tune on table lines that carry
+   them, on the GPU box.
+3. Display equations (`lines.equations`, found at F1 0.90 on typeset pages,
+   none on business pages): adopt, then perhaps read them (MathML) with a
+   network trained on typeset formulas.
+4. A calibrated confidence for each table cell and structure decision (an
+   idea from laya / Jev's act-review-reject bands), shown in the workbench.
+
 The owner's direction: tables are the focus -- payroll forms, paystubs,
 timesheets, statements, invoices, receipts; tables inside tables; tables
 ruled by whitespace alone -- with the structure as output (JSON / HTML /

@@ -284,6 +284,9 @@ on and off and re-run the page (cutting them out, photographs found on the
 grey page, strict dark grounds, display type as a picture), and
 "Download hOCR + pictures" gives the hOCR with its `picture_N.png` files
 in one zip ([docs/HOCR.md §6](docs/HOCR.md)).
+Display equations in scientific pages can be found before reading
+(`--set lines.equations=true`): each is cut out the same way and written as
+hOCR's `ocr_display` / `ocr_math`, its number '(3)' read as text.
 
 ![The Pictures view: the payroll form's WHD logo cut from the original scan, with both of its boxes](docs/img/workbench_pictures.png)
 

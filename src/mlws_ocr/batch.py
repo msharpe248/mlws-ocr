@@ -57,7 +57,8 @@ def _read_one(path: str, pdf_page: int, name: str, out_dir: str, doc_type: str |
     if res.get("pictures"):     # each picture cut from the original (in colour) as <name>.picture_N.png
         from .core.pictures import export
         export(res["pictures"], gray if path.lower().endswith(".pdf") else path, out, prefix=f"{name}.")
-        hocr = hocr.replace('image "picture_', f'image "{name}.picture_')
+        hocr = hocr.replace('image "picture_', f'image "{name}.picture_').replace(
+            'src="equation_', f'src="{name}.equation_')
     (out / f"{name}.hocr").write_text(hocr)
     if res.get("tables"):
         (out / f"{name}.tables.html").write_text(res["tables_html"])

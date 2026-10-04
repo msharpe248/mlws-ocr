@@ -41,3 +41,23 @@ def test_stacked_lines_split_a_wrapped_cell_only():
     boxes = sorted(tuple(int(v) for v in ln["box"]) for ln in out)
     assert (20, 40, 308, 60) in boxes and (20, 80, 308, 100) in boxes and (500, 60, 788, 80) in boxes
     assert (20, 140, 798, 160) in boxes
+
+
+def test_centred_rowspans_fold_a_sparse_middle_row():
+    """'100' and 'None' set midway between the two rows they head come out
+    as a row of their own; folded back, they span both rows."""
+    from mlws_ocr.layout.wstables import centred_rowspans
+    grid = [["Alt", "Err", "Res", "Max", "Mean"],
+            ["", "", "0.1", "0.91", "0.39"],
+            ["100", "None", "", "", ""],
+            ["", "", "1.0", "6.64", "2.62"],
+            ["200", "None", "0.1", "3.60", "1.56"]]
+    t = {"n_rows": 5, "n_cols": 5, "cells": [{"row": r, "col": c, "text": v, "box": [0, 0, 0, 0]}
+                                              for r, row in enumerate(grid) for c, v in enumerate(row)]}
+    u = centred_rowspans(t)
+    assert u["n_rows"] == 4
+    at = {(c["row"], c["col"]): c for c in u["cells"]}
+    assert at[(1, 0)]["text"] == "100" and at[(1, 0)]["rowspan"] == 2
+    assert at[(1, 1)]["text"] == "None" and at[(1, 1)]["rowspan"] == 2
+    assert (2, 0) not in at and at[(2, 2)]["text"] == "1.0"
+    assert at[(3, 0)]["text"] == "200" and at[(3, 0)].get("rowspan", 1) == 1

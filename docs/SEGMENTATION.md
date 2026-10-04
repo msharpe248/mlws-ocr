@@ -275,6 +275,23 @@ decoder to tell 'p' from 'P' and ',' from ''' by position. Two refinements:
 
 The x-height is measured later, per line, by the decoder.
 
+**Display equations** (`lines.equations`, off). A display equation is set
+apart from the running text and, in scientific writing, numbered at the
+right margin, '(3)'; read as text its mathematics is junk. So it is found
+among the lines before reading (`layout/equations.py`): a line set in from
+both sides relative to a nearby line of prose, carrying a number -- '('
+then a few small glyphs then ')', at the end of the line or as a line of its
+own beside it, not one of a row of such (a form's column headers) -- or,
+unnumbered, a fraction bar with its numerator and denominator centred on it
+(and on a page that has a numbered equation, a large operator). The pieces
+the row profile cut off it (a sum's limits) are absorbed. Its body leaves
+the lines (`layout.equations`), its number stays a line and is read; the
+output stage writes it as hOCR's `ocr_display` / `ocr_math`
+([HOCR.md §6](HOCR.md)). On 33 typeset article pages: F1 0.897 for the
+equations, 0.922 for their numbers (precision 1.000); on 12 pages each of
+letters, legal pages, newspapers, magazines, modern and business pages,
+none found; on 12 payroll forms, one.
+
 ## 9. Glyph groups
 
 The last layout step (`components.overlap`) splits each line into glyphs:

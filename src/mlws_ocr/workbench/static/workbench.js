@@ -447,6 +447,8 @@ const TABLE_SWITCHES = [
     title: "check each table's figures against the relations it keeps (quantity x price = amount, totals): green checked, red probably misread" },
   { slot: "lines", key: "stacked_chunks", on: 2.6, off: 0, label: "Wrapped cells",
     title: "a row whose cells wrap to two lines beside a one-line cell is read line by line within each column, not as one strip of stacked lines" },
+  { slot: "output", key: "table_centred_rowspans", on: true, off: false, label: "Centred row spans",
+    title: "a table crop's cell centred between the rows it spans, read as a sparse row of its own, folded back as a row span" },
   { slot: "blocks", key: "keep_dashes", on: true, off: false, label: "Lone dashes",
     title: "a nil '-' alone in its cell is kept and read as a dash (it was dropped as a speck, and a column of them vanished)",
     also: [{ slot: "output", key: "table_dash_aspect", on: 1.5, off: 2.5 }] },
@@ -542,6 +544,8 @@ const PICTURE_SWITCHES = [
     title: "photographs found on the grey page before binarization (mostly mid-tones, varied) and kept out of the dark-ground inversion" },
   { slot: "illumination", key: "invert_rect", on: 0.95, off: 0.85, label: "Strict dark grounds",
     title: "a dark region is inverted only if it fills 95% of its box (bands and dark pages do; a bold logo does not)" },
+  { slot: "lines", key: "equations", on: true, off: false, label: "Display equations",
+    title: "display equations found before reading (set apart, numbered '(n)' at the right): cut out as equation_N.png, written as ocr_display / ocr_math in the hOCR, their numbers read" },
   { slot: "imagezones", key: "display_height", on: 4, off: 0, label: "Display type is a picture",
     title: "solid letters four times the body glyph's height (a logo's lettering) named as a picture zone; their text is still read" },
 ];
@@ -1068,9 +1072,13 @@ function renderHocr(hocr) {
       else if (cls === "ocr_table") box(b, "htable", "table");
       else if (e.tagName.toLowerCase() === "td") box(b, "hcell");
       else if (cls === "ocr_photo") box(b, "hphoto", "image");
+      else if (cls === "ocr_math") box(b, "hphoto", "equation");
     }
-    // a picture named in the hOCR (image "picture_N.png") put back at its box
-    const pic = cls === "ocr_photo" && /image "([^"]+)"/.exec(e.getAttribute("title") || "");
+    // a picture named in the hOCR (image "picture_N.png") put back at its box; a display
+    // equation's ocr_math holds its image as an <img>
+    const mimg = cls === "ocr_math" && e.getElementsByTagName("img")[0];
+    const pic = cls === "ocr_photo" ? /image "([^"]+)"/.exec(e.getAttribute("title") || "")
+      : mimg ? [null, mimg.getAttribute("src")] : null;
     if (pic && S.renderPictures !== false) {
       page.append(el("img", { src: `/api/picture/${encodeURIComponent(pic[1])}?v=${S.resultKey}`, class: "hpicture",
         title: pic[1], style: `left:${(b[0] - pb[0]) * sc}px;top:${(b[1] - pb[1]) * sc}px;width:${(b[2] - b[0]) * sc}px;height:${(b[3] - b[1]) * sc}px` }));

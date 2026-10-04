@@ -59,6 +59,9 @@ ocr_page            the whole page:  bbox 0 0 W H; ppageno 0
 │       └── ocr_line → ocrx_word                     the words in each cell
 ├── ocr_photo       a picture zone (no text inside); with output.pictures also
 │                   image "picture_N.png" and x_source_bbox (§6)
+├── ocr_display     a display equation (lines.equations), holding
+│   └── ocr_math    its image (<img src="equation_N.png"/> with output.pictures);
+│                   its number is an ordinary line, read
 └── ocr_separator   a rule found on the page
 ```
 
@@ -205,6 +208,23 @@ solid or dense ink too big for type, and two options added for this
 
 And `illumination.invert_rect` raises the bar a dark region must clear to be
 inverted as a ground, so that a bold logo stays a logo.
+
+**Display equations** (`--set lines.equations=true`): hOCR 1.2 puts a display
+formula in an `ocr_display` holding an `ocr_math`, which must contain an
+image or MathML. The engine finds display equations before reading
+([SEGMENTATION.md §8](SEGMENTATION.md)) and, with `output.pictures`, cuts
+each from the original as `equation_N.png`:
+
+```html
+<div class="ocr_display" id="display_1_1" title="bbox 602 840 1078 977">
+  <span class="ocr_math" id="math_1_1" title="bbox 602 840 1078 977; x_source_bbox 602 840 1078 977">
+    <img src="equation_1.png" alt="equation 1"/></span></div>
+```
+
+The equation's number, '(1)', is an ordinary `ocr_line` with the text, so the
+plain text keeps the number where the equation was and no junk from reading
+mathematics as letters. Reading the mathematics itself (to MathML) is not
+done.
 
 ## 7. hOCR and its relatives
 

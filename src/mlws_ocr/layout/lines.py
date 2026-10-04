@@ -222,6 +222,9 @@ class ProfileLines(Stage):
                                  # valley across the whole row -- and when most rows wrap the
                                  # median LINE is itself two lines, so the re-split above never
                                  # fires; the strip of two lines was read as garbage (2026-10-03)
+        "equations": False,      # display equations found among the lines (layout/equations.py): their
+                                 # bodies kept from the reader (layout["equations"]), their numbers left
+                                 # as lines of their own (2026-10-03)
         "stacked_doc_types": "table",  # ... on these doc types only ('*' = every page): on whole
                                  # payroll forms a large hand-lettered row was cut into ascender and
                                  # descender fragments that look like lines; on table crops it helps
@@ -305,13 +308,20 @@ class ProfileLines(Stage):
         if p["in_cells"] and layout.get("tables"):
             all_lines = _lines_by_cell(page.binary, all_lines, layout["tables"], layout["blocks"], p["noise_frac"])
 
+        equations = []
+        if p["equations"] and all_lines:
+            from .equations import find_equations
+            all_lines, equations = find_equations(page.binary, all_lines)
+
         out = page.evolve()
         out.meta["layout"] = dict(layout, lines=all_lines)
+        if p["equations"]:
+            out.meta["layout"]["equations"] = equations
         debug = DebugBundle(
             images={"lines_overlay": draw_boxes(page.gray,
                                                 [l["box"] for l in all_lines],
                                                 color=(60, 160, 60))},
-            scalars={"n_lines": len(all_lines), "stacked_split": n_stacked,
+            scalars={"n_lines": len(all_lines), "stacked_split": n_stacked, "equations": len(equations),
                      "lines_per_block": str([sum(1 for l in all_lines if l["block"] == b)
                                              for b in range(len(layout["blocks"]))])},
         )

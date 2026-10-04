@@ -1215,6 +1215,80 @@ SPAN_LEFT_LABELS = [False]  # a first-column label followed by empty figure colu
                             # paystubs +0.016, receipts -0.059 -- their truths disagree on the convention)
 
 
+def centred_rowspans(t: dict) -> dict:
+    """Cells set vertically CENTRED on the rows they span -- '100' and 'None'
+    midway between the two rows they head, as scientific tables typeset a
+    multirow cell -- come out of the row finder as a sparse row of their own
+    between those rows.  Such a row is folded back: a row whose filled
+    columns are all empty in the rows above and below it, while those rows
+    are filled elsewhere (more columns than it), is removed, and each of its
+    cells spans the m rows above and m below (m as large as the column stays
+    empty on both sides; the cell centred, so the same number each way).
+    A centred cell over an odd number of rows sits ON the middle row and is
+    not found here.  The typesetting is LaTeX's \\multirow, which centres
+    its text on the rows spanned (PubTables-1M annotates 499 row spans in the
+    240 held-out tables, 376 of them two rows tall)."""
+    cells = t.get("cells", [])
+    if not cells:
+        return t
+    nr = t.get("n_rows") or 1 + max(c["row"] for c in cells)
+    at = {(c["row"], c["col"]): c for c in cells}
+    filled = lambda c: bool(c and (c.get("text") or "").strip())  # noqa: E731
+    F = [{cc for (rr, cc), c in at.items() if rr == r and filled(c)} for r in range(nr)]
+    covered = [set() for _ in range(nr)]          # columns a spanning cell already covers
+    for c in cells:
+        if c.get("rowspan", 1) == 1 and c.get("colspan", 1) == 1:
+            continue
+        for q in range(c["row"], c["row"] + c.get("rowspan", 1)):
+            if q < nr:
+                covered[q].update(range(c["col"], c["col"] + c.get("colspan", 1)))
+    drop_rows, spans = set(), []
+    for r in range(1, nr - 1):
+        f = F[r]
+        if not f or r - 1 in drop_rows:
+            continue
+        if any(at[(r, cc)].get("rowspan", 1) != 1 or at[(r, cc)].get("colspan", 1) != 1 for cc in f):
+            continue
+        up, dn = F[r - 1], F[r + 1]
+        if (f & up) or (f & dn) or len(up) <= len(f) or len(dn) <= len(f):
+            continue
+        if (f & covered[r - 1]) or (f & covered[r + 1]):
+            continue
+        m = 1
+        while (r - m - 1 >= 0 and r + m + 1 < nr and not (f & F[r - m - 1]) and not (f & F[r + m + 1])
+               and len(F[r - m - 1]) > len(f) and len(F[r + m + 1]) > len(f)
+               and not (f & covered[r - m - 1]) and not (f & covered[r + m + 1])):
+            m += 1
+        drop_rows.add(r)
+        spans.append((r, m))
+    if not drop_rows:
+        return t
+    new = {}
+    k = 0
+    for r in range(nr):
+        if r not in drop_rows:
+            new[r] = k
+            k += 1
+    out = []
+    moved = {}
+    for r, m in spans:
+        for cc in F[r]:
+            moved[(r - m, cc)] = dict(at[(r, cc)], row=new[r - m], rowspan=2 * m)
+    for c in cells:
+        key = (c["row"], c["col"])
+        if c["row"] in drop_rows:
+            continue
+        if key in moved:
+            out.append(moved.pop(key))
+            continue
+        # an empty slot a moved cell now spans is no cell of its own
+        if not filled(c) and any(r - m < c["row"] <= r + m and c["col"] in F[r] for r, m in spans):
+            continue
+        out.append(dict(c, row=new[c["row"]]))
+    out.extend(moved.values())
+    return dict(t, cells=sorted(out, key=lambda c: (c["row"], c["col"])), n_rows=k)
+
+
 def span_row_labels(t: dict) -> dict:
     """A first-column label that spans the rows beneath it ('Sex, n (%)' over
     the Men and Women rows, a scan protocol over its six parameter rows): a

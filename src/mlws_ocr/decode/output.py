@@ -301,6 +301,9 @@ class TextOutput(Stage):
                                          # tables found on a page; 2026-10-03)
         "table_cell_lines": False,       # a table's row read line by line, not by x alone: a wrapped
                                          # cell's lines no longer interleave (sepnet.grid_table; 2026-09-30)
+        "table_centred_rowspans": False, # a table's crop: a cell centred between the rows it spans, read as a
+                                         # sparse row of its own, folded back as a row span
+                                         # (wstables.centred_rowspans; 2026-10-03)
         "table_label_rowspans": False,   # a table's crop: a first-column label spans the rows beneath it
                                          # with an empty first cell (wstables.span_row_labels; 2026-09-30)
         "trim_notes_rows": False,        # ...and a caption or note split across cells, or 'Table' misread,
@@ -922,6 +925,9 @@ class TextOutput(Stage):
             if t is not None and self.params["table_label_rowspans"]:
                 from ..layout.wstables import span_row_labels
                 t = span_row_labels(t)
+            if t is not None and self.params["table_centred_rowspans"]:
+                from ..layout.wstables import centred_rowspans
+                t = centred_rowspans(t)
             if t is not None:
                 # a new layout dict: the incoming page's stays as its stage left it
                 layout = dict(layout, tables=[t])
@@ -981,6 +987,11 @@ class TextOutput(Stage):
             out.meta["pictures"] = [{"file": f"picture_{zi}.png", "bbox": z,
                                      "bbox_source": to_source(z, page.meta, shape)}
                                     for zi, z in enumerate(boxes, 1)]
+            # display equations (lines.equations) are cut out the same way, as equation_N.png
+            out.meta["pictures"] += [{"file": f"equation_{ei}.png", "kind": "equation",
+                                      "bbox": [int(v) for v in e["box"]],
+                                      "bbox_source": to_source(e["box"], page.meta, shape)}
+                                     for ei, e in enumerate(layout.get("equations", []), 1)]
         out.meta["hocr"] = hocr_document(layout, page, out.meta.get("pictures"))
         out.meta["tables_text"] = tables_text
         # the tables as data (JSON records, nested tables inside their
@@ -1087,6 +1098,8 @@ def hocr_document(layout: dict, page, pictures: list | None = None) -> str:
                       file the writers cut) and ``x_source_bbox`` (its box in the
                       original image, where it goes back)
           ocr_separator  a ruling
+          ocr_display / ocr_math  a display equation (lines.equations), its image
+                      (equation_N.png with ``pictures``) inside; its number is a line
 
     A line belongs to the block its ``block`` index names; lines with no
     block, or outside every block, go in a final content area so nothing
@@ -1094,7 +1107,7 @@ def hocr_document(layout: dict, page, pictures: list | None = None) -> str:
     table instead of their block. Words and lines are escaped XHTML;
     graphic-suspect lines are left out, as in the plain text."""
     h, w = (page.gray.shape if page.gray is not None else (0, 0))
-    caps = "ocr_page ocr_carea ocr_par ocr_line ocrx_word ocr_table ocr_photo ocr_separator"
+    caps = "ocr_page ocr_carea ocr_par ocr_line ocrx_word ocr_table ocr_photo ocr_separator ocr_display ocr_math"
     out = ['<?xml version="1.0" encoding="UTF-8"?>',
            '<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" '
            '"http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">',
@@ -1215,11 +1228,22 @@ def hocr_document(layout: dict, page, pictures: list | None = None) -> str:
             emit_area(blocks[bi], by_block[bi])
     if orphans:
         emit_area(union(orphans), orphans)
-    photos = ([(p["bbox"], f'; image "{p["file"]}"; x_source_bbox {bb(p["bbox_source"])}') for p in pictures]
+    photos = ([(p["bbox"], f'; image "{p["file"]}"; x_source_bbox {bb(p["bbox_source"])}') for p in pictures
+               if p.get("kind") != "equation"]
               if pictures is not None else [(z, "") for z in layout.get("image_zones", [])])
     for zi, (z, extra) in enumerate(photos, 1):
         # single-quoted: the image property's file name is in double quotes (hOCR 1.2)
         out.append(f'<div class="ocr_photo" id="image_1_{zi}" title=\'bbox {bb(z)}{extra}\'></div>')
+    # display equations (lines.equations): hOCR 1.2's ocr_display holding an ocr_math, which
+    # holds an img -- the equation cut from the original when pictures are exported; the
+    # number was read as a line of its own and is written with the text
+    eq_files = [p for p in (pictures or []) if p.get("kind") == "equation"]
+    for ei, e in enumerate(layout.get("equations", []), 1):
+        pic = eq_files[ei - 1] if ei <= len(eq_files) else None
+        extra = f'; x_source_bbox {bb(pic["bbox_source"])}' if pic else ""
+        img = f'<img src="{pic["file"]}" alt="equation {ei}"/>' if pic else ""
+        out.append(f'<div class="ocr_display" id="display_1_{ei}" title="bbox {bb(e["box"])}">'
+                   f'<span class="ocr_math" id="math_1_{ei}" title="bbox {bb(e["box"])}{extra}">{img}</span></div>')
     for ri, r in enumerate(list(layout.get("rules_h", [])) + list(layout.get("rules_v", [])), 1):
         if isinstance(r, (list, tuple)) and len(r) == 4:
             out.append(f'<div class="ocr_separator" id="separator_1_{ri}" title="bbox {bb(r)}"></div>')
