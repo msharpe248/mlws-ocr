@@ -18,6 +18,12 @@ scores 0.  With --whole-page, every table the engine found (nested ones in
 their cells) is scored against every truth table: several tables become
 children of one root, so a missed or an invented table costs its nodes.
 
+CHARS is the reading alone: 1 - the edit distance between the tables' cell
+texts (in row order, cells joined by a space) over the truth's length,
+summed over the set.  TEDS weighs one wrong character of a cell -- a minus
+read as a hyphen -- next to nothing; a reader taught the tables' symbols
+moved PubTables-1M's CHARS 0.873 -> 0.876 and its TEDS by 0.001 (2026-10-04).
+
     scripts/eval_tables.py data/tables/payroll_form --pages 20 --config configs/neural.toml
 """
 from __future__ import annotations
@@ -236,6 +242,11 @@ def main():
     if args.dump:
         args.dump.mkdir(parents=True, exist_ok=True)
     scores, structs = [], []
+    char_err = char_tot = 0
+
+    def cell_text(h: str) -> str:
+        cells = re.findall(r"<t[dh][^>]*>(.*?)</t[dh]>", h, re.S)
+        return " ".join(" ".join(html.unescape(re.sub(r"<[^>]+>", " ", c)).split()) for c in cells)
     for tp in pages[: args.pages]:
         stem = tp.name[: -len(".table.html")]
         img = tp.with_name(stem + ".png")
@@ -246,13 +257,17 @@ def main():
         truth = tp.read_text()
         s, st = teds(pred, truth), teds(pred, truth, structure_only=True)
         scores.append(s); structs.append(st)
+        ct, cp = cell_text(truth), cell_text(pred)
+        ce = edit_distance(cp, ct)
+        char_err += ce; char_tot += max(1, len(ct))
         if args.dump:
             (args.dump / f"{stem}.pred.html").write_text(pred)
             lay = page.meta.get("layout", {})
             if "wordrel_x" in lay:                 # the word-network choice's inputs (train_wordrel_select.py)
                 (args.dump / f"{stem}.wrel.json").write_text(json.dumps(lay["wordrel_x"]))
-        print(f"  {stem}: TEDS {s:.3f}  TEDS-S {st:.3f}", flush=True)
-    print(f"\nMEAN over {len(scores)} pages: TEDS {np.mean(scores):.3f}  TEDS-S {np.mean(structs):.3f}")
+        print(f"  {stem}: TEDS {s:.3f}  TEDS-S {st:.3f}  CHARS {1 - ce / max(1, len(ct)):.3f}", flush=True)
+    print(f"\nMEAN over {len(scores)} pages: TEDS {np.mean(scores):.3f}  TEDS-S {np.mean(structs):.3f}"
+          f"  CHARS {1 - char_err / max(1, char_tot):.3f}")
 
 
 if __name__ == "__main__":

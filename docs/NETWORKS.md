@@ -113,6 +113,7 @@ were trained on the public sources named below and on nothing else.
 | v0.18.2 (2026-10-03) | the same thirty-seven files as v0.18.1: this release is profile and code (light text on a dark ground inverted, row labels with dot leaders kept, a value's count one cell with it) |
 | v0.18.3 (2026-10-03) | the same thirty-seven files as v0.18.1: this release is profile and code (photographs found on the grey page and kept out of the dark-ground inversion, a ground required to fill 95% of its box, pictures cut from the original image and named in the hOCR) |
 | v0.18.4 (2026-10-03) | the same thirty-seven files as v0.18.1: this release is profile and code (wrapped cells' stacked lines re-found column by column on table crops, lone '-' dashes kept, a dot leader not counted as a note's words, no grey pictures on a page magnified 2x or more) |
+| v0.18.5 (2026-10-04) | the same thirty-seven files as v0.18.1: this release is profile and code (display equations found before reading, pictures exported in the neural profile, a row's label spanning its continuation rows) |
 | v0.14.0 (2026-09-27) | twenty-one files: v0.13.0's eighteen plus the reader `seq_line_gray7_en.npz`, `_2`, `_3` (= `seq_line_gray7` seeds 3, 2, 1, EMA weights), the neural profile's reader; the v0.13.0 grey reader stays (it is the new one's teacher and the way back) |
 
 ## Where the training data comes from
@@ -580,8 +581,8 @@ FinTabNet.c 0.849 -> 0.853 (94 up, 27 down); the 60 scored: 0.797 -> 0.813 and
 0.839 -> 0.840. The business sets and CORD do not take the hint and are
 unchanged.
 
-**Tried, not adopted: the table symbols** (`seq_line_gray17`, `gray17b`,
-2026-10-04). Each gray16 member 2 more epochs with a synthetic set of table
+**Next: the table symbols** (`seq_line_gray17b`, 2026-10-04; held for the
+next release, the owner's decision; `gray17`, at the default rate, not adopted). Each gray16 member 2 more epochs with a synthetic set of table
 tokens carrying their typography -- ranges '0.40–0.74', negatives '−0.178',
 '3.2 × 10', '25 °C', '±', '≤', hyphens where they belong -- 80% as a
 low-resolution scan (`scripts/make_table_symbol_corpus.py`, then
@@ -591,7 +592,14 @@ L2-SP 1e-3). The symbols are learned -- on the held-out PubTables-1M tables '–
 128 -> 243 of 428, '°' 2 -> 18 of 46, '×' 2 -> 11 of 74 -- and gray17b reads the
 held-out real lines better (86.5 / 84.7 / 85.7% against 84.9 / 82.5 / 82.8%), but
 the tables do not move (PubTables-1M 0.813, FinTabNet.c 0.873 against 0.812 /
-0.875): one character of a cell is little to TEDS. gray16 stays.
+0.875): one character of a cell is little to TEDS. Read as text, the held-out
+PubTables-1M tables' character accuracy rose 0.873 -> 0.876 and their symbols
+452 -> 599 of 1,080, FinTabNet.c's 0.727 level (`eval_tables.py` now reports
+this as CHARS). But the per-table choice between the rules', the structure
+network's and the word network's tables was fitted on gray16's reads, and
+flips on a few tables with gray17b's (PubTables-1M 60 scored 0.825 -> 0.818,
+three tables 0.745 -> 0.452 and the like, their text better): gray17b waits for
+the choice refitted on its reads.
 
 ```sh
 MLWS_EXTRA_CLASSES='*=+@[]_`±−–—×°μ<>≤≥’‘“”†‡·•' .venv/bin/python scripts/make_seq_data.py --out data/seq_synth_sym2.npz \

@@ -209,7 +209,7 @@ solid or dense ink too big for type, and two options added for this
 And `illumination.invert_rect` raises the bar a dark region must clear to be
 inverted as a ground, so that a bold logo stays a logo.
 
-**Display equations** (`--set lines.equations=true`): hOCR 1.2 puts a display
+**Display equations** (in the neural profiles since v0.18.5; `lines.equations`): hOCR 1.2 puts a display
 formula in an `ocr_display` holding an `ocr_math`, which must contain an
 image or MathML. The engine finds display equations before reading
 ([SEGMENTATION.md §8](SEGMENTATION.md)) and, with `output.pictures`, cuts

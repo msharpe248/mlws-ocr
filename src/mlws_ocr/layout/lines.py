@@ -309,7 +309,9 @@ class ProfileLines(Stage):
             all_lines = _lines_by_cell(page.binary, all_lines, layout["tables"], layout["blocks"], p["noise_frac"])
 
         equations = []
-        if p["equations"] and all_lines:
+        # not on a table's crop (the 'table' hint): a row ending in a bracketed figure there was
+        # taken for a numbered equation and its words lost (PubTables-1M, 2026-10-04)
+        if p["equations"] and all_lines and page.meta.get("doc_type") != "table":
             from .equations import find_equations
             all_lines, equations = find_equations(page.binary, all_lines)
 

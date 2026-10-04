@@ -89,10 +89,10 @@ between 0.00 and 0.03.
 | invoices | generated: line items with spanned totals, five rule styles (20 pages) | – | 0.967 / 0.981 |
 | timesheets | generated: two-level spanned headers, five rule styles (20 pages) | – | 0.942 / 0.964 |
 | annual-report tables | real financial tables, FinTabNet.c, ruled by whitespace (60 tables; on 240 held-out ones 0.875 / 0.917) | 0.607 / 0.781 | **0.855 / 0.901** |
-| scientific tables | real tables from papers, PubTables-1M test crops (60 tables; on 240 held-out ones 0.812 / 0.882); page-level detection F1 0.967 at IoU 0.5 (40 pages, v0.17.2) | – | 0.824 / 0.886 |
+| scientific tables | real tables from papers, PubTables-1M test crops (60 tables; on 240 held-out ones 0.814 / 0.883); page-level detection F1 0.967 at IoU 0.5 (40 pages, v0.17.2) | – | 0.825 / 0.888 |
 | screenshots | tables drawn as web pages by a browser -- plain, grid, zebra, dark mode, coloured header, spreadsheet -- at 96 and 192 dpi (80 tables) | – | 0.911 / 0.939 |
 
-Neural-table as of v0.18.4 (2026-10-03: nil dashes read, a receipt's paper edge dropped, receipt item rows kept apart, a frame round a table's crop not taken for the table, light-grey rules found in the grey page, captions and notes trimmed by whole rows, wrapped cells read line by line, row labels spanning their sub-rows, a word read across a column gap split, a table reader that writes ± and the tables' other symbols, a small transformer over a table crop's words whose table a fitted choice keeps when it is the better, a reader for table crops trained harder on table lines, light text on a dark ground inverted, row labels with dot leaders kept, photographs found on the grey page and kept out of that inversion, pictures cut out for the hOCR, wrapped cells read line by line within their column, lone '-' dashes kept -- docs/RESEARCH.md); the generated sets' truth was corrected where it disagreed with its own images (timesheets, payroll forms). \* measured before the open-sides and short-rule options and before the payroll truth held both amounts of each diagonal gross cell (the set was regenerated, 2026-09-28); – not measured.
+Neural-table as of v0.18.5 (2026-10-03: nil dashes read, a receipt's paper edge dropped, receipt item rows kept apart, a frame round a table's crop not taken for the table, light-grey rules found in the grey page, captions and notes trimmed by whole rows, wrapped cells read line by line, row labels spanning their sub-rows, a word read across a column gap split, a table reader that writes ± and the tables' other symbols, a small transformer over a table crop's words whose table a fitted choice keeps when it is the better, a reader for table crops trained harder on table lines, light text on a dark ground inverted, row labels with dot leaders kept, photographs found on the grey page and kept out of that inversion, pictures cut out for the hOCR, wrapped cells read line by line within their column, lone '-' dashes kept, a row's label spanning its continuation rows -- docs/RESEARCH.md); the generated sets' truth was corrected where it disagreed with its own images (timesheets, payroll forms). \* measured before the open-sides and short-rule options and before the payroll truth held both amounts of each diagonal gross cell (the set was regenerated, 2026-09-28); – not measured.
 
 **Held-out pages.** The eight-page sets flatter newspapers and magazines:
 on 30 fresh pages of each type, never used for any decision, the neural
@@ -205,7 +205,7 @@ python3 -m venv .venv && .venv/bin/pip install -e ".[dev]"
 Every run writes `text.txt` and `page.hocr` — hOCR with the page's
 structure (blocks in reading order, lines, words with boxes and a
 calibrated probability each, tables, image zones, rulings) — beside the
-persisted page. With `--set output.pictures=true` each picture (a photograph, a logo) is also
+persisted page. In the neural profiles (and with `--set output.pictures=true` in any) each picture (a photograph, a logo) is also
 cut from the original image as `picture_N.png`, and its `ocr_photo` names
 the file and its box in the original, so it can be put back
 ([docs/HOCR.md §6](docs/HOCR.md)). The service returns
@@ -284,9 +284,11 @@ on and off and re-run the page (cutting them out, photographs found on the
 grey page, strict dark grounds, display type as a picture), and
 "Download hOCR + pictures" gives the hOCR with its `picture_N.png` files
 in one zip ([docs/HOCR.md §6](docs/HOCR.md)).
-Display equations in scientific pages can be found before reading
-(`--set lines.equations=true`): each is cut out the same way and written as
-hOCR's `ocr_display` / `ocr_math`, its number '(3)' read as text.
+In the neural profiles (since v0.18.5) display equations in scientific pages
+are found before reading: each is cut out the same way (`equation_N.png`) and
+written as hOCR's `ocr_display` / `ocr_math`, its number '(3)' read as text --
+F1 0.906 on fresh typeset pages, none found on business, letter, legal,
+newspaper or magazine pages.
 
 ![The Pictures view: the payroll form's WHD logo cut from the original scan, with both of its boxes](docs/img/workbench_pictures.png)
 

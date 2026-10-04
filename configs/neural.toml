@@ -75,6 +75,9 @@ impl = "judged"                # newspapers and magazines: XY-cut or knn_scc cho
 
 [stage.lines]
 impl = "profile"
+equations = true               # display equations found before reading (layout/equations.py): cut out with the
+                               # pictures, hOCR ocr_display / ocr_math, numbers read; 22 fresh typeset pages F1 0.906,
+                               # none found on business, letter, legal, news, magazine pages (2026-10-04)
 
 [stage.components]
 impl = "overlap"
@@ -185,6 +188,8 @@ case_repair = true      # I/l and case-twin repair runs even with the corrector 
                         # CORD +0.3/+0.5, FUNSD +0.2 word, the rest level or +0.1
 
 [stage.output]
+pictures = true             # picture zones and display equations cut from the original image (picture_N.png,
+                            # equation_N.png) and named in the hOCR (core/pictures.py; 2026-10-04)
 drop_facing_page = true     # the facing page's column clipped at a spread's edge is left out (newspaper and
                             # magazine pages; 2026-09-27: news-8 +1.5 / +1.8, mag-8 +5.8 / +6.5 neural, RESEARCH)
 impl = "text"

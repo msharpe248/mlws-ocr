@@ -275,7 +275,7 @@ decoder to tell 'p' from 'P' and ',' from ''' by position. Two refinements:
 
 The x-height is measured later, per line, by the decoder.
 
-**Display equations** (`lines.equations`, off). A display equation is set
+**Display equations** (`lines.equations`, in the neural profiles since v0.18.5). A display equation is set
 apart from the running text and, in scientific writing, numbered at the
 right margin, '(3)'; read as text its mathematics is junk. So it is found
 among the lines before reading (`layout/equations.py`): a line set in from

@@ -493,7 +493,7 @@ for timesheets and payroll forms the two differ by more than the engine.
 | invoices (generated, 20) | 0.015 | 0.764 / 0.807 | 0.967 / 0.981 |
 | timesheets (generated, 20) | 0.015 | 0.612 / 0.735 | 0.942 / 0.964 |
 | FinTabNet.c (real, 60) | 0.032 | 0.763 / 0.879 | 0.855 / 0.901 |
-| PubTables-1M crops (real, 60) | – | – | 0.824 / 0.886 |
+| PubTables-1M crops (real, 60) | – | – | 0.825 / 0.888 |
 
 PubTables-1M page detection, 40 test pages, IoU ≥ 0.5: F1 0.967 (precision 0.936, recall 1.000).
 
@@ -513,8 +513,9 @@ one-line cell is one strip of stacked lines the reader cannot read, a
 nil '-' alone in its cell was dropped as a speck, and a 72-dpi crop's
 blurred type was taken for a photograph. Read column by column, kept,
 and not tested on such pages, they took the held-out tables to 0.812
-and 0.875. The held-out figures are the ones to quote: **0.812** on
-scientific tables, **0.875** on annual-report tables.
+and 0.875; a row's label spanning its continuation rows (a gene over its
+two primer rows) then 0.814. The held-out figures are the ones to quote:
+**0.814** on scientific tables, **0.875** on annual-report tables.
 The neural profile reports the same structure without the options that
 change what the reader sees; its text is unchanged. Neither Tesseract
 engine outputs table structure.
