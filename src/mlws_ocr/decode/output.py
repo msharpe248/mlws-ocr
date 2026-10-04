@@ -993,6 +993,8 @@ class TextOutput(Stage):
             if found:
                 layout = dict(layout, tables=list(layout.get("tables", [])) + found)
 
+        if any(w.get("text_sym") for ln in layout.get("lines", []) for w in ln.get("words", [])):
+            layout, tables_text, full = lend_symbols(layout, tables_text, full)
         out = page.evolve()
         out.meta["layout"] = layout
         out.meta["text"] = full
@@ -1094,6 +1096,48 @@ class TextOutput(Stage):
 def _esc(t: str) -> str:
     return (t.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
              .replace('"', "&quot;"))
+
+
+def lend_symbols(layout: dict, tables_text: list, full: str):
+    """A second reader's SYMBOLS (decode ``line_model_path_symbols``: a word's
+    ``text_sym``) put into the output's texts once the structure is built:
+    the words (for the hOCR), each table cell holding the word's centre and
+    its grid entry, and the page text -- the token replaced where it stands.
+    The structure is the first reader's: the symbols taken into the text
+    before it was built moved FinTabNet.c's tables (2026-10-04)."""
+    import copy
+    layout = copy.deepcopy(layout)
+    swaps = []
+    for ln in layout.get("lines", []):
+        for w in ln.get("words", []):
+            if w.get("text_sym"):
+                swaps.append((w["box"], w["text"], w["text_sym"]))
+                w["text_base"], w["text"] = w["text"], w.pop("text_sym")
+
+    def put(text: str, base: str, sym: str) -> str:
+        return re.sub(r"(?<!\S)" + re.escape(base) + r"(?!\S)", lambda m: sym, text, count=1)
+    tables_text = [[list(row) for row in grid] for grid in tables_text]
+    has = lambda c, base: bool(re.search(r"(?<!\S)" + re.escape(base) + r"(?!\S)", c.get("text") or ""))  # noqa: E731
+    for ti, t in enumerate(layout.get("tables", [])):
+        grid = tables_text[ti] if ti < len(tables_text) else None
+        cells = [c for c in t.get("cells", []) if c.get("text")]
+        for wb, base, sym in swaps:
+            cx, cy = (wb[0] + wb[2]) / 2, (wb[1] + wb[3]) / 2
+            inside = [c for c in cells if (b := c.get("box") or (0, 0, 0, 0))[0] <= cx < b[2] and b[1] <= cy < b[3]]
+            # a cell the word network built keeps its first word's box: a word joined to it later
+            # lies outside -- then the nearest cell on its row holding the word's text
+            if not inside or not has(inside[0], base):
+                row = [c for c in cells if has(c, base) and (b := c.get("box") or (0, 0, 0, 0))[1] < wb[3]
+                       and wb[1] < b[3]]
+                inside = sorted(row, key=lambda c: abs((c["box"][0] + c["box"][2]) / 2 - cx))[:1]
+            for c in inside[:1]:
+                if has(c, base):
+                    c["text"] = put(c["text"], base, sym)
+                    if grid is not None and c["row"] < len(grid) and c["col"] < len(grid[c["row"]]):
+                        grid[c["row"]][c["col"]] = put(grid[c["row"]][c["col"]], base, sym)
+    for _, base, sym in swaps:
+        full = put(full, base, sym)
+    return layout, tables_text, full
 
 
 def hocr_document(layout: dict, page, pictures: list | None = None) -> str:

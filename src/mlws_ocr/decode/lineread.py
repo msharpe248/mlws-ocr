@@ -41,6 +41,38 @@ from ..recognize.seq import cached_log_probs
 from .beam import BeamDecode, numeric_endorsed
 
 
+# the symbols a second reader may give a word, each with the characters the first reader writes
+# in their place (a hyphen for a minus or an en dash, an x for the times sign, a plus for the
+# plus-minus); a degree sign may also be added where the first reader wrote nothing
+_SYMBOL_FOR = {"–": "-~", "−": "-~", "—": "-–", "×": "xX*", "±": "+", "°": "o0*"}
+
+
+def symbol_merge(base: str, other: str) -> str:
+    """``base`` with ``other``'s SYMBOLS where the two differ only there: each
+    differing span is a symbol of ``other`` (– − — × ± °) standing where ``base``
+    has a character it is read as ('-' for a minus, 'x' for a times sign) or,
+    for a degree sign, nothing.  Any other difference keeps ``base`` whole.
+    A reader taught the tables' symbols (seq_line_gray17b) moved the table
+    structure when it read the whole crop -- the per-table choice was fitted on
+    the first reader's text -- so it lends its symbols only (2026-10-04)."""
+    if base == other:
+        return base
+    import difflib
+    out = []
+    for op, i0, i1, j0, j1 in difflib.SequenceMatcher(None, base, other, autojunk=False).get_opcodes():
+        a, b = base[i0:i1], other[j0:j1]
+        if op == "equal":
+            out.append(a)
+        elif op == "replace" and len(a) == len(b) and all(cb in _SYMBOL_FOR and ca in _SYMBOL_FOR[cb]
+                                                           for ca, cb in zip(a, b)):
+            out.append(b)
+        elif op == "insert" and set(b) <= {"°"}:
+            out.append(b)
+        else:
+            return base
+    return "".join(out)
+
+
 def _chunk_columns(ink_cols: np.ndarray, max_cols: int, min_cols: int = 64) -> list[tuple[int, int]]:
     """Split [0, W) into spans of at most ``max_cols`` columns, cutting at
     the emptiest column near each boundary (a word gap if there is one)."""
@@ -106,6 +138,10 @@ class HybridDecode(BeamDecode):
     defaults = {
         **BeamDecode.defaults,
         "line_model_path": "",     # the line reader's weights; "" = the seq_path scorer
+        "line_model_path_symbols": "",  # a table crop's lines read again by this reader, and its SYMBOLS
+                                        # taken where the two reads differ only there ('-' -> '–' or '−',
+                                        # 'x' -> '×', '+' -> '±', '°' added): the structure read as before,
+                                        # the dashes and signs right (symbol_merge; 2026-10-04); "" = off
         "line_model_path_table": "",  # another reader for a table's crop (the 'table' layout hint): one
                                       # trained harder on table lines, kept off whole pages, whose
                                       # receipts it reads worse (2026-10-03); "" = line_model_path
@@ -310,6 +346,25 @@ class HybridDecode(BeamDecode):
         debug.scalars["graphic_lines_read"] = n_graphic
         debug.scalars["superset_kept"] = n_superset
         debug.scalars["lines_dropped"] = n_dropped
+        if p["line_model_path_symbols"] and page.meta.get("doc_type") == "table":
+            sym = self._load_seq(p["line_model_path_symbols"], p["seq_backend"])
+            n_sym = 0
+            for ln in layout["lines"]:
+                if not ln.get("words") or ln.get("graphic_suspect") or ln.get("baseline") is None \
+                        or not ln.get("x_height"):
+                    continue
+                read = self._read_line(page.binary, ln, sym, word_bonus, p, gray=gray)
+                if read is None or len(read[0]) != len(ln["words"]):
+                    continue
+                for w, v in zip(ln["words"], read[0]):
+                    t = symbol_merge(w["text"], v["text"])
+                    if t != w["text"]:
+                        # kept beside the word, lent to the output's texts after the structure is
+                        # built (output.lend_symbols): taken into the text here, the em dashes it
+                        # gave moved FinTabNet.c's structure (held out 0.875 -> 0.871)
+                        w["text_sym"] = t
+                        n_sym += 1
+            debug.scalars["symbols_taken"] = n_sym
         if p["rotated_cells"] and layout.get("tables"):
             debug.scalars["rotated_cells_read"] = self._read_rotated_cells(layout, page.binary, model, gray)
         if p["figure_cells"] and layout.get("tables"):

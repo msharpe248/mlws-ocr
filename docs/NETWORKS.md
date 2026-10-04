@@ -19,6 +19,7 @@ judged before it went live. The measurements themselves are in
 | Word-strip CRNN scorer | `seq_en.npz` | 285k | neural (`decode.seq_path`) | `train_seq.py` | synthetic word windows + truth-labelled real word strips |
 | Line model for tables, grey strips (same CRNN, 139 classes) | `seq_line_gray15_en.npz`, `_2`, `_3` | 3 × 291k | neural-table (`decode.line_model_path`) | `train_seq.py` | the reader below fine-tuned with table lines cut from PubTables-1M and FinTabNet.c training crops at their PDF text, receipt photo lines weighted up, the tables' symbols (± − – — × ° μ < > ≤ ≥ ’ ‘ “ ” † ‡ · •) as classes with a symbol-rich synthetic set; distilled from itself, L2-SP, EMA |
 | Line model for table crops, grey strips (same CRNN, 139 classes) | `seq_line_gray16_en.npz`, `_2`, `_3` | 3 × 291k | neural-table, on a table's crop only (`decode.line_model_path_table`) | `train_seq.py` | the table reader above trained 3 more epochs with all the harvested table lines (PubTables-1M pt0-7, FinTabNet.c fin0-3) at full weight |
+| Symbol reader for table crops (same CRNN, 139 classes) | `seq_line_gray17b_en.npz`, `_2`, `_3` | 3 × 291k | neural-table, on a table's crop, its symbols only (`decode.line_model_path_symbols`) | `train_seq.py` | the gray16 members 2 more epochs with the table-symbol lines `seq_synth_tsym1`, lr 3e-4, L2-SP 1e-3 |
 | Line model, grey strips (same CRNN) | `seq_line_gray9_en.npz`, `_2`, `_3` | 3 × 287k | neural (`decode.line_model_path`, `decode.line_source = "gray"`) | `train_seq.py` | v0.14.0's reader (the v0.13.0 grey reader fine-tuned with SROIE and FUNSD box-cut training lines and more Legal Reports lines, held to its predecessor by L2-SP and distillation; EMA) with 8 more classes and a symbol-bearing synthetic set |
 | Line model, grey strips (v0.13.0) | `seq_line_gray_en.npz`, `_2`, `_3` | 3 × 285k | none since v0.14.0 (the teacher of the above) | `train_seq.py` | the binary line model fine-tuned on grey line strips (grey twins of harvested lines) plus binary real lines |
 | Line model, binary strips (previous) | `seq_line_en.npz`, `_2`, `_3` | 3 × 285k | none since 2026-09-26 (v17a) | `train_seq.py` | the above plus long windows and real whole lines |
@@ -114,6 +115,7 @@ were trained on the public sources named below and on nothing else.
 | v0.18.3 (2026-10-03) | the same thirty-seven files as v0.18.1: this release is profile and code (photographs found on the grey page and kept out of the dark-ground inversion, a ground required to fill 95% of its box, pictures cut from the original image and named in the hOCR) |
 | v0.18.4 (2026-10-03) | the same thirty-seven files as v0.18.1: this release is profile and code (wrapped cells' stacked lines re-found column by column on table crops, lone '-' dashes kept, a dot leader not counted as a note's words, no grey pictures on a page magnified 2x or more) |
 | v0.18.5 (2026-10-04) | the same thirty-seven files as v0.18.1: this release is profile and code (display equations found before reading, pictures exported in the neural profile, a row's label spanning its continuation rows) |
+| v0.18.6 (2026-10-04) | forty files: v0.18.5's thirty-seven plus the symbol reader `seq_line_gray17b_en.npz`, `_2`, `_3` |
 | v0.14.0 (2026-09-27) | twenty-one files: v0.13.0's eighteen plus the reader `seq_line_gray7_en.npz`, `_2`, `_3` (= `seq_line_gray7` seeds 3, 2, 1, EMA weights), the neural profile's reader; the v0.13.0 grey reader stays (it is the new one's teacher and the way back) |
 
 ## Where the training data comes from
@@ -581,8 +583,8 @@ FinTabNet.c 0.849 -> 0.853 (94 up, 27 down); the 60 scored: 0.797 -> 0.813 and
 0.839 -> 0.840. The business sets and CORD do not take the hint and are
 unchanged.
 
-**Next: the table symbols** (`seq_line_gray17b`, 2026-10-04; held for the
-next release, the owner's decision; `gray17`, at the default rate, not adopted). Each gray16 member 2 more epochs with a synthetic set of table
+**v0.18.6: the table symbols** (`seq_line_gray17b`, 2026-10-04; `gray17`, at the
+default rate, not adopted). Each gray16 member 2 more epochs with a synthetic set of table
 tokens carrying their typography -- ranges '0.40–0.74', negatives '−0.178',
 '3.2 × 10', '25 °C', '±', '≤', hyphens where they belong -- 80% as a
 low-resolution scan (`scripts/make_table_symbol_corpus.py`, then
@@ -598,8 +600,15 @@ PubTables-1M tables' character accuracy rose 0.873 -> 0.876 and their symbols
 this as CHARS). But the per-table choice between the rules', the structure
 network's and the word network's tables was fitted on gray16's reads, and
 flips on a few tables with gray17b's (PubTables-1M 60 scored 0.825 -> 0.818,
-three tables 0.745 -> 0.452 and the like, their text better): gray17b waits for
-the choice refitted on its reads.
+three tables 0.745 -> 0.452 and the like, their text better). Refitting the
+choice on gray17b's reads (731 tables) moved the structure the other way
+(screenshots 0.911 -> 0.898, FinTabNet.c held out 0.875 -> 0.869). So gray17b
+lends its SYMBOLS only (`decode.line_model_path_symbols`, v0.18.6): a crop's lines
+are read by both, `symbol_merge` takes gray17b's character where the two reads
+differ only there ('-' for '–' or '−', 'x' for '×', '+' for '±', a '°' added), and
+`output.lend_symbols` puts it into the texts after the structure is built --
+every TEDS and TEDS-S as v0.18.5's, on the held-out PubTables-1M tables '–' 128
+-> 204, '−' 43 -> 54, '×' 2 -> 8, '°' 2 -> 6, 5% more time on a crop.
 
 ```sh
 MLWS_EXTRA_CLASSES='*=+@[]_`±−–—×°μ<>≤≥’‘“”†‡·•' .venv/bin/python scripts/make_seq_data.py --out data/seq_synth_sym2.npz \

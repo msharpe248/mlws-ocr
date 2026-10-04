@@ -158,6 +158,12 @@ impl = "hybrid"                # the line reader beside the classic decoder (dec
                                # "beam" is the classic decoder alone.
 line_model_path = "data/seq_line_gray15_en.npz+data/seq_line_gray15_en_2.npz+data/seq_line_gray15_en_3.npz"
 line_model_path_table = "data/seq_line_gray16_en.npz+data/seq_line_gray16_en_2.npz+data/seq_line_gray16_en_3.npz"
+line_model_path_symbols = "data/seq_line_gray17b_en.npz+data/seq_line_gray17b_en_2.npz+data/seq_line_gray17b_en_3.npz"
+                               # table profile (2026-10-04, v0.18.6, the owner's decision): a table crop's lines read
+                               # again by seq_line_gray17b (gray16 taught the tables' symbols) and its SYMBOLS lent to
+                               # the output's texts once the structure is built (lineread.symbol_merge,
+                               # output.lend_symbols): every TEDS / TEDS-S as before; on the held-out PubTables-1M
+                               # tables en dashes 128 -> 204 of 428, minus signs 43 -> 54, times 2 -> 8, degrees 2 -> 6
                                # table profile, on a table's CROP only (the 'table' hint; whole pages keep gray15):
                                # = seq_line_gray16, each gray15 member 3 more epochs with all the harvested table
                                # lines at full weight (gray13's direction, which won report tables and lost receipts;
