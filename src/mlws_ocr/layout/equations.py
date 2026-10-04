@@ -15,8 +15,10 @@ The cues, measured on the line's ink (the binary page):
 * the NUMBER: the line's last chunk, past a gap wider than three glyph
   heights, is '(' then one to five small glyphs then ')' -- the two
   parentheses thin and at least as tall as the line's glyphs, what is
-  between them no taller -- or a line of its own of that shape, the last
-  thing on its rows, beside the line it numbers;
+  between them no taller -- or a line of its own of that shape beside the
+  line it numbers, not one of a row of such; flush with the right margin of
+  the prose around it, the body one chunk or two (a table row ending
+  '4 (3)' is neither);
 * the DISPLAY: the line is set in from both sides relative to a prose line
   (one or two chunks across the column -- a form's rows are many)
   near it (within twelve lines, in reading order by height -- both columns of a
@@ -100,7 +102,9 @@ def _maths(piece: np.ndarray, glyph: float, line_h: float) -> bool:
     """Mathematics in an unnumbered display line: a FRACTION BAR -- a flat
     component three glyphs wide or more, under 0.6 of the line's width (a
     rule spans it), with its numerator and denominator within 1.2 glyph
-    heights above and below it, each centred on it and no wider.  Tallness
+    heights above and below it, each one expression (no gap of 1.5 glyphs:
+    a table's spanning header rule has its sub-headers apart beneath it),
+    centred on it and no wider.  Tallness
     (logos, merged form rows: 34 false equations on 12 payroll forms) and a
     large operator (signatures, handwriting, display type on letters) were
     tried and taken by things that are not mathematics; a numbered display
@@ -126,6 +130,10 @@ def _maths(piece: np.ndarray, glyph: float, line_h: float) -> bool:
                 # the ink of the band that overlaps the bar's span, grown to what touches it
                 xs = xs[(xs >= s[1].start - glyph) & (xs < s[1].stop + glyph)]
                 if xs.size == 0:
+                    ok = False
+                    break
+                # one expression: a table's spanning header rule has two sub-headers under it
+                if len(_chunks(np.isin(np.arange(band.shape[1]), xs), 1.5 * glyph)) > 1:
                     ok = False
                     break
                 lo, hi = int(xs[0]), int(xs[-1]) + 1
@@ -199,16 +207,25 @@ def find_equations(binary: np.ndarray, lines: list[dict]) -> tuple[list[dict], l
         bx0, by0, bx1, by1 = info[i]["body"]
         near = order[max(0, rank[i] - 12): rank[i] + 13]
         # ... from a line of PROSE (one chunk or two across the column; a form's row is many)
-        inset = any(j != i and info[j]["number"] is None and info[j]["chunks"] <= 2
-                    and lines[j]["box"][0] <= bx0 - 2 * glyph and lines[j]["box"][2] >= bx1 + 2 * glyph
-                    and lines[j]["box"][3] - lines[j]["box"][1] <= 1.3 * line_h
-                    for j in near)
+        prose = [j for j in near if j != i and info[j]["number"] is None and info[j]["chunks"] <= 2
+                 and lines[j]["box"][0] <= bx0 - 2 * glyph and lines[j]["box"][2] >= bx1 + 2 * glyph
+                 and lines[j]["box"][3] - lines[j]["box"][1] <= 1.3 * line_h]
         # a display is one chunk or a few ('a = b,  c = d'); a form's header row is many
-        if not inset or info[i]["is_number"] or info[i]["chunks"] > 3 or bx1 - bx0 < 2 * glyph:
+        if not prose or info[i]["is_number"] or info[i]["chunks"] > 3 or bx1 - bx0 < 2 * glyph:
             continue
         piece = binary[by0:by1, bx0:bx1]
         displays.append(i)
-        if info[i]["number"] is not None or _maths(piece, glyph, line_h):
+        nb = info[i]["number"]
+        if nb is not None:
+            # a numbered equation's body is one chunk or two, and its number is flush with the
+            # prose's right margin: a table row ending '4 (3)  0 (0.0)' is neither (real
+            # scientific pages: four of six 'equations' on 150 PubTables-1M pages were such rows)
+            margin = float(np.median([lines[j]["box"][2] for j in prose]))
+            if info[i]["chunks"] <= 2 and abs(nb[2] - margin) <= 3 * glyph:
+                eq.add(i)
+            else:
+                info[i]["number"] = None
+        elif _maths(piece, glyph, line_h):
             eq.add(i)
     # on a page with a numbered equation, an unnumbered display with a large operator is one too
     if any(info[i]["number"] is not None for i in eq):

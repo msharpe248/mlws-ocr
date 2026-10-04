@@ -290,7 +290,8 @@ output stage writes it as hOCR's `ocr_display` / `ocr_math`
 ([HOCR.md §6](HOCR.md)). On 33 typeset article pages: F1 0.897 for the
 equations, 0.922 for their numbers (precision 1.000); on 12 pages each of
 letters, legal pages, newspapers, magazines, modern and business pages,
-none found; on 12 payroll forms, one.
+none found (nor on 12 payroll forms); on 22 fresh typeset pages never
+looked at, F1 0.906 and 0.915.
 
 ## 9. Glyph groups
 

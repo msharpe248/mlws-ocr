@@ -1215,6 +1215,128 @@ SPAN_LEFT_LABELS = [False]  # a first-column label followed by empty figure colu
                             # paystubs +0.016, receipts -0.059 -- their truths disagree on the convention)
 
 
+def group_rowspans(t: dict, label_only: bool = True) -> dict:
+    """Rows in GROUPS: a row whose first cell is filled, followed by
+    continuation rows whose first cell is empty and whose few filled cells lie
+    in columns the first row fills too -- a gene's forward and reverse primer,
+    a variable's second line of values.  Each cell of the first row whose
+    column is empty in all the continuation rows spans the group.  This is
+    how PubTables-1M annotates such tables (Smock, Pesala & Abraham, CVPR 2022:
+    a cell holding one value for its rows covers them); the label alone (the
+    first column) is what ``span_row_labels`` does, under a stricter test
+    (each continuation row holding two cells or more).  ``label_only``: only
+    the label spans -- the figures' convention is the source's and varies (a
+    gene's accession spans its two primer rows; a hazard ratio's P value for
+    'high' does not span the reference row 'low' under it), while the label
+    spans in both (on 240 held-out tables every column: 9 up, 13 down).  Header rows (before
+    the first row with a figure after its first column) are left alone."""
+    cells = t.get("cells", [])
+    if not cells:
+        return t
+    nr = t.get("n_rows") or 1 + max(c["row"] for c in cells)
+    at = {(c["row"], c["col"]): c for c in cells}
+    filled = lambda c: bool(c and (c.get("text") or "").strip())  # noqa: E731
+    F = [{cc for (rr, cc), c in at.items() if rr == r and filled(c)} for r in range(nr)]
+    single = lambda r: all(at[(r, cc)].get("rowspan", 1) == 1 and at[(r, cc)].get("colspan", 1) == 1  # noqa: E731
+                           for cc in F[r])
+    body = next((r for r in range(nr) if any(filled(c) and re.search(r"\d", c["text"])
+                                              for (rr, cc), c in at.items() if rr == r and cc > 0)), nr)
+    # a continuation's cells are text, half of them letters or digits: an underline read as
+    # 'cm???' made junk rows that took a report table's figures as spans
+    real = lambda c: len(re.findall(r"\w", c["text"])) >= max(2, 0.5 * len(c["text"].replace(" ", "")))  # noqa: E731
+    drop, span = set(), {}
+    r = body
+    while r < nr:
+        if 0 not in F[r] or len(F[r]) < 2 or not single(r):
+            r += 1
+            continue
+        k = r + 1
+        # a continuation leaves empty a column the first row fills besides the label (an
+        # unlabelled total row fills every figure column, and is a row of its own)
+        while (k < nr and F[k] and 0 not in F[k] and F[k] <= F[r] and len(F[k]) < len(F[r]) - 1
+               and single(k) and all((k, cc) in at for cc in F[r]) and all(real(at[(k, cc)]) for cc in F[k])):
+            k += 1
+        if k > r + 1:
+            for cc in sorted(F[r])[:1] if label_only else F[r]:
+                if all(cc not in F[q] for q in range(r + 1, k)) and all(
+                        at.get((q, cc), {}).get("colspan", 1) == 1 for q in range(r + 1, k)):
+                    span[(r, cc)] = k - r
+                    drop.update((q, cc) for q in range(r + 1, k))
+        r = k
+    if not span:
+        return t
+    out = [dict(c, rowspan=span[(c["row"], c["col"])]) if (c["row"], c["col"]) in span else c
+           for c in cells if (c["row"], c["col"]) not in drop]
+    return dict(t, cells=out)
+
+
+def offset_rowspans(t: dict, words: list[dict]) -> dict:
+    """A cell centred on the two rows it spans that the row finder put IN one
+    of them: its text sits about half a row off its row's centre, toward a
+    neighbouring row whose cell in its column is empty.  It spans both.
+
+    Each cell's text centre is taken from the words whose centres fall in it
+    (a grid's cell box is the row's band, not the text); a row's centre is the
+    median of its other one-row cells' text centres; the pitch is the median
+    distance between row centres.  A cell is moved when its centre lies within
+    0.2 of a pitch of the midpoint between its row and the neighbour's, and at
+    least 0.3 of a pitch from its own row's centre.  LaTeX's \\multirow over
+    two rows typesets exactly this (376 of the 499 row spans in the 240
+    held-out PubTables-1M tables are two rows tall)."""
+    cells = t.get("cells", [])
+    if not cells or not words:
+        return t
+    nr = t.get("n_rows") or 1 + max(c["row"] for c in cells)
+    filled = lambda c: bool(c and (c.get("text") or "").strip())  # noqa: E731
+    ys: dict = {}
+    for w in words:
+        cx, cy = (w["box"][0] + w["box"][2]) / 2, (w["box"][1] + w["box"][3]) / 2
+        for c in cells:
+            b = c.get("box") or (0, 0, 0, 0)
+            if b[0] <= cx < b[2] and b[1] <= cy < b[3]:
+                ys.setdefault(id(c), []).append((w["box"][1], w["box"][3]))
+                break
+    centre = {id(c): (min(a for a, _ in v) + max(b for _, b in v)) / 2 for c in cells if (v := ys.get(id(c)))}
+    rowc = {}
+    for r in range(nr):
+        v = [centre[id(c)] for c in cells if c["row"] == r and c.get("rowspan", 1) == 1 and id(c) in centre]
+        if v:
+            rowc[r] = float(np.median(v))
+    rs = sorted(rowc)
+    if len(rs) < 3:
+        return t
+    pitch = float(np.median(np.diff([rowc[r] for r in rs])))
+    if pitch <= 0:
+        return t
+    at = {(c["row"], c["col"]): c for c in cells}
+    drop, moved = set(), {}
+    for c in cells:
+        r, col = c["row"], c["col"]
+        if (not filled(c) or c.get("rowspan", 1) != 1 or c.get("colspan", 1) != 1 or id(c) not in centre
+                or r not in rowc):
+            continue
+        others = [centre[id(o)] for o in cells if o["row"] == r and o is not c and o.get("rowspan", 1) == 1
+                  and id(o) in centre]
+        if len(others) < 2:
+            continue
+        own = float(np.median(others))
+        d = centre[id(c)] - own
+        q = r + 1 if d > 0 else r - 1
+        if abs(d) < 0.3 * pitch or q not in rowc or (q, col) in drop:
+            continue
+        n = at.get((q, col))
+        if n is None or filled(n) or n.get("rowspan", 1) != 1 or n.get("colspan", 1) != 1:
+            continue
+        if abs(centre[id(c)] - (own + rowc[q]) / 2) > 0.2 * pitch:
+            continue
+        drop.add((q, col))
+        moved[id(c)] = dict(c, row=min(r, q), rowspan=2)
+    if not moved:
+        return t
+    out = [moved.get(id(c), c) for c in cells if (c["row"], c["col"]) not in drop]
+    return dict(t, cells=sorted(out, key=lambda c: (c["row"], c["col"])))
+
+
 def centred_rowspans(t: dict) -> dict:
     """Cells set vertically CENTRED on the rows they span -- '100' and 'None'
     midway between the two rows they head, as scientific tables typeset a
