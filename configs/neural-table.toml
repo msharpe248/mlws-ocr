@@ -118,10 +118,15 @@ nested = true                  # a ruled table inside a ruled frame's cell is ne
 impl = "judged"                # newspapers and magazines: XY-cut or knn_scc chosen per page by a judge
                                # (layout/segjudge.py; held-out news 79.7 -> 84.3, magazines 65.9 -> 67.8,
                                # 2026-09-26); every other page XY-cut exactly as before
+keep_dashes = true             # table profile: a nil '-' alone in its cell kept as a block, not dropped as a
+                               # sliver (blocks.dash_blocks; with output.table_dash_aspect, 2026-10-03)
 
 [stage.lines]
 impl = "profile"
 in_cells = true                # table profile: inside a ruled table of 2+ columns, lines found cell by cell
+stacked_chunks = 2.6           # table profile: on a table crop, a line 2.6 glyphs tall cut into its columns and
+                               # each column's lines found (a wrapped cell beside a one-line cell); with the lone
+                               # dashes: PubTables-1M held out 0.806 -> 0.812, FinTabNet.c 0.868 -> 0.875 (2026-10-03)
 
 [stage.components]
 impl = "overlap"
@@ -273,6 +278,8 @@ table_split_select = "data/table_select.npz"  # ...on a table's crop the learned
                                # page the rule 'no more cells empty than the rules', merging no figures
 table_split_keep_rows = true   # table profile: ...the rules' table kept when the network's leaves out a whole figure row
                                # (a header of years, a totals row): FinTabNet 0.785 -> 0.802 with the table reader
+table_dash_aspect = 1.5        # table profile: a dash 1.5 times as long as it is tall (a screen's anti-aliased
+                               # hyphen), at least a quarter of a figure's height (2026-10-03)
 table_dashes = true            # table profile: a line of flat bars in a row is dashes (a table's nil '—' read as
                                # nothing), em / en / hyphen by length: FinTabNet 0.802 -> 0.806
 ws_table_thin_grids = true     # table profile: on a table's crop a one-column or one-row "grid" (a frame round the

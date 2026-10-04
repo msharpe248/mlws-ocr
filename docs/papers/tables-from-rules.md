@@ -44,8 +44,8 @@ The steps, most of them rules:
   table, when a fitted choice prefers it. None of them replaced the rules.
 
 Whole-page structure similarity (TEDS) on the generated sets went from
-0.02 to 0.91–0.97, on real annual-report tables from 0.03 to 0.85, on
-scientific tables to 0.80 (both on 240 held-out tables).
+0.02 to 0.91–0.97, on real annual-report tables from 0.03 to 0.88, on
+scientific tables to 0.81 (both on 240 held-out tables).
 
 ## Abstract
 
@@ -492,8 +492,8 @@ for timesheets and payroll forms the two differ by more than the engine.
 | paystubs (generated, 20) | 0.020 | 0.791 / 0.859 | 0.940 / 0.952 |
 | invoices (generated, 20) | 0.015 | 0.764 / 0.807 | 0.967 / 0.981 |
 | timesheets (generated, 20) | 0.015 | 0.612 / 0.735 | 0.942 / 0.964 |
-| FinTabNet.c (real, 60) | 0.032 | 0.763 / 0.879 | 0.840 / 0.896 |
-| PubTables-1M crops (real, 60) | – | – | 0.811 / 0.879 |
+| FinTabNet.c (real, 60) | 0.032 | 0.763 / 0.879 | 0.855 / 0.901 |
+| PubTables-1M crops (real, 60) | – | – | 0.824 / 0.886 |
 
 PubTables-1M page detection, 40 test pages, IoU ≥ 0.5: F1 0.967 (precision 0.936, recall 1.000).
 
@@ -506,9 +506,15 @@ in full, PubTables-1M's at two thirds of the +0.065 measured on the 60,
 which are also an easier draw. The word-relation network and its choice
 (§6.5) then took the held-out tables to 0.795 (TEDS-S 0.881) and 0.849
 (0.911), while PubTables-1M's 60 — the tables the rules had been found on
-— did not move; the table-crop reader (§6.4) then 0.804 and 0.853. The
-held-out figures are the ones to quote: **0.804** on scientific tables,
-**0.853** on annual-report tables.
+— did not move; the table-crop reader (§6.4) then 0.804 and 0.853. A
+census of the 60 worst held-out scientific tables then found more lost
+words than lost structure: a row whose cell wraps to two lines beside a
+one-line cell is one strip of stacked lines the reader cannot read, a
+nil '-' alone in its cell was dropped as a speck, and a 72-dpi crop's
+blurred type was taken for a photograph. Read column by column, kept,
+and not tested on such pages, they took the held-out tables to 0.812
+and 0.875. The held-out figures are the ones to quote: **0.812** on
+scientific tables, **0.875** on annual-report tables.
 The neural profile reports the same structure without the options that
 change what the reader sees; its text is unchanged. Neither Tesseract
 engine outputs table structure.

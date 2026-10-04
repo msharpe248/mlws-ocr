@@ -265,7 +265,7 @@ decoder to tell 'p' from 'P' and ',' from ''' by position. Two refinements:
 - in the table profile, inside a ruled grid, lines are found **cell by
   cell** (`lines.in_cells`), so a header whose cells sit at different
   heights does not merge into one unreadable strip;
-- on a table crop, optionally (`lines.stacked_chunks`), a line more than
+- on a table crop (`lines.stacked_chunks`, in neural-table), a line more than
   2.6 glyph heights tall is cut into its columns at wide gaps and each
   column's lines found on their own: a row whose cell wraps to two lines
   beside a one-line cell centred between them has no valley across the
@@ -322,7 +322,7 @@ read with that segmenter, on the evaluation sets (`eval_unlv.py --blocks
 | blocks | `xycut` | `min_gap_x_300dpi` 36, `min_gap_y_300dpi` 30, document-type priors | classic, pure |
 | | `judged` | `model_path` `data/segjudge.npz`, newspapers and magazines judged | neural, neural-table |
 | | `whitespace`, `knn_scc` | see the code and the papers | layout profiles for comparison |
-| lines | `profile` | tall-line re-split; `in_cells` (neural-table); `stacked_chunks` (table crops, off) | every profile |
+| lines | `profile` | tall-line re-split; `in_cells` (neural-table); `stacked_chunks` (table crops, neural-table) | every profile |
 | components | `overlap` | cut candidates for wide groups | every profile |
 
 ## References
