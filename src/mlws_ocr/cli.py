@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import argparse
 import sys
+from pathlib import Path
 
 
 def main(argv=None) -> int:
@@ -107,6 +108,10 @@ def ui_main(argv=None) -> int:
         import threading
         import webbrowser
         threading.Timer(0.8, lambda: webbrowser.open(f"http://127.0.0.1:{args.port}/")).start()
+    if args.image and not Path(args.image).exists():
+        # a page that is not there is the user's to fix, not a traceback
+        print(f"mlws-ocr-ui: no such file: {args.image}", file=sys.stderr)
+        sys.exit(2)
     serve(image=args.image, config=args.config, port=args.port, runs_dir=args.runs_dir,
           doc_type=args.doc_type)
     return 0

@@ -148,3 +148,21 @@ def test_table_edits_on_the_output():
     assert "<td>12.00</td>" in out.meta["tables_html"]
     out2 = apply_tables(out, [{"op": "table_delete", "point": [10, 10]}], None)
     assert out2.meta["tables"] == []
+
+
+def test_a_change_mid_run_supersedes_the_run_without_a_crash(crop):
+    """A switch sends two changes in turn: the first starts a run from the
+    output stage, the second clears the pages from the blocks stage on.  The
+    first run, starting just after, read its cleared input and crashed
+    ('NoneType' object has no attribute 'gray').  The second change now
+    supersedes it, and it stops quietly."""
+    s = Session(crop, ROOT / "configs/classic.toml", doc_type="letter")
+    s.run_from(0)
+    k_out = next(i for i, st in enumerate(s.stages) if st.slot == "output")
+    k_blk = next(i for i, st in enumerate(s.stages) if st.slot == "blocks")
+    s.set_params(k_out, {"ws_detect": True})
+    gen = s._generation                            # the first change's run, not yet started ...
+    s.set_params(k_blk, {})                        # ... when the second change clears its input
+    s._run_quiet(k_out, gen)                       # it starts: no crash, it stands down
+    s.run_from(k_blk)
+    assert s.final() is not None

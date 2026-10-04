@@ -128,6 +128,10 @@ class Session:
 
     # ----------------------------------------------------------- changes
     def _invalidate(self, k: int) -> None:
+        # a run still going has lost its inputs from stage k on: it is superseded now, not when
+        # the next run starts (it read a cleared page and crashed, 'NoneType' has no 'gray', when a
+        # switch set two parameters in turn while the page was being read; 2026-10-04)
+        self._generation += 1
         for s in self.stages[k:]:
             s.status, s.page, s.debug, s.error = "pending", None, None, ""
 
@@ -160,13 +164,12 @@ class Session:
         """Re-run stages k..end. With block=False the run happens on a worker
         thread; a later call supersedes it at the next stage boundary."""
         with self._lock:
-            self._generation += 1
-            gen = self._generation
             # start where results stop: a run this one supersedes may not have
             # reached stage k (two changes in quick succession -- a table switch
             # on the picture zones, then one on the output stage)
             k = next((j for j in range(k) if self.stages[j].page is None), k)
-            self._invalidate(k)
+            self._invalidate(k)                 # supersedes any run still going
+            gen = self._generation
         if block:
             self._run(k, gen)
             return
@@ -190,8 +193,10 @@ class Session:
                 if gen != self._generation:
                     raise Cancelled()
                 s = self.stages[k]
-                s.status = "running"
                 before = self.page_before(k)
+                if before is None:                 # its input was cleared: a newer change owns the page
+                    raise Cancelled()
+                s.status = "running"
                 slot, impl, params, edit_list = s.slot, s.impl, dict(s.params), list(s.edits)
             try:
                 stage = registry.get(slot, impl)(**params)
