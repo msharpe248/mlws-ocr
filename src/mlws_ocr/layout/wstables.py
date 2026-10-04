@@ -1215,6 +1215,47 @@ SPAN_LEFT_LABELS = [False]  # a first-column label followed by empty figure colu
                             # paystubs +0.016, receipts -0.059 -- their truths disagree on the convention)
 
 
+def header_rowspans(t: dict) -> dict:
+    """A TWO-LEVEL header: a group heading over its sub-headings ('Horizontal
+    error' over 'Max' and 'Mean') beside headings of one level ('Group',
+    'Altitude') -- those span both header rows, set level with the group
+    heading, nothing beneath them.  The header is the rows before the first
+    with a figure after its first column; a heading whose column is empty in
+    every header row below it spans down to the last, when a lower header row
+    holds sub-headings in other columns.  PubTables-1M annotates 163 such
+    spans in the first rows of its 240 held-out tables (Smock et al., CVPR
+    2022)."""
+    cells = t.get("cells", [])
+    if not cells:
+        return t
+    nr = t.get("n_rows") or 1 + max(c["row"] for c in cells)
+    at = {(c["row"], c["col"]): c for c in cells}
+    filled = lambda c: bool(c and (c.get("text") or "").strip())  # noqa: E731
+    body = next((r for r in range(nr) if any(filled(c) and re.search(r"\d", c["text"])
+                                              for (rr, cc), c in at.items() if rr == r and cc > 0)), nr)
+    if body < 2 or body > 4:
+        return t
+    last = body - 1
+    span, drop = {}, set()
+    for c in cells:
+        r, col = c["row"], c["col"]
+        if r >= last or not filled(c) or c.get("rowspan", 1) != 1 or c.get("colspan", 1) != 1:
+            continue
+        below = [at.get((q, col)) for q in range(r + 1, body)]
+        if any(b is None or filled(b) or b.get("colspan", 1) != 1 or b.get("rowspan", 1) != 1 for b in below):
+            continue
+        # a lower header row holds sub-headings elsewhere (else the header is one row, spread)
+        if not any(filled(at.get((q, cc))) for q in range(r + 1, body) for (rr, cc) in at if rr == q and cc != col):
+            continue
+        span[(r, col)] = body - r
+        drop.update((q, col) for q in range(r + 1, body))
+    if not span:
+        return t
+    out = [dict(c, rowspan=span[(c["row"], c["col"])]) if (c["row"], c["col"]) in span else c
+           for c in cells if (c["row"], c["col"]) not in drop]
+    return dict(t, cells=out)
+
+
 def group_rowspans(t: dict, label_only: bool = True) -> dict:
     """Rows in GROUPS: a row whose first cell is filled, followed by
     continuation rows whose first cell is empty and whose few filled cells lie

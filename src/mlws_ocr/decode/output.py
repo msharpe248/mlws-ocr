@@ -301,6 +301,8 @@ class TextOutput(Stage):
                                          # tables found on a page; 2026-10-03)
         "table_cell_lines": False,       # a table's row read line by line, not by x alone: a wrapped
                                          # cell's lines no longer interleave (sepnet.grid_table; 2026-09-30)
+        "table_header_rowspans": False,  # a table's crop: in a two-level header, a heading with nothing beneath
+                                         # it spans both header rows (wstables.header_rowspans; 2026-10-04)
         "table_group_rowspans": False,   # a table's crop: a row and its continuation rows (first cell empty,
                                          # fewer cells, within the row's columns) one group; the row's cells
                                          # over empty columns span it (wstables.group_rowspans; 2026-10-03)
@@ -933,6 +935,9 @@ class TextOutput(Stage):
             if t is not None and self.params["table_centred_rowspans"]:
                 from ..layout.wstables import centred_rowspans
                 t = centred_rowspans(t)
+            if t is not None and self.params["table_header_rowspans"]:
+                from ..layout.wstables import header_rowspans
+                t = header_rowspans(t)
             if t is not None and self.params["table_group_rowspans"]:
                 from ..layout.wstables import group_rowspans
                 t = group_rowspans(t)
