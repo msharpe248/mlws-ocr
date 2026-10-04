@@ -447,6 +447,8 @@ const TABLE_SWITCHES = [
     title: "check each table's figures against the relations it keeps (quantity x price = amount, totals): green checked, red probably misread" },
   { slot: "lines", key: "stacked_chunks", on: 2.6, off: 0, label: "Wrapped cells",
     title: "a row whose cells wrap to two lines beside a one-line cell is read line by line within each column, not as one strip of stacked lines" },
+  { slot: "output", key: "table_group_rowspans", on: true, off: false, label: "Row groups",
+    title: "a row and its continuation rows (first cell empty, fewer cells: a gene's two primer rows) are one group; its label spans them" },
   { slot: "output", key: "table_centred_rowspans", on: true, off: false, label: "Centred row spans",
     title: "a table crop's cell centred between the rows it spans, read as a sparse row of its own, folded back as a row span" },
   { slot: "blocks", key: "keep_dashes", on: true, off: false, label: "Lone dashes",
