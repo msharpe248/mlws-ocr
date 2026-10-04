@@ -580,6 +580,19 @@ FinTabNet.c 0.849 -> 0.853 (94 up, 27 down); the 60 scored: 0.797 -> 0.813 and
 0.839 -> 0.840. The business sets and CORD do not take the hint and are
 unchanged.
 
+**Tried, not adopted: the table symbols** (`seq_line_gray17`, `gray17b`,
+2026-10-04). Each gray16 member 2 more epochs with a synthetic set of table
+tokens carrying their typography -- ranges '0.40–0.74', negatives '−0.178',
+'3.2 × 10', '25 °C', '±', '≤', hyphens where they belong -- 80% as a
+low-resolution scan (`scripts/make_table_symbol_corpus.py`, then
+`make_seq_data.py --corpus data/corpus_tsym --lowres-frac 0.8`,
+`data/seq_synth_tsym1.npz`; ai01 `box_gray_ens17.sh`, and `17b` at lr 3e-4 and
+L2-SP 1e-3). The symbols are learned -- on the held-out PubTables-1M tables '–'
+128 -> 243 of 428, '°' 2 -> 18 of 46, '×' 2 -> 11 of 74 -- and gray17b reads the
+held-out real lines better (86.5 / 84.7 / 85.7% against 84.9 / 82.5 / 82.8%), but
+the tables do not move (PubTables-1M 0.813, FinTabNet.c 0.873 against 0.812 /
+0.875): one character of a cell is little to TEDS. gray16 stays.
+
 ```sh
 MLWS_EXTRA_CLASSES='*=+@[]_`±−–—×°μ<>≤≥’‘“”†‡·•' .venv/bin/python scripts/make_seq_data.py --out data/seq_synth_sym2.npz \
     --n 60000 --seed 95 --words 4 10 --take 3 7
