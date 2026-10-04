@@ -445,6 +445,11 @@ const TABLE_SWITCHES = [
     title: "in a column of figures, a misread cell ('S 25', 'l2O.50') is repaired when the repair is a figure" },
   { slot: "output", key: "check_arithmetic", on: true, off: false, label: "Check arithmetic",
     title: "check each table's figures against the relations it keeps (quantity x price = amount, totals): green checked, red probably misread" },
+  { slot: "lines", key: "stacked_chunks", on: 2.6, off: 0, label: "Wrapped cells",
+    title: "a row whose cells wrap to two lines beside a one-line cell is read line by line within each column, not as one strip of stacked lines" },
+  { slot: "blocks", key: "keep_dashes", on: true, off: false, label: "Lone dashes",
+    title: "a nil '-' alone in its cell is kept and read as a dash (it was dropped as a speck, and a column of them vanished)",
+    also: [{ slot: "output", key: "table_dash_aspect", on: 1.5, off: 2.5 }] },
   { slot: "output", key: "ws_detect", on: true, off: false, label: "Find tables on the page",
     title: "find tables set by whitespace or ruled only between rows, anywhere on the page" },
   { slot: "output", key: "ws_table_doc_types", on: "*", off: "", label: "The page is one table",
@@ -462,6 +467,12 @@ function tableSwitches() {
     const st = S.st.stages.find((t) => t.slot === sw.slot), on = switchState(sw);
     const cb = el("input", { type: "checkbox", ...(on ? { checked: "" } : {}), ...(st ? {} : { disabled: "" }),
       onchange: async (e) => {
+        // a switch may set a parameter on a second stage too (sw.also): the later stage first,
+        // then the earlier one, whose re-run covers both
+        for (const a of (sw.also || [])) {
+          const sa = S.st.stages.find((t) => t.slot === a.slot);
+          if (sa) await api(`/api/stage/${sa.index}`, { params: { [a.key]: e.target.checked ? a.on : a.off } });
+        }
         await api(`/api/stage/${st.index}`, { params: { [sw.key]: e.target.checked ? sw.on : sw.off } });
         status(`${sw.slot}.${sw.key} = ${JSON.stringify(e.target.checked ? sw.on : sw.off)}; re-running`);
         S.resultKey = null; await poll(true); } });

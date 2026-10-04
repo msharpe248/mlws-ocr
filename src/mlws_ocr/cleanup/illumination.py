@@ -67,7 +67,10 @@ class MedianBackgroundIllumination(Stage):
         gray = page.gray
         inverted = 0
         pictures, pic_boxes = None, []
-        if p["grey_pictures"]:
+        # on a page magnified 2x or more (a 72-dpi crop) type itself is mid-grey blur, and the
+        # tone cue cannot part it from a photograph: a whole PubTables-1M table was taken
+        # for one picture and read empty (2026-10-03)
+        if p["grey_pictures"] and float(page.meta.get("magnify_scale") or 1.0) < 2.0:
             pictures, pic_boxes = grey_pictures(gray, page.dpi or 300.0)
         if p["invert_dark"]:
             region = dark_ground(gray, page.dpi or 300.0, rect=float(p["invert_rect"]))

@@ -264,7 +264,14 @@ decoder to tell 'p' from 'P' and ',' from ''' by position. Two refinements:
   and split (one page's deletions 193 → 0);
 - in the table profile, inside a ruled grid, lines are found **cell by
   cell** (`lines.in_cells`), so a header whose cells sit at different
-  heights does not merge into one unreadable strip.
+  heights does not merge into one unreadable strip;
+- on a table crop, optionally (`lines.stacked_chunks`), a line more than
+  2.6 glyph heights tall is cut into its columns at wide gaps and each
+  column's lines found on their own: a row whose cell wraps to two lines
+  beside a one-line cell centred between them has no valley across the
+  whole row, and when most rows wrap the median line is itself two lines,
+  so the 1.8 × rule above never fires (PubTables-1M, held out, 0.806 →
+  0.812 with the lone-dash option).
 
 The x-height is measured later, per line, by the decoder.
 
@@ -315,7 +322,7 @@ read with that segmenter, on the evaluation sets (`eval_unlv.py --blocks
 | blocks | `xycut` | `min_gap_x_300dpi` 36, `min_gap_y_300dpi` 30, document-type priors | classic, pure |
 | | `judged` | `model_path` `data/segjudge.npz`, newspapers and magazines judged | neural, neural-table |
 | | `whitespace`, `knn_scc` | see the code and the papers | layout profiles for comparison |
-| lines | `profile` | tall-line re-split; `in_cells` (neural-table) | every profile |
+| lines | `profile` | tall-line re-split; `in_cells` (neural-table); `stacked_chunks` (table crops, off) | every profile |
 | components | `overlap` | cut candidates for wide groups | every profile |
 
 ## References

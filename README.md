@@ -293,7 +293,8 @@ cells tinted, a nested table inside its cell; hover a cell on either side
 to see its partner. Switches above it turn the table options on and off
 and re-run the page -- ruled grids kept from the picture zones, short
 grid rules, spanned cells, tables found on the page (set by whitespace or
-ruled only between rows), and a page that is one table -- and the tables
+ruled only between rows), a page that is one table, wrapped cells read
+line by line within their column, and lone '-' dashes kept -- and the tables
 stage lists what it found. On the page view, ruled tables are drawn solid, whitespace ones
 dashed, each labelled with its size.
 

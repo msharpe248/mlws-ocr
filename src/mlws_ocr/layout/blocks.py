@@ -97,6 +97,33 @@ def _segment(binary, box, seg, axis, min_gap_x, min_gap_y, noise_frac, out,
            min_col_h)
 
 
+def dash_blocks(binary: np.ndarray, boxes: list, min_px: int, min_aspect: float = 1.5,
+                min_fill: float = 0.7) -> list[list[int]]:
+    """DASHES the block finders drop as slivers: a solid flat bar (filling
+    ``min_fill`` of its box, at least ``min_aspect`` times as long as it is
+    tall), under ``min_px`` tall and no longer than five times that, in no
+    block -- a table's nil '-' alone in its cell.  Each is a block of its
+    own, for the lines stage to make a line of and the output stage's dash
+    test (decode/output.py ``_dash_lines``) to read as a dash or drop."""
+    from scipy import ndimage
+    lab, _ = ndimage.label(binary)
+    out = []
+    for i, sl in enumerate(ndimage.find_objects(lab), 1):
+        if sl is None:
+            continue
+        y0, y1, x0, x1 = sl[0].start, sl[0].stop, sl[1].start, sl[1].stop
+        h, w = y1 - y0, x1 - x0
+        if not (2 <= h < min_px and min_aspect * h <= w <= 5 * min_px):
+            continue
+        if (lab[sl] == i).sum() < min_fill * h * w:
+            continue
+        cx, cy = (x0 + x1) / 2, (y0 + y1) / 2
+        if any(b[0] <= cx <= b[2] and b[1] <= cy <= b[3] for b in boxes):
+            continue
+        out.append([int(x0), int(y0), int(x1), int(y1)])
+    return out
+
+
 @register
 class XYCutBlocks(Stage):
     slot = "blocks"
@@ -106,6 +133,9 @@ class XYCutBlocks(Stage):
         "min_gap_y_300dpi": 30,   # block break: >= 0.10" (line gaps are less)
         "noise_frac": 0.002,      # profile bins below this fraction count as empty
         "min_block_px": 12,       # drop slivers smaller than this on a side
+        "keep_dashes": False,     # ... but keep a sliver that is a DASH (dash_blocks): a table's nil
+                                  # '-' alone in its cell is a 15 x 7 px bar and was dropped, so its
+                                  # cell read empty and a column of them vanished (2026-10-03)
         "column_first_frac": 0.5, # letters/legal/book: a gutter spanning at
                                   # least this fraction of the PAGE height
                                   # is cut before any row gap (sidebar
@@ -189,6 +219,8 @@ class XYCutBlocks(Stage):
         if len(boxes) > p["river_retry_blocks"]:
             river_retry = True
             boxes = cut(gap_x * 2.5)
+        if p["keep_dashes"]:
+            boxes = boxes + dash_blocks(page.binary, boxes, int(p["min_block_px"]))
 
         out = page.evolve()
         out.meta.setdefault("layout", {})["blocks"] = boxes

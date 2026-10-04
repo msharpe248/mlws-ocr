@@ -115,9 +115,21 @@ class JudgedBlocks(Stage):
                                                # receipts, forms, business) keeps
                                                # XY-cut, where the judge was not
                                                # trained or measured a loss
+        "keep_dashes": False,                  # the XY-cut's dash slivers kept as blocks
+                                               # (blocks.dash_blocks; 2026-10-03)
     }
 
     def run(self, page: Page) -> tuple[Page, DebugBundle]:
+        out, dbg = self._choose(page)
+        if self.params["keep_dashes"]:
+            from .blocks import XYCutBlocks, dash_blocks
+            blocks = out.meta["layout"]["blocks"]
+            extra = dash_blocks(page.binary, blocks, int(XYCutBlocks.defaults["min_block_px"]))
+            out.meta["layout"]["blocks"] = blocks + extra
+            dbg.scalars["dash_blocks"] = len(extra)
+        return out, dbg
+
+    def _choose(self, page: Page) -> tuple[Page, DebugBundle]:
         if page.binary is None:
             raise ValueError("blocks requires a binarized page")
         doc_type = page.meta.get("doc_type")

@@ -159,7 +159,9 @@ half paper inside — keeps them out of the inversion and hands them to the
 picture zones. It also keeps the payroll logo, whose stripes are grey, from
 being inverted (0.910 → 0.913); `invert_rect` 0.95 asks a ground to fill its
 box (bands fill 0.98–1.00, the logo 0.85). The pictures can then be cut
-from the original and put back ([HOCR.md §6](HOCR.md)).
+from the original and put back ([HOCR.md §6](HOCR.md)). It is not used on a
+page magnified 2x or more: on a 72-dpi crop the type itself is mid-grey
+blur, and a whole small table had been taken for a photograph.
 
 ## 4. One threshold per neighbourhood: Sauvola
 

@@ -98,7 +98,7 @@ def select_inputs(a: list[float], b: list[float]) -> np.ndarray:
 _DASHES = set("-\u2010\u2011\u2012\u2013\u2014\u2015\u2212")
 
 
-def _dash_lines(lines: list[dict], binary=None) -> int:
+def _dash_lines(lines: list[dict], binary=None, min_aspect: float = 2.5) -> int:
     """Lines that are dashes get them as their words.  A table writes nil as
     a dash alone in its cell; the reader, given a strip holding a flat bar,
     often emits nothing (or '-' for an em dash), and a row of nil cells can
@@ -112,7 +112,9 @@ def _dash_lines(lines: list[dict], binary=None) -> int:
     the figure height names it: 0.95 or more an em dash, 0.5 or more an en
     dash, else a hyphen -- the proportions of the common text faces (em dash
     one em, en dash half an em, hyphen about a third; figures about 0.7 em
-    tall).  Returns the number of lines given dashes."""
+    tall).  ``min_aspect`` (2.5) is the shortest bar against its height: a
+    hyphen drawn anti-aliased on a screen and magnified is 15 x 7 px, 2.1
+    (``table_dash_aspect``).  Returns the number of lines given dashes."""
     hs = [w["box"][3] - w["box"][1] for ln in lines for w in ln.get("words", [])
           if re.fullmatch(r"[$(]?\d[\d,.]*%?\)?", w.get("text") or "")]
     if len(hs) < 3:
@@ -123,7 +125,7 @@ def _dash_lines(lines: list[dict], binary=None) -> int:
         x0, y0, x1, y1 = (int(v) for v in ln["box"])
         h = y1 - y0
         words = ln.get("words") or []
-        if h > 0.35 * ref or x1 - x0 < 2.5 * max(h, 1):
+        if h > 0.35 * ref or x1 - x0 < min_aspect * max(h, 1):
             continue
         if not all(set(wd.get("text") or "-") <= _DASHES for wd in words):
             continue
@@ -155,7 +157,9 @@ def _dash_lines(lines: list[dict], binary=None) -> int:
                     k = j + 1
                 else:
                     k += 1
-        if not runs or not all(2.5 * max(h, 1) <= r1 - r0 <= 3 * ref for r0, r1 in runs):
+        # and at least a quarter of a figure's height long (a hyphen is ~0.45 of it): a 3 x 2 px
+        # speck passes a 1.5 aspect, and five of them split an annual report's wrapped labels
+        if not runs or not all(max(min_aspect * max(h, 1), 0.25 * ref) <= r1 - r0 <= 3 * ref for r0, r1 in runs):
             continue
         ln["words"] = [{"text": "\u2014" if r1 - r0 >= 0.95 * ref else "\u2013" if r1 - r0 >= 0.5 * ref else "-",
                         "box": [r0, y0, r1, y1], "confidence": 0.9, "in_lexicon": False} for r0, r1 in runs]
@@ -318,6 +322,8 @@ class TextOutput(Stage):
                                          # empty cells are the best sign of a wrong grid)
         "table_split_clean": False,      # ...separators crossing a word dropped, empty bands joined
                                          # (measured: FinTabNet some tables better, PubTables 0.686 -> 0.610)
+        "table_dash_aspect": 2.5,        # ... a dash at least this many times as long as it is tall (1.5 takes a
+                                         # screen's anti-aliased hyphen, 15 x 7 px; 2026-10-03)
         "table_dashes": False,           # a line whose ink is one flat bar, read as nothing or as dashes,
                                          # is a dash: an em dash, en dash or hyphen by its length against
                                          # the page's figure height (a table's '—' for nil read as nothing:
@@ -716,7 +722,8 @@ class TextOutput(Stage):
         if (self.params["drop_facing_page"] and page.binary is not None
                 and (not facing_types or doc_type in facing_types)):
             numbering |= self._facing_page_lines(layout, page.binary.shape[1], self.params)
-        n_dash = _dash_lines(layout["lines"], page.binary) if self.params["table_dashes"] else 0
+        n_dash = (_dash_lines(layout["lines"], page.binary, float(self.params["table_dash_aspect"]))
+                  if self.params["table_dashes"] else 0)
         blocks: dict[int, list[str]] = {}
         kept_lines: list[dict] = []          # survivors, for row alignment
         suppressed = []

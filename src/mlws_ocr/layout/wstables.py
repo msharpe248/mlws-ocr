@@ -950,10 +950,12 @@ def _caption_like(text: str) -> bool:
 
 def _note_like(text: str, n_filled: int, n_cols: int) -> bool:
     """A note row split across cells: five words or more, not a full row, few
-    figures (a data row holds numbers) -- or a doi or a link."""
-    words = text.split()
+    figures (a data row holds numbers) -- or a doi or a link.  A dot leader's
+    dots are not words: 'Rate of Compensation increase . . . . 4.51% 4.04%'
+    counted 30 'words' with two figures and was trimmed as a note (2026-10-03)."""
     if re.search(r"\bdoi\b|doi:|https?:", text, re.I):
         return True
+    words = [w for w in text.split() if re.search(r"\w", w)]
     figs = sum(1 for w in words if re.search(r"\d", w))
     return len(words) >= 5 and n_filled < n_cols and figs <= 0.2 * len(words)
 

@@ -52,6 +52,117 @@ def _lines_in(binary: np.ndarray, box: list[int], noise: float) -> list[dict]:
     return out
 
 
+def stacked_lines(binary: np.ndarray, lines: list[dict], k: float = 2.6) -> tuple[list[dict], int]:
+    """Lines holding text lines STACKED in some of their columns, re-found
+    chunk by chunk.  The reference is the median connected component's
+    height (a glyph), not the median line's: a line taller than ``k``
+    glyphs is cut into chunks at horizontal gaps wider than 1.5 glyph
+    heights (column gutters; word spaces are narrower), and each chunk's
+    rows are profiled on their own.  When any chunk holds two or more text
+    lines (pieces at least half a glyph tall, apart by a row of no ink), the
+    line is replaced by its chunks' lines; else it is kept whole.  Returns
+    the lines and how many were split.  Text-line finding by projection
+    profiles, local to a column -- the profile cut done within each
+    column's extent rather than across the page (Nagy & Seth's X-Y tree
+    applied a level further down; Nagy, Seth & Viswanathan, "A prototype
+    document image analysis system for technical journals", Computer 1992)."""
+    from scipy import ndimage
+    lab, n = ndimage.label(binary)
+    if n < 10:
+        return lines, 0
+    sl = [s for s in ndimage.find_objects(lab) if s is not None]
+    hs = np.array([s[0].stop - s[0].start for s in sl])
+    # the glyph: dots (a dot leader's, a decimal point) outnumber letters on a financial
+    # table and made it 8 px against letters of 30 -- so only components at least 0.4 of
+    # the tall ones (the 90th percentile) count
+    hs = hs[hs >= max(3.0, 0.4 * float(np.percentile(hs, 90)))]
+    glyph = float(np.median(hs)) if hs.size else 0.0
+    if glyph <= 0:
+        return lines, 0
+    out, n_split = [], 0
+    for ln in lines:
+        x0, y0, x1, y1 = ln["box"]
+        if y1 - y0 <= k * glyph:
+            out.append(ln)
+            continue
+        sub = binary[y0:y1, x0:x1]
+        cols = sub.any(axis=0)
+        # chunks: runs of inked columns joined over gaps narrower than 1.5 glyphs
+        chunks, start, last = [], None, None
+        gap = 1.5 * glyph
+        for x in np.flatnonzero(cols):
+            if start is None:
+                start = last = x
+            elif x - last > gap:
+                chunks.append((start, last + 1))
+                start = last = x
+            else:
+                last = x
+        if start is not None:
+            chunks.append((start, last + 1))
+        pieces, stacked, run = [], False, None
+        for c0, c1 in chunks:
+            prof = sub[:, c0:c1].any(axis=1)
+            segs, s0 = [], None
+            for y in range(len(prof) + 1):
+                on = y < len(prof) and prof[y]
+                if on and s0 is None:
+                    s0 = y
+                elif not on and s0 is not None:
+                    segs.append([s0, y])
+                    s0 = None
+            # a dot or an accent apart from its line is not a line: joined to the nearest piece
+            merged: list[list[int]] = []
+            for sg in segs:
+                if merged and (sg[1] - sg[0] < 0.5 * glyph or merged[-1][1] - merged[-1][0] < 0.5 * glyph):
+                    merged[-1][1] = sg[1]
+                else:
+                    merged.append(sg)
+            if len(merged) >= 2:
+                stacked = True
+            elif merged:
+                # a chunk of one text line: joined to the run of such chunks before it, so a
+                # label with its dot leader stays one line
+                if run is not None:
+                    run[1] = c1
+                else:
+                    run = [c0, c1]
+                    pieces.append(run)
+                continue
+            run = None
+            for s0_, s1_ in merged:
+                piece = sub[s0_:s1_, c0:c1]
+                xs = np.flatnonzero(piece.any(axis=0))
+                pr = piece.sum(axis=1)
+                base = s1_ - 1 - s0_
+                for r in range(len(pr) - 1, -1, -1):
+                    if pr[r] >= 0.25 * pr.max():
+                        base = r
+                        break
+                pieces.append({"box": [x0 + c0 + int(xs[0]), y0 + s0_, x0 + c0 + int(xs[-1]) + 1, y0 + s1_],
+                               "baseline": y0 + s0_ + base, "block": ln["block"]})
+        if stacked:
+            for pc in pieces:
+                if isinstance(pc, list):           # a run of one-line chunks: its ink box
+                    c0, c1 = pc
+                    seg = sub[:, c0:c1]
+                    ys = np.flatnonzero(seg.any(axis=1))
+                    xs = np.flatnonzero(seg.any(axis=0))
+                    pr = seg[ys[0]:ys[-1] + 1].sum(axis=1)
+                    base = len(pr) - 1
+                    for r in range(len(pr) - 1, -1, -1):
+                        if pr[r] >= 0.25 * pr.max():
+                            base = r
+                            break
+                    pc = {"box": [x0 + c0 + int(xs[0]), y0 + int(ys[0]), x0 + c0 + int(xs[-1]) + 1, y0 + int(ys[-1]) + 1],
+                          "baseline": y0 + int(ys[0]) + base, "block": ln["block"]}
+                out.append(pc)
+            n_split += 1
+        else:
+            out.append(ln)
+    return out, n_split
+
+
 def _lines_by_cell(binary, lines, tables, blocks, noise_frac):
     """The lines inside a ruled table of two or more columns, found again
     cell by cell (the cell's box, its rules' width in from the edges); the
@@ -104,6 +215,16 @@ class ProfileLines(Stage):
                                  # across a table's block runs through its cells' rules, joining
                                  # a header's lines at different heights into one strip the
                                  # reader cannot read (2026-09-29)
+        "stacked_chunks": 0.0,   # > 0: a line taller than this x the median GLYPH height is cut
+                                 # into chunks at wide gaps and each chunk's own text lines found
+                                 # (stacked_lines): a table row whose cells wrap to two lines while
+                                 # a neighbour's single line sits centred between them has no
+                                 # valley across the whole row -- and when most rows wrap the
+                                 # median LINE is itself two lines, so the re-split above never
+                                 # fires; the strip of two lines was read as garbage (2026-10-03)
+        "stacked_doc_types": "table",  # ... on these doc types only ('*' = every page): on whole
+                                 # payroll forms a large hand-lettered row was cut into ascender and
+                                 # descender fragments that look like lines; on table crops it helps
     }
 
     def run(self, page: Page) -> tuple[Page, DebugBundle]:
@@ -175,6 +296,12 @@ class ProfileLines(Stage):
                     resplit.append(ln)
             all_lines = resplit
 
+        n_stacked = 0
+        types = [t for t in str(p["stacked_doc_types"]).split(",") if t]
+        if (p["stacked_chunks"] > 0 and all_lines
+                and ("*" in types or page.meta.get("doc_type") in types)):
+            all_lines, n_stacked = stacked_lines(page.binary, all_lines, float(p["stacked_chunks"]))
+
         if p["in_cells"] and layout.get("tables"):
             all_lines = _lines_by_cell(page.binary, all_lines, layout["tables"], layout["blocks"], p["noise_frac"])
 
@@ -184,7 +311,7 @@ class ProfileLines(Stage):
             images={"lines_overlay": draw_boxes(page.gray,
                                                 [l["box"] for l in all_lines],
                                                 color=(60, 160, 60))},
-            scalars={"n_lines": len(all_lines),
+            scalars={"n_lines": len(all_lines), "stacked_split": n_stacked,
                      "lines_per_block": str([sum(1 for l in all_lines if l["block"] == b)
                                              for b in range(len(layout["blocks"]))])},
         )

@@ -196,7 +196,9 @@ solid or dense ink too big for type, and two options added for this
   before binarization scatters them: mostly mid-tones over a line-sized
   window, and varied (a flat coloured band with letters on it is not a
   picture). They are kept out of the dark-ground inversion, which had taken
-  a dark photo for a dark-mode band and inverted it to nothing.
+  a dark photo for a dark-mode band and inverted it to nothing. Not on a
+  page magnified 2x or more (a 72-dpi crop), where type itself is
+  mid-grey blur.
 - `imagezones.display_height` — display type, solid letters several times
   the body glyph's height (a logo's lettering), named as a picture zone;
   `display_keep_text` (on) still reads its letters as text too.
