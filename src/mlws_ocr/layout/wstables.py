@@ -1231,7 +1231,9 @@ def rebuild_header(t: dict, words: list[dict], max_levels: int = 3) -> dict:
     joins it; a group under a group spanning several columns is a
     SUB-HEADING one level down, the upper group spanning its columns.  A
     group with nothing beneath it spans down to the last level.  The header
-    rows are replaced by the levels; the body is left as it was.  Two-level
+    rows are replaced by the levels; the body is left as it was.  Only when
+    the engine's header is one row and the levels show a heading spanning
+    columns: rebuilt everywhere, headers it had right came out worse.  Two-level
     headers are the convention of scientific tables' column 'stubs' and
     'spanners' (Chicago Manual of Style 3.62-3.68; the 'boxhead')."""
     cells = t.get("cells", [])
@@ -1285,8 +1287,9 @@ def rebuild_header(t: dict, words: list[dict], max_levels: int = 3) -> dict:
             bands.append([w])
     if len(bands) < 2:
         return t
-    gap = min((cols[k + 1][0] - cols[k][1] for k in range(nc - 1)), default=lh) * 0.6
-    gap = max(gap, 0.8 * lh)
+    # two headings side by side are apart by more than a word space (about a third of a line
+    # height): 'Western Diet' and 'Daniel Fast' at 0.8 were one heading over both columns
+    gap = 0.6 * lh
 
     def over(x0, x1):
         out = [k for k, (a, b) in enumerate(cols) if min(x1, b) - max(x0, a) > 0.25 * min(b - a, x1 - x0)
@@ -1325,6 +1328,16 @@ def rebuild_header(t: dict, words: list[dict], max_levels: int = 3) -> dict:
     if len(rows) > max_levels:
         return t
     nh = len(rows)
+    # only the case the census found: the engine's header is ONE row, and its text lines show a
+    # group heading spanning columns with sub-headings beneath -- rebuilt everywhere, the held-out
+    # headers it had right came out worse (PubTables-1M 0.814 -> 0.798, FinTabNet.c 0.875 -> 0.855)
+    # ... and a group heading is a spanner only over two sub-headings or more in different columns
+    # (a long one-column heading wraps wider than its narrow figure column, and seems to span)
+    def spanner(g):
+        subs = {h[2] for h in rows[1] if g[2] <= h[2] and h[3] <= g[3]} if nh > 1 else set()
+        return g[3] > g[2] and len(subs) >= 2
+    if body != 1 or nh < 2 or not any(spanner(g) for g in rows[0]):
+        return t
     hdr = []
     taken = set()
     for li, groups in enumerate(rows):
