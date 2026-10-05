@@ -151,6 +151,11 @@ def main():
     ap.add_argument("--n", type=int, default=1500, help="samples per class")
     ap.add_argument("--seed", type=int, default=3)
     ap.add_argument("--out", type=Path, default=ROOT / "data/symbols_v1.npz")
+    ap.add_argument("--real", type=Path, nargs="*", default=[],
+                    help="harvested real glyphs (harvest_symbols.py): mixed in, 15%% of their crops held out")
+    ap.add_argument("--real-weight", type=int, default=2, help="times each real glyph is repeated")
+    ap.add_argument("--hidden", type=int, default=64)
+    ap.add_argument("--epochs", type=int, default=40)
     args = ap.parse_args()
     rng = random.Random(args.seed)
     fonts = print_fonts(limit=120)
@@ -161,8 +166,27 @@ def main():
     X, y = make(args.n, train_f, rng)
     Xv, yv = make(max(100, args.n // 5), held, rng)
     print(f"{len(X)} training glyphs, {len(Xv)} held out; per class {np.bincount(y, minlength=len(CLASSES)).tolist()}")
-    net = train(X, y, Xv, yv)
+    Xr_v = yr_v = None
+    if args.real:
+        Xr, yr, nr = [], [], []
+        for f in args.real:
+            z = np.load(f, allow_pickle=True)
+            Xr.append(z["X"]); yr.append(z["y"]); nr.append(z["names"])
+        Xr, yr, nr = np.concatenate(Xr), np.concatenate(yr), np.concatenate(nr)
+        crops = sorted(set(nr.tolist()))
+        held_crops = set(random.Random(5).sample(crops, max(1, len(crops) * 15 // 100)))
+        hv = np.array([n in held_crops for n in nr])
+        Xr_v, yr_v = Xr[hv], yr[hv]
+        X = np.concatenate([X] + [Xr[~hv]] * args.real_weight)
+        y = np.concatenate([y] + [yr[~hv]] * args.real_weight)
+        print(f"real glyphs: {int((~hv).sum())} training (x{args.real_weight}), {int(hv.sum())} held out "
+              f"on {len(held_crops)} crops never trained on")
+    net = train(X, y, Xv, yv, hidden=args.hidden, epochs=args.epochs)
+    print("rendered glyphs, held-out faces:")
     family_accuracy(net, Xv, yv)
+    if Xr_v is not None:
+        print("REAL glyphs, held-out crops:")
+        family_accuracy(net, Xr_v, yr_v)
     np.savez(args.out, **net)
     print(f"saved {args.out}")
 

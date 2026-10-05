@@ -158,6 +158,10 @@ impl = "hybrid"                # the line reader beside the classic decoder (dec
                                # "beam" is the classic decoder alone.
 line_model_path = "data/seq_line_gray15_en.npz+data/seq_line_gray15_en_2.npz+data/seq_line_gray15_en_3.npz"
 line_model_path_table = "data/seq_line_gray16_en.npz+data/seq_line_gray16_en_2.npz+data/seq_line_gray16_en_3.npz"
+line_symbol_net = "data/symbols_v2.npz"  # table profile: the symbol classifier (recognize/symbols.py) on a table crop's
+                               # confusion sets ('-' '–' '−', 'x' '×', 'o' '°', '+' '±', '<' '≤' ...), trained on 116k real
+                               # glyphs harvested from PubTables-1M training crops plus rendered ones, gated by typography
+                               # (symbols.allowed): held-out PubTables-1M minus signs 61 -> 72, every TEDS level (2026-10-05)
 line_dash_measure = true       # table profile: a table crop's dashes named by measuring them against the line's
                                # digits -- a hyphen shorter than a digit, a range's en dash between figures, a minus
                                # before one (lineread.measure_dashes; 2026-10-04): with the symbol reader, held-out
