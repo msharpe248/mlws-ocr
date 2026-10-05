@@ -33,7 +33,7 @@ install carries (`tessdata_fast`).
 | legal reports | Library of Congress typescript and print (40) | **87.5 / 73.7** | 57.5 / 42.8 | 78.8 / 66.3 | ahead of both |
 | blocks | broad-30's text zones read alone, no layout | **98.6 / 97.2** | 98.2 / 96.6 | 98.5 / 96.5 | ahead of both |
 
-These are the README's figures (the neural profile, current release). Every
+These are the README's figures (the neural profile, v0.18.6). Every
 row is the mean over its pages; small sets move by a point or more with the
 choice of pages (see [MEASUREMENT.md](MEASUREMENT.md)), which is why the
 held-out rows are shown beside the tuned ones.
@@ -66,6 +66,32 @@ clean letters, behind on newspaper columns and forms. The caveat on the
 README applies with full force: these are our measurements, on our
 choice of sets, by our scripts.
 
+### What there is no Tesseract number for
+
+Since the end of September the project's focus has been **tables**, and there
+Tesseract has nothing to compare: neither engine outputs table structure --
+its text, hOCR and TSV carry no rows, columns or cells -- so there is nothing
+to score. The neural-table profile's figures (TEDS, structure similarity
+against the truth's HTML; [TABLES.md](TABLES.md)):
+
+| set | neural-table TEDS |
+|---|---|
+| invoices / timesheets / paystubs (generated) | 0.967 / 0.942 / 0.940 |
+| payroll forms (generated WH-347) | 0.913 |
+| annual-report tables (FinTabNet.c, 240 held out) | 0.875 |
+| scientific tables (PubTables-1M, 240 held out) | 0.814 |
+| screenshots (80 tables drawn by a browser) | 0.911 |
+
+The same is true of the other things the engine now writes beside the text:
+**pictures** cut from the original and named in the hOCR (`ocr_photo` with
+`image` and `x_source_bbox`), **display equations** cut out and written as
+`ocr_display` / `ocr_math` with their numbers read, and the **dashes and
+signs** of scientific tables (an en dash for a range, a minus, ×, °) read by a
+second look at those characters ([HOCR.md §6](HOCR.md), [DECODING.md
+§6a](DECODING.md)). Tesseract's page analysis finds image regions, and its
+legacy layout has an equation detector (`textord_equation_detect`, off by
+default) that marks equation regions, but its outputs carry the text only.
+
 ## History
 
 The first measurement against Tesseract was on day two of the project
@@ -93,7 +119,7 @@ and what that measured.
 | character segmentation | connected components; chop joined characters at concave vertices, associate broken pieces by best-first search | connected components; ranked cut options with three-piece splits; per-blob confidence-driven chopping; multipart association | re-derived, with several of Tesseract's triggers measured inert here |
 | features | polygonal outline segments, 3-D (x, y, angle), many-to-one matched to prototypes | a 95-element vector (zoning, moments, profiles, skeleton) for the nearest-prototype and MLP channels, plus outline-segment features in the outline channel | the outline channel is Tesseract §5 re-derived; the others are classical additions |
 | classifier | static classifier with class pruner, then an **adaptive classifier** trained on the document's own confident words | nearest-prototype, outline and MLP channels combined; **per-document cluster refit** of the prototypes | the adaptive idea is the same; ours refits prototypes rather than training a second classifier |
-| linguistics | dictionaries as DAWGs, number and punctuation permuters, case permutation, a word-frequency prior | lexicon plus character trigrams, a character GRU language model, numeric **format** endorsement (`decode/formats.py`), line-level case decision | same roles; the format rules are our permuters |
+| linguistics | dictionaries as DAWGs, number and punctuation permuters, case permutation, a word-frequency prior | lexicon plus character trigrams, a character GRU language model, numeric **format** endorsement (`decode/formats.py`), line-level case decision, and after decoding a **noisy-channel corrector** trained on this engine's own confusions, with a pixel veto ([DECODING.md §6a](DECODING.md)) | same roles; the format rules are our permuters, the learned corrector has no Tesseract counterpart |
 | search | best-first over segmentation graph, word-level | beam decoder over split and merge variants, word-level, with per-document word list | same shape |
 | confidence | per-word certainty from classifier distances | a fitted logistic calibrator giving P(correct) per word, in hOCR | ours is calibrated against truth |
 
@@ -102,13 +128,15 @@ does not have:
 
 | | Tesseract LSTM | mlws-ocr neural |
 |---|---|---|
-| line recognizer | LSTM stack over a 36-px line, CTC, one network reads every line | CRNN (four conv layers, BiGRU) over a 32-px x-height-normalised strip, CTC prefix beam search with a lexicon word prior |
+| line recognizer | LSTM stack over a 36-px line, CTC, one network reads every line | an ensemble of three CRNNs (four conv layers, BiGRU) over 32-px x-height-normalised **grey** strips, CTC prefix beam search with a lexicon word prior; the table profile has its own readers, one for a table's crop and one that lends its dashes and signs (139 classes, the tables' symbols among them) |
 | relation to the old engine | replaces it; legacy kept only as `--oem 0` | **runs beside it**: the classic decoder reads every line, the reader reads every line, and a fitted judge chooses per line from both readings' evidence |
 | word-level scorer | none | the same CRNN family as a scorer of the classic decoder's split/merge variants |
 | training data | synthetic only: about 400k lines in about 4,500 fonts, text2image degradation | synthetic word windows and long lines (615 to 3,179 open fonts, our degradation model) **plus real scanned strips labelled from UNLV truth**, weighted up |
-| parameters | roughly 500k | 286k |
+| parameters | roughly 500k | 3 × 287k (3 × 291k for the table readers) |
 | dictionary at decode | DAWG beam | lexicon prior inside the CTC beam; unendorsed words penalised |
 | document adaptation | none in the LSTM path | the classic side's per-document refit and word list still feed the judge |
+| light text on a dark ground | a line read with low confidence is inverted and read again (`tessedit_do_invert`) | dark grounds (dark mode, a coloured header band) found by local polarity and inverted before binarization; photographs kept out of it |
+| table structure | none | ruled grids, whitespace tables, a structure network, a word-relation transformer, and a fitted choice between their tables; spans, nesting, arithmetic checks |
 
 The **per-line judge** is the mechanism Tesseract lacks and the reason
 the neural profile keeps the classic engine's strengths on typewriter
@@ -135,9 +163,14 @@ has to be right everywhere.
   is scored on a convention; every adoption has a four-set row and a
   classic regression row; negatives are recorded. Tesseract's accuracy is
   reported by others.
-- **Legibility over coverage.** One language, Latin script, a 110-glyph
-  charset, no vertical text, no script detection, no PDF renderer of its
-  own beyond page extraction. Tesseract reads a hundred languages.
+- **Legibility over coverage.** One language, Latin script, about 140
+  characters (the readers' 139 classes, with the tables' symbols), no
+  vertical text, no script detection, no PDF renderer of its own beyond page
+  extraction. Tesseract reads a hundred languages.
+- **A workbench, not only a command.** `mlws-ocr-ui` shows every stage of
+  a page, lets each be swapped, tuned or corrected and re-runs from there,
+  and renders the result from its hOCR, pictures included. Tesseract is a
+  library and a command line.
 
 ## Where Tesseract is ahead, and what it would take
 
@@ -149,8 +182,9 @@ has to be right everywhere.
   mature than our block segmentation on newspapers and magazines. Measured
   only; not the project's target.
 - **Speed.** Tesseract reads a letter in about two seconds; the neural
-  profile takes about seventeen in numpy on one core (recognition is half
-  of it), less with torch on a GPU, and batches across cores.
+  profile takes about eleven in numpy on one core (RESEARCH 2026-09-24),
+  less with torch on a GPU, and `mlws-ocr batch` reads a page per core
+  (33 letters a minute on a 14-core laptop).
 - **Maturity.** Tesseract has decades of use on millions of documents in
   many languages; this engine has been measured on the sets above and
   little else. See the caveat on the README.
