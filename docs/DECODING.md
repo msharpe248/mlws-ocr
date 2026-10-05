@@ -225,6 +225,40 @@ split-glyph errors it repairs — "the size of its gain is the size of that
 error class in the engine: large for the classic engine, a rounding error for
 the line reader".
 
+## 6a. Catching misspellings: the whole chain
+
+No single step "spell-checks" the page. A wrong word has to get past
+several checks, from reading to output, and each one uses different evidence.
+In order:
+
+| step | where | profiles | the evidence it uses | what it does |
+|---|---|---|---|---|
+| **1. The lexicon inside the reading** | `decode/beam.py`, `decode/lineread.py` | all | the word list and character models (trigrams, a character GRU) | a known word scores better *while* the line is being read: the beam's language-model terms, and the line reader's +1.5 nats for a known word, −0.5 for an unknown one (§2, §4) |
+| **2. Numeric formats** | `decode/formats.py` | all | the shapes of real formats (ZIP, phone, date, money, year) | the digit analogue of a lexicon: '48202' is as trustworthy as a dictionary word, and 'O' read for '0' breaks the shape and is not vouched for |
+| **3. The word strip re-read** | `decode/seqterm.py` | neural | the word's own pixels, scored by the word-strip network under each spelling | picks among the decoder's variants, and adds the network's own reading when it is a known word and much more likely (§4) |
+| **4. The page's own words** | `seqterm._collect_doc_words` | neural | repetition on the page: a word read the same by decoder and network without the lexicon, or recurring | names and product codes the lexicon cannot know become "vouched for" on this page, so no later step "corrects" them away |
+| **5. The line judge** | `decode/linechoice.py` | neural | 15 features of two readings of a line (known words, confidence, agreement, likelihood) | chooses per line between the classic reading and the line reader's (§4) |
+| **6. Adaptation** | `adapt/` | classic, neural | the page's own confidently-read glyphs | refits the glyph models to this page's font and decodes again, so a letter misread throughout gets read right throughout (§5) |
+| **7. Rule repairs** | `decode/postpass.py` | all | the line's other letters, sentence position, neighbours | line case ('s' is 'S' in "PAYMENT DUE"), sentence case, '0f' → 'of', '482D2' → '48202' between digits, line-end hyphenation joined when the whole word is known (§3) |
+| **8. Case and I/l repair** | `decode/correct.py` `case_repair` | neural, neural-table | the line's capitalisation and the lexicon | 'Iong' → 'long', 'DOg' → 'Dog': the reader's size judgement is the only thing at fault |
+| **9. The noisy-channel corrector** | `decode/correct.py` | classic (on), neural (option) | the engine's *own* learned confusions (rn→m, O→C)), word frequencies, and the pixels | for each unknown word, undo up to three learned edits, keep candidates that are known words, take the best if it wins by a margin, and only if the word's image does not prefer the original spelling (the pixel veto). Never touches short words, numbers, or words the page vouches for (step 4) (§6) |
+| **10. Table cells** | `decode/cellfix.py`, `decode/output.py` | neural-table | the column a cell is in and the table's arithmetic | in a column of figures a misread cell is repaired when the repair is a figure ('l2O.50' → '120.50', 'S 25' → '$25'); digit groups joined; marks columns ('O'/'S') kept letters; quantity × price = amount and totals checked, failures flagged in the table JSON |
+| **11. A probability for every word** | `decode/wordconf.py` | neural | 16 features of how the word was read | changes nothing: each word gets a calibrated probability of being right (`x_wconf` in the hOCR), so the doubtful ones can be sent to a person (§4) |
+
+Three principles run through the chain:
+- **The engine's own errors, not generic ones.** The corrector's edit
+  probabilities come from aligning this engine's output with the truth on
+  pages never used for evaluation. A spelling corrector built for human typos
+  would fix the wrong things.
+- **The image has the last word.** A dictionary can't tell 'Employee' from a
+  surname it has never seen, but the pixels can: corrections must not make
+  the word's image less likely (the pixel veto), and the page's repeated
+  words are protected.
+- **Correct only where the gain is real.** The corrector is on in the classic
+  profile (899 corrections over eight sets, 2 wrong) and off in neural, where
+  the line reader rarely makes the split-glyph errors it repairs. An option
+  stays an option until measurement says otherwise.
+
 ## 7. What comes out
 
 The output stage assembles the words into text and hOCR, and drops lines
