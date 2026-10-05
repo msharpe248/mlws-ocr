@@ -47,6 +47,82 @@ from .beam import BeamDecode, numeric_endorsed
 _SYMBOL_FOR = {"–": "-~", "−": "-~", "—": "-–", "×": "xX*", "±": "+", "°": "o0*"}
 
 
+_DASH_CHARS = "-–−—‐~"
+
+
+def measure_dashes(binary, ln: dict, w: dict) -> str | None:
+    """A word's dashes named by their MEASURE, not their look: at 72 dpi a
+    hyphen, an en dash and a minus sign are each a flat bar of a few pixels,
+    and the reader writes '-' for all three.  Typography tells them apart by
+    length -- a hyphen about a third of an em, an en dash half an em (a
+    tabular digit's width), a minus a digit's width or more, an em dash a full
+    em -- and by use: a range between figures takes an en dash ('0.40–0.74'),
+    a negative figure a minus ('−0.178') (R. Bringhurst, *The Elements of
+    Typographic Style*, 1992, 5.2; the Chicago Manual of Style 6.78-6.83).
+
+    The word's dash bars are its components flat (height under 0.3 of the
+    x-height) and longer than tall (1.2 times: a 72-dpi hyphen magnified is a
+    5 x 7 px blob) in the x-height band; when
+    their count is the count of dash characters in the word, each is measured
+    against the line's digit width (the median width of the line's
+    components a digit tall): under 0.75 of it a hyphen, 1.6 or more an em
+    dash, between those an en dash between figures, a minus before a figure,
+    otherwise left as read.  Returns the word's text with its dashes named,
+    or None."""
+    import re
+    from scipy import ndimage
+    text = w.get("text") or ""
+    n = sum(text.count(c) for c in _DASH_CHARS)
+    xh = ln.get("x_height")
+    if not n or not xh or binary is None:
+        return None
+    lx0, ly0, lx1, ly1 = (int(v) for v in ln["box"])
+    line = binary[ly0:ly1, lx0:lx1]
+    lab, k = ndimage.label(line)
+    if not k:
+        return None
+    sl = [s for s in ndimage.find_objects(lab) if s is not None]
+    digitish = [s[1].stop - s[1].start for s in sl
+                if 1.15 * xh <= s[0].stop - s[0].start <= 1.7 * xh
+                and 0.3 <= (s[1].stop - s[1].start) / max(1, s[0].stop - s[0].start) <= 0.9]
+    if len(digitish) < 3:
+        return None
+    dw = float(np.median(digitish))
+    base = ln.get("baseline") or ly1
+    x0, x1 = int(w["box"][0]), int(w["box"][2])
+    bars = []
+    for s in sl:
+        h, wd = s[0].stop - s[0].start, s[1].stop - s[1].start
+        cx = lx0 + (s[1].start + s[1].stop) / 2
+        cy = ly0 + (s[0].start + s[0].stop) / 2
+        if (x0 <= cx <= x1 and h <= max(2, 0.3 * xh) and wd >= 1.2 * h
+                and base - 1.0 * xh <= cy <= base - 0.1 * xh):
+            bars.append((s[1].start, wd))
+    if len(bars) != n:
+        return None
+    bars.sort()
+    out, bi = [], 0
+    for i, ch in enumerate(text):
+        if ch not in _DASH_CHARS:
+            out.append(ch)
+            continue
+        r = bars[bi][1] / dw
+        bi += 1
+        prev_fig = i > 0 and re.match(r"[\d.%)]", text[i - 1])
+        next_fig = i + 1 < len(text) and re.match(r"[\d.(]", text[i + 1])
+        if r < 0.75:
+            out.append("-")
+        elif r >= 1.6:
+            out.append("—")
+        elif prev_fig and next_fig:
+            out.append("–")
+        elif next_fig and not prev_fig:
+            out.append("−")
+        else:
+            out.append(ch)
+    return "".join(out)
+
+
 def symbol_merge(base: str, other: str) -> str:
     """``base`` with ``other``'s SYMBOLS where the two differ only there: each
     differing span is a symbol of ``other`` (– − — × ± °) standing where ``base``
@@ -138,6 +214,14 @@ class HybridDecode(BeamDecode):
     defaults = {
         **BeamDecode.defaults,
         "line_model_path": "",     # the line reader's weights; "" = the seq_path scorer
+        "line_symbol_net": "",          # the symbol classifier (recognize/symbols.py): on a table crop, each
+                                        # character of a confusion set ('-' '–' '−' '—', 'x' '×', 'o' '°',
+                                        # '+' '±', '<' '≤' ...) decided again from the glyph and its line --
+                                        # lent to the output's texts like the measured dashes (2026-10-04)
+        "line_dash_measure": False,     # a table crop's dashes named by MEASURING them (measure_dashes): a
+                                        # bar shorter than a digit a hyphen; about a digit, between figures an
+                                        # en dash, before a figure a minus; two digits an em dash -- lent to
+                                        # the output's texts like the symbol reader's (2026-10-04)
         "line_model_path_symbols": "",  # a table crop's lines read again by this reader, and its SYMBOLS
                                         # taken where the two reads differ only there ('-' -> '–' or '−',
                                         # 'x' -> '×', '+' -> '±', '°' added): the structure read as before,
@@ -346,6 +430,17 @@ class HybridDecode(BeamDecode):
         debug.scalars["graphic_lines_read"] = n_graphic
         debug.scalars["superset_kept"] = n_superset
         debug.scalars["lines_dropped"] = n_dropped
+        if p["line_dash_measure"] and page.meta.get("doc_type") == "table":
+            n_dash = 0
+            for ln in layout["lines"]:
+                for w in ln.get("words", []):
+                    t = measure_dashes(page.binary, ln, w)
+                    if t is not None and t != w["text"]:
+                        w["text_sym"] = t
+                        n_dash += 1
+            debug.scalars["dashes_measured"] = n_dash
+        if p["line_symbol_net"] and page.meta.get("doc_type") == "table":
+            debug.scalars["symbols_classified"] = self._classify_symbols(layout, page, p["line_symbol_net"])
         if p["line_model_path_symbols"] and page.meta.get("doc_type") == "table":
             sym = self._load_seq(p["line_model_path_symbols"], p["seq_backend"])
             n_sym = 0
@@ -357,7 +452,8 @@ class HybridDecode(BeamDecode):
                 if read is None or len(read[0]) != len(ln["words"]):
                     continue
                 for w, v in zip(ln["words"], read[0]):
-                    t = symbol_merge(w["text"], v["text"])
+                    # on the measured dashes, if any: where the two disagree the measure stands
+                    t = symbol_merge(w.get("text_sym") or w["text"], v["text"])
                     if t != w["text"]:
                         # kept beside the word, lent to the output's texts after the structure is
                         # built (output.lend_symbols): taken into the text here, the em dashes it
@@ -370,6 +466,48 @@ class HybridDecode(BeamDecode):
         if p["figure_cells"] and layout.get("tables"):
             debug.scalars["figure_cells_reread"] = self._reread_figure_cells(layout, page.binary, model, gray)
         return out, debug
+
+    def _classify_symbols(self, layout, page, path: str) -> int:
+        """Each word's characters of a confusion set decided again by the
+        symbol classifier, from the word's glyphs found as in training
+        (symbols.glyph_groups) -- when they match the word's characters one to
+        one.  The result is kept beside the word (``text_sym``), on top of any
+        measured dashes, for the output to lend after the structure is built."""
+        from ..recognize.symbols import FAMILIES, SymbolNet, features, glyph_groups
+        key = ("symbols", path)
+        net = self._nets.get(key) if hasattr(self, "_nets") else None
+        if net is None:
+            if not hasattr(self, "_nets"):
+                self._nets = {}
+            net = self._nets[key] = SymbolNet(path)
+        gray = page.gray if page.gray is not None else 1.0 - page.binary.astype(np.float32)
+        n = 0
+        for ln in layout["lines"]:
+            xh, base = ln.get("x_height"), ln.get("baseline")
+            if not xh or base is None:
+                continue
+            ly0, ly1 = int(ln["box"][1]), int(ln["box"][3])
+            for w in ln.get("words", []):
+                text = w.get("text_sym") or w.get("text") or ""
+                if not any(c in FAMILIES for c in text):
+                    continue
+                x0, x1 = int(w["box"][0]), int(w["box"][2])
+                groups = [(g[0] + x0, g[1] + ly0, g[2] + x0, g[3] + ly0)
+                          for g in glyph_groups(gray[ly0:ly1, x0:x1] < 0.5)]
+                chars = [i for i, c in enumerate(text) if not c.isspace()]
+                if len(groups) != len(chars):
+                    continue
+                out = list(text)
+                for k, i in enumerate(chars):
+                    if text[i] in FAMILIES:
+                        x = features(gray, groups[k], xh, base, groups[k - 1] if k else None,
+                                     groups[k + 1] if k + 1 < len(groups) else None)
+                        out[i] = net.choose(text[i], x)
+                t = "".join(out)
+                if t != w["text"]:
+                    w["text_sym"] = t
+                    n += 1
+        return n
 
     def _read_rotated_cells(self, layout, binary, model, gray) -> int:
         """Tall, narrow cells of the ruled tables (at least twice as tall as

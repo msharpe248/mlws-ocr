@@ -203,9 +203,10 @@ through the same evaluator, so hyphenation and rule-line conventions
 cost neither side. The legacy engine needs the tessdata repository's
 `eng.traineddata`; Homebrew's bundled model is LSTM-only.
 
-Sources: R. Smith, "An Overview of the Tesseract OCR Engine", ICDAR 2007;
-R. Smith, "Hybrid Page Layout Analysis via Tab-Stop Detection", ICDAR
-2009; R. Smith, "Tesseract OCR Engine: what it is, where it came from,
-where it is going", DAS 2016 tutorial (the LSTM line recognizer and its
-training); the Tesseract 4 training documentation for the font and line
-counts.
+## References
+
+- R. Smith, "An overview of the Tesseract OCR engine", ICDAR 2007.
+- R. Smith, "Hybrid page layout analysis via tab-stop detection", ICDAR 2009.
+- R. Smith, "Tesseract OCR engine: what it is, where it came from, where it
+  is going", DAS 2016 tutorial (the LSTM line recognizer and its training).
+- The Tesseract 4 training documentation, for the font and line counts.
