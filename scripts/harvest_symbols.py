@@ -100,7 +100,8 @@ def main():
         img = args.root / "images" / f"{n}.jpg"
         if not wf.exists() or not img.exists():
             continue
-        if any(c in RARE for c in wf.read_text()):
+        # parsed, not searched: the files write the symbols as escapes ('\\u2212')
+        if any(c in RARE for w in json.loads(wf.read_text()) for c in (w.get("text") or "")):
             jobs.append((img, wf))
         if len(jobs) >= args.n:
             break
