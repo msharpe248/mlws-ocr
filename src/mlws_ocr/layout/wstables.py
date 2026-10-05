@@ -1215,6 +1215,140 @@ SPAN_LEFT_LABELS = [False]  # a first-column label followed by empty figure colu
                             # paystubs +0.016, receipts -0.059 -- their truths disagree on the convention)
 
 
+def rebuild_header(t: dict, words: list[dict], max_levels: int = 3) -> dict:
+    """A table's HEADER rebuilt from its text lines.  A census of the 240
+    held-out PubTables-1M tables: 36 had too few header rows -- a group
+    heading and its sub-headings read into one row ('Mean item-total NFAS.4
+    correlation NFAS.S') -- and the truth's header rows in place of ours were
+    worth +0.021 TEDS (2026-10-05).
+
+    The header is the rows above the first with a figure after its first
+    column.  Its words fall into BANDS, one per text line; the body's cells
+    give the columns.  A band's words are grouped (a gap of a column apart
+    parts two groups) and each group covers the columns it overlaps.  Going
+    down, a group under a group covering exactly the same single column is
+    that heading's next line (a wrapped heading, 'Altitude' over '(m)') and
+    joins it; a group under a group spanning several columns is a
+    SUB-HEADING one level down, the upper group spanning its columns.  A
+    group with nothing beneath it spans down to the last level.  The header
+    rows are replaced by the levels; the body is left as it was.  Two-level
+    headers are the convention of scientific tables' column 'stubs' and
+    'spanners' (Chicago Manual of Style 3.62-3.68; the 'boxhead')."""
+    cells = t.get("cells", [])
+    if not cells or not words:
+        return t
+    nr = t.get("n_rows") or 1 + max(c["row"] for c in cells)
+    nc = t.get("n_cols") or 1 + max(c["col"] + c.get("colspan", 1) - 1 for c in cells)
+    filled = lambda c: bool((c.get("text") or "").strip())  # noqa: E731
+    figure = re.compile(r"^[\s(\[<>≤≥~*]*[-–−+±]?[$€£]?\s*\d[\d.,]*\s*%?[)\]*]*")
+
+    def figures(r):
+        # a body row: most of its filled cells after the first are figures ('12.5', '−0.3', '45 (12%)'),
+        # where a heading 'NFAS.4' or 'Day 1' holds a digit but is words
+        fs = [c["text"].strip() for c in cells if c["row"] == r and c["col"] > 0 and filled(c)]
+        return bool(fs) and sum(1 for f in fs if figure.match(f) and len(re.findall(r"[A-Za-z]", f)) <= 2) \
+            >= 0.5 * len(fs)
+    body = next((r for r in range(nr) if figures(r)), nr)
+    if body < 1 or body >= nr:
+        return t
+    real = lambda c: bool(c.get("box")) and c["box"][2] > c["box"][0]  # noqa: E731
+    bcells = [c for c in cells if c["row"] >= body and real(c)]
+    if not bcells:
+        return t
+    top = min(c["box"][1] for c in bcells if filled(c)) if any(filled(c) for c in bcells) else \
+        min(c["box"][1] for c in bcells)
+    cols = []
+    for k in range(nc):
+        # the column's extent: its filled body cells, else its body cells' boxes (a grid's empty cells
+        # have them), else no sure column
+        bx = ([c["box"] for c in bcells if c["col"] == k and c.get("colspan", 1) == 1 and filled(c)]
+              or [c["box"] for c in bcells if c["col"] == k and c.get("colspan", 1) == 1])
+        if not bx:
+            return t
+        cols.append((min(b[0] for b in bx), max(b[2] for b in bx)))
+    hcells = [c for c in cells if c["row"] < body and real(c)]
+    tb = t.get("box") or [cols[0][0], 0, cols[-1][1], top]
+    hx0 = min([c["box"][0] for c in hcells] + [cols[0][0], tb[0]]) - 5
+    hy0 = min([c["box"][1] for c in hcells] + [tb[1]]) - 5
+    hw = [w for w in words if hy0 <= (w["box"][1] + w["box"][3]) / 2 < top
+          and hx0 <= (w["box"][0] + w["box"][2]) / 2 <= cols[-1][1] + 5]
+    if len(hw) < 2:
+        return t
+    lh = float(np.median([w["box"][3] - w["box"][1] for w in hw]))
+    hw.sort(key=lambda w: (w["box"][1] + w["box"][3]) / 2)
+    bands: list[list[dict]] = []
+    for w in hw:
+        cy = (w["box"][1] + w["box"][3]) / 2
+        if bands and cy - (bands[-1][-1]["box"][1] + bands[-1][-1]["box"][3]) / 2 < 0.6 * lh:
+            bands[-1].append(w)
+        else:
+            bands.append([w])
+    if len(bands) < 2:
+        return t
+    gap = min((cols[k + 1][0] - cols[k][1] for k in range(nc - 1)), default=lh) * 0.6
+    gap = max(gap, 0.8 * lh)
+
+    def over(x0, x1):
+        out = [k for k, (a, b) in enumerate(cols) if min(x1, b) - max(x0, a) > 0.25 * min(b - a, x1 - x0)
+               or a <= (x0 + x1) / 2 <= b]
+        return (out[0], out[-1]) if out else None
+    levels = []                                     # each band's groups: [x0, x1, c0, c1, words]
+    for band in bands:
+        band.sort(key=lambda w: w["box"][0])
+        groups = []
+        for w in band:
+            if groups and w["box"][0] - groups[-1][1] < gap:
+                groups[-1][1] = max(groups[-1][1], w["box"][2]); groups[-1][4].append(w)
+            else:
+                groups.append([w["box"][0], w["box"][2], 0, 0, [w]])
+        for g in groups:
+            span = over(g[0], g[1])
+            if span is None:
+                break
+            g[2], g[3] = span
+        else:
+            levels.append(groups)
+            continue
+        return t                                     # a group over no column: leave the header alone
+    # wrapped lines join the heading above them (same single column); the rest are a level down
+    rows: list[list[list]] = [levels[0]]
+    for groups in levels[1:]:
+        new = []
+        for g in groups:
+            above = next((u for u in reversed(rows) for u in u if u[2] <= g[2] and g[3] <= u[3]), None)
+            if above is not None and above[2] == above[3] == g[2] == g[3]:
+                above[4] += g[4]; above[0] = min(above[0], g[0]); above[1] = max(above[1], g[1])
+            else:
+                new.append(g)
+        if new:
+            rows.append(new)
+    if len(rows) > max_levels:
+        return t
+    nh = len(rows)
+    hdr = []
+    taken = set()
+    for li, groups in enumerate(rows):
+        for g in groups:
+            slots = {(li, k) for k in range(g[2], g[3] + 1)}
+            if slots & taken:
+                return t                             # two headings over one slot: not a header we can rebuild
+            below = [h for lj in range(li + 1, nh) for h in rows[lj] if not (h[3] < g[2] or h[2] > g[3])]
+            rs = 1 if below else nh - li
+            for r in range(li, li + rs):
+                taken |= {(r, k) for k in range(g[2], g[3] + 1)}
+            ws = sorted(g[4], key=lambda w: (round((w["box"][1] + w["box"][3]) / 2 / lh), w["box"][0]))
+            hdr.append({"row": li, "col": g[2], "rowspan": rs, "colspan": g[3] - g[2] + 1,
+                        "text": " ".join(w["text"] for w in ws),
+                        "box": [int(min(w["box"][0] for w in ws)), int(min(w["box"][1] for w in ws)),
+                                int(max(w["box"][2] for w in ws)), int(max(w["box"][3] for w in ws))]})
+    for r in range(nh):
+        for k in range(nc):
+            if (r, k) not in taken:
+                hdr.append({"row": r, "col": k, "rowspan": 1, "colspan": 1, "text": "", "box": [0, 0, 0, 0]})
+    body_cells = [dict(c, row=c["row"] - body + nh) for c in cells if c["row"] >= body]
+    return dict(t, cells=sorted(hdr + body_cells, key=lambda c: (c["row"], c["col"])), n_rows=nr - body + nh)
+
+
 def header_rowspans(t: dict) -> dict:
     """A TWO-LEVEL header: a group heading over its sub-headings ('Horizontal
     error' over 'Max' and 'Mean') beside headings of one level ('Group',

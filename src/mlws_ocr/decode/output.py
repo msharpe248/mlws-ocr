@@ -301,6 +301,12 @@ class TextOutput(Stage):
                                          # tables found on a page; 2026-10-03)
         "table_cell_lines": False,       # a table's row read line by line, not by x alone: a wrapped
                                          # cell's lines no longer interleave (sepnet.grid_table; 2026-09-30)
+        "table_cell_conf_path": "",      # a calibrated probability per table cell (decode/cellconf.py): in the
+                                         # table JSON ('confidence') and the hOCR's cells (x_cconf); "" = none
+        "table_cell_features": False,    # ... the cells' features kept in the JSON ('conf_x'), for a harvest
+        "table_rebuild_header": False,   # a table's crop: its header rebuilt from its text lines -- wrapped
+                                         # headings joined, sub-headings a level down under their spanning
+                                         # heading (wstables.rebuild_header; 2026-10-05)
         "table_header_rowspans": False,  # a table's crop: in a two-level header, a heading with nothing beneath
                                          # it spans both header rows (wstables.header_rowspans; 2026-10-04)
         "table_group_rowspans": False,   # a table's crop: a row and its continuation rows (first cell empty,
@@ -935,6 +941,9 @@ class TextOutput(Stage):
             if t is not None and self.params["table_centred_rowspans"]:
                 from ..layout.wstables import centred_rowspans
                 t = centred_rowspans(t)
+            if t is not None and self.params["table_rebuild_header"]:
+                from ..layout.wstables import rebuild_header
+                t = rebuild_header(t, words)
             if t is not None and self.params["table_header_rowspans"]:
                 from ..layout.wstables import header_rowspans
                 t = header_rowspans(t)
@@ -1070,6 +1079,24 @@ class TextOutput(Stage):
             recs = nest_side_by_side(recs)
         n_fixed = fix_figure_columns(recs) if self.params["fix_figure_columns"] else 0
         kept, failed = check_tables(recs) if self.params["check_arithmetic"] else (0, 0)
+        if self.params["table_cell_conf_path"] or self.params["table_cell_features"]:
+            # a calibrated probability per cell (decode/cellconf.py), into the records and, for the
+            # hOCR, onto the layout's cells (the hOCR is written again with it)
+            from .cellconf import CellConf, annotate
+            key = ("cellconf", self.params["table_cell_conf_path"])
+            if self.params["table_cell_conf_path"] and key not in self._nets:
+                self._nets[key] = CellConf(self.params["table_cell_conf_path"])
+            words_all = [w for ln in layout.get("lines", []) for w in ln.get("words", [])]
+            annotate(recs, words_all, self._nets.get(key), self.params["table_cell_features"])
+            confs_by = {(tuple(c["box"]), c["row"], c["col"]): c.get("confidence")
+                        for r in recs for c in r["cells"] if c.get("confidence") is not None}
+            if confs_by:
+                layout = dict(layout, tables=[dict(t, cells=[dict(c, confidence=confs_by[(tuple(c["box"]), c["row"], c["col"])])
+                                                             if (tuple(c.get("box") or ()), c["row"], c["col"]) in confs_by else c
+                                                             for c in t.get("cells", [])])
+                                              for t in layout.get("tables", [])])
+                out.meta["layout"] = layout
+                out.meta["hocr"] = hocr_document(layout, page, out.meta.get("pictures"))
         out.meta["tables"] = recs
         out.meta["tables_html"] = tables_html(recs)
         out.meta["tables_csv"] = tables_csv(recs)
@@ -1275,7 +1302,8 @@ def hocr_document(layout: dict, page, pictures: list | None = None) -> str:
                 for k, c in sorted(rows[r], key=lambda kc: kc[1]["col"]):
                     span = (f' rowspan="{c["rowspan"]}"' if c.get("rowspan", 1) > 1 else "") + \
                            (f' colspan="{c["colspan"]}"' if c.get("colspan", 1) > 1 else "")
-                    out.append(f'<td{span} title="bbox {bb(c["box"])}">')
+                    cc = f'; x_cconf {int(round(100 * c["confidence"]))}' if c.get("confidence") is not None else ""
+                    out.append(f'<td{span} title="bbox {bb(c["box"])}{cc}">')
                     for ln in sorted(per_cell.get(k, []), key=lambda l: l["box"][1]):
                         emit_line(ln)
                     out.append("</td>")

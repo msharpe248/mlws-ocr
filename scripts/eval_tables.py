@@ -262,6 +262,8 @@ def main():
         char_err += ce; char_tot += max(1, len(ct))
         if args.dump:
             (args.dump / f"{stem}.pred.html").write_text(pred)
+            if page.meta.get("tables"):            # the records, with cell features when asked (train_cellconf.py)
+                (args.dump / f"{stem}.tables.json").write_text(json.dumps(page.meta["tables"]))
             lay = page.meta.get("layout", {})
             if "wordrel_x" in lay:                 # the word-network choice's inputs (train_wordrel_select.py)
                 (args.dump / f"{stem}.wrel.json").write_text(json.dumps(lay["wordrel_x"]))
