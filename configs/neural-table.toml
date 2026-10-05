@@ -158,6 +158,10 @@ impl = "hybrid"                # the line reader beside the classic decoder (dec
                                # "beam" is the classic decoder alone.
 line_model_path = "data/seq_line_gray15_en.npz+data/seq_line_gray15_en_2.npz+data/seq_line_gray15_en_3.npz"
 line_model_path_table = "data/seq_line_gray16_en.npz+data/seq_line_gray16_en_2.npz+data/seq_line_gray16_en_3.npz"
+line_dash_measure = true       # table profile: a table crop's dashes named by measuring them against the line's
+                               # digits -- a hyphen shorter than a digit, a range's en dash between figures, a minus
+                               # before one (lineread.measure_dashes; 2026-10-04): with the symbol reader, held-out
+                               # PubTables-1M '–' 204 -> 211, '−' 54 -> 61, every TEDS / TEDS-S level
 line_model_path_symbols = "data/seq_line_gray17b_en.npz+data/seq_line_gray17b_en_2.npz+data/seq_line_gray17b_en_3.npz"
                                # table profile (2026-10-04, v0.18.6, the owner's decision): a table crop's lines read
                                # again by seq_line_gray17b (gray16 taught the tables' symbols) and its SYMBOLS lent to

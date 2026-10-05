@@ -502,7 +502,7 @@ class HybridDecode(BeamDecode):
                     if text[i] in FAMILIES:
                         x = features(gray, groups[k], xh, base, groups[k - 1] if k else None,
                                      groups[k + 1] if k + 1 < len(groups) else None)
-                        out[i] = net.choose(text[i], x)
+                        out[i] = net.choose(text[i], x, text[i - 1] if i else "", text[i + 1] if i + 1 < len(text) else "")
                 t = "".join(out)
                 if t != w["text"]:
                     w["text_sym"] = t
