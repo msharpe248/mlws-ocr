@@ -95,27 +95,62 @@ class MathReader:
         x = x + position_code(c, h, w)
         return x.reshape(c, h * w).T                     # (N, C)
 
-    def read(self, gray: np.ndarray, beam: int = 1) -> list[str]:
+    def _step(self, mem, keys, h, tok):
+        """One decoder step for a batch of hypotheses: states h (B, H) and their
+        last tokens (B,) -> the new states and the next token's log-probabilities."""
+        p = self.p
+        e = np.tanh(keys[None] + (h @ p["att_q"])[:, None]) @ p["att_v"]      # (B, N)
+        a = np.exp(e - e.max(1, keepdims=True)); a /= a.sum(1, keepdims=True)
+        ctx = a @ mem                                                         # (B, C)
+        x = np.concatenate([p["emb"][tok], ctx], 1)
+        # GRU cell (torch's gate order: reset, update, new)
+        gi = x @ p["gru_wi"] + p["gru_bi"]; gh = h @ p["gru_wh"] + p["gru_bh"]
+        n_ = h.shape[1]
+        r = 1 / (1 + np.exp(-(gi[:, :n_] + gh[:, :n_]))); z = 1 / (1 + np.exp(-(gi[:, n_:2 * n_] + gh[:, n_:2 * n_])))
+        nn_ = np.tanh(gi[:, 2 * n_:] + r * gh[:, 2 * n_:])
+        h = (1 - z) * nn_ + z * h
+        logits = np.concatenate([h, ctx], 1) @ p["out_w"] + p["out_b"]
+        logits = logits - logits.max(1, keepdims=True)
+        return h, logits - np.log(np.exp(logits).sum(1, keepdims=True))
+
+    def read(self, gray: np.ndarray, beam: int = 1, alpha: float = 0.0) -> list[str]:
+        """The formula's tokens.  beam 1: greedy, the likeliest token at each
+        step.  beam k: the k likeliest partial readings kept at each step, each
+        extended by its k likeliest tokens (beam search, as in machine
+        translation; Sutskever, Vinyals & Le, NIPS 2014), a reading finished
+        when it writes </s>; the finished one with the best log-probability
+        divided by its length ** alpha wins (alpha 0: no length bonus)."""
         p = self.p
         mem = self.encode(prepare(gray))
         keys = mem @ p["att_k"]                          # (N, A)
-        h = np.tanh(mem.mean(0) @ p["init_w"] + p["init_b"])
-        tok = INDEX["<s>"] if "<s>" in self.index else 1
-        out = []
+        h = np.tanh(mem.mean(0) @ p["init_w"] + p["init_b"])[None]
+        start = INDEX["<s>"] if "<s>" in self.index else 1
+        end = self.index.get("</s>", -1)
+        hyps = [([], 0.0)]                               # (tokens, log-probability), alive
+        done = []
         for _ in range(MAX_LEN):
-            e = np.tanh(keys + h @ p["att_q"]) @ p["att_v"]   # (N,)
-            a = np.exp(e - e.max()); a /= a.sum()
-            ctx = a @ mem
-            x = np.concatenate([p["emb"][tok], ctx])
-            # GRU cell (torch's gate order: reset, update, new)
-            gi = x @ p["gru_wi"] + p["gru_bi"]; gh = h @ p["gru_wh"] + p["gru_bh"]
-            n_ = h.shape[0]
-            r = 1 / (1 + np.exp(-(gi[:n_] + gh[:n_]))); z = 1 / (1 + np.exp(-(gi[n_:2 * n_] + gh[n_:2 * n_])))
-            nn_ = np.tanh(gi[2 * n_:] + r * gh[2 * n_:])
-            h = (1 - z) * nn_ + z * h
-            logits = np.concatenate([h, ctx]) @ p["out_w"] + p["out_b"]
-            tok = int(np.argmax(logits))
-            if self.vocab[tok] == "</s>":
+            last = np.array([t[-1] if t else start for t, _ in hyps])
+            h, lp = self._step(mem, keys, h, last)
+            cand = []
+            for b, (toks, s) in enumerate(hyps):
+                for t in np.argsort(-lp[b])[:beam]:
+                    cand.append((s + float(lp[b, t]), b, int(t)))
+            cand.sort(key=lambda c: -c[0])
+            nh, keep = [], []
+            for s, b, t in cand:
+                if t == end:
+                    done.append((hyps[b][0], s))
+                else:
+                    nh.append((hyps[b][0] + [t], s)); keep.append(b)
+                if len(nh) >= beam:
+                    break
+            # stop when no live reading can beat the best finished one (log-probabilities only fall)
+            if done and (not nh or (alpha == 0 and max(s for _, s in done) >= nh[0][1])):
                 break
-            out.append(self.vocab[tok])
-        return out
+            if len(done) >= beam and alpha > 0:
+                break
+            hyps, h = nh, h[keep]
+        if not done:
+            done = hyps
+        best = max(done, key=lambda d: d[1] / max(1, len(d[0])) ** alpha)
+        return [self.vocab[t] for t in best[0]]

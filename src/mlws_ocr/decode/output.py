@@ -291,6 +291,7 @@ class TextOutput(Stage):
         "math_reader_path": "",          # display equations (lines.equations) READ by the equation reader
                                          # (math/reader.py): LaTeX tokens into layout["equations"], MathML
                                          # into the hOCR's ocr_math beside the image; "" = cut out only
+        "math_beam": 1,                  # ...greedy (1) or a beam search of this width (math/reader.py)
         "pictures": False,               # each picture zone named as a file (picture_N.png) in the hOCR's
                                          # ocr_photo and meta["pictures"], with its box in the original image's
                                          # frame, for the writers to cut it out and a consumer to put it back
@@ -1019,8 +1020,9 @@ class TextOutput(Stage):
             eqs = []
             for e in layout["equations"]:
                 x0, y0, x1, y1 = (int(v) for v in e["box"])
-                toks = self._nets[key].read(page.gray[max(0, y0):y1, max(0, x0):x1])
-                eqs.append(dict(e, latex=display_latex(toks), mathml=to_mathml(toks)))   # two lines: aligned
+                toks = self._nets[key].read(page.gray[max(0, y0):y1, max(0, x0):x1], beam=int(self.params["math_beam"]))
+                # the tokens as read; the LaTeX to set them (two lines: an aligned pair); the MathML
+                eqs.append(dict(e, tokens=toks, latex=display_latex(toks), mathml=to_mathml(toks)))
             layout = dict(layout, equations=eqs)
             out.meta["layout"] = layout
         if self.params["pictures"]:

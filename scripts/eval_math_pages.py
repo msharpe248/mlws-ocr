@@ -31,9 +31,10 @@ def main():
     ap.add_argument("--model", required=True)
     ap.add_argument("--config", default=str(ROOT / "configs/neural.toml"))
     ap.add_argument("--pages", type=int, default=0)
+    ap.add_argument("--beam", type=int, default=1, help="the reader's beam width (output.math_beam)")
     args = ap.parse_args()
     pl = load_pipeline(args.config)
-    over = parse_overrides(["lines.equations=true", f"output.math_reader_path={args.model}"])
+    over = parse_overrides(["lines.equations=true", f"output.math_reader_path={args.model}", f"output.math_beam={args.beam}"])
     pages = sorted(args.root.glob("*.png"))[: args.pages or None]
     n_true = n_found = n_matched = exact = err = tot = bal = 0
     for f in pages:
@@ -51,7 +52,8 @@ def main():
             if best[0] < 0.5:
                 continue
             used.add(best[1]); n_matched += 1
-            pred, true = tokenize(e.get("latex", "")), truth[best[1]]["tokens"]
+            # the reader's own tokens (the layout's LaTeX wraps a two-line reading in 'aligned')
+            pred, true = e.get("tokens", tokenize(e.get("latex", ""))), truth[best[1]]["tokens"]
             exact += pred == true; err += token_edit_distance(pred, true); tot += len(true); bal += balanced(pred)
         print(f"  {f.stem}: {len(truth)} equations, {len(found)} found, {len(used)} matched", flush=True)
     m = max(1, n_matched)
