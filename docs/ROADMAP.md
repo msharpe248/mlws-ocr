@@ -21,20 +21,19 @@ total: corrections, not only flags), and a fixed output schema (items, totals,
 payment), which also settles CORD's totals convention. CORD stays in the table
 evaluation as a check (neural-table 0.518), not a target.
 
-**Next (2026-10-03, from the census of the worst held-out scientific tables):**
-1. A cell centred on the rows it spans that the row finder put in the row
-   above or below (its offset from its row, the neighbouring row empty in its
-   column): the 336 body row spans and the 163 two-level-header ones.
-2. The table reader's dashes and symbols: '–' read 128 times of 428, '−' 43
-   of 154, '×' 2 of 74, '°' 2 of 46 -- a fine-tune on table lines that carry
-   them, on the GPU box.
-3. Display equations (`lines.equations`, found at F1 0.90 on typeset pages,
-   none on business pages): adopted (v0.18.5) and READ (v0.18.9, mathread_v2:
-   54.9% exact on 30 held-out pages). Next: a training set capped near
-   page length (the v2 set spent most of its formulas over 45 tokens, where
-   the reader fails), then a v3 run.
-4. A calibrated confidence for each table cell and structure decision (an
-   idea from laya / Jev's act-review-reject bands), shown in the workbench.
+**Next (2026-10-06, from a census of the 480 held-out tables at v0.18.9):**
+1. HEADER rows: the missing truth row is a header row in 55 of 240 PubTables-1M
+   and 34 of 240 FinTabNet.c tables -- a second header line read into the
+   first ('pdfCluster' over 'mean | se'; '(n = 100, 86%)' under each heading),
+   beyond what `table_rebuild_header`'s gate allows. Headings left out above
+   a figures row: `table_heading_rows` (option, FinTabNet.c +0.0006).
+2. Body rows: 22 PubTables-1M and 51 FinTabNet.c tables lose a body row
+   (rows joined, often over a row span).
+3. Text: 0.070 of PubTables-1M's TEDS, 0.020 of it in tables whose grid is
+   right -- the reader on table crops.
+4. Done since the last list: the dash and symbol reader (v0.18.6-7), cell
+   confidence (v0.18.8), display equations read (v0.18.9; v3 reader and a
+   beam measured, an adoption to decide); row spans tried (label only kept).
 
 The owner's direction: tables are the focus -- payroll forms, paystubs,
 timesheets, statements, invoices, receipts; tables inside tables; tables
