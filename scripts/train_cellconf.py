@@ -5,8 +5,10 @@ evaluation reads.
 The tables are read with ``--set output.table_cell_features=true --dump D``
 (eval_tables.py writes each crop's records, every cell with its features
 ``conf_x``); each cell is labelled RIGHT when its text, spaces folded, is
-the truth's text at the same row and column (the truth's spans expanded:
-a truth cell spanning slots answers for each).  Empty cells are left out.
+the truth's text at its row and column -- our grid lined up with the
+truth's at the row and column shift matching the most cells (a whole
+table shifted by a caption row is a table's error, not each cell's), the
+truth's spans expanded (a truth cell spanning slots answers for each).  Empty cells are left out.
 A weighted logistic regression (each class weighted to balance), 5-fold
 cross-validated: its calibration (mean predicted against observed in five
 bins) and how well it ranks (the share right among the cells it puts above
@@ -77,10 +79,16 @@ def main():
             if not recs:
                 continue
             rec = max(recs, key=lambda r: len(r["cells"]))
-            for c in rec["cells"]:
-                if not (c.get("text") or "").strip() or "conf_x" not in c:
-                    continue
-                X.append(c["conf_x"]); y.append(float(fold(c["text"]) == fold(grid.get((c["row"], c["col"]), ""))))
+            cs = [c for c in rec["cells"] if (c.get("text") or "").strip() and "conf_x" in c]
+            # our grid lined up with the truth's at the row and column shift that matches the most
+            # cells: a kept caption row or a lost header row shifts a whole table, a table-level
+            # error that no cell's own evidence can see (unaligned, 52% of cells were 'right')
+            best = max(((dr, dc) for dr in range(-3, 4) for dc in range(-2, 3)),
+                       key=lambda d: sum(fold(c["text"]) == fold(grid.get((c["row"] + d[0], c["col"] + d[1]), ""))
+                                         for c in cs))
+            for c in cs:
+                X.append(c["conf_x"])
+                y.append(float(fold(c["text"]) == fold(grid.get((c["row"] + best[0], c["col"] + best[1]), ""))))
                 tab.append(stem)
     X, y = np.array(X, np.float64), np.array(y)
     print(f"{len(y)} cells from {len(set(tab))} tables; right {y.mean():.3f}")
@@ -97,8 +105,11 @@ def main():
         m = (pred >= lo) & (pred < hi)
         if m.any():
             print(f"  {lo:.2f}-{hi:.2f}: {pred[m].mean():.3f} -> {y[m].mean():.3f}  ({m.sum()})")
-    hi = pred >= 0.9
-    print(f"  cells at 0.9 or above: {hi.mean():.1%} of cells, {y[hi].mean():.3f} right; below: {y[~hi].mean():.3f} right")
+    for th in (0.9, 0.8):
+        hi = pred >= th
+        if hi.any():
+            print(f"  cells at {th} or above: {hi.mean():.1%} of cells, {y[hi].mean():.3f} right; "
+                  f"below: {y[~hi].mean():.3f} right")
     W, b = fit(Xn, y, np.ones(len(y)))
     np.savez(args.out, w=W, b=b, mu=mu, sd=sd)
     print(f"saved {args.out}")

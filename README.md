@@ -295,7 +295,7 @@ newspaper or magazine pages.
 **Tables** get their own view in the result tab: each table beside the scan
 cropped to it (above it, for a wide table), rows, columns and spanned
 cells tinted, a nested table inside its cell; hover a cell on either side
-to see its partner. Switches above it turn the table options on and off
+to see its partner. Each cell's calibrated confidence is shown too: amber to review, red to reject, the value on hover. Switches above it turn the table options on and off
 and re-run the page -- ruled grids kept from the picture zones, short
 grid rules, spanned cells, tables found on the page (set by whitespace or
 ruled only between rows), a page that is one table, wrapped cells read

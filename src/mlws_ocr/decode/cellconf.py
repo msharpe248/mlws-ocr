@@ -12,7 +12,9 @@ that the table's own arithmetic exposes.  So a cell's evidence is:
 * whether the table's arithmetic checked it: a product or a sum through the
   cell that holds, fails, or none;
 * the table's source (ruled grid, whitespace, the structure network, the
-  word network) and the cell's own shape (spanning, empty, in the header).
+  word network) and the cell's own shape (spanning, empty, in the header);
+* where it stands: how far its centre is from its column's line, how full
+  its row is against the table's rows, how long it is against its column.
 
 A logistic regression over these, fitted on tables no evaluation reads,
 each cell labelled right when its text is the truth's at the same row and
@@ -51,6 +53,21 @@ def features(rec: dict, words: list[dict]) -> list[list[float]]:
         col = [c for c in cells if c["col"] == k and c["row"] >= head and (c.get("text") or "").strip()]
         fig_share[k] = sum(is_figure(c["text"]) for c in col) / len(col) if col else 0.0
     src = rec.get("source", "grid")
+    # where the cell stands in its table: its column's line (the median centre of its filled
+    # cells), its row's fullness against the table's, its length against its column's
+    centres, widths, lens = {}, {}, {}
+    for k in range(rec.get("n_cols", 0)):
+        col = [c for c in cells if c["col"] == k and c.get("colspan", 1) == 1 and (c.get("text") or "").strip()
+               and c.get("box") and c["box"][2] > c["box"][0]]
+        if col:
+            centres[k] = float(np.median([(c["box"][0] + c["box"][2]) / 2 for c in col]))
+            widths[k] = max(1.0, float(np.median([c["box"][2] - c["box"][0] for c in col])))
+            lens[k] = float(np.median([len(c["text"].strip()) for c in col]))
+    fill = {}
+    for c in cells:
+        if (c.get("text") or "").strip():
+            fill[c["row"]] = fill.get(c["row"], 0) + 1
+    med_fill = float(np.median(list(fill.values()))) if fill else 1.0
     out = []
     for c in cells:
         text = (c.get("text") or "").strip()
@@ -65,6 +82,10 @@ def features(rec: dict, words: list[dict]) -> list[list[float]]:
             1.0 if chk == "ok" else 0.0, 1.0 if chk == "fail" else 0.0,
             float(c.get("rowspan", 1) > 1), float(c.get("colspan", 1) > 1), float(c["row"] < head),
             float(len(ws) == 0 and bool(text)),
+            min(3.0, abs(((c["box"][0] + c["box"][2]) / 2 if c.get("box") else 0) - centres.get(c["col"], 0))
+                / widths.get(c["col"], 1.0)) if c["col"] in centres and c.get("colspan", 1) == 1 else 0.0,
+            fill.get(c["row"], 0) / max(1.0, med_fill),
+            min(4.0, len(text) / max(1.0, lens.get(c["col"], 1.0))) if text else 0.0,
         ] + [float(src == s) for s in SOURCES])
     return out
 

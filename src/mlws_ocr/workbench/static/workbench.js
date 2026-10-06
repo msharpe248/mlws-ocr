@@ -447,6 +447,10 @@ const TABLE_SWITCHES = [
     title: "check each table's figures against the relations it keeps (quantity x price = amount, totals): green checked, red probably misread" },
   { slot: "lines", key: "stacked_chunks", on: 2.6, off: 0, label: "Wrapped cells",
     title: "a row whose cells wrap to two lines beside a one-line cell is read line by line within each column, not as one strip of stacked lines" },
+  { slot: "output", key: "table_cell_conf_path", on: "data/cellconf_v1.npz", off: "", label: "Cell confidence",
+    title: "a calibrated probability for each cell: amber to review (0.5-0.9), red to reject (under 0.5); hover a cell for its value" },
+  { slot: "output", key: "table_rebuild_header", on: true, off: false, label: "Two-level headers",
+    title: "a one-row header whose lines show a group heading over its sub-headings rebuilt as the two levels it is" },
   { slot: "output", key: "table_group_rowspans", on: true, off: false, label: "Row groups",
     title: "a row and its continuation rows (first cell empty, fewer cells: a gene's two primer rows) are one group; its label spans them" },
   { slot: "output", key: "table_centred_rowspans", on: true, off: false, label: "Centred row spans",
@@ -632,6 +636,12 @@ function renderTables(R) {
           if ((c.rowspan || 1) > 1 || (c.colspan || 1) > 1) td.classList.add("span");
           if (c.check) { td.classList.add("check-" + c.check); td.title += c.check === "fail" ? " — breaks the table's arithmetic: probably misread" : " — checked by the table's arithmetic"; }
           if (c.read_as) td.title += ` — read as '${c.read_as}'`;
+          // the cell's calibrated confidence (output.table_cell_conf_path): under 0.5 to reject,
+          // 0.5-0.9 to review, 0.9 and over accepted as read
+          if (c.confidence != null) {
+            td.classList.add(c.confidence < 0.5 ? "conf-low" : c.confidence < 0.9 ? "conf-mid" : "conf-ok");
+            td.title += ` — confidence ${Math.round(100 * c.confidence)}%`;
+          }
           for (const n of c.tables || []) td.append(build(n));
           pairs.push([td, place(c)]);
           tr.append(td);

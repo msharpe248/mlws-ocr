@@ -295,6 +295,8 @@ table_split_select = "data/table_select.npz"  # ...on a table's crop the learned
                                # page the rule 'no more cells empty than the rules', merging no figures
 table_split_keep_rows = true   # table profile: ...the rules' table kept when the network's leaves out a whole figure row
                                # (a header of years, a totals row): FinTabNet 0.785 -> 0.802 with the table reader
+table_cell_conf_path = "data/cellconf_v1.npz"   # table profile: a calibrated probability per table cell (decode/cellconf.py),
+                               # in the table JSON ('confidence') and the hOCR (x_cconf); changes no text (2026-10-05)
 table_rebuild_header = true    # table profile: a one-row header whose text lines show a group heading over two
                                # sub-headings or more rebuilt as two levels (wstables.rebuild_header): held-out
                                # PubTables-1M 0.8141 -> 0.8145, FinTabNet.c 0.8748 -> 0.8751, the rest level (2026-10-05)
