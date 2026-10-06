@@ -91,12 +91,32 @@ def paragraph(rng: random.Random, words: list[str]) -> str:
     return " ".join(w)
 
 
-def latex(rng: random.Random, words: list[str], family: str, twocol: bool, colour: bool) -> str:
+def latex(rng: random.Random, words: list[str], family: str, twocol: bool, colour: bool,
+          displays: list | None = None) -> str:
+    """The page's LaTeX; with ``displays`` (a list), its equations are drawn
+    from the math grammar (mlws_ocr.math.latex) and each display's token list
+    is appended to it in document order -- the truth for reading them."""
     body, eqn = [], 0
+    g = None
+    if displays is not None:
+        from mlws_ocr.math.latex import Grammar, to_latex
+        g = Grammar(rng)
     for _ in range(rng.randint(5, 9)):
         body.append(paragraph(rng, words))
         r = rng.random()
-        e, f = (equation(rng), equation(rng))
+        if g is not None:
+            # short enough for the measure: a long formula set in one column runs over into the
+            # other's text (real papers break it or set it across the page)
+            cap = 25 if twocol else 45
+            short = lambda: next(t for t in (g.line() for _ in range(200)) if len(t) <= cap)  # noqa: E731
+            te, tf = short(), short()
+            # (no '&' in an align: inside the colour group it would break it; the lines then
+            # align at their right, as the page's other aligned pairs do)
+            e, f = to_latex(te), to_latex(tf)
+            if r < 0.9:
+                displays.append(te + ["\\\\"] + tf if 0.55 <= r < 0.75 else te)
+        else:
+            e, f = (equation(rng), equation(rng))
         red = lambda s: f"{{\\color{{eqc}}{s}}}"  # noqa: E731
         if r < 0.55:
             body.append(f"\\begin{{equation}}{red(e)}\\end{{equation}}")
@@ -175,6 +195,8 @@ def main():
     ap.add_argument("--n", type=int, default=40, help="documents (each one to three pages; the first page kept)")
     ap.add_argument("--seed", type=int, default=3)
     ap.add_argument("--out", type=Path, default=ROOT / "data/equations")
+    ap.add_argument("--math", action="store_true",
+                    help="equations from the math grammar, each display's tokens kept as truth (eq.json 'tokens')")
     args = ap.parse_args()
     rng = random.Random(args.seed)
     words = []
@@ -189,14 +211,22 @@ def main():
         with tempfile.TemporaryDirectory() as d:
             d = Path(d)
             rng.setstate(state)
-            plain = render(latex(rng, words, family, twocol, False), d, "plain")
+            displays = [] if args.math else None
+            plain = render(latex(rng, words, family, twocol, False, displays), d, "plain")
             rng.setstate(state)
-            colour = render(latex(rng, words, family, twocol, True), d, "colour")
+            colour = render(latex(rng, words, family, twocol, True, [] if args.math else None), d, "colour")
             if not plain or len(plain) != len(colour):
                 continue
             name = f"eq_{k:03d}_{family}_{'2col' if twocol else '1col'}"
             Image.open(plain[0]).convert("L").save(args.out / f"{name}.png", dpi=(DPI, DPI))
             eqs = truth(colour[0], plain[0])
+            if displays is not None:
+                # the displays in document order -- down the column, the left column first -- with
+                # their token lists, the first page's in the order they were written
+                mid = Image.open(plain[0]).width / 2
+                eqs.sort(key=lambda e: ((e["box"][0] >= mid) if twocol else 0, e["box"][1]))
+                for e, toks in zip(eqs, displays):
+                    e["tokens"] = toks
             # the numbers' text: equations are numbered in order through the document, so the
             # first page's numbered lines read (1), (2), ... in reading order
             (args.out / f"{name}.eq.json").write_text(json.dumps(

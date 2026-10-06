@@ -31,7 +31,7 @@ from PIL import Image
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
-from mlws_ocr.math.latex import Grammar, to_latex  # noqa: E402
+from mlws_ocr.math.latex import Grammar, display_latex  # noqa: E402
 
 FAMILIES = {"cm": "", "times": "\\usepackage{mathptmx}", "newtx": "\\usepackage{newtxtext,newtxmath}",
             "fourier": "\\usepackage{fourier}"}
@@ -39,7 +39,7 @@ DPIS = (150, 200, 300)
 
 
 def render(batch: list[list[str]], family: str, dpi: int, d: Path) -> list[np.ndarray | None]:
-    pages = "\n".join(f"\\[ {to_latex(t)} \\]\n\\newpage" for t in batch)
+    pages = "\n".join(f"\\[ {display_latex(t)} \\]\n\\newpage" for t in batch)
     tex = ("\\documentclass[12pt]{article}\\usepackage{amsmath}" + FAMILIES[family]
            + "\\usepackage[paperwidth=9in,paperheight=3in,margin=0.3in]{geometry}\\pagestyle{empty}"
            + "\\begin{document}\n" + pages + "\n\\end{document}\n")

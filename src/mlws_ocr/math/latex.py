@@ -30,13 +30,13 @@ SYMBOLS = ["\\infty", "\\partial", "\\nabla"]
 LETTERS = list("abcdefghijkmnpqrstuvwxyz") + list("ABCDFGHKLMNPRSTVWXYZ")
 DIGITS = list("0123456789")
 
-VOCAB = (["<pad>", "<s>", "</s>", "{", "}", "^", "_", "(", ")", "[", "]", "|", ",", ".", "'", "!", "/",
+VOCAB = (["<pad>", "<s>", "</s>", "{", "}", "^", "_", "(", ")", "[", "]", "|", ",", ".", "'", "!", "/", "\\\\",
           "\\frac", "\\sqrt", "\\left(", "\\right)", "\\left[", "\\right]", "\\lim", "\\to", "\\prime"]
          + GREEK + FUNCS + BIGOPS + RELS + BINS + SYMBOLS + LETTERS + DIGITS)
 VOCAB = list(dict.fromkeys(VOCAB))
 INDEX = {t: i for i, t in enumerate(VOCAB)}
 
-_TOKEN = re.compile(r"\\left[(\[]|\\right[)\]]|\\[A-Za-z]+|\S")
+_TOKEN = re.compile(r"\\\\|\\left[(\[]|\\right[)\]]|\\[A-Za-z]+|\S")
 
 
 def tokenize(latex: str) -> list[str]:
@@ -113,17 +113,48 @@ class Grammar:
             return ["\\left("] + self.expr(d + 1) + ["\\right)"]
         if r < 0.74:
             return self.atom() + ["'"]
+        if r < 0.82:
+            # a function applied: 'f(x)', 'g(t)', with a script at times ('f(x)_{n}')
+            app = [self.r.choice("fghu"), "("] + (self.expr(d + 1) if self.r.random() < 0.3 else [self.r.choice("xtyz")]) + [")"]
+            return self.script(app, d) if self.r.random() < 0.3 else app
         return self.atom()
 
     def expr(self, d=0):
         out = self.term(d)
-        for _ in range(self.r.choice([0, 0, 1, 1, 2])):
+        for _ in range(self.r.choice([0, 0, 1, 1, 2, 3, 4])):
             out += [self.r.choice(BINS)] + self.term(d)
         return out
 
-    def formula(self):
+    def line(self):
         lhs = self.r.choice([self.atom(), self.script(self.atom(), 1), self.atom() + ["(", self.r.choice("xt"), ")"]])
         return lhs + [self.r.choice(RELS)] + self.expr()
+
+    def formula(self):
+        """One display formula -- or, one time in seven, two lines aligned at
+        their relations (an 'aligned' pair, its lines parted by '\\\\')."""
+        if self.r.random() < 1 / 7:
+            return self.line() + ["\\\\"] + self.line()
+        return self.line()
+
+
+def display_latex(tokens: list[str]) -> str:
+    """The LaTeX to typeset a formula in display: one line as it is, two or
+    more in an 'aligned' environment, each line's first relation marked '&'
+    to line them up (the truth keeps only the line break)."""
+    lines, cur = [], []
+    for t in tokens:
+        if t == "\\\\":
+            lines.append(cur); cur = []
+        else:
+            cur.append(t)
+    lines.append(cur)
+    if len(lines) == 1:
+        return to_latex(tokens)
+    rows = []
+    for ln in lines:
+        k = next((i for i, t in enumerate(ln) if t in RELS), None)
+        rows.append(to_latex(ln) if k is None else to_latex(ln[:k]) + " &" + to_latex(ln[k:]))
+    return "\\begin{aligned}" + " \\\\ ".join(rows) + "\\end{aligned}"
 
 
 def canonical(tokens: list[str]) -> list[str]:
@@ -233,6 +264,17 @@ def to_mathml(tokens: list[str]) -> str:
             return scripts(f"<mi>{t}</mi>")
         return f"<mtext>{t}</mtext>"
 
+    if "\\\\" in tokens:                       # an aligned pair: a table, one row a line
+        lines, cur = [], []
+        for t in tokens:
+            if t == "\\\\":
+                lines.append(cur); cur = []
+            else:
+                cur.append(t)
+        lines.append(cur)
+        rows = "".join(f"<mtr><mtd>{to_mathml(ln)[len('<math xmlns=\"http://www.w3.org/1998/Math/MathML\" display=\"block\">'):-len('</math>')]}</mtd></mtr>"
+                       for ln in lines)
+        return f'<math xmlns="http://www.w3.org/1998/Math/MathML" display="block"><mtable>{rows}</mtable></math>'
     body = seq()
     return f'<math xmlns="http://www.w3.org/1998/Math/MathML" display="block">{body}</math>'
 
