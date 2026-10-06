@@ -18,6 +18,7 @@ def test_numpy_reader_matches_torch(tmp_path):
     model = build().eval()
     with torch.no_grad():                                   # sharpen the random net so tokens differ
         model.out.weight.mul_(20)
+        model.out.bias[INDEX["</s>"]] = -1e4               # and never end, so both read a full twelve tokens
     f = tmp_path / "m.npz"
     save(model, f)
     g = np.ones((60, 300), np.float32); g[20:40, 30:270:12] = 0.0; g[25:30, 100:200] = 0.2
@@ -36,4 +37,12 @@ def test_numpy_reader_matches_torch(tmp_path):
                 break
             out.append(VOCAB[tok])
     got = MathReader(str(f)).read(g)
-    assert got[: len(out)] == out and len(out) > 0
+    assert len(out) == 12 and got[:12] == out
+
+
+def test_mathml_scripts_on_delimiters_and_aligned_latex():
+    from mlws_ocr.math.latex import display_latex, to_mathml, tokenize
+    # a superscript after a closing parenthesis stays a superscript
+    assert "<msup><mo>)</mo><mrow><mo>−</mo><mn>1</mn></mrow></msup>" in to_mathml(tokenize(r"h(y)^{-1}"))
+    # a two-line reading is written as an aligned pair a TeX consumer can set
+    assert display_latex(tokenize(r"a=b\\c=d")) == r"\begin{aligned}a &=b \\ c &=d\end{aligned}"

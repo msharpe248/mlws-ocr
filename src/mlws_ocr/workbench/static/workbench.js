@@ -229,10 +229,10 @@ async function showResult() {
     : S.resultMode === "tables"
     ? "The page's tables as structure: rows, columns and spanned cells (rowspan / colspan, tinted), a table found inside another's cell shown inside it — each beside the scan, cropped to the table; hover a cell on either side to see its partner. The switches above turn the three table options on and off and re-run the page."
     : S.resultMode === "pictures"
-    ? "The page's pictures — photographs, logos, artwork — cut from the ORIGINAL image, in its colour and resolution, as the hOCR names them (ocr_photo: image \"picture_N.png\", and x_source_bbox, the box in the original where it goes back). The switches above turn the picture options on and off and re-run the page."
+    ? "The page's pictures — photographs, logos, artwork — cut from the ORIGINAL image, in its colour and resolution, as the hOCR names them (ocr_photo: image \"picture_N.png\", and x_source_bbox, the box in the original where it goes back). Display equations are cut out the same way (equation_N.png, in an ocr_math); with 'Read equations' each is shown as read — drawn from its MathML, its LaTeX beneath — as the hOCR carries it. The switches above turn the picture options on and off and re-run the page."
     : S.resultMode === "hocr"
     ? "hOCR: the page's structure — blocks in reading order, lines, words with boxes and confidence, tables, images, rulings."
-    : "The page redrawn from the hOCR file alone (and its picture files): every word at its box, blocks numbered in reading order, tables, pictures put back where they were, and rulings. Red words are low-confidence, green ones were corrected; hover for the confidence."
+    : "The page redrawn from the hOCR file alone (and its picture files): every word at its box, blocks numbered in reading order, tables, pictures put back where they were (hover an equation for its LaTeX when read), and rulings. Red words are low-confidence, green ones were corrected; hover for the confidence."
       + (S.renderSide ? " Side by side: the scan on the left, the redrawn page on the right; hovering a word marks its box on the scan." : "")));
   const pre = $("resultText");
   if (!R || !R.ready) { pre.className = ""; pre.textContent = "(the page is still being read)"; $("scalars").innerHTML = ""; return; }
@@ -552,6 +552,8 @@ const PICTURE_SWITCHES = [
     title: "a dark region is inverted only if it fills 95% of its box (bands and dark pages do; a bold logo does not)" },
   { slot: "lines", key: "equations", on: true, off: false, label: "Display equations",
     title: "display equations found before reading (set apart, numbered '(n)' at the right): cut out as equation_N.png, written as ocr_display / ocr_math in the hOCR, their numbers read" },
+  { slot: "output", key: "math_reader_path", on: "data/mathread_v2.npz", off: "", label: "Read equations",
+    title: "each display equation read by the equation reader (mathread_v2): its LaTeX in the layout, its MathML in the hOCR's ocr_math beside the image" },
   { slot: "imagezones", key: "display_height", on: 4, off: 0, label: "Display type is a picture",
     title: "solid letters four times the body glyph's height (a logo's lettering) named as a picture zone; their text is still read" },
 ];
@@ -570,10 +572,23 @@ function pictureSwitches() {
   }
   return box;
 }
+// a display equation as read: the MathML drawn by the browser, the LaTeX beneath it
+function equationRead(e) {
+  if (!e || e.latex == null) return null;
+  const m = el("div", { class: "eqmath" }); m.innerHTML = e.mathml || "";
+  return el("div", { class: "eqread" }, m, el("code", {}, e.latex));
+}
 function renderPictures(R) {
   const host = $("resultRender"); host.innerHTML = "";
   host.append(pictureSwitches());
-  const pics = R.pictures;
+  const pics = R.pictures, eqs = R.equations || [];
+  if (!pics && eqs.some((e) => e.latex != null)) {
+    // equations read but not cut out: the readings alone
+    const list = el("div", { class: "pgallery" });
+    eqs.forEach((e, i) => list.append(el("figure", { class: "pcard" },
+      el("figcaption", {}, el("b", {}, `equation ${i + 1}`), el("div", {}, `bbox ${e.box.join(" ")}`)), equationRead(e))));
+    host.append(list);
+  }
   if (!pics) {
     host.append(el("div", { class: "tablesView" }, el("p", {}, `${(R.image_zones || []).length} picture zone(s) found; ` +
       "turn on 'Cut out pictures' to cut them from the original image and name them in the hOCR.")));
@@ -591,7 +606,8 @@ function renderPictures(R) {
         el("img", { src: `/api/picture/${encodeURIComponent(p.file)}?v=${S.resultKey}`, alt: p.file })),
       el("figcaption", {}, el("b", {}, p.file),
         el("div", {}, `bbox ${p.bbox.join(" ")}  (the processed page)`),
-        el("div", {}, `x_source_bbox ${p.bbox_source.join(" ")}  (the original image)`))));
+        el("div", {}, `x_source_bbox ${p.bbox_source.join(" ")}  (the original image)`)),
+      p.kind === "equation" ? equationRead(eqs[Number(/equation_(\d+)/.exec(p.file)?.[1]) - 1]) : null));
   }
   host.append(grid);
 }
@@ -1085,7 +1101,11 @@ function renderHocr(hocr) {
       else if (cls === "ocr_table") box(b, "htable", "table");
       else if (e.tagName.toLowerCase() === "td") box(b, "hcell");
       else if (cls === "ocr_photo") box(b, "hphoto", "image");
-      else if (cls === "ocr_math") box(b, "hphoto", "equation");
+      else if (cls === "ocr_math") {
+        // the equation's reading, when output.math_reader_path read it, as the box's tooltip
+        const eq = (S.result?.equations || []).find((q) => q.box.join(",") === b.join(","));
+        box(b, "hphoto", "equation", eq?.latex ?? "");
+      }
     }
     // a picture named in the hOCR (image "picture_N.png") put back at its box; a display
     // equation's ocr_math holds its image as an <img>

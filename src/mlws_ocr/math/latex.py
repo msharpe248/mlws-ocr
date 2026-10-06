@@ -266,7 +266,8 @@ def to_mathml(tokens: list[str]) -> str:
                 num += take()
             return scripts(f"<mn>{num}</mn>")
         if t in _MO:
-            return f"<mo>{_MO[t]}</mo>"
+            # a script on a plain delimiter or a prime belongs to it: 'h(y)^{-1}', 'f'^{2}'
+            return scripts(f"<mo>{_MO[t]}</mo>")
         if t == "{":
             body = seq("}")
             if peek() == "}":

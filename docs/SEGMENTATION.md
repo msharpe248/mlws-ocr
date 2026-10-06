@@ -287,7 +287,9 @@ unnumbered, a fraction bar with its numerator and denominator centred on it
 the row profile cut off it (a sum's limits) are absorbed. Its body leaves
 the lines (`layout.equations`), its number stays a line and is read; the
 output stage writes it as hOCR's `ocr_display` / `ocr_math`
-([HOCR.md §6](HOCR.md)). On 33 typeset article pages: F1 0.897 for the
+([HOCR.md §6](HOCR.md)), and since v0.18.9 READS it there
+(`output.math_reader_path`: LaTeX and MathML from the equation reader,
+[NETWORKS.md](NETWORKS.md)). On 33 typeset article pages: F1 0.897 for the
 equations, 0.922 for their numbers (precision 1.000); on 12 pages each of
 letters, legal pages, newspapers, magazines, modern and business pages,
 none found (nor on 12 payroll forms); on 22 fresh typeset pages never

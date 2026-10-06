@@ -28,8 +28,8 @@ Two rules shape everything below. **Every network is trained here**, from
 public data, on ordinary hardware — no pre-trained weights, no foundation
 model. And **the classic engine stays**: each network joins as a measured
 term beside explicit, readable algorithms, not as their replacement. So the
-networks are small (the largest is under 290k parameters; a phone camera's
-face detector is larger), and each one is there because it won a
+networks are small (the largest, the equation reader, is under 850k
+parameters; a phone camera's face detector is larger), and each one is there because it won a
 measurement, recorded in [RESEARCH.md](RESEARCH.md).
 
 ---
@@ -794,7 +794,7 @@ symbols (v0.15), table lines (v0.17, table profile).
 **Where it runs.** The word scorer in `decode.seq_path` (neural,
 neural-table; classic uses it only to veto a correction the pixels
 contradict). The line reader in `decode.line_model_path`, with the
-line-choice judge (§I) deciding per line between its reading and the
+line-choice judge (§J) deciding per line between its reading and the
 classic decoder's.
 
 **Measured.** The line reader was the engine's largest single gain:
@@ -918,7 +918,7 @@ with a one-cycle schedule. Held-out separator F1 0.922 after two rounds.
 **Where it runs.** `output.table_split_path` in neural-table. Its table is
 one of two candidates; the rules' table is the other. On a table's crop,
 the rules' table stands if the network's leaves out a whole row of figures
-(a header of years, a totals row); otherwise the fitted table choice (§I)
+(a header of years, a totals row); otherwise the fitted table choice (§J)
 decides. On a table found on a page, the network's table is used only if
 it leaves no more cells empty than the rules' and merges no figures the
 rules kept apart.
@@ -1026,13 +1026,69 @@ gained on the engine's words too. A network should be trained on what it
 will be given.
 
 **Where it runs.** `output.table_wordrel_path` in neural-table, on a
-table's crop: it builds a table, and a **fitted choice** (§I; 23 weights
+table's crop: it builds a table, and a **fitted choice** (§J; 23 weights
 over both tables' shapes and the network's own confidence) keeps its table
 or the engine's. They fail on different tables; on 240 held-out tables of
 each set the choice took PubTables-1M 0.759 → 0.795 and FinTabNet.c 0.810
 → 0.849.
 
-## I. The judges — small fitted models over named evidence
+## I. The equation reader — an encoder-decoder with attention — `math/reader.py`, `mathread_v2.npz`
+
+**The job.** A display equation, cut from the page by the layout stage
+([SEGMENTATION.md §8](SEGMENTATION.md)), in; its LaTeX out, token by token
+(`\frac`, `{`, `x`, `^`, `{`, `2`, `}`, … — 133 of them), from which the
+output stage makes the MathML the hOCR carries. A line reader (§C) can say
+what is on a line because a line is a sequence left to right and CTC lines
+the frames up with the characters. A formula is not: a fraction's
+numerator sits **above** its denominator, a superscript up and to the right
+of its base, a sum's limits over and under it — the order of the tokens is
+not the order of the pixels. So the reader does not align; it **writes**,
+and at each step **looks** where it needs to.
+
+**Encoder.** The formula scaled to 64 rows (ink 1, paper 0), five 3×3
+convolutions with ReLU and four 2×2 max-pools: a map 4 rows high and a
+sixteenth of the width, 128 channels. To each position a **2-D sinusoidal
+position code** is added — half the channels sines and cosines of its row,
+half of its column (Vaswani et al.'s code, in two dimensions) — so that what
+the decoder later reads from a position says *where* it is: above the bar
+or below it, on the base line or raised.
+
+**Decoder with attention.** A GRU (§4) whose state starts from the map's
+mean. At each step it scores **every** position of the map against its
+current state — **additive attention** (Bahdanau, Cho & Bengio, 2015): a
+small layer over key + query, one number per position, a softmax — and
+takes the weighted average of the map, the **context**: what it is looking
+at now. The GRU is fed the last token written and that context, and the
+next token is chosen from its new state and the context. Trained, the
+attention moves over the formula as it writes: to the numerator, down
+under the bar for the denominator, back up and on. It ends by writing
+`</s>`. This is the im2latex reader of Deng, Kanervisto, Ling & Rush
+(ICML 2017), made small: **848k parameters**, the engine's largest.
+
+**Training.** `scripts/train_mathread.py`, torch on the Mac's GPU, the
+weights saved for the numpy reference (a test holds the two equal).
+**Teacher forcing**: at each step the decoder is fed the true previous
+token, not its own, and cross-entropy is taken against the next — so one
+step's mistake does not derail the rest of a training example. The data
+are made, not collected: a **grammar** draws formulas in one canonical
+spelling (fractions, roots, scripts, sums, integrals, limits, applied
+functions, Greek, relations, two-line aligned pairs), tectonic typesets
+them in four type families at 150–300 dpi (`make_math_set.py`), and the
+truth is exact because it is what was typeset. v2: 60,000 formulas, 30
+epochs, 4.4 hours. Each image is roughened as a scan would (a blur, noise,
+a slight shrink, at times thresholded).
+
+**What it does, and does not.** On 30 held-out typeset pages, cut by the
+engine itself: 54.9% of equations read exactly, 85.9% of tokens right. On
+short formulas (up to 25 tokens) 73% exact; over 45 tokens it fails — at
+64 rows high a long formula is squeezed into at most 1,024 columns, and
+the decoder's state must carry a long way. **Greedy decoding** (the most
+likely token each step) is all it does; a beam (as the line decoder
+keeps, [DECODING.md](DECODING.md)) is the obvious next step. And it reads
+typeset mathematics only: handwriting, and the notations its grammar does
+not draw (matrices, cases, accents), it has never seen.
+
+## J. The judges — small fitted models over named evidence
 
 | judge | file | model | inputs | decides |
 |---|---|---|---|---|
@@ -1057,7 +1113,7 @@ labelled by the truth: `harvest_line_choice.py` → `train_line_choice.py`,
 network never saw → `train_table_select.py` (each table weighted by how much
 the choice mattered), UNLV training-pool pages → `segmenter_judge.py`.
 
-## J. Learned, but not networks
+## K. Learned, but not networks
 
 - **Glyph prototypes** (`recognize/nearest.py`, `prototypes.npz`): 90
   stored examples of each of 110 characters, chosen by k-means per class
@@ -1085,7 +1141,8 @@ the choice mattered), UNLV training-pool pages → `segmenter_judge.py`.
 | table structure network | dilated CNN + projection pooling | crop + word mask, 75 dpi | separator and inside per x, per y | 276,904 | neural-table |
 | table detector | dilated CNN + projection pooling + skip | page + word mask, 37.5 dpi | inside / border per pixel | 247,746 | neural-table |
 | word-relation network | transformer encoder (4 layers) + pair heads | a table crop's words: boxes and text facts | same row / column / cell per pair; in table, header per word | 320,997 | neural-table |
-| line choice, word confidence, table choice, segmenter judge, link rule | logistic / ridge | named features | a probability or a score | 15–32 | as in §I |
+| equation reader | CNN + 2-D position code; GRU decoder with additive attention | display equation, 64 rows high | LaTeX tokens (133), then MathML | 848,965 | neural, neural-table |
+| line choice, word confidence, table choice, segmenter judge, link rule | logistic / ridge | named features | a probability or a score | 15–32 | as in §J |
 
 **What we deliberately do not use, and why**
 
@@ -1097,7 +1154,9 @@ the choice mattered), UNLV training-pool pages → `segmenter_judge.py`.
   hypothesis, and the image jobs are local or axis-aligned, which
   convolutions and projection pooling handle directly. The one
   transformer (§H) works on a table's words, where whether two words
-  belong together depends on everything else on the crop.
+  belong together depends on everything else on the crop. The equation
+  reader (§I) uses attention too, but additive attention from a GRU over a
+  convolutional map, not a transformer.
 - **Batch normalisation, dropout.** The inputs are normalised before they
   enter, the networks are small, and held-out selection plus weight decay
   (or L2-SP) regularise enough; each layer stays a few lines of numpy. (The
@@ -1120,6 +1179,10 @@ the choice mattered), UNLV training-pool pages → `segmenter_judge.py`.
 - K. Cho et al., "Learning phrase representations using RNN
   encoder-decoder for statistical machine translation" (the GRU), EMNLP
   2014.
+- D. Bahdanau, K. Cho & Y. Bengio, "Neural machine translation by jointly
+  learning to align and translate" (additive attention), ICLR 2015.
+- Y. Deng, A. Kanervisto, J. Ling & A. M. Rush, "Image-to-markup
+  generation with coarse-to-fine attention" (im2latex), ICML 2017.
 - D. Kingma & J. Ba, "Adam: a method for stochastic optimization", ICLR 2015.
 - K. He, X. Zhang, S. Ren & J. Sun, "Delving deep into rectifiers" (He
   initialisation), ICCV 2015; X. Glorot & Y. Bengio, "Understanding the

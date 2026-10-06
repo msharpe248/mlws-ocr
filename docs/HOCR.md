@@ -60,7 +60,8 @@ ocr_page            the whole page:  bbox 0 0 W H; ppageno 0
 ├── ocr_photo       a picture zone (no text inside); with output.pictures also
 │                   image "picture_N.png" and x_source_bbox (§6)
 ├── ocr_display     a display equation (lines.equations), holding
-│   └── ocr_math    its image (<img src="equation_N.png"/> with output.pictures);
+│   └── ocr_math    its image (<img src="equation_N.png"/> with output.pictures)
+│                   and its MathML as read (output.math_reader_path);
 │                   its number is an ordinary line, read
 └── ocr_separator   a rule found on the page
 ```
@@ -219,13 +220,22 @@ each from the original as `equation_N.png`:
 ```html
 <div class="ocr_display" id="display_1_1" title="bbox 602 840 1078 977">
   <span class="ocr_math" id="math_1_1" title="bbox 602 840 1078 977; x_source_bbox 602 840 1078 977">
-    <img src="equation_1.png" alt="equation 1"/></span></div>
+    <img src="equation_1.png" alt="equation 1"/><math xmlns="http://www.w3.org/1998/Math/MathML" display="block">…</math></span></div>
 ```
 
 The equation's number, '(1)', is an ordinary `ocr_line` with the text, so the
 plain text keeps the number where the equation was and no junk from reading
-mathematics as letters. Reading the mathematics itself (to MathML) is not
-done.
+mathematics as letters.
+
+The mathematics itself is READ (in the neural profiles since v0.18.9;
+`output.math_reader_path`, `mlws_ocr/math`): a small network trained on
+typeset formulas writes each equation as LaTeX tokens, and the `ocr_math`
+carries the MathML made from them beside the image -- hOCR 1.2 allows either,
+here both. The LaTeX goes into the layout JSON (`layout.equations[].latex`;
+a two-line equation as an `aligned` pair). On 30 held-out typeset pages,
+54.9% of the equations are read exactly and 85.9% of their tokens are
+right ([RESEARCH.md](RESEARCH.md)); long formulas (over about 45 tokens)
+are read poorly. A consumer that needs certainty keeps the image.
 
 ## 7. hOCR and its relatives
 

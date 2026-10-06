@@ -278,6 +278,10 @@ def make_handler(wb: Workbench):
                 "tables": final.meta.get("tables", []),
                 "pictures": final.meta.get("pictures"),
                 "image_zones": final.meta.get("layout", {}).get("image_zones", []),
+                # display equations (lines.equations), each with its LaTeX and MathML when read
+                # (output.math_reader_path)
+                "equations": [{"box": [int(v) for v in e["box"]], **{k: e[k] for k in ("latex", "mathml") if k in e}}
+                              for e in final.meta.get("layout", {}).get("equations", [])],
                 "summary": {"words": len(words), "lines": sum(1 for ln in final.meta.get("layout", {}).get("lines", [])
                                                                if ln.get("words")),
                             "mean_confidence": round(sum(conf) / len(conf), 3) if conf else None,

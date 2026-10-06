@@ -29,8 +29,10 @@ evaluation as a check (neural-table 0.518), not a target.
    of 154, '×' 2 of 74, '°' 2 of 46 -- a fine-tune on table lines that carry
    them, on the GPU box.
 3. Display equations (`lines.equations`, found at F1 0.90 on typeset pages,
-   none on business pages): adopt, then perhaps read them (MathML) with a
-   network trained on typeset formulas.
+   none on business pages): adopted (v0.18.5) and READ (v0.18.9, mathread_v2:
+   54.9% exact on 30 held-out pages). Next: a training set capped near
+   page length (the v2 set spent most of its formulas over 45 tokens, where
+   the reader fails), then a v3 run.
 4. A calibrated confidence for each table cell and structure decision (an
    idea from laya / Jev's act-review-reject bands), shown in the workbench.
 

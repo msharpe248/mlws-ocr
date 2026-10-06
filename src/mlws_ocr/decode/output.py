@@ -1011,7 +1011,7 @@ class TextOutput(Stage):
         out.meta["layout"] = layout
         out.meta["text"] = full
         if self.params["math_reader_path"] and layout.get("equations") and page.gray is not None:
-            from ..math.latex import to_latex, to_mathml
+            from ..math.latex import display_latex, to_mathml
             from ..math.reader import MathReader
             key = ("math", self.params["math_reader_path"])
             if key not in self._nets:
@@ -1020,7 +1020,7 @@ class TextOutput(Stage):
             for e in layout["equations"]:
                 x0, y0, x1, y1 = (int(v) for v in e["box"])
                 toks = self._nets[key].read(page.gray[max(0, y0):y1, max(0, x0):x1])
-                eqs.append(dict(e, latex=to_latex(toks), mathml=to_mathml(toks)))
+                eqs.append(dict(e, latex=display_latex(toks), mathml=to_mathml(toks)))   # two lines: aligned
             layout = dict(layout, equations=eqs)
             out.meta["layout"] = layout
         if self.params["pictures"]:

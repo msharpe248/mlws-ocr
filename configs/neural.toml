@@ -190,6 +190,9 @@ case_repair = true      # I/l and case-twin repair runs even with the corrector 
 [stage.output]
 pictures = true             # picture zones and display equations cut from the original image (picture_N.png,
                             # equation_N.png) and named in the hOCR (core/pictures.py; 2026-10-04)
+math_reader_path = "data/mathread_v2.npz"  # each display equation READ (math/reader.py; 2026-10-06): its LaTeX
+                            # in the layout, its MathML in the hOCR's ocr_math beside the image; 30 held-out
+                            # typeset pages: 54.9% of equations exact, token accuracy 85.9% (RESEARCH)
 drop_facing_page = true     # the facing page's column clipped at a spread's edge is left out (newspaper and
                             # magazine pages; 2026-09-27: news-8 +1.5 / +1.8, mag-8 +5.8 / +6.5 neural, RESEARCH)
 impl = "text"

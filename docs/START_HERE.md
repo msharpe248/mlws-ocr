@@ -51,6 +51,7 @@ Alongside, at any point:
 2. [§C, the CRNN readers](NEURAL_NETWORK_THEORY.md#c-the-crnn-readers--recognizeseqpy-the-word-scorer-and-the-line-reader) — a real network, with its real per-frame output
 3. [§8, fine-tuning and distillation](NEURAL_NETWORK_THEORY.md#8-fine-tuning-forgetting-and-distillation) and [§9, averaging](NEURAL_NETWORK_THEORY.md#9-averaging-ensembles-weight-averages-model-soups) — with this project's history as the worked example
 4. [SYNTHETIC_DATA.md §3](SYNTHETIC_DATA.md#3-training-windows-for-the-readers) — what the readers train on
+5. [§I, the equation reader](NEURAL_NETWORK_THEORY.md#i-the-equation-reader--an-encoder-decoder-with-attention--mathreaderpy-mathread_v2npz) — attention: a network that writes LaTeX and looks where it needs to
 
 **"I want to extract tables."**
 
