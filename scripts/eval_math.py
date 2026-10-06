@@ -4,7 +4,8 @@
 For each image of the split the reader's token list is compared with the
 truth: EXACT match (the formula read token for token), TOKEN accuracy
 (1 - token edit distance / the truth's length, summed over the split), and
-the share whose prediction converts to well-formed MathML -- the measures of
+the share whose prediction is a balanced formula (braces and delimiters
+closed, every \\frac and \\sqrt given its groups) -- the measures of
 the im2latex task (Deng et al., ICML 2017), on our own typeset set.
 
     scripts/eval_math.py data/math --split test --model data/mathread_v1.pt
@@ -25,18 +26,30 @@ sys.path.insert(0, str(ROOT / "src"))
 from mlws_ocr.math.latex import to_mathml, token_edit_distance  # noqa: E402
 
 
+def balanced(tokens: list[str]) -> bool:
+    """Braces and \\left( ... \\right) closed in order, and every \\frac and
+    \\sqrt followed by its groups: the prediction is a formula, not a stray run
+    (MathML is always produced -- to_mathml is total -- so its being
+    well-formed says nothing)."""
+    stack = []
+    for i, t in enumerate(tokens):
+        if t in ("{", "\\left("):
+            stack.append(t)
+        elif t in ("}", "\\right)"):
+            if not stack or stack.pop() != ("{" if t == "}" else "\\left("):
+                return False
+        elif t in ("\\frac", "\\sqrt") and (i + 1 >= len(tokens) or tokens[i + 1] != "{"):
+            return False
+    return not stack
+
+
 def score(pairs: list[tuple[list[str], list[str]]]) -> dict:
     exact = sum(p == t for p, t in pairs)
     err = sum(token_edit_distance(p, t) for p, t in pairs)
     tot = sum(len(t) for _, t in pairs)
-    ok = 0
-    for p, _ in pairs:
-        try:
-            ET.fromstring(to_mathml(p)); ok += 1
-        except Exception:
-            pass
+    ok = sum(balanced(p) for p, _ in pairs)
     n = max(1, len(pairs))
-    return {"n": len(pairs), "exact": exact / n, "token_acc": 1 - err / max(1, tot), "mathml_ok": ok / n}
+    return {"n": len(pairs), "exact": exact / n, "token_acc": 1 - err / max(1, tot), "balanced": ok / n}
 
 
 def main():
@@ -62,7 +75,7 @@ def main():
     for (p, t), r in zip(pairs, rows):
         by_font.setdefault(r["font"], []).append((p, t))
     print(f"{args.split}: {s['n']} formulas  exact {s['exact']:.3f}  token accuracy {s['token_acc']:.3f}  "
-          f"MathML well-formed {s['mathml_ok']:.3f}")
+          f"balanced {s['balanced']:.3f}")
     for f, pp in sorted(by_font.items()):
         sf = score(pp)
         print(f"  {f:8s} {sf['n']:5d}  exact {sf['exact']:.3f}  token accuracy {sf['token_acc']:.3f}")

@@ -288,6 +288,9 @@ class TextOutput(Stage):
                                          # the rules' / structure network's; "select": the one a learned choice
                                          # (table_wordrel_select, train_wordrel_select.py) prefers (2026-10-01)
         "table_wordrel_select": "",
+        "math_reader_path": "",          # display equations (lines.equations) READ by the equation reader
+                                         # (math/reader.py): LaTeX tokens into layout["equations"], MathML
+                                         # into the hOCR's ocr_math beside the image; "" = cut out only
         "pictures": False,               # each picture zone named as a file (picture_N.png) in the hOCR's
                                          # ocr_photo and meta["pictures"], with its box in the original image's
                                          # frame, for the writers to cut it out and a consumer to put it back
@@ -1007,6 +1010,19 @@ class TextOutput(Stage):
         out = page.evolve()
         out.meta["layout"] = layout
         out.meta["text"] = full
+        if self.params["math_reader_path"] and layout.get("equations") and page.gray is not None:
+            from ..math.latex import to_latex, to_mathml
+            from ..math.reader import MathReader
+            key = ("math", self.params["math_reader_path"])
+            if key not in self._nets:
+                self._nets[key] = MathReader(self.params["math_reader_path"])
+            eqs = []
+            for e in layout["equations"]:
+                x0, y0, x1, y1 = (int(v) for v in e["box"])
+                toks = self._nets[key].read(page.gray[max(0, y0):y1, max(0, x0):x1])
+                eqs.append(dict(e, latex=to_latex(toks), mathml=to_mathml(toks)))
+            layout = dict(layout, equations=eqs)
+            out.meta["layout"] = layout
         if self.params["pictures"]:
             from ..core.pictures import merge_boxes, to_source
             shape = page.gray.shape if page.gray is not None else page.binary.shape
@@ -1330,8 +1346,11 @@ def hocr_document(layout: dict, page, pictures: list | None = None) -> str:
         pic = eq_files[ei - 1] if ei <= len(eq_files) else None
         extra = f'; x_source_bbox {bb(pic["bbox_source"])}' if pic else ""
         img = f'<img src="{pic["file"]}" alt="equation {ei}"/>' if pic else ""
+        # the equation READ (output.math_reader_path): its MathML beside the image -- hOCR 1.2's
+        # ocr_math holds an image or MathML, and here both
+        mml = e.get("mathml", "")
         out.append(f'<div class="ocr_display" id="display_1_{ei}" title="bbox {bb(e["box"])}">'
-                   f'<span class="ocr_math" id="math_1_{ei}" title="bbox {bb(e["box"])}{extra}">{img}</span></div>')
+                   f'<span class="ocr_math" id="math_1_{ei}" title="bbox {bb(e["box"])}{extra}">{img}{mml}</span></div>')
     for ri, r in enumerate(list(layout.get("rules_h", [])) + list(layout.get("rules_v", [])), 1):
         if isinstance(r, (list, tuple)) and len(r) == 4:
             out.append(f'<div class="ocr_separator" id="separator_1_{ri}" title="bbox {bb(r)}"></div>')

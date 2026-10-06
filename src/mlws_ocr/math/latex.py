@@ -150,11 +150,15 @@ def to_mathml(tokens: list[str]) -> str:
         return tokens[pos] if pos < len(tokens) else None
 
     def take():
+        # past the end (a reader's unclosed brace, a fraction missing its denominator): an empty
+        # group, so the MathML stays well-formed whatever the tokens
         nonlocal pos
         pos += 1
-        return tokens[pos - 1]
+        return tokens[pos - 1] if pos - 1 < len(tokens) else None
 
     def group():
+        if peek() is None:
+            return "<mrow></mrow>"
         if peek() == "{":
             take()
             body = seq("}")
@@ -187,6 +191,10 @@ def to_mathml(tokens: list[str]) -> str:
 
     def item():
         t = take()
+        if t is None:
+            return "<mrow></mrow>"
+        if t in ("}", "\\right)", "^", "_"):
+            return f"<mo>{t}</mo>" if t not in ("^", "_") else "<mrow></mrow>"   # stray: kept harmless
         if t == "\\frac":
             return f"<mfrac>{group()}{group()}</mfrac>"
         if t == "\\sqrt":
