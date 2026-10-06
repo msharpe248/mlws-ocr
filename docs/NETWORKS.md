@@ -121,6 +121,7 @@ were trained on the public sources named below and on nothing else.
 | v0.18.6 (2026-10-04) | forty files: v0.18.5's thirty-seven plus the symbol reader `seq_line_gray17b_en.npz`, `_2`, `_3` |
 | v0.18.7 (2026-10-05) | forty-one files: v0.18.6's forty plus the symbol classifier `symbols_v2.npz` |
 | v0.18.8 (2026-10-05) | forty-two files: v0.18.7's forty-one plus the table cell confidence `cellconf_v1.npz` |
+| v0.18.9 (2026-10-06) | forty-three files: v0.18.8's forty-two plus the equation reader `mathread_v2.npz` |
 | v0.14.0 (2026-09-27) | twenty-one files: v0.13.0's eighteen plus the reader `seq_line_gray7_en.npz`, `_2`, `_3` (= `seq_line_gray7` seeds 3, 2, 1, EMA weights), the neural profile's reader; the v0.13.0 grey reader stays (it is the new one's teacher and the way back) |
 
 ## Where the training data comes from
