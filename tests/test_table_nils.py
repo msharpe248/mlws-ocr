@@ -110,3 +110,39 @@ def test_offset_rowspans_take_a_cell_midway_between_rows():
     u = offset_rowspans({"n_rows": 4, "n_cols": 4, "cells": cells}, words)
     at = {(c["row"], c["col"]): c for c in u["cells"]}
     assert at[(1, 0)]["text"] == "100" and at[(1, 0)]["rowspan"] == 2 and (2, 0) not in at
+
+
+def _cell(r, c, text, box):
+    return {"row": r, "col": c, "rowspan": 1, "colspan": 1, "text": text, "box": box}
+
+
+def _word(text, box):
+    return {"text": text, "box": box}
+
+
+def test_heading_rows_puts_back_a_heading_over_the_figure_columns():
+    """'December 31' over the year columns, left out of the table, comes back as
+    a header row spanning them; a caption line starting over the labels does not."""
+    from mlws_ocr.layout.wstables import heading_rows
+    cells = [_cell(0, 0, "", [0, 0, 0, 0]), _cell(0, 1, "2007", [500, 100, 560, 120]), _cell(0, 2, "2006", [700, 100, 760, 120]),
+             _cell(1, 0, "Finished goods", [10, 150, 200, 170]), _cell(1, 1, "614.0", [490, 150, 560, 170]),
+             _cell(1, 2, "506.2", [690, 150, 760, 170]),
+             _cell(2, 0, "Raw material", [10, 190, 180, 210]), _cell(2, 1, "110.0", [490, 190, 560, 210]),
+             _cell(2, 2, "98.8", [700, 190, 760, 210])]
+    t = {"cells": cells, "n_rows": 3, "n_cols": 3, "box": [0, 100, 770, 210]}
+    words = [_word("Inventories", [0, 20, 150, 40]), _word("are", [160, 20, 200, 40]),        # the caption
+             _word("December", [540, 62, 640, 82]), _word("31", [648, 62, 710, 82]),           # the heading
+             _word("2007", [500, 100, 560, 120]), _word("2006", [700, 100, 760, 120]),
+             _word("Finished", [10, 150, 100, 170]), _word("goods", [110, 150, 200, 170]),
+             _word("614.0", [490, 150, 560, 170]), _word("506.2", [690, 150, 760, 170]),
+             _word("Raw", [10, 190, 60, 210]), _word("material", [70, 190, 180, 210]),
+             _word("110.0", [490, 190, 560, 210]), _word("98.8", [700, 190, 760, 210])]
+    out = heading_rows(t, words)
+    assert out["n_rows"] == 4
+    head = [c for c in out["cells"] if c["row"] == 0 and c["text"]]
+    assert [(c["text"], c["col"], c["colspan"]) for c in head] == [("December 31", 1, 2)]
+    assert [c["text"] for c in out["cells"] if c["row"] == 1] == ["", "2007", "2006"]
+    assert not any("Inventories" in c["text"] for c in out["cells"])
+    # a word a cell already holds is not taken again
+    # no heading: nothing changes
+    assert heading_rows(t, [w for w in words if w["text"] not in ("December", "31")])["n_rows"] == 3

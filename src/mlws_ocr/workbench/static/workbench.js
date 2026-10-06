@@ -451,6 +451,8 @@ const TABLE_SWITCHES = [
     title: "a calibrated probability for each cell: amber to review (0.5-0.75), red to reject (under 0.5); hover a cell for its value" },
   { slot: "output", key: "table_rebuild_header", on: true, off: false, label: "Two-level headers",
     title: "a one-row header whose lines show a group heading over its sub-headings rebuilt as the two levels it is" },
+  { slot: "output", key: "table_heading_rows", on: true, off: false, label: "Headings above",
+    title: "a table's crop: a heading over the figure columns that the table left out ('Year Ended December 31,') put back as a header row spanning them" },
   { slot: "output", key: "table_group_rowspans", on: true, off: false, label: "Row groups",
     title: "a row and its continuation rows (first cell empty, fewer cells: a gene's two primer rows) are one group; its label spans them" },
   { slot: "output", key: "table_centred_rowspans", on: true, off: false, label: "Centred row spans",

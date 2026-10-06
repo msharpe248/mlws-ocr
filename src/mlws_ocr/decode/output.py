@@ -288,6 +288,8 @@ class TextOutput(Stage):
                                          # the rules' / structure network's; "select": the one a learned choice
                                          # (table_wordrel_select, train_wordrel_select.py) prefers (2026-10-01)
         "table_wordrel_select": "",
+        "table_heading_rows": False,     # a table's crop: headings above its cells over the figure columns
+                                         # ('Year Ended December 31,') put back as header rows (wstables.heading_rows)
         "math_reader_path": "",          # display equations (lines.equations) READ by the equation reader
                                          # (math/reader.py): LaTeX tokens into layout["equations"], MathML
                                          # into the hOCR's ocr_math beside the image; "" = cut out only
@@ -945,6 +947,9 @@ class TextOutput(Stage):
             if t is not None and self.params["table_centred_rowspans"]:
                 from ..layout.wstables import centred_rowspans
                 t = centred_rowspans(t)
+            if t is not None and self.params["table_heading_rows"]:
+                from ..layout.wstables import heading_rows
+                t = heading_rows(t, words)
             if t is not None and self.params["table_rebuild_header"]:
                 from ..layout.wstables import rebuild_header
                 t = rebuild_header(t, words)
