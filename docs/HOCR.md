@@ -74,7 +74,7 @@ The properties:
 | `x_xheight` | `ocr_line` | the line's x-height in pixels: the size of its type |
 | `x_wconf` | `ocrx_word` | the word's **confidence, 0–100**: the calibrated probability that it is right, as a percentage (the neural profile), or the decoder's margin (the classic one) |
 | `x_conf` | `ocrx_word` | the decoder's own raw confidence, kept beside the calibrated one |
-| `x_cconf` | a table cell (`td`) | in the table profile: the calibrated probability, 0-100, that the cell's text is right where it stands (`decode/cellconf.py`); under 50 to reject, 50-85 to review |
+| `x_cconf` | a table cell (`td`) | in the table profile: the calibrated probability, 0-100, that the cell's text is right where it stands (`decode/cellconf.py`); under 50 to reject (about one in three right), 50-75 to review, 75 and over as read (80-87% right) |
 | `ppageno` | `ocr_page` | the page number, from 0 |
 | `image "file"` | `ocr_photo` | with `output.pictures`: the file the picture was cut into, beside the hOCR (§6) |
 | `x_source_bbox x0 y0 x1 y1` | `ocr_photo` | with `output.pictures`: the picture's box in the **original** image (§4, §6) |

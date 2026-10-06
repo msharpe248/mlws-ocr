@@ -305,6 +305,8 @@ dashed, each labelled with its size.
 
 ![The Tables view: an annual-report table read by whitespace, beside the scan; hovering a cell marks it on both sides](docs/img/workbench_tables.png)
 
+![Cell confidence in the Tables view: a scientific table's rebuilt two-level header, cells to review in amber and to reject in red](docs/img/workbench_cellconf.png)
+
 Sessions save to a `.mlws.json` file (image, profile, every choice and
 correction) and reload; the page exports as text, hOCR, page JSON, the
 cleaned image, the hOCR with its pictures (a zip), or the session's settings as a profile TOML. Standard
