@@ -151,8 +151,20 @@ def display_latex(tokens: list[str]) -> str:
     if len(lines) == 1:
         return to_latex(tokens)
     rows = []
+    def top_rel(ln):
+        # the line's first relation OUTSIDE every group: the '=' of a sum's 'k=1' is inside its
+        # subscript, and an '&' put there broke the document (40% of a rendering lost, 2026-10-06)
+        depth = 0
+        for i, t in enumerate(ln):
+            if t in ("{", "\\left(", "\\left["):
+                depth += 1
+            elif t in ("}", "\\right)", "\\right]"):
+                depth -= 1
+            elif depth == 0 and t in RELS:
+                return i
+        return None
     for ln in lines:
-        k = next((i for i, t in enumerate(ln) if t in RELS), None)
+        k = top_rel(ln)
         rows.append(to_latex(ln) if k is None else to_latex(ln[:k]) + " &" + to_latex(ln[k:]))
     return "\\begin{aligned}" + " \\\\ ".join(rows) + "\\end{aligned}"
 

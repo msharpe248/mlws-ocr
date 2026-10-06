@@ -46,7 +46,15 @@ def render(batch: list[list[str]], family: str, dpi: int, d: Path) -> list[np.nd
     (d / "f.tex").write_text(tex)
     subprocess.run(["tectonic", "--chatter", "minimal", "f.tex"], cwd=d, capture_output=True, timeout=1800)
     if not (d / "f.pdf").exists():
-        return [None] * len(batch)
+        # one formula TeX cannot set fails the whole document: the chunk then set formula by
+        # formula, only the failing ones lost (a misplaced '&' had lost 40% of a rendering)
+        if len(batch) == 1:
+            return [None]
+        out = []
+        for t in batch:
+            with tempfile.TemporaryDirectory() as dd:
+                out += render([t], family, dpi, Path(dd))
+        return out
     subprocess.run(["pdftoppm", "-r", str(dpi), "-gray", "-png", "f.pdf", "p"], cwd=d, capture_output=True,
                    timeout=1800)
     out = []
