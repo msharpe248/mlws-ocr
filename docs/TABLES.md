@@ -150,6 +150,12 @@ across several rows, with a column of figures.
    best).
 4. **Headers** — each header phrase spans the columns it stands over; a
    header cell spans down where the header rows below it are empty.
+   On a table's crop, a heading set ABOVE a table whose top row is figures
+   ('Year Ended December 31,' over 2008 / 2007 / 2006), which the structure
+   network's extent or the word-relation network left out, is put back as a
+   header row spanning the columns it stands over
+   (`output.table_heading_rows`, `wstables.heading_rows`; off — FinTabNet.c
+   held out 0.8751 → 0.8757, nothing worse anywhere).
 5. **Wrapped rows** — a body row with an empty first column and no figures,
    closely under another, is its second line and joins it.
 

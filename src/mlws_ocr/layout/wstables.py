@@ -1385,7 +1385,10 @@ def heading_rows(t: dict, words: list[dict]) -> dict:
     headings) and each group spans the columns it overlaps.  A line level with
     the table's top row (the extent cut through it: '31,' kept, 'Year Ended
     December' dropped) takes that row's place, its cells' words joining it;
-    the others become new rows above.  The 'boxhead' of a financial table
+    the others become new rows above -- only over a table whose top row is
+    figures (the years), as a heading above a text header is its caption
+    ('TABLE 1: Characteristics of cases', centred) or a lost line of one of
+    its headings.  The 'boxhead' of a financial table
     (Chicago Manual of Style 3.62-3.68)."""
     cells = t.get("cells", [])
     if not cells or not words:
@@ -1452,6 +1455,10 @@ def heading_rows(t: dict, words: list[dict]) -> dict:
         level = bool(row0) and all(min(y1, c["box"][3]) - max(min(w["box"][1] for w in band), c["box"][1]) > 0
                                            for c in row0)
         if not level and (edge - y1 > 2.0 * lh):
+            break
+        if r0 < body:
+            # the table's top is a text header already: a line above it is its caption, or a line of
+            # one of its headings the cells lost -- not a heading row of its own
             break
         if x0 < cols[0][1]:                           # over the label column: a caption, a note
             break
