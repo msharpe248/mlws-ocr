@@ -232,9 +232,10 @@ The mathematics itself is READ (in the neural profiles since v0.18.9;
 typeset formulas writes each equation as LaTeX tokens, and the `ocr_math`
 carries the MathML made from them beside the image -- hOCR 1.2 allows either,
 here both. The LaTeX goes into the layout JSON (`layout.equations[].latex`;
-a two-line equation as an `aligned` pair). On 30 held-out typeset pages,
-54.9% of the equations are read exactly and 85.9% of their tokens are
-right ([RESEARCH.md](RESEARCH.md)); long formulas (over about 45 tokens)
+a two-line equation as an `aligned` pair; the reader's own tokens beside it
+in `tokens`). On 30 held-out typeset pages (v0.18.10: the v3 reader, a beam
+of eight), 61.1% of the equations are read exactly and 88.2% of their
+tokens are right ([RESEARCH.md](RESEARCH.md)); long formulas (over about 45 tokens)
 are read poorly. A consumer that needs certainty keeps the image.
 
 ## 7. hOCR and its relatives

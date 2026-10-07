@@ -73,7 +73,7 @@ def test_neural_shares_the_stage_list_with_classic():
     table_only = {"tables": {"spans", "open_sides", "nested"},
                   "lines": {"equations"},
                   "output": {"split_words_at_cells", "fix_figure_columns", "check_arithmetic", "ws_detect",
-                             "pictures", "math_reader_path"}}
+                             "pictures", "math_reader_path", "math_beam"}}
     for key, spec in neural.items():
         c = classic.get(key, classic.get(("decode", "beam"))).params
         if key[1] in table_only:
@@ -124,7 +124,7 @@ def test_neural_table_is_neural_plus_the_table_options():
                "tables": {"diagonals", "min_row_ink", "broken_rules"}, "decode": {"line_gray_rules_out", "figure_cells", "rotated_cells", "line_model_path", "line_gap_split", "line_model_path_table", "line_model_path_symbols", "line_dash_measure", "line_symbol_net"}, "lines": {"in_cells", "stacked_chunks"}, "blocks": {"keep_dashes"},
                "output": {"table_net_path", "table_net_row_join", "table_net_figure_rows", "ws_detector", "ws_mesh_min_spines", "cell_order_by_line",
                           "table_det_path", "table_det_mode", "table_split_path", "table_split_select", "table_split_keep_rows", "table_dashes", "ws_table_thin_grids", "span_labels",
-                          "nest_side_by_side", "pictures", "table_dash_aspect", "table_group_rowspans", "table_rebuild_header", "table_cell_conf_path", "join_digit_groups", "dollar_s", "trim_notes", "cell_marks", "trim_notes_rows", "table_cell_lines", "table_label_rowspans", "table_wordrel_path", "table_wordrel_mode", "table_wordrel_select", "table_item_rows", "table_paren_columns"}}
+                          "nest_side_by_side", "pictures", "table_dash_aspect", "table_group_rowspans", "table_rebuild_header", "table_heading_rows", "table_cell_conf_path", "join_digit_groups", "dollar_s", "trim_notes", "cell_marks", "trim_notes_rows", "table_cell_lines", "table_label_rowspans", "table_wordrel_path", "table_wordrel_mode", "table_wordrel_select", "table_item_rows", "table_paren_columns"}}
     a, b = _specs("neural-table.toml"), _specs("neural.toml")
     assert list(a) == list(b)
     for key in a:

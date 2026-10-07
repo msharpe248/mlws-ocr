@@ -154,7 +154,7 @@ across several rows, with a column of figures.
    ('Year Ended December 31,' over 2008 / 2007 / 2006), which the structure
    network's extent or the word-relation network left out, is put back as a
    header row spanning the columns it stands over
-   (`output.table_heading_rows`, `wstables.heading_rows`; off — FinTabNet.c
+   (`output.table_heading_rows`, `wstables.heading_rows`; in neural-table since v0.18.10 — FinTabNet.c
    held out 0.8751 → 0.8757, nothing worse anywhere).
 5. **Wrapped rows** — a body row with an empty first column and no figures,
    closely under another, is its second line and joins it.
@@ -309,12 +309,12 @@ The evaluation sets, and where they stand (neural-table, TEDS / TEDS-S):
 | timesheets (generated) † | 20 | 0.612 | **0.942 / 0.964** |
 | paystubs (generated) | 20 | 0.791 | **0.940 / 0.952** |
 | payroll forms (generated) † | 20 | 0.717 | **0.913 / 0.939** |
-| annual-report tables (FinTabNet.c) | 60 | 0.763 | 0.855 / 0.901 |
+| annual-report tables (FinTabNet.c) | 60 | 0.763 | 0.857 / 0.902 |
 | scientific tables (PubTables-1M) | 60 | – | 0.825 / 0.888 |
-| screenshots (FinTabNet.c and PubTables-1M structures drawn by a browser, six styles) | 80 | – | 0.911 / 0.939 |
+| screenshots (FinTabNet.c and PubTables-1M structures drawn by a browser, six styles) | 80 | – | 0.912 / 0.940 |
 | scientific pages, detection F1 | 40 | – | 0.967 |
 
-The two real crop sets were also read on the 240 held-out tables of the same draws, none of which any decision looked at: PubTables-1M 0.815 / 0.884, FinTabNet.c 0.875 / 0.918 (2026-10-05, v0.18.8; 0.759 and 0.810 before the word-relation network) — the 60 flatter PubTables-1M ([MEASUREMENT.md §4](MEASUREMENT.md)).
+The two real crop sets were also read on the 240 held-out tables of the same draws, none of which any decision looked at: PubTables-1M 0.815 / 0.884, FinTabNet.c 0.876 / 0.918 (2026-10-06, v0.18.10 -- the headings-above rule was shaped on held-out losers, RESEARCH; 0.875 at v0.18.8; 0.759 and 0.810 before the word-relation network) — the 60 flatter PubTables-1M ([MEASUREMENT.md §4](MEASUREMENT.md)).
 
 † Part of these two sets' gain came from correcting the generated truth
 where it disagreed with its own images (the images are byte-identical);

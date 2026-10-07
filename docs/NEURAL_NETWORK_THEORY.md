@@ -1032,7 +1032,7 @@ or the engine's. They fail on different tables; on 240 held-out tables of
 each set the choice took PubTables-1M 0.759 → 0.795 and FinTabNet.c 0.810
 → 0.849.
 
-## I. The equation reader — an encoder-decoder with attention — `math/reader.py`, `mathread_v2.npz`
+## I. The equation reader — an encoder-decoder with attention — `math/reader.py`, `mathread_v3.npz`
 
 **The job.** A display equation, cut from the page by the layout stage
 ([SEGMENTATION.md §8](SEGMENTATION.md)), in; its LaTeX out, token by token
@@ -1075,16 +1075,26 @@ spelling (fractions, roots, scripts, sums, integrals, limits, applied
 functions, Greek, relations, two-line aligned pairs), tectonic typesets
 them in four type families at 150–300 dpi (`make_math_set.py`), and the
 truth is exact because it is what was typeset. v2: 60,000 formulas, 30
-epochs, 4.4 hours. Each image is roughened as a scan would (a blur, noise,
+epochs, 4.4 hours on the Mac. v3: the same recipe on 60,000 formulas whose
+lines are at most 50 tokens -- page length -- 86 minutes on an RTX 3090.
+**Spend the training where the reader will work**: v2's set was mostly
+formulas over 45 tokens, which no page holds and which it could not read;
+v3, trained on page-length ones, reads the pages better (below) and the
+long formulas worse. Each image is roughened as a scan would (a blur, noise,
 a slight shrink, at times thresholded).
 
+**Beam search.** Choosing the likeliest token at each step (**greedy**)
+cannot take back an early mistake. A **beam** keeps the k likeliest
+partial readings, extends each by its likeliest tokens, keeps the best k
+again, and ends with the likeliest finished one (Sutskever, Vinyals & Le,
+2014; the line decoder keeps one too, [DECODING.md](DECODING.md)). The
+engine reads with a beam of eight: 7 → 11 ms an equation.
+
 **What it does, and does not.** On 30 held-out typeset pages, cut by the
-engine itself: 54.9% of equations read exactly, 85.9% of tokens right. On
-short formulas (up to 25 tokens) 73% exact; over 45 tokens it fails — at
-64 rows high a long formula is squeezed into at most 1,024 columns, and
-the decoder's state must carry a long way. **Greedy decoding** (the most
-likely token each step) is all it does; a beam (as the line decoder
-keeps, [DECODING.md](DECODING.md)) is the obvious next step. And it reads
+engine itself: 61.1% of equations read exactly, 88.2% of tokens right
+(v2: 54.9% and 85.9%). Over about 50 tokens it fails — at 64 rows high a
+long formula is squeezed into at most 1,024 columns, the decoder's state
+must carry a long way, and v3 never saw one. And it reads
 typeset mathematics only: handwriting, and the notations its grammar does
 not draw (matrices, cases, accents), it has never seen.
 
@@ -1183,6 +1193,8 @@ the choice mattered), UNLV training-pool pages → `segmenter_judge.py`.
   learning to align and translate" (additive attention), ICLR 2015.
 - Y. Deng, A. Kanervisto, J. Ling & A. M. Rush, "Image-to-markup
   generation with coarse-to-fine attention" (im2latex), ICML 2017.
+- I. Sutskever, O. Vinyals & Q. V. Le, "Sequence to sequence learning with
+  neural networks" (beam search for a decoder), NIPS 2014.
 - D. Kingma & J. Ba, "Adam: a method for stochastic optimization", ICLR 2015.
 - K. He, X. Zhang, S. Ren & J. Sun, "Delving deep into rectifiers" (He
   initialisation), ICCV 2015; X. Glorot & Y. Bengio, "Understanding the

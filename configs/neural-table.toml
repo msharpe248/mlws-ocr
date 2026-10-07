@@ -282,8 +282,9 @@ case_repair = true      # I/l and case-twin repair runs even with the corrector 
 [stage.output]
 pictures = true             # table profile: each picture cut from the original image as picture_N.png, named in
                             # the hOCR's ocr_photo with its box in the original (core/pictures.py; 2026-10-03)
-math_reader_path = "data/mathread_v2.npz"  # as neural: each display equation read, its LaTeX in the layout and
+math_reader_path = "data/mathread_v3.npz"  # as neural: each display equation read, its LaTeX in the layout and
                             # its MathML in the hOCR's ocr_math (math/reader.py; 2026-10-06)
+math_beam = 8               # ...a beam search of eight readings (v0.18.10)
 drop_facing_page = true     # the facing page's column clipped at a spread's edge is left out (newspaper and
                             # magazine pages; 2026-09-27: news-8 +1.5 / +1.8, mag-8 +5.8 / +6.5 neural, RESEARCH)
 impl = "text"
@@ -299,6 +300,9 @@ table_split_keep_rows = true   # table profile: ...the rules' table kept when th
                                # (a header of years, a totals row): FinTabNet 0.785 -> 0.802 with the table reader
 table_cell_conf_path = "data/cellconf_v1.npz"   # table profile: a calibrated probability per table cell (decode/cellconf.py),
                                # in the table JSON ('confidence') and the hOCR (x_cconf); changes no text (2026-10-05)
+table_heading_rows = true      # table profile: a heading above a crop's figures row ('Year Ended December 31,'),
+                               # left out of the table, put back as a header row spanning its columns
+                               # (wstables.heading_rows; v0.18.10: FinTabNet.c held out 0.8751 -> 0.8757)
 table_rebuild_header = true    # table profile: a one-row header whose text lines show a group heading over two
                                # sub-headings or more rebuilt as two levels (wstables.rebuild_header): held-out
                                # PubTables-1M 0.8141 -> 0.8145, FinTabNet.c 0.8748 -> 0.8751, the rest level (2026-10-05)

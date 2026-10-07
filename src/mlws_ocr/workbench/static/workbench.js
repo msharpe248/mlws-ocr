@@ -554,8 +554,8 @@ const PICTURE_SWITCHES = [
     title: "a dark region is inverted only if it fills 95% of its box (bands and dark pages do; a bold logo does not)" },
   { slot: "lines", key: "equations", on: true, off: false, label: "Display equations",
     title: "display equations found before reading (set apart, numbered '(n)' at the right): cut out as equation_N.png, written as ocr_display / ocr_math in the hOCR, their numbers read" },
-  { slot: "output", key: "math_reader_path", on: "data/mathread_v2.npz", off: "", label: "Read equations",
-    title: "each display equation read by the equation reader (mathread_v2): its LaTeX in the layout, its MathML in the hOCR's ocr_math beside the image" },
+  { slot: "output", key: "math_reader_path", on: "data/mathread_v3.npz", off: "", label: "Read equations",
+    title: "each display equation read by the equation reader (mathread_v3, a beam of eight): its LaTeX in the layout, its MathML in the hOCR's ocr_math beside the image" },
   { slot: "imagezones", key: "display_height", on: 4, off: 0, label: "Display type is a picture",
     title: "solid letters four times the body glyph's height (a logo's lettering) named as a picture zone; their text is still read" },
 ];
