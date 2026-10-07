@@ -157,7 +157,7 @@ across several rows, with a column of figures.
    (`output.table_heading_rows`, `wstables.heading_rows`; in neural-table since v0.18.10 — FinTabNet.c
    held out 0.8751 → 0.8757, nothing worse anywhere).
    The two-level header rebuild (`output.table_rebuild_header`) also sees,
-   with `output.table_rebuild_centred` (off; PubTables-1M held out 0.8145 →
+   with `output.table_rebuild_centred` (in neural-table since v0.18.11; PubTables-1M held out 0.8145 →
    0.8163, nothing worse): a heading centred across both header lines, a
    short spanner set over the first of its columns ('LVH' over 'Present',
    'Absent'), and headings set in a narrow column's gutter.
@@ -319,7 +319,7 @@ The evaluation sets, and where they stand (neural-table, TEDS / TEDS-S):
 | screenshots (FinTabNet.c and PubTables-1M structures drawn by a browser, six styles) | 80 | – | 0.912 / 0.940 |
 | scientific pages, detection F1 | 40 | – | 0.967 |
 
-The two real crop sets were also read on the 240 held-out tables of the same draws, none of which any decision looked at: PubTables-1M 0.815 / 0.884, FinTabNet.c 0.876 / 0.918 (2026-10-06, v0.18.10 -- the headings-above rule was shaped on held-out losers, RESEARCH; 0.875 at v0.18.8; 0.759 and 0.810 before the word-relation network) — the 60 flatter PubTables-1M ([MEASUREMENT.md §4](MEASUREMENT.md)).
+The two real crop sets were also read on the 240 held-out tables of the same draws, none of which any decision looked at: PubTables-1M 0.816 / 0.885, FinTabNet.c 0.876 / 0.918 (2026-10-07, v0.18.11; v0.18.10 -- the headings-above rule was shaped on held-out losers, RESEARCH; 0.875 at v0.18.8; 0.759 and 0.810 before the word-relation network) — the 60 flatter PubTables-1M ([MEASUREMENT.md §4](MEASUREMENT.md)).
 
 † Part of these two sets' gain came from correcting the generated truth
 where it disagreed with its own images (the images are byte-identical);

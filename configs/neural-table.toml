@@ -303,6 +303,9 @@ table_cell_conf_path = "data/cellconf_v1.npz"   # table profile: a calibrated pr
 table_heading_rows = true      # table profile: a heading above a crop's figures row ('Year Ended December 31,'),
                                # left out of the table, put back as a header row spanning its columns
                                # (wstables.heading_rows; v0.18.10: FinTabNet.c held out 0.8751 -> 0.8757)
+table_rebuild_centred = true   # table profile: the rebuild also sees headings centred across both header lines,
+                               # short spanners over the first of their columns, gutter headings (v0.18.11:
+                               # PubTables-1M held out 0.8145 -> 0.8163, FinTabNet.c level)
 table_rebuild_header = true    # table profile: a one-row header whose text lines show a group heading over two
                                # sub-headings or more rebuilt as two levels (wstables.rebuild_header): held-out
                                # PubTables-1M 0.8141 -> 0.8145, FinTabNet.c 0.8748 -> 0.8751, the rest level (2026-10-05)

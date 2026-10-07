@@ -28,7 +28,7 @@ evaluation as a check (neural-table 0.518), not a target.
    beyond what `table_rebuild_header`'s gate allows. Headings left out above
    a figures row: `table_heading_rows` (v0.18.10, FinTabNet.c +0.0006).
    Centred headings, short spanners, gutter headings:
-   `table_rebuild_centred` (option, PubTables-1M held out +0.0018). Left: a
+   `table_rebuild_centred` (v0.18.11, PubTables-1M held out +0.0018). Left: a
    second line under every heading ('(n = 100, 86%)'), headings read into
    the first body row, and our header having MORE rows than the truth.
 2. Body rows: 22 PubTables-1M and 51 FinTabNet.c tables lose a body row
