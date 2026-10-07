@@ -451,6 +451,8 @@ const TABLE_SWITCHES = [
     title: "a calibrated probability for each cell: amber to review (0.5-0.75), red to reject (under 0.5); hover a cell for its value" },
   { slot: "output", key: "table_rebuild_header", on: true, off: false, label: "Two-level headers",
     title: "a one-row header whose lines show a group heading over its sub-headings rebuilt as the two levels it is" },
+  { slot: "output", key: "table_rebuild_centred", on: true, off: false, label: "Centred spanners",
+    title: "the two-level header rebuild also sees a heading centred across both header lines ('Total'), a short spanner over the first of its columns ('LVH' over 'Present', 'Absent'), and headings set in a gutter" },
   { slot: "output", key: "table_heading_rows", on: true, off: false, label: "Headings above",
     title: "a table's crop: a heading over the figure columns that the table left out ('Year Ended December 31,') put back as a header row spanning them" },
   { slot: "output", key: "table_group_rowspans", on: true, off: false, label: "Row groups",

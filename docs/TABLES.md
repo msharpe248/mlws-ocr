@@ -156,6 +156,11 @@ across several rows, with a column of figures.
    header row spanning the columns it stands over
    (`output.table_heading_rows`, `wstables.heading_rows`; in neural-table since v0.18.10 — FinTabNet.c
    held out 0.8751 → 0.8757, nothing worse anywhere).
+   The two-level header rebuild (`output.table_rebuild_header`) also sees,
+   with `output.table_rebuild_centred` (off; PubTables-1M held out 0.8145 →
+   0.8163, nothing worse): a heading centred across both header lines, a
+   short spanner set over the first of its columns ('LVH' over 'Present',
+   'Absent'), and headings set in a narrow column's gutter.
 5. **Wrapped rows** — a body row with an empty first column and no figures,
    closely under another, is its second line and joins it.
 

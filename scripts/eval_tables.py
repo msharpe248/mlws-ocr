@@ -267,6 +267,10 @@ def main():
             lay = page.meta.get("layout", {})
             if "wordrel_x" in lay:                 # the word-network choice's inputs (train_wordrel_select.py)
                 (args.dump / f"{stem}.wrel.json").write_text(json.dumps(lay["wordrel_x"]))
+            # the page's words, text and box (the header studies: a table's text lines)
+            (args.dump / f"{stem}.words.json").write_text(json.dumps(
+                [{"text": w.get("text", ""), "box": [int(v) for v in w["box"]]}
+                 for ln in lay.get("lines", []) for w in ln.get("words", [])]))
         print(f"  {stem}: TEDS {s:.3f}  TEDS-S {st:.3f}  CHARS {1 - ce / max(1, len(ct)):.3f}", flush=True)
     print(f"\nMEAN over {len(scores)} pages: TEDS {np.mean(scores):.3f}  TEDS-S {np.mean(structs):.3f}"
           f"  CHARS {1 - char_err / max(1, char_tot):.3f}")

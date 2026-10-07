@@ -146,3 +146,22 @@ def test_heading_rows_puts_back_a_heading_over_the_figure_columns():
     # a word a cell already holds is not taken again
     # no heading: nothing changes
     assert heading_rows(t, [w for w in words if w["text"] not in ("December", "31")])["n_rows"] == 3
+
+
+def test_rebuild_header_centred_spanner_with_an_orphan_sub_heading():
+    """'LVH' set short over 'Present', 'Absent' beside it with nothing above, 'Total'
+    centred across both header lines: LVH spans both, Total spans down (centred)."""
+    from mlws_ocr.layout.wstables import rebuild_header
+    head = [_cell(0, 0, "", [0, 0, 0, 0]), _cell(0, 1, "", [0, 0, 0, 0]),
+            _cell(0, 2, "LVH Present", [680, 160, 810, 265]), _cell(0, 3, "Absent", [900, 230, 1020, 265]),
+            _cell(0, 4, "Total", [1190, 160, 1280, 196])]
+    body = [_cell(1, 0, "Micro", [160, 300, 400, 330]), _cell(1, 1, "Present", [500, 300, 620, 330]),
+            _cell(1, 2, "17 (17.0 %)", [680, 300, 810, 330]), _cell(1, 3, "83 (83.0 %)", [900, 300, 1020, 330]),
+            _cell(1, 4, "100 (39.5 %)", [1180, 300, 1290, 330])]
+    t = {"cells": head + body, "n_rows": 2, "n_cols": 5, "box": [150, 150, 1300, 340]}
+    words = [_word("LVH", [686, 161, 745, 196]), _word("Total", [1190, 196, 1278, 231]),
+             _word("Present", [681, 232, 808, 263]), _word("Absent", [905, 232, 1015, 263])]
+    assert rebuild_header(t, words) is t                     # the v0.18.8 gate refuses it
+    out = rebuild_header(t, words, centred=True)
+    got = {(c["row"], c["col"], c["rowspan"], c["colspan"]): c["text"] for c in out["cells"] if c["text"] and c["row"] < 2}
+    assert got == {(0, 2, 1, 2): "LVH", (0, 4, 2, 1): "Total", (1, 2, 1, 1): "Present", (1, 3, 1, 1): "Absent"}

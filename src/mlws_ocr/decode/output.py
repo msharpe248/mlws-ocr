@@ -288,6 +288,8 @@ class TextOutput(Stage):
                                          # the rules' / structure network's; "select": the one a learned choice
                                          # (table_wordrel_select, train_wordrel_select.py) prefers (2026-10-01)
         "table_wordrel_select": "",
+        "table_rebuild_centred": False,  # ...the rebuild sees headings centred across both header lines, and
+                                         # short spanners between two columns (wstables.rebuild_header)
         "table_heading_rows": False,     # a table's crop: headings above its cells over the figure columns
                                          # ('Year Ended December 31,') put back as header rows (wstables.heading_rows)
         "math_reader_path": "",          # display equations (lines.equations) READ by the equation reader
@@ -952,7 +954,7 @@ class TextOutput(Stage):
                 t = heading_rows(t, words)
             if t is not None and self.params["table_rebuild_header"]:
                 from ..layout.wstables import rebuild_header
-                t = rebuild_header(t, words)
+                t = rebuild_header(t, words, centred=self.params["table_rebuild_centred"])
             if t is not None and self.params["table_header_rowspans"]:
                 from ..layout.wstables import header_rowspans
                 t = header_rowspans(t)

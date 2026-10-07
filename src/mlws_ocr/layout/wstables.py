@@ -1216,7 +1216,7 @@ SPAN_LEFT_LABELS = [False]  # a first-column label followed by empty figure colu
                             # paystubs +0.016, receipts -0.059 -- their truths disagree on the convention)
 
 
-def rebuild_header(t: dict, words: list[dict], max_levels: int = 3) -> dict:
+def rebuild_header(t: dict, words: list[dict], max_levels: int = 3, centred: bool = False) -> dict:
     """A table's HEADER rebuilt from its text lines.  A census of the 240
     held-out PubTables-1M tables: 36 had too few header rows -- a group
     heading and its sub-headings read into one row ('Mean item-total NFAS.4
@@ -1236,7 +1236,13 @@ def rebuild_header(t: dict, words: list[dict], max_levels: int = 3) -> dict:
     the engine's header is one row and the levels show a heading spanning
     columns: rebuilt everywhere, headers it had right came out worse.  Two-level
     headers are the convention of scientific tables' column 'stubs' and
-    'spanners' (Chicago Manual of Style 3.62-3.68; the 'boxhead')."""
+    'spanners' (Chicago Manual of Style 3.62-3.68; the 'boxhead').
+
+    ``centred`` (2026-10-06, from the dev pool's two-level headers the gate
+    refused): a heading set vertically centred across both header lines
+    no longer chains them into one -- lines are compared with their first
+    word, and a line of half-way headings joins the line above -- and a
+    short spanner centred between two columns covers both."""
     cells = t.get("cells", [])
     if not cells or not words:
         return t
@@ -1280,12 +1286,25 @@ def rebuild_header(t: dict, words: list[dict], max_levels: int = 3) -> dict:
     lh = float(np.median([w["box"][3] - w["box"][1] for w in hw]))
     hw.sort(key=lambda w: (w["box"][1] + w["box"][3]) / 2)
     bands: list[list[dict]] = []
+    mid = lambda b: float(np.mean([(w["box"][1] + w["box"][3]) / 2 for w in b]))  # noqa: E731
     for w in hw:
         cy = (w["box"][1] + w["box"][3]) / 2
-        if bands and cy - (bands[-1][-1]["box"][1] + bands[-1][-1]["box"][3]) / 2 < 0.6 * lh:
+        if bands and cy - (bands[-1][0]["box"][1] + bands[-1][0]["box"][3]) / 2 < (0.5 if centred else 0.6) * lh:
             bands[-1].append(w)
         else:
             bands.append([w])
+    if centred and len(bands) >= 3:
+        # a heading set vertically centred over two header lines ('Total' beside 'LVH' over 'Present',
+        # 'Absent') sits half-way between them: compared with its neighbour it would chain the two
+        # lines into one.  A line of such headings only, half-way between the lines above and below,
+        # joins the line above (and, with nothing beneath it, spans down)
+        k = 1
+        while k < len(bands) - 1:
+            a, m, b = mid(bands[k - 1]), mid(bands[k]), mid(bands[k + 1])
+            if abs((m - a) - (b - m)) < 0.35 * (b - a) and (b - a) < 2.5 * lh:
+                bands[k - 1] += bands.pop(k)
+            else:
+                k += 1
     if len(bands) < 2:
         return t
     # two headings side by side are apart by more than a word space (about a third of a line
@@ -1295,6 +1314,15 @@ def rebuild_header(t: dict, words: list[dict], max_levels: int = 3) -> dict:
     def over(x0, x1):
         out = [k for k, (a, b) in enumerate(cols) if min(x1, b) - max(x0, a) > 0.25 * min(b - a, x1 - x0)
                or a <= (x0 + x1) / 2 <= b]
+        if not out and centred:
+            # a short spanner centred over two columns, between them, touches each only a little
+            out = [k for k, (a, b) in enumerate(cols) if min(x1, b) - max(x0, a) > 0]
+        if not out and centred:
+            # ... and a heading wider than its narrow figure column, or set in the gutter: the column
+            # whose share of the line (gutters split at their middles) holds its centre
+            c = (x0 + x1) / 2
+            edges = [(cols[k][1] + cols[k + 1][0]) / 2 for k in range(len(cols) - 1)]
+            out = [sum(1 for e in edges if c > e)]
         return (out[0], out[-1]) if out else None
     levels = []                                     # each band's groups: [x0, x1, c0, c1, words]
     for band in bands:
@@ -1318,9 +1346,19 @@ def rebuild_header(t: dict, words: list[dict], max_levels: int = 3) -> dict:
     rows: list[list[list]] = [levels[0]]
     for groups in levels[1:]:
         new = []
+        # (centred: a line holding a group with no heading above it is a row of sub-headings, not
+        # the next lines of the headings above -- 'Present' under 'LVH', 'Absent' beside)
+        # ... unless most of the line's groups are such: headings set at the foot of the header, one
+        # of them wrapped above ('95% Confidence' over 'Intervals' beside 'Groups', 'ICC', 'Sig')
+        orphans = sum(1 for g in groups if not any(u[2] <= g[3] and g[2] <= u[3] for r in rows for u in r))
+        # ... and only when each such group is one column short of the last: a financial table's
+        # headings set at the foot of a wrapped header leave 'Total' in the last column, or 'Other
+        # Benefits' over two, beside 'Other exit' over 'costs'
+        og = [g for g in groups if not any(u[2] <= g[3] and g[2] <= u[3] for r in rows for u in r)]
+        subrow = centred and 0 < orphans <= 0.5 * len(groups) and all(g[2] == g[3] < nc - 1 for g in og)
         for g in groups:
             above = next((u for u in reversed(rows) for u in u if u[2] <= g[2] and g[3] <= u[3]), None)
-            if above is not None and above[2] == above[3] == g[2] == g[3]:
+            if above is not None and above[2] == above[3] == g[2] == g[3] and not subrow:
                 above[4] += g[4]; above[0] = min(above[0], g[0]); above[1] = max(above[1], g[1])
             else:
                 new.append(g)
@@ -1328,6 +1366,25 @@ def rebuild_header(t: dict, words: list[dict], max_levels: int = 3) -> dict:
             rows.append(new)
     if len(rows) > max_levels:
         return t
+    orph = [h for h in rows[1] if not any(u[2] <= h[2] <= u[3] for u in rows[0])] if len(rows) == 2 else []
+    if centred and len(rows) == 2 and 0 < len(orph) <= 0.5 * len(rows[1]) and all(h[2] == h[3] < nc - 1 for h in orph):
+        # an orphan sub-heading -- nothing above it -- belongs to the spanner on its left, when
+        # that heading has a sub-heading of its own beneath ('LVH' over 'Present', 'Absent' beside:
+        # set short over the first of its columns, it spans both)
+        for h in sorted(rows[1], key=lambda g: g[2]):
+            if any(u[2] <= h[2] <= u[3] for u in rows[0]):
+                continue
+            left = [u for u in rows[0] if u[3] < h[2]]
+            if not left:
+                continue
+            u = max(left, key=lambda u: u[3])
+            if u[2] == 0:
+                continue                              # the stub's heading ('Exhibit' over 'Number') spans no column
+            gap_cols = range(u[3] + 1, h[2])
+            if any(any(v[2] <= k <= v[3] for v in rows[0]) for k in gap_cols):
+                continue
+            if any(u[2] <= g[2] and g[3] <= u[3] for g in rows[1]):
+                u[3] = h[3]
     nh = len(rows)
     # only the case the census found: the engine's header is ONE row, and its text lines show a
     # group heading spanning columns with sub-headings beneath -- rebuilt everywhere, the held-out
