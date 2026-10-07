@@ -31,72 +31,10 @@ from collections import Counter
 import numpy as np
 
 
-_FIGURE = re.compile(r"^[\s(\[<>≤≥~*]*[-–−+±]?[$€£]?\s*\d[\d.,]*\s*%?[)\]*]*")
-
-
-def body_start(t: dict) -> int:
-    """The first row whose filled cells after the first are mostly figures
-    ('12.5', '−0.3', '45 (12%)'; a heading 'NFAS.4' holds a digit but is
-    words): the rows above it are the header."""
-    cells = t.get("cells", [])
-    nr = t.get("n_rows") or (1 + max(c["row"] for c in cells) if cells else 0)
-    for r in range(nr):
-        fs = [c["text"].strip() for c in cells if c["row"] == r and c["col"] > 0 and (c.get("text") or "").strip()]
-        if fs and sum(1 for f in fs if _FIGURE.match(f) and len(re.findall(r"[A-Za-z]", f)) <= 2) >= 0.5 * len(fs):
-            return r
-    return nr
-
-
-def graft_header(t: dict, wt: dict | None) -> dict:
-    """The word-relation network's HEADER over the rules' body.  The network
-    (layout/wordrel.py) judges every pair of a crop's words -- same row, same
-    column, same cell -- so its table's header comes with its levels and
-    spans from what lines up, where the rules' header is one row rebuilt by
-    the gated steps below.  When the per-table choice kept the rules' table,
-    the network's header rows (those above its first row of figures) take the
-    place of the rules' -- only when both tables have the same columns (as
-    many, each body column's centre inside the other's) and the network's
-    header differs."""
-    if not wt or wt is t or not t.get("cells") or not wt.get("cells"):
-        return t
-    nc = t.get("n_cols") or 0
-    if nc < 2 or wt.get("n_cols") != nc:
-        return t
-    hb, wb = body_start(t), body_start(wt)
-    if wb == 0 or hb >= (t.get("n_rows") or 0) or wb >= (wt.get("n_rows") or 0):
-        return t
-
-    def extents(tb, b0):
-        out = []
-        for k in range(nc):
-            bx = [c["box"] for c in tb["cells"] if c["row"] >= b0 and c["col"] == k and c.get("colspan", 1) == 1
-                  and (c.get("text") or "").strip() and c["box"][2] > c["box"][0]]
-            if not bx:
-                return None
-            out.append((min(b[0] for b in bx), max(b[2] for b in bx)))
-        return out
-    ce, we = extents(t, hb), extents(wt, wb)
-    if ce is None or we is None:
-        return t
-    if not all(a <= (u + v) / 2 <= b and u <= (a + b) / 2 <= v for (a, b), (u, v) in zip(ce, we)):
-        return t
-    key = lambda tb, b0: sorted((c["row"], c["col"], c.get("rowspan", 1), c.get("colspan", 1), c["text"].strip())  # noqa: E731
-                                for c in tb["cells"] if c["row"] < b0)
-    if key(t, hb) == key(wt, wb):
-        return t
-    head = [dict(c, rowspan=min(c.get("rowspan", 1), wb - c["row"])) for c in wt["cells"] if c["row"] < wb]
-    body = [dict(c, row=c["row"] - hb + wb) for c in t["cells"] if c["row"] >= hb]
-    return dict(t, cells=sorted(head + body, key=lambda c: (c["row"], c["col"])),
-                n_rows=(t.get("n_rows") or 0) - hb + wb)
-
-
 def boxhead(t: dict, words: list[dict], above: bool = False, rebuild: bool = False,
-            centred: bool = False, wt: dict | None = None) -> dict:
-    """The header steps in order: the network's header grafted (``wt``, the
-    word-relation network's table, when given), headings above (``above``),
-    then the two-level rebuild (``rebuild``, ``centred``)."""
-    if wt is not None:
-        t = graft_header(t, wt)
+            centred: bool = False) -> dict:
+    """The header steps in order: headings above (``above``), then the
+    two-level rebuild (``rebuild``, ``centred``)."""
     if above:
         t = heading_rows(t, words)
     if rebuild:

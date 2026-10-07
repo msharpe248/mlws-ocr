@@ -256,8 +256,6 @@ class TextOutput(Stage):
                                          # the rules' / structure network's; "select": the one a learned choice
                                          # (table_wordrel_select, train_wordrel_select.py) prefers (2026-10-01)
         "table_wordrel_select": "",
-        "table_wordrel_header": False,   # ...the word-relation network's header rows over the rules' body when
-                                         # the choice kept the rules' table (headers.graft_header)
         "table_rebuild_centred": False,  # ...the rebuild sees headings centred across both header lines, and
                                          # short spanners between two columns (headers.rebuild_header)
         "table_heading_rows": False,     # a table's crop: headings above its cells over the figure columns
@@ -870,10 +868,9 @@ class TextOutput(Stage):
             if self.params["table_split_path"]:
                 t = self._split_or_rules(t or {"box": [0, 0, 1, 1]}, page, words, whole=True)
                 t = t if t.get("cells") else None
-            wrel_x = wt_kept = None
+            wrel_x = None
             if self.params["table_wordrel_path"]:
                 wt = self._wordrel_table(layout["lines"])
-                wt_kept = wt
                 if wt is not None and t is not None and t.get("cells"):
                     # the choice's inputs, at the moment of choosing: both tables' shapes and the network's
                     # confidence (kept in the layout, so an evaluation can learn the choice from them)
@@ -905,8 +902,7 @@ class TextOutput(Stage):
                 # the header (layout/headers.py): headings above put back, then two levels rebuilt
                 from ..layout.headers import boxhead
                 t = boxhead(t, words, above=self.params["table_heading_rows"],
-                            rebuild=self.params["table_rebuild_header"], centred=self.params["table_rebuild_centred"],
-                            wt=wt_kept if self.params["table_wordrel_header"] else None)
+                            rebuild=self.params["table_rebuild_header"], centred=self.params["table_rebuild_centred"])
             if t is not None and self.params["table_group_rowspans"]:
                 from ..layout.wstables import group_rowspans
                 t = group_rowspans(t)
