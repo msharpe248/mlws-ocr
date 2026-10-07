@@ -457,8 +457,6 @@ const TABLE_SWITCHES = [
     title: "a table's crop: a heading over the figure columns that the table left out ('Year Ended December 31,') put back as a header row spanning them" },
   { slot: "output", key: "table_group_rowspans", on: true, off: false, label: "Row groups",
     title: "a row and its continuation rows (first cell empty, fewer cells: a gene's two primer rows) are one group; its label spans them" },
-  { slot: "output", key: "table_centred_rowspans", on: true, off: false, label: "Centred row spans",
-    title: "a table crop's cell centred between the rows it spans, read as a sparse row of its own, folded back as a row span" },
   { slot: "blocks", key: "keep_dashes", on: true, off: false, label: "Lone dashes",
     title: "a nil '-' alone in its cell is kept and read as a dash (it was dropped as a speck, and a column of them vanished)",
     also: [{ slot: "output", key: "table_dash_aspect", on: 1.5, off: 2.5 }] },

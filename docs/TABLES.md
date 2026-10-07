@@ -154,13 +154,15 @@ across several rows, with a column of figures.
    ('Year Ended December 31,' over 2008 / 2007 / 2006), which the structure
    network's extent or the word-relation network left out, is put back as a
    header row spanning the columns it stands over
-   (`output.table_heading_rows`, `wstables.heading_rows`; in neural-table since v0.18.10 — FinTabNet.c
+   (`output.table_heading_rows`, `headers.heading_rows`; in neural-table since v0.18.10 — FinTabNet.c
    held out 0.8751 → 0.8757, nothing worse anywhere).
    The two-level header rebuild (`output.table_rebuild_header`) also sees,
    with `output.table_rebuild_centred` (in neural-table since v0.18.11; PubTables-1M held out 0.8145 →
    0.8163, nothing worse): a heading centred across both header lines, a
    short spanner set over the first of its columns ('LVH' over 'Present',
    'Absent'), and headings set in a narrow column's gutter.
+   All the header steps live in `layout/headers.py` (`boxhead`), in the
+   order they run.
 5. **Wrapped rows** — a body row with an empty first column and no figures,
    closely under another, is its second line and joins it.
 

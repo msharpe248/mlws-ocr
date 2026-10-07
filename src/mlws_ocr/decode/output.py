@@ -168,38 +168,6 @@ def _dash_lines(lines: list[dict], binary=None, min_aspect: float = 2.5) -> int:
     return n
 
 
-def _clean_separators(xs, ys, words, box):
-    """A network's separators made consistent with the words: a column
-    separator crossing a word (its x inside a word, the word in the table's
-    rows) is not one; of the separators around a column holding no word's
-    centre, the weaker is dropped (the one nearer the column's middle
-    -- the column joins its neighbour).  Rows the same way."""
-    def crossing(v, axis):
-        lo, hi = (0, 2) if axis == 0 else (1, 3)
-        return any(w["box"][lo] + 1 < v < w["box"][hi] - 1 for w in words)
-
-    def thin(seps, axis, lo_edge, hi_edge):
-        lo, hi = (0, 2) if axis == 0 else (1, 3)
-        seps = sorted(seps)
-        changed = True
-        while changed and seps:
-            changed = False
-            edges = [lo_edge] + seps + [hi_edge]
-            for k in range(len(edges) - 1):
-                a, b = edges[k], edges[k + 1]
-                if not any(a <= (w["box"][lo] + w["box"][hi]) / 2 < b for w in words):
-                    # an empty band: drop the separator bounding it on the inside
-                    drop = k if k > 0 else k + 1
-                    if 1 <= drop <= len(seps):
-                        del seps[drop - 1]
-                        changed = True
-                        break
-        return seps
-    xs = [x for x in xs if not crossing(x, 0)]
-    ys = [y for y in ys if not crossing(y, 1)]
-    return thin(xs, 0, box[0], box[2]), thin(ys, 1, box[1], box[3])
-
-
 @register
 class TextOutput(Stage):
     slot = "output"
@@ -288,10 +256,12 @@ class TextOutput(Stage):
                                          # the rules' / structure network's; "select": the one a learned choice
                                          # (table_wordrel_select, train_wordrel_select.py) prefers (2026-10-01)
         "table_wordrel_select": "",
+        "table_wordrel_header": False,   # ...the word-relation network's header rows over the rules' body when
+                                         # the choice kept the rules' table (headers.graft_header)
         "table_rebuild_centred": False,  # ...the rebuild sees headings centred across both header lines, and
-                                         # short spanners between two columns (wstables.rebuild_header)
+                                         # short spanners between two columns (headers.rebuild_header)
         "table_heading_rows": False,     # a table's crop: headings above its cells over the figure columns
-                                         # ('Year Ended December 31,') put back as header rows (wstables.heading_rows)
+                                         # ('Year Ended December 31,') put back as header rows (headers.heading_rows)
         "math_reader_path": "",          # display equations (lines.equations) READ by the equation reader
                                          # (math/reader.py): LaTeX tokens into layout["equations"], MathML
                                          # into the hOCR's ocr_math beside the image; "" = cut out only
@@ -314,17 +284,10 @@ class TextOutput(Stage):
         "table_cell_features": False,    # ... the cells' features kept in the JSON ('conf_x'), for a harvest
         "table_rebuild_header": False,   # a table's crop: its header rebuilt from its text lines -- wrapped
                                          # headings joined, sub-headings a level down under their spanning
-                                         # heading (wstables.rebuild_header; 2026-10-05)
-        "table_header_rowspans": False,  # a table's crop: in a two-level header, a heading with nothing beneath
-                                         # it spans both header rows (wstables.header_rowspans; 2026-10-04)
+                                         # heading (headers.rebuild_header; 2026-10-05)
         "table_group_rowspans": False,   # a table's crop: a row and its continuation rows (first cell empty,
                                          # fewer cells, within the row's columns) one group; the row's cells
                                          # over empty columns span it (wstables.group_rowspans; 2026-10-03)
-        "table_offset_rowspans": False,  # a table's crop: a cell set midway between its row and the next,
-                                         # that row's cell empty, spans both (wstables.offset_rowspans; 2026-10-03)
-        "table_centred_rowspans": False, # a table's crop: a cell centred between the rows it spans, read as a
-                                         # sparse row of its own, folded back as a row span
-                                         # (wstables.centred_rowspans; 2026-10-03)
         "table_label_rowspans": False,   # a table's crop: a first-column label spans the rows beneath it
                                          # with an empty first cell (wstables.span_row_labels; 2026-09-30)
         "trim_notes_rows": False,        # ...and a caption or note split across cells, or 'Table' misread,
@@ -344,8 +307,6 @@ class TextOutput(Stage):
                                          # it leaves no more of its cells empty than the rules' table
                                          # (measured over PubTables-1M and FinTabNet.c: the network's
                                          # empty cells are the best sign of a wrong grid)
-        "table_split_clean": False,      # ...separators crossing a word dropped, empty bands joined
-                                         # (measured: FinTabNet some tables better, PubTables 0.686 -> 0.610)
         "table_dash_aspect": 2.5,        # ... a dash at least this many times as long as it is tall (1.5 takes a
                                          # screen's anti-aliased hyphen, 15 x 7 px; 2026-10-03)
         "table_dashes": False,           # a line whose ink is one flat bar, read as nothing or as dashes,
@@ -356,8 +317,6 @@ class TextOutput(Stage):
                                          # row of it holding figures (a header of years, a totals row
                                          # outside its extent) -- the learned choice, reading shapes,
                                          # can flip on one cell's text
-        "table_split_extent": "net",     # ...the table's extent: "net" (its inside outputs), "crop"
-                                         # (the whole crop when the page is one table's crop)
         "table_det_mode": "replace",     # ...how: "replace" (its tables only); "merge": the ruled grids
                                          # kept, the whitespace tables its detections (none where it
                                          # finds none, the finders' where it finds nothing on the page);
@@ -717,8 +676,6 @@ class TextOutput(Stage):
                     k += 1
             return best
         ex, ey = extent(qc), extent(qr)
-        if whole and self.params["table_split_extent"] == "crop":
-            ex, ey = (0, len(qc)), (0, len(qr))
         if ex is None or ey is None:
             return t
         box = [x0 + ex[0] * f, y0 + ey[0] * f, x0 + ex[1] * f, y0 + ey[1] * f]
@@ -728,9 +685,6 @@ class TextOutput(Stage):
             box = [min(box[0], t["box"][0]), min(box[1], t["box"][1]), max(box[2], t["box"][2]), max(box[3], t["box"][3])]
         xs = [x for x in (x0 + v for v in separators(pc, f)) if box[0] < x < box[2]]
         ys = [y for y in (y0 + v for v in separators(pr, f)) if box[1] < y < box[3]]
-        tw = [w for w in inw if box[0] <= (w["box"][0] + w["box"][2]) / 2 <= box[2] and box[1] <= (w["box"][1] + w["box"][3]) / 2 <= box[3]]
-        if self.params["table_split_clean"]:
-            xs, ys = _clean_separators(xs, ys, tw, box)
         nt = grid_table(box, xs, ys, inw, self.params["table_cell_lines"])
         return nt if nt is not None else t
 
@@ -916,9 +870,10 @@ class TextOutput(Stage):
             if self.params["table_split_path"]:
                 t = self._split_or_rules(t or {"box": [0, 0, 1, 1]}, page, words, whole=True)
                 t = t if t.get("cells") else None
-            wrel_x = None
+            wrel_x = wt_kept = None
             if self.params["table_wordrel_path"]:
                 wt = self._wordrel_table(layout["lines"])
+                wt_kept = wt
                 if wt is not None and t is not None and t.get("cells"):
                     # the choice's inputs, at the moment of choosing: both tables' shapes and the network's
                     # confidence (kept in the layout, so an evaluation can learn the choice from them)
@@ -946,24 +901,15 @@ class TextOutput(Stage):
             if t is not None and self.params["table_label_rowspans"]:
                 from ..layout.wstables import span_row_labels
                 t = span_row_labels(t)
-            if t is not None and self.params["table_centred_rowspans"]:
-                from ..layout.wstables import centred_rowspans
-                t = centred_rowspans(t)
-            if t is not None and self.params["table_heading_rows"]:
-                from ..layout.wstables import heading_rows
-                t = heading_rows(t, words)
-            if t is not None and self.params["table_rebuild_header"]:
-                from ..layout.wstables import rebuild_header
-                t = rebuild_header(t, words, centred=self.params["table_rebuild_centred"])
-            if t is not None and self.params["table_header_rowspans"]:
-                from ..layout.wstables import header_rowspans
-                t = header_rowspans(t)
+            if t is not None:
+                # the header (layout/headers.py): headings above put back, then two levels rebuilt
+                from ..layout.headers import boxhead
+                t = boxhead(t, words, above=self.params["table_heading_rows"],
+                            rebuild=self.params["table_rebuild_header"], centred=self.params["table_rebuild_centred"],
+                            wt=wt_kept if self.params["table_wordrel_header"] else None)
             if t is not None and self.params["table_group_rowspans"]:
                 from ..layout.wstables import group_rowspans
                 t = group_rowspans(t)
-            if t is not None and self.params["table_offset_rowspans"]:
-                from ..layout.wstables import offset_rowspans
-                t = offset_rowspans(t, words)
             if t is not None:
                 # a new layout dict: the incoming page's stays as its stage left it
                 layout = dict(layout, tables=[t])
