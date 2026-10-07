@@ -87,7 +87,7 @@ run".
 | **CORD** | 100 photographed receipts | phone photos (recall is the honest column) |
 | **blocks** | the text zones of the letter and legal sets, each read alone | recognition with the layout question removed |
 | **synthetic** | one page in the held-out Verdana, three severities | the regression guard |
-| **table sets** | see [TABLES.md §8](TABLES.md) | table structure (TEDS), and the cells' reading (CHARS: character accuracy of the cell text, since 2026-10-04 -- TEDS weighs one wrong character of a cell next to nothing) |
+| **table sets** | see [TABLES.md §8](TABLES.md) | table structure (TEDS), and the cells' reading (CHARS: character accuracy of the cell text, since 2026-10-04 -- TEDS weighs one wrong character of a cell next to nothing; a crop's table is scored from the output's table records -- what the JSON / HTML / CSV give a user, figure-column repairs included -- since 2026-10-07, before that from the layout's cells, about 0.0003 lower) |
 | **screens** | 80 tables drawn by a browser in six styles, 96 / 192 dpi | screenshots: anti-aliased type, colour, dark mode |
 | **equations** | 33 article pages typeset by LaTeX, 174 display equations | finding display equations and their numbers |
 
