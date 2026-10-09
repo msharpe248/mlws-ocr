@@ -15,7 +15,7 @@ the word's characters one to one, each such character's features
 the label.  Crops are chosen among those whose words hold one of the rarer
 symbols, so the classes the reader misses are not starved.
 
-    OMP_NUM_THREADS=1 scripts/harvest_symbols.py ~/pubtables1m/s --n 4000 --workers 16 --out symbols_real.npz
+    OMP_NUM_THREADS=1 scripts/harvest_symbols.py ~/mlws-ocr-data/keep/pubtables1m/s --n 4000 --workers 16 --out symbols_real.npz
 """
 from __future__ import annotations
 

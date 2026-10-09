@@ -19,7 +19,7 @@ rule pixels and spanning cells out of the projection).
                 seed apart from the evaluation sets (data/tables_train): each
                 table cut out with a margin, its drawn cells' boundaries
 
-    scripts/make_split_data.py pubtables --src ~/pubtables1m/s --n 120000 --jobs 14 --out data/split_pt.npz
+    scripts/make_split_data.py pubtables --src ~/mlws-ocr-data/keep/pubtables1m/s --n 120000 --jobs 14 --out data/split_pt.npz
 """
 from __future__ import annotations
 

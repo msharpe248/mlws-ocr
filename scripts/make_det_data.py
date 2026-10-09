@@ -15,7 +15,7 @@ labels (inside a table; a table's border band) from the boxes.
                 from the evaluation sets (data/tables_train/<template>):
                 the drawn tables' boxes; words found in the ink
 
-    scripts/make_det_data.py pubtables --src ~/pubtables1m/d --n 60000 --jobs 14 --out data/det_pt.npz
+    scripts/make_det_data.py pubtables --src ~/mlws-ocr-data/keep/pubtables1m/d --n 60000 --jobs 14 --out data/det_pt.npz
     scripts/make_det_data.py business --src data/tables_train --out data/det_biz.npz
 """
 from __future__ import annotations

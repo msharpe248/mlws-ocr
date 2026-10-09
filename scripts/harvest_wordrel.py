@@ -11,9 +11,9 @@ in decode/output.py) and mapped back to the crop's frame, and they are
 labelled from the crop's annotation exactly as the PDF words are.  The output
 has make_wordrel_data.py's format, so train_wordrel.py reads both.
 
-    OMP_NUM_THREADS=1 scripts/harvest_wordrel.py ~/pubtables1m/s --n 12000 --skip wordrel_pt.npz \\
+    OMP_NUM_THREADS=1 scripts/harvest_wordrel.py ~/mlws-ocr-data/keep/pubtables1m/s --n 12000 --skip wordrel_pt.npz \\
         --out wordrel_pt_eng.npz --workers 16
-    OMP_NUM_THREADS=1 scripts/harvest_wordrel.py ~/pubtables1m/fin/FinTabNet.c-Structure --n 8000 \\
+    OMP_NUM_THREADS=1 scripts/harvest_wordrel.py ~/mlws-ocr-data/keep/pubtables1m/fin/FinTabNet.c-Structure --n 8000 \\
         --set magnify.min_dpi=150 --out wordrel_fin_eng.npz --workers 16
 
 Only TRAINING tables; ``--skip`` leaves out the tables of earlier files

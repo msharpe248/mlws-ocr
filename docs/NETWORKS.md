@@ -130,6 +130,19 @@ were trained on the public sources named below and on nothing else.
 
 Three sources, all public, none of them an evaluation page.
 
+**On the GPU boxes** (ai01, ai02; since 2026-10-09) everything the project
+keeps there lives under one root, `~/mlws-ocr-data/` (on ai02 a link to
+`/opt/msharpe/mlws-ocr-data` on its NVMe):
+
+- `mlws-ocr/` -- the repository clone and its environment, models in `data/`;
+- `keep/` -- not temporary: `pubtables1m/` (the PubTables-1M and FinTabNet.c
+  downloads and their training images), `gray_pilot/` (every harvested
+  reader training file and the readers' ensemble weights, `box_gray_ens*.sh`
+  beside them), `split/`, `det/` (the structure network's and detector's
+  shards), `wordrel/`, `symbols/`, `tab18/`;
+- `temp/` -- launch scripts and logs (`mlws-jobs/`), evaluation shards and
+  skip lists; safe to delete.
+
 **Rendered text.** `factory/synth.py` renders glyphs and pages from the
 pinned font stock (`factory/stock.py`; Verdana and Tahoma are held out for
 the synthetic test) through a physically motivated degradation stack
@@ -941,9 +954,9 @@ column / cell), boxes jittered by a tenth of a word height and 3% of words
 dropped; 20 epochs, about 45 minutes on the RTX 3080 Ti:
 
 ```sh
-.venv/bin/python scripts/make_wordrel_data.py ~/pubtables1m/s --n 100000 --out wordrel_pt.npz
-.venv/bin/python scripts/make_wordrel_data.py ~/pubtables1m/fin/FinTabNet.c-Structure --n 80000 --out wordrel_fin.npz
-OMP_NUM_THREADS=1 .venv/bin/python scripts/harvest_wordrel.py ~/pubtables1m/s --n 4000 --skip wordrel_pt.npz --out wordrel_pt_eng.npz
+.venv/bin/python scripts/make_wordrel_data.py ~/mlws-ocr-data/keep/pubtables1m/s --n 100000 --out wordrel_pt.npz
+.venv/bin/python scripts/make_wordrel_data.py ~/mlws-ocr-data/keep/pubtables1m/fin/FinTabNet.c-Structure --n 80000 --out wordrel_fin.npz
+OMP_NUM_THREADS=1 .venv/bin/python scripts/harvest_wordrel.py ~/mlws-ocr-data/keep/pubtables1m/s --n 4000 --skip wordrel_pt.npz --out wordrel_pt_eng.npz
 OMP_NUM_THREADS=1 .venv/bin/python scripts/harvest_wordrel.py <FinTabNet.c 3,000 training tables> --set magnify.min_dpi=150 --out wordrel_fin_eng.npz
 .venv/bin/python scripts/train_wordrel.py --data wordrel_pt.npz wordrel_fin.npz wordrel_pt_eng.npz:10 wordrel_fin_eng.npz:10 \
     --epochs 20 --out data/wordrel_v3.npz

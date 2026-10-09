@@ -13,8 +13,8 @@ a projected row header is one cell across the whole row.  Pairs follow:
 same row when their row runs meet, same column when their column runs meet,
 same cell when their cells are one.
 
-    scripts/make_wordrel_data.py ~/pubtables1m/s --n 100000 --out wordrel_pt.npz
-    scripts/make_wordrel_data.py ~/pubtables1m/fin/FinTabNet.c-Structure --n 60000 --out wordrel_fin.npz
+    scripts/make_wordrel_data.py ~/mlws-ocr-data/keep/pubtables1m/s --n 100000 --out wordrel_pt.npz
+    scripts/make_wordrel_data.py ~/mlws-ocr-data/keep/pubtables1m/fin/FinTabNet.c-Structure --n 60000 --out wordrel_fin.npz
 
 Only TRAINING tables are read (``<dir>/train``): the evaluation crops come
 from the test splits.
