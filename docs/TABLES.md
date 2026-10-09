@@ -253,7 +253,7 @@ by rules. The table profile adds:
   the neural reader lacks (before them, every '±' in its training trained as
   '?'). On the PubTables-1M test crops it writes 85 of the 97 '±'; the minus
   sign and the en dash it still reads as hyphens, near-identical at 72 dpi
-  (`seq_line_gray15`; PubTables-1M 0.787 → 0.797, CORD 0.476 → 0.493). On a table's crop a second reader takes over, trained harder still on real table lines — the cost of that training, worse receipts, cannot reach a crop (`line_model_path_table`, `seq_line_gray16`; held out, PubTables-1M 0.795 → 0.804). A
+  (`seq_line_gray15`; PubTables-1M 0.787 → 0.797, CORD 0.476 → 0.493). On a table's crop a second reader takes over, trained harder still on real table lines — the cost of that training, worse receipts, cannot reach a crop (`line_model_path_table`, `seq_line_gray16`; held out, PubTables-1M 0.795 → 0.804; since v0.18.12 `seq_line_gray18`, trained on 781k more table lines from fresh training tables, with the per-table word-relation choice refitted on 1,615 unseen tables: held out PubTables-1M 0.8171 → 0.8275, FinTabNet.c 0.8764 → 0.8781). A
   reading run across an empty stretch wider than a word space by far — two
   columns' words joined — is split there (`line_gap_split`).
 - **Rules out of the grey.** The line reader reads the grey page, where the
@@ -316,12 +316,12 @@ The evaluation sets, and where they stand (neural-table, TEDS / TEDS-S):
 | timesheets (generated) † | 20 | 0.612 | **0.942 / 0.964** |
 | paystubs (generated) | 20 | 0.791 | **0.940 / 0.952** |
 | payroll forms (generated) † | 20 | 0.717 | **0.913 / 0.939** |
-| annual-report tables (FinTabNet.c) | 60 | 0.763 | 0.857 / 0.902 |
-| scientific tables (PubTables-1M) | 60 | – | 0.825 / 0.888 |
-| screenshots (FinTabNet.c and PubTables-1M structures drawn by a browser, six styles) | 80 | – | 0.912 / 0.940 |
+| annual-report tables (FinTabNet.c) | 60 | 0.763 | 0.859 / 0.907 |
+| scientific tables (PubTables-1M) | 60 | – | 0.839 / 0.900 |
+| screenshots (FinTabNet.c and PubTables-1M structures drawn by a browser, six styles) | 80 | – | 0.907 / 0.937 |
 | scientific pages, detection F1 | 40 | – | 0.967 |
 
-The two real crop sets were also read on the 240 held-out tables of the same draws, none of which any decision looked at: PubTables-1M 0.816 / 0.885, FinTabNet.c 0.876 / 0.918 (2026-10-07, v0.18.11; v0.18.10 -- the headings-above rule was shaped on held-out losers, RESEARCH; 0.875 at v0.18.8; 0.759 and 0.810 before the word-relation network) — the 60 flatter PubTables-1M ([MEASUREMENT.md §4](MEASUREMENT.md)).
+The two real crop sets were also read on the 240 held-out tables of the same draws, none of which any decision looked at: PubTables-1M 0.828 / 0.887, FinTabNet.c 0.878 / 0.919 (2026-10-09, v0.18.12, scored from the table records; v0.18.11 0.816 / 0.885, 0.876 / 0.918; v0.18.10 -- the headings-above rule was shaped on held-out losers, RESEARCH; 0.875 at v0.18.8; 0.759 and 0.810 before the word-relation network) — the 60 flatter PubTables-1M ([MEASUREMENT.md §4](MEASUREMENT.md)).
 
 † Part of these two sets' gain came from correcting the generated truth
 where it disagreed with its own images (the images are byte-identical);

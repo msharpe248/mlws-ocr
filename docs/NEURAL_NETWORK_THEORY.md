@@ -501,6 +501,7 @@ flowchart LR
     g12 -.->|"3 more epochs,<br/>table lines x1.0"| g13["gray13<br/>not adopted"]
     g9 -->|"gray12's recipe + 19 symbol<br/>classes (± – × ° ...)"| g15["gray15<br/>v0.17.2<br/>neural-table profile"]
     g15 -->|"all table lines,<br/>full weight, 3 epochs"| g16["gray16<br/>v0.18.1<br/>table crops only"]
+    g16 -->|"781k fresh table lines,<br/>3 epochs"| g18["gray18<br/>v0.18.12<br/>table crops only"]
 ```
 
 Every arrow is a fine-tune with the remedies above; every box was measured
@@ -732,7 +733,7 @@ One architecture, trained twice for two jobs:
 - the **word-strip scorer** (`seq_en.npz`) reads a word's window and says
   how likely each of the decoder's candidate spellings is;
 - the **line reader** (`seq_line_gray9_en*.npz` in the neural profile,
-  `seq_line_gray15_en*.npz` in neural-table, `seq_line_gray16_en*.npz` on its table crops; three members each) reads a
+  `seq_line_gray15_en*.npz` in neural-table, `seq_line_gray18_en*.npz` on its table crops; three members each) reads a
   whole line end to end, as a second reading beside the classic decoder's.
 
 **The shape.** A **CRNN** (convolutional recurrent network; Shi, Bai & Yao,

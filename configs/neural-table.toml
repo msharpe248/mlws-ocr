@@ -157,7 +157,7 @@ impl = "hybrid"                # the line reader beside the classic decoder (dec
                                # legal-8 84.4 -> 88.5, news-8 88.2 -> 90.2, blocks broad-30 91.1 -> 95.1).
                                # "beam" is the classic decoder alone.
 line_model_path = "data/seq_line_gray15_en.npz+data/seq_line_gray15_en_2.npz+data/seq_line_gray15_en_3.npz"
-line_model_path_table = "data/seq_line_gray16_en.npz+data/seq_line_gray16_en_2.npz+data/seq_line_gray16_en_3.npz"
+line_model_path_table = "data/seq_line_gray18_en.npz+data/seq_line_gray18_en_2.npz+data/seq_line_gray18_en_3.npz"
 line_symbol_net = "data/symbols_v2.npz"  # table profile: the symbol classifier (recognize/symbols.py) on a table crop's
                                # confusion sets ('-' '–' '−', 'x' '×', 'o' '°', '+' '±', '<' '≤' ...), trained on 116k real
                                # glyphs harvested from PubTables-1M training crops plus rendered ones, gated by typography
@@ -173,7 +173,11 @@ line_model_path_symbols = "data/seq_line_gray17b_en.npz+data/seq_line_gray17b_en
                                # output.lend_symbols): every TEDS / TEDS-S as before; on the held-out PubTables-1M
                                # tables en dashes 128 -> 204 of 428, minus signs 43 -> 54, times 2 -> 8, degrees 2 -> 6
                                # table profile, on a table's CROP only (the 'table' hint; whole pages keep gray15):
-                               # = seq_line_gray16, each gray15 member 3 more epochs with all the harvested table
+                               # = seq_line_gray18 (v0.18.12): each gray16 member 3 more epochs with 781k FRESH table
+                               # lines (8,000 PubTables-1M + 4,000 FinTabNet.c training tables, the dev pool left out)
+                               # beside the old ones, with the word-relation choice refitted (below): held-out
+                               # PubTables-1M 0.8171 -> 0.8275, FinTabNet.c 0.8764 -> 0.8781; screenshots 0.913 -> 0.907
+                               # (before: seq_line_gray16, each gray15 member 3 more epochs with all the harvested table
                                # lines at full weight (gray13's direction, which won report tables and lost receipts;
                                # receipts never reach it). 240 held-out tables each: PubTables-1M 0.795 -> 0.804,
                                # FinTabNet.c 0.849 -> 0.853; the 60 scored 0.797 -> 0.813, 0.839 -> 0.840 (2026-10-03)
@@ -327,7 +331,10 @@ trim_notes_rows = true         # table profile: ...and a caption or note split a
 table_wordrel_path = "data/wordrel_v3.npz"   # table profile: on a table's crop, the word-relation network
                                # (layout/wordrel.py: which words share a row, column, cell) builds a table too ...
 table_wordrel_mode = "select"  # ... and a learned choice keeps its table or the engine's
-table_wordrel_select = "data/wordrel_select.npz"
+table_wordrel_select = "data/wordrel_select_v2.npz"
+                               # v2 (v0.18.12): refitted on gray18's reads over 1,615 tables no network saw
+                               # (draw_unseen_tables.py: 1,000 PubTables-1M training, 750 FinTabNet.c validation);
+                               # v1 was fitted on 257 and flipped between dev and held-out
                                # 240 held-out tables each: PubTables-1M 0.759 -> 0.795, FinTabNet.c 0.810 -> 0.849;
                                # the 60 scored 0.797 -> 0.797, 0.815 -> 0.839; business sets and CORD unchanged
                                # (2026-10-02)

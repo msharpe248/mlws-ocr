@@ -18,7 +18,7 @@ judged before it went live. The measurements themselves are in
 | Character GRU language model | `gru_en.npz` | 258k | classic, neural (`decode.char_lm`) | `train_charlm.py` | public-domain text corpus |
 | Word-strip CRNN scorer | `seq_en.npz` | 285k | neural (`decode.seq_path`) | `train_seq.py` | synthetic word windows + truth-labelled real word strips |
 | Line model for tables, grey strips (same CRNN, 139 classes) | `seq_line_gray15_en.npz`, `_2`, `_3` | 3 × 291k | neural-table (`decode.line_model_path`) | `train_seq.py` | the reader below fine-tuned with table lines cut from PubTables-1M and FinTabNet.c training crops at their PDF text, receipt photo lines weighted up, the tables' symbols (± − – — × ° μ < > ≤ ≥ ’ ‘ “ ” † ‡ · •) as classes with a symbol-rich synthetic set; distilled from itself, L2-SP, EMA |
-| Line model for table crops, grey strips (same CRNN, 139 classes) | `seq_line_gray16_en.npz`, `_2`, `_3` | 3 × 291k | neural-table, on a table's crop only (`decode.line_model_path_table`) | `train_seq.py` | the table reader above trained 3 more epochs with all the harvested table lines (PubTables-1M pt0-7, FinTabNet.c fin0-3) at full weight |
+| Line model for table crops, grey strips (same CRNN, 139 classes) | `seq_line_gray18_en.npz`, `_2`, `_3` | 3 × 291k | neural-table, on a table's crop only (`decode.line_model_path_table`) | `train_seq.py` | gray16 (the gray15 members 3 more epochs with all the harvested table lines, PubTables-1M pt0-7, FinTabNet.c fin0-3) trained 3 more epochs with 781k fresh table lines from 8,000 PubTables-1M and 4,000 FinTabNet.c training tables (v0.18.12; gray16 v0.18.1-v0.18.11) |
 | Symbol reader for table crops (same CRNN, 139 classes) | `seq_line_gray17b_en.npz`, `_2`, `_3` | 3 × 291k | neural-table, on a table's crop, its symbols only (`decode.line_model_path_symbols`) | `train_seq.py` | the gray16 members 2 more epochs with the table-symbol lines `seq_synth_tsym1`, lr 3e-4, L2-SP 1e-3 |
 | Symbol classifier | `symbols_v2.npz` | 270 → 64 → 16 | neural-table, on a table's crop (`decode.line_symbol_net`) | `train_symbols.py` | 116,156 real glyphs from PubTables-1M training crops, the PDF words as truth (`harvest_symbols.py`), ×2, plus rendered glyphs of the confusion sets in table contexts; held-out real crops: dashes 77%, ° 99%, ± 92%, × 95-100%, ≤ ≥ 95-99% |
 | Table cell confidence | `cellconf_v1.npz` | 20 weights | neural-table (`output.table_cell_conf_path`) | `train_cellconf.py` | 41,333 cells of 799 selection tables (PubTables-1M training outside every draw, FinTabNet.c validation), each right when its text is the truth's at its row and column after the grids are lined up |
@@ -36,7 +36,7 @@ judged before it went live. The measurements themselves are in
 | Table structure choice | `table_select.npz` | 19 weights | neural-table (`output.table_split_select`: on a table's crop, the rules' table or the structure network's) | `train_table_select.py` | 297 tables the structure network never saw (FinTabNet.c validation, PubTables-1M training outside its draw), both tables' shapes and which scored higher |
 | Table detector | `tabledet_v1.npz` | 248k | neural-table (`output.table_det_path`, `table_det_mode = "complement"`) | `train_tabledet.py` | PubTables-1M detection training pages (60,000 of Part 1's 230,294) + 1,200 drawn business pages + 900 CORD training receipts (`make_det_data.py`) |
 | Word-relation network | `wordrel_v3.npz` | 321k | neural-table (`output.table_wordrel_path`; on a table's crop, its table or the engine's by `wordrel_select.npz`) | `train_wordrel.py` | the PDF words of 97,165 PubTables-1M and 68,733 FinTabNet.c training tables (`make_wordrel_data.py`) + the ENGINE's words on 3,906 + 2,713 more (`harvest_wordrel.py`, x10) |
-| Word-relation choice | `wordrel_select.npz` | 23 weights | neural-table (`output.table_wordrel_select`) | `train_wordrel_select.py` | 257 tables no table network saw (FinTabNet.c validation, PubTables-1M training outside every draw): both tables' shapes, the network's confidence, which scored higher |
+| Word-relation choice | `wordrel_select_v2.npz` | 32 inputs | neural-table (`output.table_wordrel_select`) | `train_wordrel_select.py` | 1,615 tables no network saw (`draw_unseen_tables.py`: 1,000 PubTables-1M training, 750 FinTabNet.c validation), read with gray18 (v0.18.12; v1, `wordrel_select.npz`, fitted on 257, v0.18.0-v0.18.11) |
 
 The classic engine also builds three learned tables that are not networks
 but come from the same data: the condensed nearest-prototype pool
@@ -124,6 +124,7 @@ were trained on the public sources named below and on nothing else.
 | v0.18.9 (2026-10-06) | forty-three files: v0.18.8's forty-two plus the equation reader `mathread_v2.npz` |
 | v0.18.10 (2026-10-06) | forty-three files: v0.18.9's with the equation reader `mathread_v3.npz` in place of `mathread_v2.npz` |
 | v0.18.11 (2026-10-07) | the same forty-three files as v0.18.10: this release is profile and code (two-level headers the rebuild had refused) |
+| v0.18.12 (2026-10-09) | forty-three files: v0.18.11's with the table-crop reader `seq_line_gray18_en.npz`, `_2`, `_3` in place of `seq_line_gray16_en*` and the word-relation choice `wordrel_select_v2.npz` in place of `wordrel_select.npz` |
 | v0.14.0 (2026-09-27) | twenty-one files: v0.13.0's eighteen plus the reader `seq_line_gray7_en.npz`, `_2`, `_3` (= `seq_line_gray7` seeds 3, 2, 1, EMA weights), the neural profile's reader; the v0.13.0 grey reader stays (it is the new one's teacher and the way back) |
 
 ## Where the training data comes from
@@ -636,6 +637,54 @@ MLWS_EXTRA_CLASSES='*=+@[]_`±−–—×°μ<>≤≥’‘“”†‡·•' .v
     --n 60000 --seed 95 --words 4 10 --take 3 7
 # then gray12's command with the same MLWS_EXTRA_CLASSES, --init seq_line_gray9_<k>_ema.npz, and
 # --synth data/seq_synth_long2.npz data/seq_synth_sym1.npz data/seq_synth_sym2.npz   (ai01: box_gray_ens15.sh)
+```
+
+**v0.18.12: more table lines, and a choice fitted on enough tables**
+(`seq_line_gray18`, `wordrel_select_v2`, 2026-10-08/09; the owner's decision).
+A census of the dev pool's correctly-gridded tables put most of the text loss
+in real misreads ('O' for '0' in figures, a minus read as a hyphen, digits).
+Fresh table lines: 8,000 PubTables-1M and 4,000 FinTabNet.c TRAINING tables
+drawn with seed 8, leaving out the seed-7 draw gray12-16 trained on and the dev
+pool (`harvest_boxes.py --table-seed 8 --table-avoid 7:4000 --table-skip-dir`;
+781,204 lines, 25 min on ai01's CPU). Each gray16 member trained 3 more epochs
+with them beside gray16's data, all table lines at full weight (ai02 two
+members, ai01 one; 42 min; `box_gray_ens18.sh`). Held-out real line word
+accuracy 86.6 / 86.6 / 86.4% (its held-out lines now include the new ones).
+
+The reader alone read better everywhere (dev pool cell text PubTables-1M 0.864
+-> 0.868, FinTabNet.c 0.816 -> 0.818) but the TABLES moved both ways: the per-table
+choices, fitted on gray16's reads, flipped on a few tables (-0.2 to -0.5 each).
+Refitted on 274 tables they helped one set and cost the other, differently on
+the dev pool and held out. So a new fitting set: 1,000 PubTables-1M training
+and 750 FinTabNet.c validation tables none of the networks, reader harvests or
+earlier choices saw (`draw_unseen_tables.py`; the seeded draws recomputed and
+checked against the harvests' recorded pages), read four ways with gray18 on
+ai01 and ai02 (`run_sel3.sh`), both choices refitted. The structure choice so
+refitted still cost FinTabNet.c; the WORD-RELATION choice (`wordrel_select_v2`,
+1,615 tables, 5-fold PubTables-1M 0.846 / FinTabNet.c 0.873 against the better
+single table 0.821 / 0.842) did not. gray18 with it, the structure choice as
+before: dev pool PubTables-1M 0.8015 -> 0.8061, FinTabNet.c 0.8761 -> 0.8809;
+held out 0.8171 -> **0.8275** (158 tables up, 40 down), 0.8764 -> **0.8781**
+(64 up, 43 down), TEDS-S and cell text up on both; the 60 scored 0.826 -> 0.839,
+0.857 -> 0.859; screenshots 0.913 -> 0.907 (two browser-drawn tables flipped by
+the choice, their text better); the business sets unchanged.
+
+```sh
+# on ai01: the fresh lines (8 PubTables-1M parts, 4 FinTabNet.c parts, as harvest_tab.sh)
+.venv/bin/python scripts/harvest_boxes.py --tables ~/mlws-ocr-data/keep/pubtables1m/s --table-n 8000 --table-seed 8 \
+    --table-avoid 7:4000 --table-skip-dir <select_pt> <select2_pt> --table-part K --table-parts 8 --scale 4.17 \
+    --eval-dir <empty> --out bin_tab18_ptK.npz --out-gray gray_tab18_ptK.npz --config configs/neural-table.toml
+# gray16's training command with --init seq_line_gray16_<k>_ema.npz, the gray_tab18_* files added at weight 1,
+# and --distill-skip ... tab_ tab18_   (keep/gray_pilot/box_gray_ens18.sh "1|3" "2|2" on ai02, "3|1" on ai01)
+# the choice: fresh tables, four reads, the fit
+.venv/bin/python scripts/draw_unseen_tables.py <pubtables1m/s> --split train --n 1000 --seed 31 --split-n 100000 \
+    --harvest 7:4000 8:8000+skip --npz <wordrel_pt*.npz> <symbols_real.npz> --skip-dir <select_pt> <select2_pt> --out pt_sel3.txt
+.venv/bin/python scripts/draw_unseen_tables.py <FinTabNet.c-Structure> --split val --n 750 --seed 31 \
+    --npz <wordrel_fin*.npz> --skip-dir <select_fin> <select2_fin> --out fin_sel3.txt
+.venv/bin/python scripts/import_table_sets.py pubtables --src <pubtables1m/s> --names pt_sel3.txt --out sel3/pt   # fintabnet likewise
+# eval_tables.py over sel3 with gray18: --set output.table_wordrel_path= (the engine's table) and
+# --set output.table_wordrel_mode=replace --dump D2 (the network's), then
+.venv/bin/python scripts/train_wordrel_select.py --eng 'eng_*.txt' --net 'net_*.txt' --dump D2 --out data/wordrel_select_v2.npz
 ```
 
 ### Word-confidence calibrator — `decode/wordconf.py`
