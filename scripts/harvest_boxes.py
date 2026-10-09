@@ -170,11 +170,22 @@ def cord_pages(root: Path):
             yield js.with_suffix(".png"), [(tuple(r["box"]), r["text"]) for r in json.loads(js.read_text())]
 
 
-def tables_pages(root: Path, n: int, part: int, parts: int):
+def draw(xmls: list, n: int, seed: int) -> list:
+    """``n`` of the training tables, drawn at random with ``seed``."""
+    if len(xmls) <= n:
+        return xmls
+    rng = np.random.default_rng(seed)
+    return [xmls[i] for i in sorted(rng.choice(len(xmls), n, replace=False))]
+
+
+def tables_pages(root: Path, n: int, part: int, parts: int, seed: int = 7, avoid: tuple = (), skip: set = frozenset()):
+    """A share of ``n`` training tables (seed ``seed``), leaving out the
+    tables of earlier draws (``avoid``: (seed, n) pairs -- the harvests the
+    readers were trained on before) and the stems in ``skip`` (a dev pool
+    drawn from the same training split)."""
     xmls = sorted((root / "train").glob("*.xml"))
-    rng = np.random.default_rng(7)
-    if len(xmls) > n:
-        xmls = [xmls[i] for i in sorted(rng.choice(len(xmls), n, replace=False))]
+    used = {x.stem for sd, k in avoid for x in draw(xmls, k, sd)} | set(skip)
+    xmls = draw([x for x in xmls if x.stem not in used], n, seed)
     for xml in xmls[part::parts]:
         img = root / "images" / f"{xml.stem}.jpg"
         wf = root / "words" / f"{xml.stem}_words.json"
@@ -217,6 +228,10 @@ def main():
     ap.add_argument("--table-n", type=int, default=3000)
     ap.add_argument("--table-part", type=int, default=0)
     ap.add_argument("--table-parts", type=int, default=1)
+    ap.add_argument("--table-seed", type=int, default=7, help="the draw's seed (7: the first harvests')")
+    ap.add_argument("--table-avoid", nargs="*", default=[], help="earlier draws left out, as SEED:N (e.g. 7:4000)")
+    ap.add_argument("--table-skip-dir", type=Path, nargs="*", default=[],
+                    help="directories of *.table.html whose stems are left out (a dev pool from the training split)")
     ap.add_argument("--eval-dir", type=Path, required=True, help="the evaluation split to exclude (stems)")
     ap.add_argument("--out", required=True)
     ap.add_argument("--out-gray", default="", help="also write every strip as a GREY twin (one byte of ink per pixel)")
@@ -227,7 +242,10 @@ def main():
     excluded = {p.stem for p in args.eval_dir.glob("*.tif")}
     pipeline = load_pipeline(args.config)
     src = (sroie_pages(args.sroie) if args.sroie else cord_pages(args.cord) if args.cord
-           else tables_pages(args.tables, args.table_n, args.table_part, args.table_parts) if args.tables
+           else tables_pages(args.tables, args.table_n, args.table_part, args.table_parts, args.table_seed,
+                             tuple(tuple(int(v) for v in a.split(":")) for a in args.table_avoid),
+                             {p.name[: -len(".table.html")] for d in args.table_skip_dir for p in d.glob("*.table.html")})
+           if args.tables
            else funsd_pages(args.funsd))
     strips, widths, labels, pages, xhs, grays = [], [], [], [], [], []
     n_pages = 0
