@@ -30,11 +30,11 @@ import numpy as np
 def scores(pattern: str) -> dict[str, tuple[float, str]]:
     d = {}
     for f in glob.glob(pattern):
-        tag = "fin" if "_fin_" in f else "pt"
         for line in open(f):
             m = re.match(r"\s+(\S+): TEDS ([\d.]+)\s+TEDS-S", line)
             if m:
-                d[m.group(1)] = (float(m.group(2)), tag)
+                # the set from the table's name (PubTables-1M's are PubMed Central articles), not the log's
+                d[m.group(1)] = (float(m.group(2)), "pt" if m.group(1).startswith("PMC") else "fin")
     return d
 
 
