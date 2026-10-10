@@ -37,6 +37,7 @@ judged before it went live. The measurements themselves are in
 | Table detector | `tabledet_v1.npz` | 248k | neural-table (`output.table_det_path`, `table_det_mode = "complement"`) | `train_tabledet.py` | PubTables-1M detection training pages (60,000 of Part 1's 230,294) + 1,200 drawn business pages + 900 CORD training receipts (`make_det_data.py`) |
 | Word-relation network | `wordrel_v3.npz` | 321k | neural-table (`output.table_wordrel_path`; on a table's crop, its table or the engine's by `wordrel_select.npz`) | `train_wordrel.py` | the PDF words of 97,165 PubTables-1M and 68,733 FinTabNet.c training tables (`make_wordrel_data.py`) + the ENGINE's words on 3,906 + 2,713 more (`harvest_wordrel.py`, x10) |
 | Word-relation choice | `wordrel_select_v2.npz` | 32 inputs | neural-table (`output.table_wordrel_select`) | `train_wordrel_select.py` | 1,615 tables no network saw (`draw_unseen_tables.py`: 1,000 PubTables-1M training, 750 FinTabNet.c validation), read with gray18 (v0.18.12; v1, `wordrel_select.npz`, fitted on 257, v0.18.0-v0.18.11) |
+| Table sequence reader (in training) | none yet (`tseq_pilot.pt` on ai02) | 1.88M | none (a candidate fourth table builder) | `train_tableseq.py` | PubTables-1M and FinTabNet.c structure training tables as OTSL tokens with cell boxes (`make_tableseq_data.py`); pilot 28k tables, full run 310k + 78k |
 
 The classic engine also builds three learned tables that are not networks
 but come from the same data: the condensed nearest-prototype pool
@@ -1030,6 +1031,57 @@ scripts/eval_tables.py <the 274 tables> ... --set output.table_wordrel_path=data
 5-fold: PubTables-1M 0.805 -> 0.836, FinTabNet.c 0.832 -> 0.864.  In
 neural-table on the 240 held-out tables of each set: PubTables-1M 0.759 ->
 0.795, FinTabNet.c 0.810 -> 0.849 (RESEARCH 2026-10-01).
+
+### Table sequence reader — `layout/tableseq.py`, `scripts/train_tableseq.py` (in training, not in a profile)
+
+**Purpose.** A fourth table builder that does not start from the engine's
+rulings, words or row and column cuts: the table's IMAGE in, its grid out
+as a token sequence (image-to-markup, after EDD, Zhong et al., ECCV 2020,
+and TableFormer, Nassar et al., CVPR 2022, trained from scratch). The
+tokens are OTSL (Lysak et al., ICDAR 2023): `fcel` / `ecel` a cell with or
+without text, `lcel` a span from the left, `ucel` from above, `xcel` both,
+`nl` a row's end -- every row the same length, so a grid is easy to check
+and `tableseq.decode` turns any sequence, invalid ones too, into a grid.
+Each cell-starting token carries the cell's box, where the engine's words
+will be placed.
+
+**Shape.** 1.88M parameters. Encoder: the table grey, longer side 448 px,
+ink 1; five 3x3 convolution blocks (32-64-128-192-256 channels) with four
+2x2 pools and the equation reader's 2-D sinusoidal position code. Decoder:
+a GRU (embedding 64, hidden 384) with additive attention (192) over the
+map; the next token from [state, context]; a box head (128 -> 4) on the
+same. Loss: cross-entropy + 2 x L1 on the cell boxes.
+
+**Data.** `make_tableseq_data.py` encodes each structure training table
+from its row, column and spanning-cell boxes (`tableseq.grid_cells`,
+`encode`), the image scaled to 448, tables over 400 tokens left out (about
+1%); the dev pool (`select_*`, `select2_*`) and the fitting set `sel3` are
+never drawn.
+
+**Training.** Gentle by the owner's rule (one job a box, `nice -n 19`,
+`--duty 0.5`: it sleeps half of each step's time; temperatures logged).
+The pilot, 35 minutes on ai02's RTX 3090:
+
+```sh
+scripts/make_tableseq_data.py ~/mlws-ocr-data/keep/pubtables1m/s --split train --n 20000 --seed 41 \
+    --skip-dir select_pt select2_pt sel3/pt --part K --parts 4 --out tseq_pt_K.npz        # and FinTabNet.c, --n 8000
+scripts/train_tableseq.py --data "tseq_*.npz" --epochs 8 --batch 16 --duty 0.5 --out tseq_pilot.pt
+scripts/eval_tableseq.py dev_pt_* --model tseq_pilot.pt --log 'dv_<tag>_pt_?.txt'     # TEDS-S beside the engine's
+```
+
+Held back: tokens 94.4% (teacher-forced), sequences exact 23.6%, boxes
+9.4 px. Dev pool, read freely, TEDS-S: PubTables-1M 0.820 (v0.18.12 0.868;
+better on 111 of 400), FinTabNet.c 0.728 (0.919; better on 42).
+
+The full run (2026-10-10, under way): 310,000 PubTables-1M (seed 42, 31
+parts) and every FinTabNet.c training table (8 parts), built by
+`temp/mlws-jobs/make_tseq2.sh` on ai01 (six low-priority processes),
+trained on ai02 streamed four parts at a time:
+
+```sh
+scripts/train_tableseq.py --data "tseq2_*.npz" --stream 4 --val-data tseq2_pt_00.npz tseq2_fin_00.npz --val-n 300 \
+    --epochs 15 --lr-steps 10 13 --batch 16 --duty 0.5 --out tseq2.pt
+```
 
 ## Rebuilding everything from scratch
 

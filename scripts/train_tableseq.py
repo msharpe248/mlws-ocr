@@ -25,7 +25,15 @@ boxes are not run at full load for days): ``--duty`` sleeps after every step
 for that share of the step's own time (0.5: the GPU about half busy), and
 ``--max-minutes`` ends a session -- sessions continue with ``--init``.
 
+A large set is STREAMED (``--stream N``): each epoch the part files are taken
+in a shuffled order, N at a time, so only those parts sit in memory (300,000
+tables are about 38 GB as pixels); the held-back tables are the first
+``--val-n`` of each ``--val-data`` file, which are kept out of training.
+``--lr-steps`` divides the learning rate by 3 at those epochs.
+
     scripts/train_tableseq.py --data tseq_pt_*.npz tseq_fin_*.npz --epochs 4 --duty 0.5 --out tableseq_pilot.pt
+    scripts/train_tableseq.py --data "tseq2_*.npz" --stream 4 --val-data tseq2_pt_00.npz tseq2_fin_00.npz \
+        --epochs 15 --lr-steps 10 13 --duty 0.5 --out tseq2.pt
 """
 from __future__ import annotations
 
@@ -154,29 +162,64 @@ def main():
     ap.add_argument("--duty", type=float, default=0.5, help="sleep this share of each step's time after it (gentle)")
     ap.add_argument("--max-minutes", type=float, default=0, help="end the session after this long (0: no limit)")
     ap.add_argument("--init", type=Path, default=None, help="continue from a saved state")
+    ap.add_argument("--stream", type=int, default=0, help="load the part files this many at a time (0: all at once)")
+    ap.add_argument("--val-data", nargs="*", default=[], help="with --stream: the files whose first --val-n are held back")
+    ap.add_argument("--val-n", type=int, default=300)
+    ap.add_argument("--lr-steps", type=int, nargs="*", default=[], help="divide the learning rate by 3 at these epochs")
     ap.add_argument("--device", default="cuda")
     ap.add_argument("--out", type=Path, required=True)
     args = ap.parse_args()
     rng = random.Random(1); torch.manual_seed(1)
     paths = sorted(p for pat in args.data for p in glob.glob(pat))
-    names, ims, toks, boxes = load(paths)
-    idx = list(range(len(ims))); random.Random(0).shuffle(idx)
-    nv = max(50, int(args.val_frac * len(idx)))
-    val = [[a[i] for i in idx[:nv]] for a in (names, ims, toks, boxes)]
-    tr = [[a[i] for i in idx[nv:]] for a in (names, ims, toks, boxes)]
+    vfiles = {str(Path(p).resolve()) for pat in args.val_data for p in glob.glob(pat)}
+
+    def part(p):
+        """One part file, its held-back head cut off when it is a validation file."""
+        d = load([p])
+        return [a[args.val_n:] for a in d] if str(Path(p).resolve()) in vfiles else d
+
+    if args.stream:
+        val = [[], [], [], []]
+        for p in sorted(vfiles):
+            for a, b in zip(val, load([p])):
+                a += b[:args.val_n]
+        nv, ntr = len(val[0]), None
+    else:
+        names, ims, toks, boxes = load(paths)
+        idx = list(range(len(ims))); random.Random(0).shuffle(idx)
+        nv = max(50, int(args.val_frac * len(idx)))
+        val = [[a[i] for i in idx[:nv]] for a in (names, ims, toks, boxes)]
+        tr = [[a[i] for i in idx[nv:]] for a in (names, ims, toks, boxes)]
+        ntr = len(tr[0])
+
+    def train_chunks():
+        """The training tables, all at once or N part files at a time."""
+        if not args.stream:
+            yield tr
+            return
+        order = paths[:]; rng.shuffle(order)
+        for k in range(0, len(order), args.stream):
+            d = [[], [], [], []]
+            for p in order[k:k + args.stream]:
+                for a, b in zip(d, part(p)):
+                    a += b
+            yield d
+            del d
     model = build().to(args.device)
     opt = torch.optim.Adam(model.parameters(), lr=args.lr)
     ep0 = 0
     if args.init and args.init.exists():
         st = torch.load(args.init, map_location=args.device)
         model.load_state_dict(st["model"]); opt.load_state_dict(st["opt"]); ep0 = st.get("epoch", 0)
-    print(f"{len(tr[0])} training tables, {nv} held back; {sum(p.numel() for p in model.parameters())} parameters; "
+    print(f"{ntr if ntr is not None else f'{len(paths)} part files of'} training tables, {nv} held back; {sum(p.numel() for p in model.parameters())} parameters; "
           f"duty {args.duty}", flush=True)
     ce = torch.nn.CrossEntropyLoss(ignore_index=0)
     t0 = time.time()
     for ep in range(ep0, args.epochs):
+        for g in opt.param_groups:
+            g["lr"] = args.lr / 3 ** sum(ep >= e for e in args.lr_steps)
         model.train(); tot = n = 0
-        for x, m, y, b in batches(tr, args.batch, rng, aug=True):
+        for x, m, y, b in (bt for chunk in train_chunks() for bt in batches(chunk, args.batch, rng, aug=True)):
             s0 = time.time()
             x, m, y, b = x.to(args.device), m.to(args.device), y.to(args.device), b.to(args.device)
             logit, bx = model(x, m, y)
@@ -209,6 +252,7 @@ def main():
               f"sequences exact {exact / max(1, nseq):.3f}  box L1 {np.mean(l1) if l1 else 0:.1f} px  "
               f"{(time.time() - t0) / 60:.0f} min", flush=True)
         torch.save({"model": model.state_dict(), "opt": opt.state_dict(), "epoch": ep + 1}, args.out)
+        torch.save({"model": model.state_dict(), "epoch": ep + 1}, args.out.with_suffix(f".e{ep + 1}.pt"))
         if args.max_minutes and time.time() - t0 > 60 * args.max_minutes:
             print("session time up", flush=True)
             break
