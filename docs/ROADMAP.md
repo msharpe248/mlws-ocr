@@ -35,7 +35,13 @@ evaluation as a check (neural-table 0.518), not a target.
    (rows joined, often over a row span).
 3. Text: 0.070 of PubTables-1M's TEDS, 0.020 of it in tables whose grid is
    right -- the reader on table crops.
-4. Done since the last list: the dash and symbol reader (v0.18.6-7), cell
+4. A new structure source (from 2026-10-10, the owner's option 1): the table
+   sequence reader (OTSL tokens from the pixels, trained gently on ai02), its
+   table chosen per crop over the builders' (`table_seq_mode = "select"`;
+   held out PubTables-1M 0.828 -> 0.846 at epoch 6). Then: the final model, an
+   adoption to decide, a gentle FinTabNet.c run for unseen companies'
+   styles.
+5. Done since the last list: the dash and symbol reader (v0.18.6-7), cell
    confidence (v0.18.8), display equations read (v0.18.9; v3 reader and a
    beam measured, an adoption to decide); row spans tried (label only kept).
 

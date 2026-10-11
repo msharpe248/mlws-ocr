@@ -88,6 +88,18 @@ def wordrel_choice_inputs(t: dict, wt: dict) -> np.ndarray:
     return x
 
 
+def tableseq_choice_inputs(t: dict | None, st: dict, seq_x: list[float], ruled: bool) -> list[float]:
+    """The builders-or-sequence-reader choice's inputs: the reader's
+    confidence and shape (7 numbers: mean, least and mean log token
+    probability, rows, columns, rows of equal length, tokens), whether the
+    builders' table came from rulings, then both tables' shapes and their
+    differences (select_inputs; the builders' all zero when they made no
+    table) -- 26 numbers."""
+    a = table_features(t["cells"], t["n_rows"], t["n_cols"]) if t and t.get("cells") else [0.0] * 6
+    b = table_features(st["cells"], st["n_rows"], st["n_cols"])
+    return [float(v) for v in seq_x] + [float(ruled)] + [float(v) for v in select_inputs(a, b)]
+
+
 def select_inputs(a: list[float], b: list[float]) -> np.ndarray:
     """The chooser's inputs: the rules' table's features, the network's, and
     their differences."""
@@ -261,7 +273,9 @@ class TextOutput(Stage):
                                          # cells by their predicted boxes; its reading kept in the layout
                                          # ('tableseq') ...
         "table_seq_mode": "replace",     # ... "replace": its table in place of the builders' choice; "record":
-                                         # only kept beside it (2026-10-10, in trial)
+                                         # only kept beside it (2026-10-10, in trial); "select": the one a
+                                         # learned choice (table_seq_select, train_tableseq_select.py) prefers
+        "table_seq_select": "",
         "table_rebuild_centred": False,  # ...the rebuild sees headings centred across both header lines, and
                                          # short spanners between two columns (headers.rebuild_header)
         "table_heading_rows": False,     # a table's crop: headings above its cells over the figure columns
@@ -610,6 +624,17 @@ class TextOutput(Stage):
         return st, [float(np.mean(prs)), float(np.min(prs)), float(np.mean(np.log(prs))),
                     st["n_rows"], st["n_cols"], float(len(set(lens)) == 1), len(toks)]
 
+    def _seq_prefer(self, x: list[float]) -> bool:
+        """The learned builders-or-reader choice (table_seq_select): True
+        when it prefers the sequence reader's table."""
+        path = self.params["table_seq_select"]
+        key = ("seq_select", path)
+        if key not in self._nets:
+            z = np.load(path)
+            self._nets[key] = (z["w"], float(z["b"]), z["mu"], z["sd"])
+        w, b0, mu, sd = self._nets[key]
+        return float(((np.asarray(x)[: len(mu)] - mu) / sd) @ w + b0) > 0
+
     def _split_or_rules(self, t: dict, page: Page, words: list[dict], whole: bool = False) -> dict:
         """The structure network's table, or the rules' when it is chosen by
         ``table_split_select``."""
@@ -838,14 +863,17 @@ class TextOutput(Stage):
         full = "\n\n".join("\n".join(lines) for _, lines in sorted(blocks.items()))
 
         # A table's crop with a ruled grid, read by the sequence reader instead (output.table_seq_path,
-        # "replace"): the reader's grid in place of the rulings'
-        seq_ruled = None
+        # "replace"): the reader's grid in place of the rulings' ("select": when the learned choice
+        # prefers it)
         crop_types = [t for t in self.params["ws_table_doc_types"].split(",") if t]
-        if (self.params["table_seq_path"] and self.params["table_seq_mode"] == "replace" and layout.get("tables")
-                and ("*" in crop_types or doc_type in crop_types)):
+        if (self.params["table_seq_path"] and self.params["table_seq_mode"] in ("replace", "select")
+                and layout.get("tables") and ("*" in crop_types or doc_type in crop_types)):
             st, seq_ruled = self._seq_table(page, [w for ln in layout["lines"] for w in ln.get("words", [])])
             if st is not None:
-                layout = dict(layout, tables=[st], tableseq_x=seq_ruled)
+                x = tableseq_choice_inputs(layout["tables"][0], st, seq_ruled, True)
+                if self.params["table_seq_mode"] == "replace" or self._seq_prefer(x):
+                    layout = dict(layout, tables=[st])
+                layout = dict(layout, tableseq_x=x)
 
         # Table text: place decoded words into their cells by box center.
         tables_text = []
@@ -925,10 +953,14 @@ class TextOutput(Stage):
             seq_x = None
             if self.params["table_seq_path"]:
                 st, seq_x = self._seq_table(page, words)
-                if st is not None and (self.params["table_seq_mode"] == "replace" or t is None or not t.get("cells")):
-                    if t is not None:
-                        t.pop("_judge", None)
-                    t = st
+                if st is not None:
+                    seq_x = tableseq_choice_inputs(t, st, seq_x, False)
+                    mode = self.params["table_seq_mode"]
+                    if (mode == "replace" or t is None or not t.get("cells")
+                            or (mode == "select" and self.params["table_seq_select"] and self._seq_prefer(seq_x))):
+                        if t is not None:
+                            t.pop("_judge", None)
+                        t = st
             if t is not None:
                 t.pop("_judge", None)
             if t is not None and self.params["trim_notes"]:

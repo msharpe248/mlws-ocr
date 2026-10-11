@@ -237,6 +237,14 @@ Four self-trained networks join the rules (their shapes and training:
   FinTabNet.c 0.810 → 0.849). It learned from the datasets' PDF words and
   from the engine's own words on the same kind of crop: trained on the
   PDF words alone, it lost to the engine on the engine's words.
+- **The table sequence reader** (an option, in trial) looks at a table
+  crop's PIXELS and writes its grid as a sequence of cell tokens (OTSL:
+  a filled cell, an empty one, a cell joined to its left or upper
+  neighbour, a new row), with a box for every cell; the engine's words go
+  into the cells by those boxes. A fitted choice over its confidence and
+  both tables' shapes keeps its table or the builders' (held out,
+  PubTables-1M 0.828 → 0.846 with an early checkpoint; FinTabNet.c, whose
+  test companies it never saw, unchanged: the choice keeps the builders').
 
 The pattern is the engine's usual one: the network is a candidate or a
 witness beside an explicit rule, never an unexamined replacement.

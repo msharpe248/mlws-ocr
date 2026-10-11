@@ -1091,7 +1091,22 @@ torch model, `tests/test_tableseq.py`) and `fill` puts the engine's words in
 its cells.  `output.table_seq_mode` "replace" uses its table on a table's
 crop (ruled or not); "record" only keeps its confidence and shape in the
 layout (`tableseq_x`, dumped by `eval_tables.py --dump` as `<stem>.tseq.json`)
-for a choice to learn from.
+for a choice to learn from; "select" keeps the reader's table where a learned
+choice (`output.table_seq_select`) prefers it.  The choice's 26 inputs
+(`decode/output.py` `tableseq_choice_inputs`: the reader's confidence and
+shape, whether the builders' table came from rulings, both tables' shapes and
+their differences) come from a "replace" run over tables the reader did not
+train on, its logs set beside the profile's own run on the same tables:
+
+```bash
+data/evalruns/s3.sh prof                                             # the profile on sel3
+data/evalruns/s3.sh seq --set output.table_seq_path=$PWD/data/tableseq_v1.npz
+.venv/bin/python scripts/train_tableseq_select.py --eng "$SP/s3_prof_*_?.txt" --net "$SP/s3_seq_*_?.txt" \
+    --dump $SP/s3_seq_pt $SP/s3_seq_fin --out data/tableseq_select.npz
+```
+
+With the epoch-6 model (2026-10-11): held out, PubTables-1M 0.8275 → 0.8457,
+FinTabNet.c 0.8781 unchanged (RESEARCH).
 
 ## Rebuilding everything from scratch
 

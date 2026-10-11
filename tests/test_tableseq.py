@@ -79,3 +79,15 @@ def test_numpy_reader_matches_torch(tmp_path):
     toks, boxes, _ = rd.read(g, max_len=12)
     assert [INDEX[t] for t in toks] == out
     assert np.allclose(np.array(boxes), np.array(bx), atol=1e-3)
+
+
+def test_choice_inputs():
+    from mlws_ocr.decode.output import tableseq_choice_inputs
+    st = {"n_rows": 2, "n_cols": 2, "cells": [{"row": r, "col": c, "text": "12 34" if r else "Year"}
+                                              for r in range(2) for c in range(2)]}
+    x = tableseq_choice_inputs(None, st, [0.9, 0.5, -0.1, 2, 2, 1.0, 6], ruled=True)
+    assert len(x) == 26 and x[7] == 1.0
+    assert x[8:14] == [0.0] * 6                       # no builders' table: its shape all zero
+    assert x[14:20] == x[20:26]                       # the differences, then, the reader's own shape
+    y = tableseq_choice_inputs(st, st, [0.9, 0.5, -0.1, 2, 2, 1.0, 6], ruled=False)
+    assert y[7] == 0.0 and y[20:26] == [0.0] * 6
