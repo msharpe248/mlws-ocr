@@ -1091,6 +1091,34 @@ epoch 6, unsteady at 24-40% over epochs 7-9 (the rate too high), then 57%,
 3.8 px.  Its table in place of the builders' ("replace") on sel3:
 PubTables-1M TEDS 0.879 (the builders' 0.834), FinTabNet.c 0.495 (0.874).
 
+**The fine-tune, v3** (2026-10-11, the owner's go-ahead; under way): the
+scored sets showed v1 losing on screenshots (0.907 → 0.876, nearly all
+ruled grids, one row dropped) and reading FinTabNet.c poorly alone.  Both
+are MARGINS, not companies: the datasets' images keep their padding, our
+FinTabNet.c and screenshot crops are cut tight, and v1 learned each
+source's convention -- 80 tight FinTabNet.c dev crops scored TEDS-S 0.711
+read as they are, 0.965 padded 16 px, while padding PubTables-1M's lowered
+them (0.950 → 0.896), and no one trim-and-pad suited both.  So v3 continues
+v1's state five epochs (16-20, lr / 9 then / 27) with half the tables set in
+new random margins (`--margins 0.5`, `remargin`: cut to the ink, 0-40 px a
+side, boxes moved with it), stronger augmentation (`--aug strong`: paper and
+ink levels and a gamma, resampling down and back, JPEG -- the reader's
+grey-level brittleness), and 60,000 DRAWN tables beside the real ones
+(`make_tableseq_drawn.py`, on the Mac for its fonts: three in four in a
+financial statement's manner, the rest the general drawn tables), held back
+per file with 300 FinTabNet.c VALIDATION tables (companies never trained
+on; `tseq3_finval.npz`, the dev pool and sel3 left out):
+
+```sh
+scripts/make_tableseq_drawn.py --n 15000 --seed K --out tseq3_drawn_0K.npz            # K = 1..4
+scripts/make_tableseq_data.py FinTabNet.c-Structure --split val --n 600 --seed 7 \
+    --skip-dir select_fin select2_fin sel3/fin --out tseq3_finval.npz
+cp tseq2.pt tseq3.pt
+scripts/train_tableseq.py --data "tseq2_*.npz" "tseq3_drawn_*.npz" --stream 4 --aug strong --margins 0.5 \
+    --init tseq3.pt --val-data tseq2_pt_00.npz tseq2_fin_00.npz tseq3_finval.npz --val-n 300 \
+    --epochs 20 --lr-steps 10 13 18 --batch 16 --duty 0.5 --out tseq3.pt
+```
+
 **In the engine** (an option, off in every profile): `output.table_seq_path`
 names the reader's weights, exported from a saved state with
 `scripts/train_tableseq.py --export tseq2.e15.pt --out data/tableseq_v1.npz` (above);

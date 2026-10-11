@@ -35,6 +35,8 @@ tables are about 38 GB as pixels); the held-back tables are the first
     scripts/train_tableseq.py --data "tseq2_*.npz" --stream 4 --val-data tseq2_pt_00.npz tseq2_fin_00.npz \
         --epochs 15 --lr-steps 10 13 --duty 0.5 --out tseq2.pt
     scripts/train_tableseq.py --export tseq2.e15.pt --out data/tableseq_v1.npz      # for the engine
+    scripts/train_tableseq.py --data "tseq2_*.npz" "tseq3_drawn_*.npz" --stream 4 --aug strong --margins 0.5 --init tseq3.pt \
+        --val-data tseq2_pt_00.npz tseq2_fin_00.npz tseq3_finval.npz --epochs 20 --lr-steps 10 13 18 --out tseq3.pt
 """
 from __future__ import annotations
 
@@ -82,28 +84,86 @@ def augment(g, rng):
     return g
 
 
-def batches(data, size, rng, aug):
+def augment_strong(g, rng):
+    """``--aug strong``: also what an unseen house style, scanner or renderer
+    changes -- the paper and ink levels (paper 0.7-1, ink up to 0.45: grey
+    print, a tinted page) and a gamma; the table resampled down and back
+    (0.3-0.9 of its size, nearest, bilinear or bicubic: a 72-dpi rendering,
+    a page scaled twice); JPEG at quality 20-70.  The trained reader turned a
+    19-row table into 49 rows when its image was multiplied by 0.95."""
+    import io
+    from PIL import Image
+    if rng.random() < 0.4:
+        h, w = g.shape
+        f = rng.uniform(0.3, 0.9)
+        how = rng.choice([Image.NEAREST, Image.BILINEAR, Image.BICUBIC])
+        im = Image.fromarray(g).resize((max(1, round(w * f)), max(1, round(h * f))), how)
+        g = np.asarray(im.resize((w, h), rng.choice([Image.BILINEAR, Image.BICUBIC])), np.uint8)
+    if rng.random() < 0.3:
+        buf = io.BytesIO()
+        Image.fromarray(g).save(buf, "JPEG", quality=rng.randint(20, 70))
+        g = np.asarray(Image.open(buf).convert("L"), np.uint8)
+    g = augment(g, rng)
+    if rng.random() < 0.5:
+        paper, ink = rng.uniform(0.7, 1.0), rng.uniform(0.0, 0.45)
+        g = ink + (paper - ink) * g ** rng.uniform(0.6, 1.6)
+    return g.astype(np.float32)
+
+
+def remargin(im, bx, rng, most=40.0):
+    """``--margins``: the table cut to its ink and set in new margins, each
+    side 0 to ``most`` px of the 448-px image, then brought back to 448 --
+    its cells' boxes moved and scaled with it.  The sets differ in their
+    crops' margins (PubTables-1M's images keep the dataset's padding, a
+    FinTabNet.c crop or a screenshot can be cut tight), and a reader trained
+    on one convention drops a row on the other: on 80 tight FinTabNet.c dev
+    crops its structure scored TEDS-S 0.711, the same crops padded 16 px
+    0.965, while padding PubTables-1M's lowered them (0.950 -> 0.896)."""
+    from PIL import Image
+    paper = float(np.median(im))
+    ink = np.argwhere(im < paper - 64)
+    if not len(ink):
+        return im, bx
+    (y0, x0), (y1, x1) = ink.min(0), ink.max(0)
+    crop = im[y0:y1 + 1, x0:x1 + 1]
+    h, w = crop.shape
+    ml, mt, mr, mb = (int(round(rng.uniform(0, most) * max(h, w) / SIDE)) for _ in range(4))
+    canvas = np.full((h + mt + mb, w + ml + mr), paper, np.uint8)
+    canvas[mt:mt + h, ml:ml + w] = crop
+    s = SIDE / max(canvas.shape)
+    out = Image.fromarray(canvas).resize((max(1, round(canvas.shape[1] * s)), max(1, round(canvas.shape[0] * s))),
+                                         Image.BILINEAR)
+    b = (bx - np.array([x0, y0, x0, y0], np.float32) + np.array([ml, mt, ml, mt], np.float32)) * s
+    b[:, 0::2] = np.clip(b[:, 0::2], 0, out.size[0]); b[:, 1::2] = np.clip(b[:, 1::2], 0, out.size[1])
+    return np.asarray(out, np.uint8), b
+
+
+def batches(data, size, rng, aug, margins=0.0):
     names, ims, toks, boxes = data
     import torch
     order = sorted(range(len(ims)), key=lambda i: (ims[i].shape[0] // 64, len(toks[i])))
     groups = [order[i:i + size] for i in range(0, len(order), size)]
     rng.shuffle(groups)
     for g in groups:
-        H = max(ims[i].shape[0] for i in g); W = max(ims[i].shape[1] for i in g)
+        items = []
+        for i in g:
+            im, bx = ims[i], boxes[i]
+            if margins and rng.random() < margins:
+                im, bx = remargin(im, bx, rng)
+            items.append((aug(im, rng) if aug else im.astype(np.float32) / 255.0, bx, toks[i]))
+        H = max(it[0].shape[0] for it in items); W = max(it[0].shape[1] for it in items)
         H, W = ((H + 15) // 16) * 16, ((W + 15) // 16) * 16
         x = np.zeros((len(g), 1, H, W), np.float32)
         m = np.zeros((len(g), H // 16, W // 16), np.float32)
-        L = max(len(toks[i]) for i in g) + 2
+        L = max(len(t) for _, _, t in items) + 2
         y = np.zeros((len(g), L), np.int64)
         b = np.full((len(g), L, 4), np.nan, np.float32)
-        for k, i in enumerate(g):
-            im = augment(ims[i], rng) if aug else ims[i].astype(np.float32) / 255.0
+        for k, (im, bx, t) in enumerate(items):
             h, w = im.shape
             x[k, 0, :h, :w] = 1.0 - im                              # ink 1, paper 0
             m[k, :(h + 15) // 16, :(w + 15) // 16] = 1
-            t = toks[i]
             y[k, 0] = INDEX["<s>"]; y[k, 1:1 + len(t)] = t; y[k, 1 + len(t)] = INDEX["</s>"]
-            b[k, 1:1 + len(t)] = boxes[i] / SIDE
+            b[k, 1:1 + len(t)] = bx / SIDE
         yield torch.from_numpy(x), torch.from_numpy(m), torch.from_numpy(y), torch.from_numpy(b)
 
 
@@ -184,6 +244,10 @@ def main():
     ap.add_argument("--val-data", nargs="*", default=[], help="with --stream: the files whose first --val-n are held back")
     ap.add_argument("--val-n", type=int, default=300)
     ap.add_argument("--lr-steps", type=int, nargs="*", default=[], help="divide the learning rate by 3 at these epochs")
+    ap.add_argument("--aug", choices=["scan", "strong"], default="scan",
+                    help="scan: blur, noise, contrast; strong: also grey levels, resampling, JPEG")
+    ap.add_argument("--margins", type=float, default=0.0,
+                    help="share of training tables set in new random margins (remargin)")
     ap.add_argument("--device", default="cuda")
     ap.add_argument("--export", type=Path, default=None, help="write this saved state's weights as --out (.npz) and stop")
     ap.add_argument("--out", type=Path, required=True)
@@ -204,11 +268,11 @@ def main():
         return [a[args.val_n:] for a in d] if str(Path(p).resolve()) in vfiles else d
 
     if args.stream:
-        val = [[], [], [], []]
+        # held back per file, reported per file (a set of unseen companies beside the training sets' heads)
+        vals = []
         for p in sorted(vfiles):
-            for a, b in zip(val, load([p])):
-                a += b[:args.val_n]
-        nv, ntr = len(val[0]), None
+            vals.append((Path(p).stem, [b[:args.val_n] for b in load([p])]))
+        nv, ntr = sum(len(v[0]) for _, v in vals), None
     else:
         names, ims, toks, boxes = load(paths)
         idx = list(range(len(ims))); random.Random(0).shuffle(idx)
@@ -216,6 +280,7 @@ def main():
         val = [[a[i] for i in idx[:nv]] for a in (names, ims, toks, boxes)]
         tr = [[a[i] for i in idx[nv:]] for a in (names, ims, toks, boxes)]
         ntr = len(tr[0])
+        vals = [("held back", val)]
 
     def train_chunks():
         """The training tables, all at once or N part files at a time."""
@@ -244,7 +309,8 @@ def main():
         for g in opt.param_groups:
             g["lr"] = args.lr / 3 ** sum(ep >= e for e in args.lr_steps)
         model.train(); tot = n = 0
-        for x, m, y, b in (bt for chunk in train_chunks() for bt in batches(chunk, args.batch, rng, aug=True)):
+        aug = augment_strong if args.aug == "strong" else augment
+        for x, m, y, b in (bt for chunk in train_chunks() for bt in batches(chunk, args.batch, rng, aug=aug, margins=args.margins)):
             s0 = time.time()
             x, m, y, b = x.to(args.device), m.to(args.device), y.to(args.device), b.to(args.device)
             logit, bx = model(x, m, y)
@@ -261,21 +327,28 @@ def main():
             if args.max_minutes and time.time() - t0 > 60 * args.max_minutes:
                 break
         model.eval()
-        with torch.no_grad():
-            right = tot_t = exact = nseq = 0; l1 = []
-            for x, m, y, b in batches(val, args.batch, rng, aug=False):
-                x, m, y, b = x.to(args.device), m.to(args.device), y.to(args.device), b.to(args.device)
-                logit, bx = model(x, m, y)
-                pred, tgt = logit.argmax(-1), y[:, 1:]
-                keep = tgt != 0
-                right += int((pred[keep] == tgt[keep]).sum()); tot_t += int(keep.sum())
-                exact += int(((pred == tgt) | ~keep).all(1).sum()); nseq += len(y)
-                tb = b[:, 1:]; ok = ~torch.isnan(tb[..., 0])
-                if ok.any():
-                    l1.append(float((bx[ok] - tb[ok]).abs().mean()) * SIDE)
+        report = []
+        for vname, val in vals:
+            with torch.no_grad():
+                right = tot_t = exact = nseq = 0; l1 = []
+                for x, m, y, b in batches(val, args.batch, rng, aug=None):
+                    x, m, y, b = x.to(args.device), m.to(args.device), y.to(args.device), b.to(args.device)
+                    logit, bx = model(x, m, y)
+                    pred, tgt = logit.argmax(-1), y[:, 1:]
+                    keep = tgt != 0
+                    right += int((pred[keep] == tgt[keep]).sum()); tot_t += int(keep.sum())
+                    exact += int(((pred == tgt) | ~keep).all(1).sum()); nseq += len(y)
+                    tb = b[:, 1:]; ok = ~torch.isnan(tb[..., 0])
+                    if ok.any():
+                        l1.append(float((bx[ok] - tb[ok]).abs().mean()) * SIDE)
+            report.append((vname, right, tot_t, exact, nseq, l1))
+        right, tot_t, exact, nseq = (sum(r[k] for r in report) for k in (1, 2, 3, 4))
+        l1 = [v for r in report for v in r[5]]
+        per = "" if len(report) < 2 else "  [" + "; ".join(
+            f"{r[0]} {r[1] / max(1, r[2]):.3f} / {r[3] / max(1, r[4]):.3f}" for r in report) + "]"
         print(f"epoch {ep + 1}: loss {tot / max(1, n):.3f}  val token acc (teacher-forced) {right / max(1, tot_t):.3f}  "
               f"sequences exact {exact / max(1, nseq):.3f}  box L1 {np.mean(l1) if l1 else 0:.1f} px  "
-              f"{(time.time() - t0) / 60:.0f} min", flush=True)
+              f"{(time.time() - t0) / 60:.0f} min{per}", flush=True)
         torch.save({"model": model.state_dict(), "opt": opt.state_dict(), "epoch": ep + 1}, args.out)
         torch.save({"model": model.state_dict(), "epoch": ep + 1}, args.out.with_suffix(f".e{ep + 1}.pt"))
         if args.max_minutes and time.time() - t0 > 60 * args.max_minutes:
