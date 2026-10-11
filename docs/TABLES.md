@@ -243,8 +243,8 @@ Four self-trained networks join the rules (their shapes and training:
   neighbour, a new row), with a box for every cell; the engine's words go
   into the cells by those boxes. A fitted choice over its confidence and
   both tables' shapes keeps its table or the builders' (held out,
-  PubTables-1M 0.828 → 0.846 with an early checkpoint; FinTabNet.c, whose
-  test companies it never saw, unchanged: the choice keeps the builders').
+  PubTables-1M 0.828 → 0.867; FinTabNet.c, whose test companies it never
+  saw, 0.878 unchanged: there the choice keeps the builders').
 
 The pattern is the engine's usual one: the network is a candidate or a
 witness beside an explicit rule, never an unexamined replacement.

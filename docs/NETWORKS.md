@@ -37,7 +37,7 @@ judged before it went live. The measurements themselves are in
 | Table detector | `tabledet_v1.npz` | 248k | neural-table (`output.table_det_path`, `table_det_mode = "complement"`) | `train_tabledet.py` | PubTables-1M detection training pages (60,000 of Part 1's 230,294) + 1,200 drawn business pages + 900 CORD training receipts (`make_det_data.py`) |
 | Word-relation network | `wordrel_v3.npz` | 321k | neural-table (`output.table_wordrel_path`; on a table's crop, its table or the engine's by `wordrel_select.npz`) | `train_wordrel.py` | the PDF words of 97,165 PubTables-1M and 68,733 FinTabNet.c training tables (`make_wordrel_data.py`) + the ENGINE's words on 3,906 + 2,713 more (`harvest_wordrel.py`, x10) |
 | Word-relation choice | `wordrel_select_v2.npz` | 32 inputs | neural-table (`output.table_wordrel_select`) | `train_wordrel_select.py` | 1,615 tables no network saw (`draw_unseen_tables.py`: 1,000 PubTables-1M training, 750 FinTabNet.c validation), read with gray18 (v0.18.12; v1, `wordrel_select.npz`, fitted on 257, v0.18.0-v0.18.11) |
-| Table sequence reader (in training) | none yet (`tseq_pilot.pt` on ai02) | 1.88M | none (a candidate fourth table builder) | `train_tableseq.py` | PubTables-1M and FinTabNet.c structure training tables as OTSL tokens with cell boxes (`make_tableseq_data.py`); pilot 28k tables, full run 310k + 78k |
+| Table sequence reader | `tableseq_v1.npz` (= `tseq2.e15.pt`), with its choice `tableseq_select_v1.npz` (26 inputs) | 1.88M | none yet (`output.table_seq_path`, `table_seq_mode = "select"`; an adoption to decide) | `train_tableseq.py`, `train_tableseq_select.py` | PubTables-1M and FinTabNet.c structure training tables as OTSL tokens with cell boxes (`make_tableseq_data.py`); pilot 28k tables, full run 310k + 78k (15 epochs, 17 h gentle); the choice fitted on sel3 (1,732 tables) |
 
 The classic engine also builds three learned tables that are not networks
 but come from the same data: the condensed nearest-prototype pool
@@ -1032,7 +1032,7 @@ scripts/eval_tables.py <the 274 tables> ... --set output.table_wordrel_path=data
 neural-table on the 240 held-out tables of each set: PubTables-1M 0.759 ->
 0.795, FinTabNet.c 0.810 -> 0.849 (RESEARCH 2026-10-01).
 
-### Table sequence reader — `layout/tableseq.py`, `scripts/train_tableseq.py` (in training, not in a profile)
+### Table sequence reader — `layout/tableseq.py`, `scripts/train_tableseq.py` (trained, not in a profile yet)
 
 **Purpose.** A fourth table builder that does not start from the engine's
 rulings, words or row and column cuts: the table's IMAGE in, its grid out
@@ -1073,7 +1073,7 @@ Held back: tokens 94.4% (teacher-forced), sequences exact 23.6%, boxes
 9.4 px. Dev pool, read freely, TEDS-S: PubTables-1M 0.820 (v0.18.12 0.868;
 better on 111 of 400), FinTabNet.c 0.728 (0.919; better on 42).
 
-The full run (2026-10-10, under way): 310,000 PubTables-1M (seed 42, 31
+The full run (2026-10-10/11): 310,000 PubTables-1M (seed 42, 31
 parts) and every FinTabNet.c training table (8 parts), built by
 `temp/mlws-jobs/make_tseq2.sh` on ai01 (six low-priority processes),
 trained on ai02 streamed four parts at a time:
@@ -1081,11 +1081,19 @@ trained on ai02 streamed four parts at a time:
 ```sh
 scripts/train_tableseq.py --data "tseq2_*.npz" --stream 4 --val-data tseq2_pt_00.npz tseq2_fin_00.npz --val-n 300 \
     --epochs 15 --lr-steps 10 13 --batch 16 --duty 0.5 --out tseq2.pt
+scripts/train_tableseq.py --export tseq2.e15.pt --out data/tableseq_v1.npz
 ```
+
+17 hours (1,029 minutes) at half duty; CPU at most 71 C, GPU 62 C. Held
+back (300 PubTables-1M + 300 FinTabNet.c tables), sequences exact: 52% at
+epoch 6, unsteady at 24-40% over epochs 7-9 (the rate too high), then 57%,
+61%, 63%, 69%, 69% after the drops at 10 and 13; tokens 98.8%, boxes
+3.8 px.  Its table in place of the builders' ("replace") on sel3:
+PubTables-1M TEDS 0.879 (the builders' 0.834), FinTabNet.c 0.495 (0.874).
 
 **In the engine** (an option, off in every profile): `output.table_seq_path`
 names the reader's weights, exported from a saved state with
-`scripts/train_tableseq.py --export tseq2.e15.pt --out data/tableseq_v1.npz`;
+`scripts/train_tableseq.py --export tseq2.e15.pt --out data/tableseq_v1.npz` (above);
 `layout/tableseq.py` `TableSeqReader` is the numpy forward (equal to the
 torch model, `tests/test_tableseq.py`) and `fill` puts the engine's words in
 its cells.  `output.table_seq_mode` "replace" uses its table on a table's
@@ -1105,8 +1113,11 @@ data/evalruns/s3.sh seq --set output.table_seq_path=$PWD/data/tableseq_v1.npz
     --dump $SP/s3_seq_pt $SP/s3_seq_fin --out data/tableseq_select.npz
 ```
 
-With the epoch-6 model (2026-10-11): held out, PubTables-1M 0.8275 → 0.8457,
-FinTabNet.c 0.8781 unchanged (RESEARCH).
+With the final model and `tableseq_select_v1.npz` (2026-10-11), against
+v0.18.12: dev pool PubTables-1M 0.8061 → 0.8716, FinTabNet.c 0.8809 →
+0.8785; held out PubTables-1M 0.8275 → 0.8672, FinTabNet.c 0.8781 → 0.8778
+(RESEARCH).  FinTabNet.c's test companies are not in its training, and it
+reads them poorly alone (0.495); the choice keeps the builders' table there.
 
 ## Rebuilding everything from scratch
 
