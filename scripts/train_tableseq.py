@@ -34,6 +34,7 @@ tables are about 38 GB as pixels); the held-back tables are the first
     scripts/train_tableseq.py --data tseq_pt_*.npz tseq_fin_*.npz --epochs 4 --duty 0.5 --out tableseq_pilot.pt
     scripts/train_tableseq.py --data "tseq2_*.npz" --stream 4 --val-data tseq2_pt_00.npz tseq2_fin_00.npz \
         --epochs 15 --lr-steps 10 13 --duty 0.5 --out tseq2.pt
+    scripts/train_tableseq.py --export tseq2.e15.pt --out data/tableseq_v1.npz      # for the engine
 """
 from __future__ import annotations
 
@@ -150,10 +151,27 @@ def build():
     return Model()
 
 
+def save_npz(model, path):
+    """The weights as the .npz the engine's numpy reader reads (layout/tableseq.py TableSeqReader)."""
+    sd = {k: v.detach().cpu().numpy() for k, v in model.state_dict().items()}
+    out = {"vocab": np.array(VOCAB)}
+    for k in range(5):
+        out[f"conv{k}_w"] = sd[f"convs.{k}.weight"]; out[f"conv{k}_b"] = sd[f"convs.{k}.bias"]
+    out["emb"] = sd["emb.weight"]
+    out["att_k"] = sd["att_k.weight"].T; out["att_q"] = sd["att_q.weight"].T; out["att_v"] = sd["att_v.weight"][0]
+    out["init_w"] = sd["init.weight"].T; out["init_b"] = sd["init.bias"]
+    out["gru_wi"] = sd["gru.weight_ih"].T; out["gru_bi"] = sd["gru.bias_ih"]
+    out["gru_wh"] = sd["gru.weight_hh"].T; out["gru_bh"] = sd["gru.bias_hh"]
+    out["out_w"] = sd["out.weight"].T; out["out_b"] = sd["out.bias"]
+    out["box1_w"] = sd["box.0.weight"].T; out["box1_b"] = sd["box.0.bias"]
+    out["box2_w"] = sd["box.2.weight"].T; out["box2_b"] = sd["box.2.bias"]
+    np.savez_compressed(path, **out)
+
+
 def main():
     import torch
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
-    ap.add_argument("--data", nargs="+", required=True)
+    ap.add_argument("--data", nargs="+", default=[])
     ap.add_argument("--val-frac", type=float, default=0.02)
     ap.add_argument("--epochs", type=int, default=4)
     ap.add_argument("--batch", type=int, default=16)
@@ -167,8 +185,15 @@ def main():
     ap.add_argument("--val-n", type=int, default=300)
     ap.add_argument("--lr-steps", type=int, nargs="*", default=[], help="divide the learning rate by 3 at these epochs")
     ap.add_argument("--device", default="cuda")
+    ap.add_argument("--export", type=Path, default=None, help="write this saved state's weights as --out (.npz) and stop")
     ap.add_argument("--out", type=Path, required=True)
     args = ap.parse_args()
+    if args.export:
+        model = build()
+        model.load_state_dict(torch.load(args.export, map_location="cpu")["model"])
+        save_npz(model, args.out)
+        print(f"saved {args.out}")
+        return
     rng = random.Random(1); torch.manual_seed(1)
     paths = sorted(p for pat in args.data for p in glob.glob(pat))
     vfiles = {str(Path(p).resolve()) for pat in args.val_data for p in glob.glob(pat)}

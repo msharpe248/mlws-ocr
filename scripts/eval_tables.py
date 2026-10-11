@@ -276,6 +276,8 @@ def main():
             lay = page.meta.get("layout", {})
             if "wordrel_x" in lay:                 # the word-network choice's inputs (train_wordrel_select.py)
                 (args.dump / f"{stem}.wrel.json").write_text(json.dumps(lay["wordrel_x"]))
+            if "tableseq_x" in lay:                # the sequence reader's confidence and shape (layout/tableseq.py)
+                (args.dump / f"{stem}.tseq.json").write_text(json.dumps(lay["tableseq_x"]))
             # the page's words, text and box (the header studies: a table's text lines)
             (args.dump / f"{stem}.words.json").write_text(json.dumps(
                 [{"text": w.get("text", ""), "box": [int(v) for v in w["box"]]}

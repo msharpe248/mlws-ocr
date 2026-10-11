@@ -256,6 +256,12 @@ class TextOutput(Stage):
                                          # the rules' / structure network's; "select": the one a learned choice
                                          # (table_wordrel_select, train_wordrel_select.py) prefers (2026-10-01)
         "table_wordrel_select": "",
+        "table_seq_path": "",            # the table sequence reader (layout/tableseq.py) on a table's crop: the
+                                         # grid READ from the image as OTSL tokens, the engine's words put in its
+                                         # cells by their predicted boxes; its reading kept in the layout
+                                         # ('tableseq') ...
+        "table_seq_mode": "replace",     # ... "replace": its table in place of the builders' choice; "record":
+                                         # only kept beside it (2026-10-10, in trial)
         "table_rebuild_centred": False,  # ...the rebuild sees headings centred across both header lines, and
                                          # short spanners between two columns (headers.rebuild_header)
         "table_heading_rows": False,     # a table's crop: headings above its cells over the figure columns
@@ -585,6 +591,25 @@ class TextOutput(Stage):
             wt["_judge"] = (boxes, tok, pairs)       # for wordrel_choice_inputs: the network judges both tables
         return wt
 
+    def _seq_table(self, page: Page, words: list[dict]):
+        """The sequence reader's table over a table's crop (layout/tableseq.py),
+        the engine's words in its cells, and its confidence and shape (for a
+        choice among the builders); (None, None) without a reading."""
+        from ..layout.tableseq import MAX_TOKENS, TableSeqReader, fill
+        if page.gray is None:
+            return None, None
+        path = self.params["table_seq_path"]
+        rd = self._nets.get(("tableseq", path)) or self._nets.setdefault(("tableseq", path), TableSeqReader(path))
+        toks, bxs, prs = rd.read(page.gray)
+        # a reading that runs to the limit is a decoder repeating itself (one row written over and
+        # over), not a table
+        st = fill(toks, bxs, words) if toks and len(toks) < MAX_TOKENS else None
+        if st is None:
+            return None, None
+        lens = [len(r.split()) for r in " ".join(toks).split("nl") if r.strip()]
+        return st, [float(np.mean(prs)), float(np.min(prs)), float(np.mean(np.log(prs))),
+                    st["n_rows"], st["n_cols"], float(len(set(lens)) == 1), len(toks)]
+
     def _split_or_rules(self, t: dict, page: Page, words: list[dict], whole: bool = False) -> dict:
         """The structure network's table, or the rules' when it is chosen by
         ``table_split_select``."""
@@ -812,6 +837,16 @@ class TextOutput(Stage):
                     blocks.pop(b, None)
         full = "\n\n".join("\n".join(lines) for _, lines in sorted(blocks.items()))
 
+        # A table's crop with a ruled grid, read by the sequence reader instead (output.table_seq_path,
+        # "replace"): the reader's grid in place of the rulings'
+        seq_ruled = None
+        crop_types = [t for t in self.params["ws_table_doc_types"].split(",") if t]
+        if (self.params["table_seq_path"] and self.params["table_seq_mode"] == "replace" and layout.get("tables")
+                and ("*" in crop_types or doc_type in crop_types)):
+            st, seq_ruled = self._seq_table(page, [w for ln in layout["lines"] for w in ln.get("words", [])])
+            if st is not None:
+                layout = dict(layout, tables=[st], tableseq_x=seq_ruled)
+
         # Table text: place decoded words into their cells by box center.
         tables_text = []
         for t in layout.get("tables", []):
@@ -887,6 +922,13 @@ class TextOutput(Stage):
                     xx = np.asarray(wrel_x)[: len(mu)]          # a choice fitted on fewer inputs reads the first ones
                     if float(((xx - mu) / sd) @ w + b0) > 0:
                         t = wt
+            seq_x = None
+            if self.params["table_seq_path"]:
+                st, seq_x = self._seq_table(page, words)
+                if st is not None and (self.params["table_seq_mode"] == "replace" or t is None or not t.get("cells")):
+                    if t is not None:
+                        t.pop("_judge", None)
+                    t = st
             if t is not None:
                 t.pop("_judge", None)
             if t is not None and self.params["trim_notes"]:
@@ -911,6 +953,8 @@ class TextOutput(Stage):
                 layout = dict(layout, tables=[t])
                 if wrel_x is not None:
                     layout["wordrel_x"] = wrel_x
+                if seq_x is not None:
+                    layout["tableseq_x"] = seq_x
                 grid = [["" for _ in range(t["n_cols"])] for _ in range(t["n_rows"])]
                 for c in t["cells"]:
                     grid[c["row"]][c["col"]] = c["text"]

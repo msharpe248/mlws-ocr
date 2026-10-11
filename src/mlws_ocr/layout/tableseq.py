@@ -177,3 +177,151 @@ def structure_html(table: dict, texts: dict | None = None) -> str:
         out.append("<tr>" + "".join(tds) + "</tr>")
     out.append("</table>")
     return "\n".join(out)
+
+
+# --- the reader: a table's image in, its tokens and cell boxes out ----------------------------
+
+SIDE = 448            # the image's longer side, as the reader was trained (scripts/train_tableseq.py)
+MAX_TOKENS = 400
+
+
+class TableSeqReader:
+    """The numpy forward of the trained sequence reader (scripts/train_tableseq.py,
+    whose torch model is the same arithmetic; ``--export`` writes this .npz):
+    the equation reader's encoder and attentive GRU decoder (math/reader.py),
+    with a box head giving each cell-starting token its cell's box."""
+
+    def __init__(self, path: str):
+        import numpy as np
+        z = np.load(path, allow_pickle=True)
+        self.p = {k: z[k] for k in z.files}
+
+    def prepare(self, gray):
+        """The table's grey crop (paper 1) scaled so its longer side is
+        ``SIDE``, ink 1, padded to a multiple of 16; and the scale."""
+        import numpy as np
+        from PIL import Image
+        h, w = gray.shape
+        s = SIDE / max(h, w)
+        im = Image.fromarray(np.clip(np.round(gray * 255), 0, 255).astype(np.uint8))
+        im = im.resize((max(1, round(w * s)), max(1, round(h * s))), Image.BILINEAR)
+        g = np.asarray(im, np.float32) / 255.0
+        H, W = ((g.shape[0] + 15) // 16) * 16, ((g.shape[1] + 15) // 16) * 16
+        x = np.zeros((1, H, W), np.float32)
+        x[0, :g.shape[0], :g.shape[1]] = 1.0 - g
+        return x, s
+
+    def read(self, gray, max_len: int = MAX_TOKENS):
+        """Greedy reading: the tokens (without <s> / </s>), each token's box in
+        the crop's pixels (cell-starting tokens; the others' are meaningless),
+        and each token's probability."""
+        import numpy as np
+        from ..math.reader import _conv, _pool, position_code
+        p = self.p
+        x, s = self.prepare(gray)
+        for k in range(5):
+            x = np.maximum(0, _conv(x, p[f"conv{k}_w"], p[f"conv{k}_b"]))
+            if k < 4:
+                x = _pool(x, 2, 2)
+        c, h, w = x.shape
+        mem = (x + position_code(c, h, w)).reshape(c, h * w).T          # (N, C)
+        keys = mem @ p["att_k"]
+        hs = np.tanh(mem.mean(0) @ p["init_w"] + p["init_b"])
+        tok, toks, boxes, probs = INDEX["<s>"], [], [], []
+        n_ = hs.shape[0]
+        for _ in range(max_len):
+            e = np.tanh(keys + hs @ p["att_q"]) @ p["att_v"]
+            a = np.exp(e - e.max()); a /= a.sum()
+            ctx = a @ mem
+            xi = np.concatenate([p["emb"][tok], ctx])
+            gi = xi @ p["gru_wi"] + p["gru_bi"]; gh = hs @ p["gru_wh"] + p["gru_bh"]
+            r = 1 / (1 + np.exp(-(gi[:n_] + gh[:n_]))); u = 1 / (1 + np.exp(-(gi[n_:2 * n_] + gh[n_:2 * n_])))
+            hs = (1 - u) * np.tanh(gi[2 * n_:] + r * gh[2 * n_:]) + u * hs
+            zc = np.concatenate([hs, ctx])
+            lo = zc @ p["out_w"] + p["out_b"]
+            pr = np.exp(lo - lo.max()); pr /= pr.sum()
+            tok = int(pr.argmax())
+            if VOCAB[tok] == "</s>":
+                break
+            bx = 1 / (1 + np.exp(-(np.maximum(0, zc @ p["box1_w"] + p["box1_b"]) @ p["box2_w"] + p["box2_b"])))
+            toks.append(VOCAB[tok]); boxes.append([float(v) * SIDE / s for v in bx]); probs.append(float(pr[tok]))
+        return toks, boxes, probs
+
+
+def fill(tokens: list[str], boxes: list, words: list[dict]) -> dict | None:
+    """The engine's table (cells with row, col, rowspan, colspan, text, box)
+    from a reading: the grid from the tokens (``decode``), each word put in
+    the cell whose predicted box holds most of it -- or, when none holds a
+    third, the cell whose box is nearest its centre.
+
+    * A word whose centre lies outside the cells' extent (by more than half
+      a word's height) is not the table's: a caption above it or a note
+      below, which the reader leaves out too.
+    * A word lying across several cells of a row is split at their borders
+      first (decode/tableio.split_at_cells: 'N N N N' read as one word).
+    * A wrapped cell's second line, which the reader's boxes (good to a few
+      pixels at 448, a line's height on a full page) can give to the row
+      below: a word whose centre lies more than half a word's height above
+      where its row starts (the median top of its cells' first words) goes
+      to the cell above it.
+
+    Measured on the 400 PubTables-1M dev tables, the reader's own grids
+    (full TEDS of the placed text, before the output steps that follow):
+    cell boxes alone 0.8196, rows and columns as bands instead 0.8065-0.8086,
+    with the wrapped-line rule 0.8251, and the split 0.8279 (2026-10-10).
+    A cell's words are in line order, then left to right."""
+    from ..decode.tableio import split_at_cells
+    g = decode(tokens)
+    if not g["cells"] or g["n_cols"] < 1:
+        return None
+    cb = [boxes[c["token"]] if 0 <= c["token"] < len(boxes) else None for c in g["cells"]]
+    have = [k for k, b in enumerate(cb) if b is not None]
+    if not have:
+        return None
+    words = [w for w in words if (w.get("text") or "").strip()]
+    hs = sorted(w["box"][3] - w["box"][1] for w in words)
+    unit = max(1.0, hs[len(hs) // 2]) if hs else 1.0
+    m = unit / 2
+    ext = [min(cb[k][0] for k in have) - m, min(cb[k][1] for k in have) - m,
+           max(cb[k][2] for k in have) + m, max(cb[k][3] for k in have) + m]
+    words = [w for w in words if ext[0] <= (w["box"][0] + w["box"][2]) / 2 <= ext[2]
+             and ext[1] <= (w["box"][1] + w["box"][3]) / 2 <= ext[3]]
+    words = [p for w in words for p in split_at_cells(w, [{"box": cb[k]} for k in have])]
+    owner = {}
+    for k, c in enumerate(g["cells"]):
+        for r in range(c["row"], c["row"] + c["rowspan"]):
+            for q in range(c["col"], c["col"] + c["colspan"]):
+                owner[r, q] = k
+    put: dict[int, list] = {}
+    for wd in words:
+        b = wd["box"]
+        best = max(have, key=lambda k: _overlap(b, cb[k]))
+        if _overlap(b, cb[best]) < 1 / 3:
+            x, y = (b[0] + b[2]) / 2, (b[1] + b[3]) / 2
+            best = min(have, key=lambda k: max(cb[k][0] - x, 0, x - cb[k][2]) ** 2 + max(cb[k][1] - y, 0, y - cb[k][3]) ** 2)
+        put.setdefault(best, []).append(wd)
+    for r in range(1, g["n_rows"]):                    # wrapped lines given to the row below, sent back up
+        firsts = sorted(min(w["box"][1] for w in put[k]) for k, c in enumerate(g["cells"])
+                        if c["row"] == r and c["rowspan"] == 1 and put.get(k))
+        if len(firsts) < 2:
+            continue
+        start = (firsts[(len(firsts) - 1) // 2] + firsts[len(firsts) // 2]) / 2
+        for k, c in enumerate(g["cells"]):
+            up = owner.get((r - 1, c["col"]))
+            if c["row"] != r or not put.get(k) or up is None or up == k:
+                continue
+            move = [w for w in put[k] if (w["box"][1] + w["box"][3]) / 2 < start - 0.5 * unit]
+            if move and (len(move) < len(put[k]) or put.get(up)):
+                put[k] = [w for w in put[k] if w not in move]
+                put.setdefault(up, []).extend(move)
+    cells = []
+    for k, c in enumerate(g["cells"]):
+        ws = sorted(put.get(k, []), key=lambda w: ((w["box"][1] + w["box"][3]) / 2 // unit, w["box"][0]))
+        box = ([min(w["box"][0] for w in ws), min(w["box"][1] for w in ws), max(w["box"][2] for w in ws),
+                max(w["box"][3] for w in ws)] if ws else cb[k] if cb[k] else [0, 0, 0, 0])
+        cells.append({"row": c["row"], "col": c["col"], "rowspan": c["rowspan"], "colspan": c["colspan"],
+                      "text": " ".join(w["text"].strip() for w in ws), "box": [int(v) for v in box]})
+    allb = [cb[k] for k in have]
+    return {"box": [int(min(b[0] for b in allb)), int(min(b[1] for b in allb)), int(max(b[2] for b in allb)),
+                    int(max(b[3] for b in allb))],
+            "n_rows": g["n_rows"], "n_cols": g["n_cols"], "cells": cells, "source": "tableseq"}

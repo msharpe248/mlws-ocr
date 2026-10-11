@@ -1083,6 +1083,16 @@ scripts/train_tableseq.py --data "tseq2_*.npz" --stream 4 --val-data tseq2_pt_00
     --epochs 15 --lr-steps 10 13 --batch 16 --duty 0.5 --out tseq2.pt
 ```
 
+**In the engine** (an option, off in every profile): `output.table_seq_path`
+names the reader's weights, exported from a saved state with
+`scripts/train_tableseq.py --export tseq2.e15.pt --out data/tableseq_v1.npz`;
+`layout/tableseq.py` `TableSeqReader` is the numpy forward (equal to the
+torch model, `tests/test_tableseq.py`) and `fill` puts the engine's words in
+its cells.  `output.table_seq_mode` "replace" uses its table on a table's
+crop (ruled or not); "record" only keeps its confidence and shape in the
+layout (`tableseq_x`, dumped by `eval_tables.py --dump` as `<stem>.tseq.json`)
+for a choice to learn from.
+
 ## Rebuilding everything from scratch
 
 In order, on a machine with the UNLV sets under `data/unlv`, the corpus
