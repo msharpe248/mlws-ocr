@@ -7,6 +7,10 @@ pipeline it runs. It is meant to be read top to bottom by someone who has
 never trained a network, and to stay useful as a reference for someone who
 has.
 
+- **Part 0** is for a reader who has never trained a network: what
+  training is, what the training data looks like, what one run looks
+  like from start to finish, and a glossary of the words the rest of the
+  documents use (epoch, held back, held out, fine-tune, ...).
 - **Part I** is the general theory: neurons and layers, how a network
   learns, convolutions, recurrence, CTC, the training practices this
   project leans on, fine-tuning and distillation, and ensembles, weight
@@ -31,6 +35,187 @@ term beside explicit, readable algorithms, not as their replacement. So the
 networks are small (the largest, the equation reader, is under 850k
 parameters; a phone camera's face detector is larger), and each one is there because it won a
 measurement, recorded in [RESEARCH.md](RESEARCH.md).
+
+# Part 0 — Before the theory: what training looks like
+
+## 0.1 Training in plain words
+
+A network is a function with a great many adjustable numbers in it, its
+**parameters** (or **weights**). The line reader has about 291,000. Set
+at random, they make the function useless: given a picture of the word
+"Total", it says something like "q;,e". **Training** sets them from
+examples.
+
+The examples are pairs: an **input** (a picture of a line) and the
+**truth** (or **label**) for it (the text "Total"). Training repeats one
+small step many thousands of times:
+
+1. Take a handful of examples (a **batch**, 16 to 256 here).
+2. Run the network on them: its **forward pass**, its guesses.
+3. Score how wrong the guesses are with one number, the **loss**.
+4. Work out, for every parameter, which way to nudge it to make the loss
+   a little smaller (the **gradient**, §2), and nudge them all a little.
+   How far is the **learning rate**.
+
+No rule about letters is ever written. After enough steps the parameters
+hold whatever makes the guesses right on the examples: the shapes of
+letters, how they join, what a column gap looks like. What this buys, and
+what it costs, is the theme of this page. The network can only know what
+its examples show it, so the examples are where most of the work is.
+
+Once trained, the parameters are frozen and saved to a file (`.npz`, a
+set of numpy arrays), and the engine only runs the forward pass. That is
+**inference**; it learns nothing more while it reads your page.
+
+## 0.2 What training data looks like
+
+![Training examples: line strips, a table's separator labels, a drawn table and its tokens, equations and their LaTeX](img/nn/training_data.png)
+
+These are real examples from the files the engine's networks were trained
+on, from top to bottom:
+
+- **Line reader** (§C): a strip of one text line, always 32 pixels tall,
+  with its text. One synthetic file holds 250,000 of them, drawn in the
+  computer's own fonts (the top three) or the Google Fonts collection (the
+  lower three).
+  The input carries no letter positions; the network has to learn where
+  each letter is as well as what it is (§5, CTC).
+- **Table separator network** (§E): the ink of a table, and for every
+  column of pixels a yes or no, "may a column boundary run here?" (blue);
+  the same for every row of pixels (orange). The truth is exact because
+  the table was drawn by our own code, which knows where every cell is.
+- **Table sequence reader**: a table's picture, and the tokens it must
+  write, one per cell, row by row (`fcel` a filled cell, `ecel` an empty
+  one, `lcel` a cell joined to the one on its left, so "Payments Due by
+  Period" spans three columns; `nl` ends a row). It must also give each
+  filled cell's box (orange).
+- **Equation reader** (§I): an equation typeset by LaTeX, and the tokens
+  it was typeset from.
+
+The data comes from three kinds of source:
+
+| source | what it is | strength | weakness |
+|---|---|---|---|
+| **drawn** (synthetic) | pictures this repository makes: text in a font, a table from `factory/tablegen.py`, an equation typeset by LaTeX, then degraded like a scan or a fax | unlimited, and the truth is exact, down to the pixel | only as varied as the code that draws it; a network can learn the drawing code's habits |
+| **cut from real pages** (harvested) | lines and glyphs cut from real scans whose text is known (the UNLV/ISRI pages and their transcripts), kept only where the cut and the transcript line up | real paper, real printers, real damage | slow to collect and few; the truth has to be matched to the picture |
+| **public datasets** | other people's labelled collections: PubTables-1M (tables in scientific articles), FinTabNet.c (tables in company annual reports), SROIE and CORD (receipts), FUNSD (forms) | large and real | their own conventions (how tight a table's crop is, what counts as a cell), and only what their authors chose to collect |
+
+Most networks here train on a mixture of all three. The scanned pages are
+not pictured above because their licences do not let us reprint them
+([DATA_SOURCES.md](DATA_SOURCES.md)); they look like the drawn examples,
+dirtier.
+
+**Augmentation.** During training each example can be changed a little
+every time it is used: blurred, lightened, darkened, shrunk and enlarged
+again, saved as a low-quality JPEG, given wider or narrower margins. The
+truth stays the same, so the network learns that these changes do not
+matter. It is a cheap way to make a few examples cover many conditions.
+It also guards against learning a habit of the data instead of the task.
+The table sequence reader first learned that a table always sits in a
+white margin, because PubTables-1M's crops all have one; it misread tables
+cut tight. Training it again with random margins fixed it
+([RESEARCH.md](RESEARCH.md)).
+
+## 0.3 One training run, start to finish
+
+![The table sequence reader's first training run](img/nn/training_curve.png)
+
+This is a real run: the table sequence reader learning from 385,953
+tables, on one GPU, run gently for 17 hours.
+
+- One **step** is one batch: 16 tables guessed, scored, and the
+  parameters nudged once.
+- One **epoch** is one pass through all the training data: here about
+  24,000 steps, 69 minutes. The run was 15 epochs, so the reader saw each
+  table 15 times, each time augmented a little differently.
+- After each epoch the trainer **checks** the network on tables it keeps
+  aside and never trains on, the **held-back** tables (here 600: 300
+  from each dataset). That is the right-hand panel. The training loss on
+  the left only says how well it fits the tables it is learning from. The
+  held-back score says whether that skill carries over to tables it has
+  never seen.
+- After each epoch the parameters are saved, a **checkpoint**. A run can
+  be stopped and resumed from one, and any epoch can be the one that is
+  kept.
+- The **learning rate** is cut to a third twice, after epochs 10 and 13
+  (the grey lines). Big steps early cover ground fast; small steps late
+  settle into the detail. In epochs 7 to 10 the held-back score fell and
+  the training loss rose: most likely the steps had become too big for
+  the detail, and the network kept overshooting. The first cut put it
+  right at once.
+
+When the training loss keeps falling but the held-back score stops
+rising, or falls, the network is **overfitting**: memorising its training
+examples instead of learning the task. That is the moment to stop. Here
+it never quite came; the score was still rising slowly at epoch 15.
+
+A run that continues from a finished network, usually with new data and a
+smaller learning rate, is a **fine-tune** (§8). The reader above was
+fine-tuned for 5 more epochs with drawn financial tables, stronger
+augmentation and random margins. On tables from companies it had never
+seen, its share read exactly in the trainer's check went from 1% to 25%.
+
+Training here is run **gently**: the GPU works half the time and rests
+the other half, and the temperatures are logged. That is slower, but a
+home machine is not run flat out for days.
+
+## 0.4 Training, held back, held out: keeping the data apart
+
+The most important rule in all of this: **a network is judged only on
+examples it never trained on.** Otherwise a network that memorised its
+examples would look perfect. The data is kept in separate piles, and the
+words for them are used precisely throughout the documents:
+
+| pile | what it is for | who sees it |
+|---|---|---|
+| **training set** | the examples the parameters are fitted to | the trainer, every epoch |
+| **held back** (the **validation** set) | the trainer's own check after each epoch: is it still improving, which epoch to keep | the trainer, scoring only, never learning from it |
+| **fitting set** (e.g. `sel3`) | the examples the small **choices** are fitted on (§J): when to trust a network's answer over the rules' | the choice's fitter; no network trained on it |
+| **dev pool** | the pages we look at while improving the engine: errors are studied, settings are tuned | people and tuning; no network trains on it |
+| **held out** (the **test** or **evaluation** sets) | the final judgement of the whole engine, the numbers in the README | nothing that learns, ever; the harvest scripts refuse their pages |
+
+Whole pages or whole documents are kept apart, not single lines or
+tables: two lines of one page share a printer and a font, so a line from a
+training page is almost a copy of its neighbour. FinTabNet.c's held-back
+companies go further: no table of theirs is in the training set at all.
+That is why the table sequence reader read only 1% of their tables
+exactly: it had learned the companies it saw, not tables in general.
+
+Even held-out sets get used up a little each time a decision is made by
+looking at them, so the engine reports its scored sets and keeps further
+sets back for the final word.
+
+## 0.5 Glossary
+
+| term | meaning |
+|---|---|
+| **augmentation** | changing a training example a little each time it is used (blur, contrast, scale, JPEG, margins) with its truth unchanged, §0.2 |
+| **batch** | the handful of examples one step learns from, 16 to 256 here |
+| **checkpoint** | the parameters saved at a point in training (each epoch here), to resume from or to keep |
+| **choice** (or **judge**) | a small fitted model that decides, per line or per table, whether to keep a network's answer or the rules', §J |
+| **class** | one of the answers a network chooses among: a character, a token, yes/no |
+| **dev pool** | evaluation pages used while developing the engine, §0.4 |
+| **epoch** | one pass through all the training data, §0.3 |
+| **exact** (sequence) | a whole output right: every token of a table, every character of a line |
+| **fine-tune** | training a finished network further, usually on new data with a smaller learning rate, §8 |
+| **fitting set** | data kept for fitting the choices, which no network trained on, §0.4 |
+| **forward pass** | running the network on an input to get its output; all the engine does with a network |
+| **gentle training** | training at half duty (work, then rest as long), at low priority, with temperatures logged |
+| **gradient** | for each parameter, which way and how strongly the loss changes when it is nudged, §2 |
+| **held back** | the trainer's own validation examples, scored after each epoch, never learned from, §0.4 |
+| **held out** | the engine's evaluation sets, which no training and no choice ever sees, §0.4 |
+| **inference** | using a trained network; the parameters no longer change |
+| **label** (or **truth**) | the right answer for a training or evaluation example |
+| **learning rate** | how big each step's nudge to the parameters is, §2 |
+| **loss** | one number for how wrong the network's guesses are on a batch; training makes it smaller, §2 |
+| **overfitting** | fitting the training examples better and better while doing no better, or worse, on new ones |
+| **parameter** (or **weight**) | one of the numbers training sets; a network's size is counted in them |
+| **profile** | a named configuration of the engine (`configs/*.toml`): which networks run, with which settings |
+| **step** | one batch's update of the parameters |
+| **synthetic** (or **drawn**) data | examples this repository draws itself, with exact truth, §0.2 |
+| **teacher forcing** | while training a network that writes a sequence, giving it the true previous token rather than its own guess. The held-back "token accuracy" in the logs is measured this way, so it is kinder than real reading |
+| **TEDS**, **TEDS-S** | the table score, 0 to 1: how much of a table's tree of rows and cells must be edited to match the truth, with the cells' text (TEDS) or structure alone (TEDS-S) |
+| **token** | one unit a sequence network writes: a character, a LaTeX symbol, a table cell |
 
 ---
 
@@ -114,7 +299,7 @@ the loss — so the derivation on the page is known to be right.
 
 **Mini-batches and epochs.** The gradient is estimated from a **batch** of
 examples at a time (16 to 256 here), not the whole data set; one pass over
-the data is an **epoch**.
+the data is an **epoch** (a real run, epoch by epoch, is §0.3).
 
 **Adam.** Every trainer here uses Adam (Kingma & Ba, 2015). It keeps a
 running mean of each parameter's gradient (momentum) and of its square

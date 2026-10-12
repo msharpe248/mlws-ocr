@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Draw the figures of docs/NEURAL_NETWORK_THEORY.md into docs/img/nn/.
 
-Two kinds of figure:
+Three kinds of figure:
 
 - schematics (``*.svg``), written here as plain SVG -- neurons, layers,
   the recurrent cell, CTC, dilation, projection pooling, the table
@@ -12,7 +12,11 @@ Two kinds of figure:
   detector's maps over a page.  These run the released models (``data/``;
   ``scripts/fetch_models.py``) on a page from the GENERATED table sets
   (``scripts/make_table_set.py``), so every image in the repository is ours
-  to publish.
+  to publish;
+- what the training data looks like (``training_data.png``: examples from
+  the training files, only the ones this repository drew or rendered) and
+  one real run epoch by epoch (``training_curve.png``, the table sequence
+  reader's numbers from its log).
 
 No plotting library: numpy and PIL only, like the rest of the engine.
 
@@ -845,6 +849,156 @@ def fig_tabledet(clean, final):
     print("wrote", OUT / "tabledet_outputs.png")
 
 
+def fig_training_data():
+    """What training examples look like: one band per kind, every example
+    our own (drawn or rendered here; the scanned sets' pages are not ours to
+    reprint): synthetic line strips and their text (data/seq_synth_v1.npz),
+    a table's ink and its separator labels (data/sep_synth_1.npz), a drawn
+    table and the token sequence the sequence reader must write
+    (scripts/make_tableseq_drawn.py), rendered equations and their LaTeX
+    tokens (data/math3/train)."""
+    import json
+    import random
+    W = 1100
+    bands = []
+
+    def title(text, sub):
+        im = Image.new("RGB", (W, 54), "white")
+        d = ImageDraw.Draw(im)
+        d.text((16, 8), text, fill=INK, font=font(17))
+        d.text((16, 32), sub, fill=MUTED, font=font(13))
+        return im
+
+    # line reader: 32-pixel strips (stored one bit a pixel, ink 1) and the text each one holds
+    from train_seq import Windows
+    rows = []
+    for f, picks in (("seq_synth_v1", (1, 2, 12)), ("seq_synth_gfonts_v1", (3, 8, 15))):
+        ws = Windows(ROOT / "data" / f"{f}.npz", "synth")
+        fon = np.load(ROOT / "data" / f"{f}.npz")["fonts"]
+        for i in picks:
+            im = Image.fromarray(((1 - ws.strip(i)) * 255).astype(np.uint8)).convert("RGB")
+            im = im.resize((im.width * 2, 64), Image.NEAREST)
+            rows.append((im, f'"{ws.labels[i]}"   ({fon[i]})'))
+    bands.append(title("Line reader: a strip 32 pixels tall, and the text it holds",
+                       "the input (shown twice size, black and white as stored) and its label: 250,000 such lines in each "
+                       "synthetic file, beside lines cut from scanned pages"))
+    for im, text in rows:
+        b = Image.new("RGB", (W, im.height + 26), "white")
+        b.paste(im.crop((0, 0, min(im.width, W - 32), im.height)), (16, 2))
+        ImageDraw.Draw(b).text((16, im.height + 6), text, fill=BLUE, font=font(13))
+        bands.append(b)
+
+    # table separator network: the ink, and where a column or row boundary may run
+    z = np.load(ROOT / "data/sep_synth_1.npz", allow_pickle=True)
+    k = next(i for i in range(len(z["ink"])) if 180 < z["ink"][i].shape[0] < 300 and z["ink"][i].shape[1] < 520)
+    ink, col, row = z["ink"][k].astype(np.float32), z["col"][k], z["row"][k]
+    h, w = ink.shape
+    a = np.full((h, w, 3), 255.0)
+    a[:, col > 0.5] = (205, 222, 250)
+    a[row > 0.5, :] = np.minimum(a[row > 0.5, :], (250, 226, 196))
+    a = a * (1 - ink[..., None]) + np.array([31, 41, 51]) * ink[..., None]
+    ims = Image.fromarray(a.astype(np.uint8)).resize((w * 2, h * 2), Image.NEAREST)
+    bands.append(title("Table separator network: a table's ink, and a yes or no for every column and every row "
+                       "of pixels", "blue: a column boundary may run here; orange: a row boundary may run here "
+                       "(the labels the network learns to give; shown twice size)"))
+    b = Image.new("RGB", (W, ims.height + 12), "white"); b.paste(ims, (16, 4)); bands.append(b)
+
+    # table sequence reader: a drawn table, its cells, and the tokens it must write
+    from make_tableseq_drawn import one
+    from mlws_ocr.layout.tableseq import VOCAB
+    rng = random.Random(4)
+    while True:
+        r = one(rng, 4, 1, 448)
+        if (r is not None and 5 <= r[1].count("nl") <= 9 and "lcel" in r[1] and "ecel" in r[1]
+                and r[0].shape[1] > 1.4 * r[0].shape[0]):
+            break
+    img, toks, bxs = r
+    im = Image.fromarray(img).convert("RGB")
+    d = ImageDraw.Draw(im)
+    for bx in bxs:
+        if bx is not None:
+            d.rectangle([bx[0], bx[1], bx[2], bx[3]], outline=ORANGE)
+    lines, cur, ys = [], [], []                        # each row's tokens, beside its row
+    for t, bx in zip(toks, bxs):
+        cur.append(t)
+        if bx is not None:
+            ys.append((bx[1] + bx[3]) / 2)
+        if t == "nl":
+            lines.append((" ".join(cur), float(np.mean(ys)) if ys else (lines[-1][1] + 22 if lines else 10)))
+            cur, ys = [], []
+    bands.append(title("Table sequence reader: a drawn table, and the cell tokens it must write, row by row",
+                       "fcel a filled cell, ecel an empty one, lcel 'joined to the cell on its left', nl the "
+                       "row's end; orange: the box it must give each filled cell"))
+    b = Image.new("RGB", (W, im.height + 16), "white")
+    b.paste(im, (16, 6))
+    d = ImageDraw.Draw(b)
+    for ln, y in lines:
+        d.text((im.width + 40, 6 + y - 8), ln, fill=BLUE, font=font(14))
+    bands.append(b)
+
+    # equation reader: a rendered equation and the LaTeX tokens that drew it
+    labels = [json.loads(l) for l in open(ROOT / "data/math3/train/labels.jsonl").readlines()[:40]]
+    picks = [e for e in labels if 6 <= len(e["tokens"]) <= 22][:3]
+    bands.append(title("Equation reader: a rendered equation, and the LaTeX that drew it",
+                       "the reader writes the tokens one at a time, looking at the picture"))
+    for e in picks:
+        im = Image.open(ROOT / "data/math3/train" / e["file"]).convert("RGB")
+        b = Image.new("RGB", (W, im.height + 12), "white")
+        b.paste(im, (16, 6))
+        ImageDraw.Draw(b).text((im.width + 40, im.height // 2 - 8), " ".join(e["tokens"]), fill=BLUE,
+                               font=font(14))
+        bands.append(b)
+
+    H = sum(b.height for b in bands) + 10
+    out = Image.new("RGB", (W, H), "white")
+    y = 0
+    for b in bands:
+        out.paste(b, (0, y)); y += b.height
+    out.save(OUT / "training_data.png", optimize=True)
+    print("wrote", OUT / "training_data.png")
+
+
+# the table sequence reader's first run (docs/NETWORKS.md; ai02 tseq2.log, 2026-10-10): epoch, training loss,
+# share of the held-back tables read exactly; the learning rate divided by 3 after epochs 10 and 13
+TSEQ_RUN = [(1, .222, .232), (2, .106, .303), (3, .085, .428), (4, .077, .392), (5, .073, .495), (6, .072, .523),
+            (7, .076, .242), (8, .077, .395), (9, .083, .330), (10, .091, .248), (11, .061, .565),
+            (12, .053, .608), (13, .050, .632), (14, .042, .687), (15, .040, .690)]
+
+
+def fig_training_curve():
+    """A real training run, epoch by epoch: the loss on the training tables
+    and the share of held-back tables read exactly."""
+    W, H = 900, 330
+    im = Image.new("RGB", (W, H), "white")
+    d = ImageDraw.Draw(im)
+    d.text((20, 10), "The table sequence reader's first run: 15 epochs, 17 hours", fill=INK, font=font(16))
+    panels = [("training loss (lower is better)", 1, (0.0, 0.24), RED),
+              ("held-back tables read exactly (higher is better)", 2, (0.0, 0.8), BLUE)]
+    pw = (W - 40) // 2
+    for k, (name, j, (lo, hi), colr) in enumerate(panels):
+        box = (20 + k * pw + 40, 60, 20 + (k + 1) * pw - 10, H - 50)
+
+        def at(e, v):
+            return (box[0] + (e - 1) / 14 * (box[2] - box[0]), box[3] - (v - lo) / (hi - lo) * (box[3] - box[1]))
+        d.rectangle(box, outline=LINE)
+        for e in (10, 13):                          # the learning rate steps
+            x = at(e + 0.5, lo)[0]
+            d.line([(x, box[1]), (x, box[3])], fill="#d9dee5", width=2)
+            d.text((x + 3, box[1] + 4), "lr / 3", fill=MUTED, font=font(11))
+        pts = [at(r[0], r[j]) for r in TSEQ_RUN]
+        d.line(pts, fill=colr, width=3)
+        for x, y in pts:
+            d.ellipse([x - 3, y - 3, x + 3, y + 3], fill=colr)
+        for v in np.linspace(lo, hi, 5):
+            d.text((box[0] - 36, at(1, v)[1] - 7), f"{v:.2f}", fill=MUTED, font=font(11))
+        for e in (1, 5, 10, 15):
+            d.text((at(e, lo)[0] - 4, box[3] + 6), str(e), fill=MUTED, font=font(11))
+        d.text((box[0], box[1] - 20), name, fill=INK, font=font(13))
+        d.text(((box[0] + box[2]) / 2 - 20, box[3] + 22), "epoch", fill=MUTED, font=font(12))
+    im.save(OUT / "training_curve.png", optimize=True)
+    print("wrote", OUT / "training_curve.png")
+
+
 def real(page: Path):
     clean, final = run_page(page)
     fig_line_reader(clean, final)
@@ -863,6 +1017,8 @@ def main():
         schematics()
     if args.only != "svg":
         real(args.page)
+        fig_training_data()
+        fig_training_curve()
 
 
 if __name__ == "__main__":
