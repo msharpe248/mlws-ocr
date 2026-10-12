@@ -79,6 +79,7 @@ flowchart LR
         direction TB
         cli["cli.py<br/>run, batch, inspect"]
         service["service.py<br/>HTTP service"]
+        batch["batch.py<br/>many pages, worker processes"]
         workbench["workbench/<br/>session, edits, server"]
         inspector["inspector/<br/>run viewer, lab"]
     end
@@ -89,7 +90,8 @@ flowchart LR
         glyph["glyph/<br/>components, features, strips"]
         recognize["recognize/<br/>prototypes, MLP, CRNN, CTC"]
         decode["decode/ + adapt/ + lang/<br/>beam, line reader, language models,<br/>document refit, correct, output"]
-        cleanup --> layout --> glyph --> recognize --> decode
+        math["math/<br/>latex.py: LaTeX grammar, tokens, MathML;<br/>reader.py: the equation reader"]
+        cleanup --> layout --> glyph --> recognize --> decode --> math
     end
     subgraph core["core/ — the contracts"]
         direction TB
@@ -296,9 +298,9 @@ them into text, hOCR and table records.
 flowchart LR
     pure["<b>pure</b><br/>feature engine only:<br/>prototypes + beam,<br/>no networks"]
     classic["<b>classic</b><br/>+ MLP second opinion<br/>+ character GRU<br/>+ word corrector"]
-    neural["<b>neural</b><br/>+ word-strip CRNN scorer<br/>+ line reader and its judge<br/>+ word-confidence calibrator<br/>+ segmenter judge<br/>+ table structure (output only)"]
-    table["<b>neural-table</b><br/>+ table line reader<br/>+ table detector, structure network,<br/>separator network, choice<br/>+ reading options for tables"]
-    pure -->|two network switches| classic -->|recognize and decode terms| neural -->|table options| table
+    neural["<b>neural</b><br/>+ word-strip CRNN scorer<br/>+ line reader and its judge<br/>+ word-confidence calibrator<br/>+ segmenter judge<br/>+ equation reader<br/>+ table structure (output only)"]
+    table["<b>neural-table</b><br/>+ table line reader<br/>+ symbol classifier and symbol reader<br/>+ table detector, structure network,<br/>separator network, word-relation network,<br/>table sequence reader, their choices<br/>+ cell confidence<br/>+ reading options for tables"]
+    pure -->|three network switches| classic -->|recognize and decode terms,<br/>judged blocks, corrector off,<br/>table, picture and equation options| neural -->|table options| table
 ```
 
 | slot | classic | pure | neural | neural-table |
@@ -310,7 +312,15 @@ flowchart LR
 | output | text | text | text + tables | text + tables, networks on |
 
 Each profile differs from the one before it only where the arrow says;
-`tests/test_profiles.py` fails if any other parameter drifts. The classic
+`tests/test_profiles.py` fails if any other parameter drifts. Pure is
+classic with its three networks switched off (the MLP, the character GRU
+and the word corrector). Neural may change classic's recognition and
+decoding terms, take the judged block segmenter, switch the corrector off,
+and turn on the options for tables (spans, open sides and nesting in the
+tables stage; cell splits, figure columns, arithmetic checks and
+whitespace tables in the output), pictures and display equations (found
+by the lines stage, cut out and read). Neural-table may change neural
+only in its table options. The classic
 engine is the reference and is never removed; a network enters a profile
 only after it measured better on every evaluation set (docs/RESEARCH.md).
 
@@ -334,6 +344,8 @@ flowchart LR
     line[(seq_line_gray*_en*.npz<br/>line reader CRNN x3)] --> decS
     lchoice[(linechoice.npz<br/>logistic judge)] --> decS
     wconf[(wordconf.npz<br/>logistic calibrator)] --> decS
+    sym[(symbols_v2.npz<br/>symbol classifier)] --> decS
+    symr[(seq_line_gray17b_en*.npz<br/>symbol reader CRNN x3)] --> decS
     conf[(confusions_*.json<br/>noisy channel)] --> corS
     seq --> corS
     det[(tabledet_v1.npz<br/>table detector)] --> outS
@@ -342,6 +354,8 @@ flowchart LR
     sep[(sepnet_v2.npz<br/>separator network)] --> outS
     wrel[(wordrel_v3.npz + wordrel_select_v2.npz<br/>word-relation network, its choice)] --> outS
     tseq[(tableseq_v2.npz + tableseq_select_v2.npz<br/>table sequence reader, its choice)] --> outS
+    cconf[(cellconf_v1.npz<br/>cell confidence)] --> outS
+    math[(mathread_v3.npz<br/>equation reader)] --> outS
 ```
 
 | model | config key | profiles |
@@ -353,6 +367,8 @@ flowchart LR
 | line reader (3-member ensemble) | `decode.line_model_path` | neural (`seq_line_gray9`), neural-table (`seq_line_gray15`; on a table's crop `seq_line_gray18`, `decode.line_model_path_table`) |
 | line-choice judge | `decode.line_choice_path` | neural, neural-table |
 | word-confidence calibrator | `decode.conf_path` | neural, neural-table |
+| symbol classifier | `decode.line_symbol_net` | neural-table, on a table's crop |
+| symbol reader (3-member ensemble, `seq_line_gray17b`) | `decode.line_model_path_symbols` | neural-table, on a table's crop, its symbols only |
 | table detector | `output.table_det_path` | neural-table |
 | table structure network | `output.table_split_path` | neural-table |
 | rules-or-network choice | `output.table_split_select` | neural-table |
@@ -361,6 +377,8 @@ flowchart LR
 | table sequence reader (a crop's grid from its pixels, as cell tokens) | `output.table_seq_path`, `output.table_seq_mode = "select"` | neural-table (v0.18.13) |
 | builders-or-sequence-reader choice | `output.table_seq_select` | neural-table (v0.18.13) |
 | table separator network | `output.table_net_path` | neural-table |
+| table cell confidence | `output.table_cell_conf_path` | neural-table |
+| equation reader | `output.math_reader_path`, `output.math_beam` | neural, neural-table |
 
 What each network is and why it has the shape it has:
 [NEURAL_NETWORK_THEORY.md](NEURAL_NETWORK_THEORY.md).
@@ -417,8 +435,12 @@ flowchart TB
     build --> sepref[separator network<br/>joins wrapped rows]
     sepref --> choose{rules' table or<br/>structure network's?}
     split[structure network<br/>rows, columns, extent] --> choose
-    choose --> fix[cell repairs<br/>spans for labels, figure columns,<br/>$ / S, digit groups, marks]
-    ruledT --> fix
+    choose --> wchoose{on a table's crop:<br/>that table or the<br/>word-relation network's?}
+    wrel[word-relation network<br/>a crop's words → table] --> wchoose
+    wchoose --> schoose{on a table's crop:<br/>the builders' table or the<br/>sequence reader's?}
+    tseq[table sequence reader<br/>a crop's grid from its pixels] --> schoose
+    ruledT --> schoose
+    schoose --> fix[cell repairs<br/>spans for labels, figure columns,<br/>$ / S, digit groups, marks]
     fix --> nest[nesting<br/>tables in cells, side by side]
     nest --> check[arithmetic checks<br/>row, column and cross-foot sums]
     check --> outT[tables.json / .html / .csv<br/>ocr_table in hOCR]
@@ -427,12 +449,19 @@ flowchart TB
 Ruled tables come from their rules (`layout/tables.py`); tables set by
 whitespace are found in the output stage, where the words are known
 (`layout/wstables.py`, `layout/junctions.py`). In the neural-table
-profile three networks join the rules: the detector proposes where tables
+profile five networks join the rules: the detector proposes where tables
 are (`layout/tabledet.py`), the structure network proposes each table's
-rows and columns (`layout/splitnet.py`), and a separator network is
-evidence for joining a wrapped row (`layout/sepnet.py`); a fitted choice
-(`table_select.npz`) and guards decide between the rules' table and the
-network's (`decode/output.py:_split_or_rules`). Records, nesting, HTML and
+rows and columns (`layout/splitnet.py`), a separator network is
+evidence for joining a wrapped row (`layout/sepnet.py`), and on a table's
+crop the word-relation network builds a table from the words
+(`layout/wordrel.py`) and the table sequence reader reads the grid from
+the pixels (`layout/tableseq.py`). A fitted choice (`table_select.npz`)
+and guards decide between the rules' table and the structure network's
+(`decode/output.py:_split_or_rules`); two more fitted choices keep the
+word-relation network's table (`wordrel_select_v2.npz`) and then the
+sequence reader's (`tableseq_select_v2.npz`) where they prefer it; a ruled
+table on a crop meets the sequence reader's choice too. Records, nesting,
+HTML and
 CSV are `decode/tableio.py`; the checks `decode/arith.py`.
 
 ## 10. A run on disk
@@ -530,5 +559,8 @@ A model is trained, measured with the same scripts on every evaluation
 set, recorded in `docs/RESEARCH.md` whether it won or not, and only then
 named in a profile. Training runs in numpy or, for the larger networks,
 in torch on a GPU machine (`*_torch.py` mirrors each numpy network; the
-tests hold the two to the same outputs). A release bundles the live model
+table sequence reader's and the equation reader's torch models are in
+their trainers, `scripts/train_tableseq.py` and `scripts/train_mathread.py`;
+the tests hold the two to the same outputs, `tests/test_tableseq.py` and
+`tests/test_mathread.py` for those two). A release bundles the live model
 files with a manifest of what each one is and its SHA-256.

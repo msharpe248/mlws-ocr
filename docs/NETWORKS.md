@@ -1,8 +1,10 @@
 # mlws-ocr — the networks
 
 Every learned model in mlws-ocr is trained by this repository, on public
-data, on home hardware (a Mac mini's CPU, or its GPU through the optional
-`torch` extra), and runs locally from one exported `.npz`. Nothing is
+data, on home hardware (a Mac mini, and two gaming PCs, ai01 with an RTX
+3080 Ti and ai02 with an RTX 3090, on which most of the larger networks
+were trained through the optional `torch` extra; [DEV_ENVIRONMENT.md](DEV_ENVIRONMENT.md)),
+and runs locally from one exported `.npz`. Nothing is
 downloaded pre-trained; no vision or language foundation model is used.
 This page lists every network and every small learned model, what it is
 for, how its training data is acquired, how it is trained, and how it was
@@ -14,9 +16,9 @@ judged before it went live. The measurements themselves are in
 
 | model | file (`data/`) | size | used by | trainer | data |
 |---|---|---|---|---|---|
-| MLP second opinion | `mlp.npz` | 53k params | classic, neural (`recognize.mlp_path`) | `train_mlp.py` | exemplar pool: synthetic renders + real harvests |
-| Character GRU language model | `gru_en.npz` | 258k | classic, neural (`decode.char_lm`) | `train_charlm.py` | public-domain text corpus |
-| Word-strip CRNN scorer | `seq_en.npz` | 285k | neural (`decode.seq_path`) | `train_seq.py` | synthetic word windows + truth-labelled real word strips |
+| MLP second opinion | `mlp.npz` | 53k params | classic, neural, neural-table (`recognize.mlp_path`) | `train_mlp.py` | exemplar pool: synthetic renders + real harvests |
+| Character GRU language model | `gru_en.npz` | 258k | classic, neural, neural-table (`decode.char_lm`) | `train_charlm.py` | public-domain text corpus |
+| Word-strip CRNN scorer | `seq_en.npz` | 285k | neural, neural-table (`decode.seq_path`); classic, the word corrector's image check (`correct.seq_path`) | `train_seq.py` | synthetic word windows + truth-labelled real word strips |
 | Line model for tables, grey strips (same CRNN, 139 classes) | `seq_line_gray15_en.npz`, `_2`, `_3` | 3 × 291k | neural-table (`decode.line_model_path`) | `train_seq.py` | the reader below fine-tuned with table lines cut from PubTables-1M and FinTabNet.c training crops at their PDF text, receipt photo lines weighted up, the tables' symbols (± − – — × ° μ < > ≤ ≥ ’ ‘ “ ” † ‡ · •) as classes with a symbol-rich synthetic set; distilled from itself, L2-SP, EMA |
 | Line model for table crops, grey strips (same CRNN, 139 classes) | `seq_line_gray18_en.npz`, `_2`, `_3` | 3 × 291k | neural-table, on a table's crop only (`decode.line_model_path_table`) | `train_seq.py` | gray16 (the gray15 members 3 more epochs with all the harvested table lines, PubTables-1M pt0-7, FinTabNet.c fin0-3) trained 3 more epochs with 781k fresh table lines from 8,000 PubTables-1M and 4,000 FinTabNet.c training tables (v0.18.12; gray16 v0.18.1-v0.18.11) |
 | Symbol reader for table crops (same CRNN, 139 classes) | `seq_line_gray17b_en.npz`, `_2`, `_3` | 3 × 291k | neural-table, on a table's crop, its symbols only (`decode.line_model_path_symbols`) | `train_seq.py` | the gray16 members 2 more epochs with the table-symbol lines `seq_synth_tsym1`, lr 3e-4, L2-SP 1e-3 |
@@ -24,10 +26,11 @@ judged before it went live. The measurements themselves are in
 | Table cell confidence | `cellconf_v1.npz` | 20 weights | neural-table (`output.table_cell_conf_path`) | `train_cellconf.py` | 41,333 cells of 799 selection tables (PubTables-1M training outside every draw, FinTabNet.c validation), each right when its text is the truth's at its row and column after the grids are lined up |
 | Equation reader | `mathread_v3.npz` | 848k params | neural, neural-table (`output.math_reader_path`, `output.math_beam` 8; v2 since v0.18.9, v3 since v0.18.10) | `train_mathread.py` | v3: v2's recipe on 60,000 formulas with lines of at most 50 tokens (`make_math_set.py --out data/math3 --train 60000 --max-line-tokens 50`), 30 epochs on ai02's RTX 3090 (86 min); 30 held-out pages exact 61.1%, tokens 88.2% at beam 8. v2: 60,000 formulas of the v2 grammar (aligned pairs, applied functions, newtx) typeset by tectonic in four families at 150-300 dpi (`make_math_set.py --out data/math2 --train 60000`), 30 epochs on the Mac's GPU (4.4 h); 30 held-out typeset pages: exact 54.9%, token accuracy 85.9% (v1: 45.8 / 65.9). v1 (`mathread_v1.npz`: 20,000 formulas of the first grammar, 25 epochs): test exact 50.8%, token accuracy 82.9% |
 | Line model, grey strips (same CRNN) | `seq_line_gray9_en.npz`, `_2`, `_3` | 3 × 287k | neural (`decode.line_model_path`, `decode.line_source = "gray"`) | `train_seq.py` | v0.14.0's reader (the v0.13.0 grey reader fine-tuned with SROIE and FUNSD box-cut training lines and more Legal Reports lines, held to its predecessor by L2-SP and distillation; EMA) with 8 more classes and a symbol-bearing synthetic set |
-| Line model, grey strips (v0.13.0) | `seq_line_gray_en.npz`, `_2`, `_3` | 3 × 285k | none since v0.14.0 (the teacher of the above) | `train_seq.py` | the binary line model fine-tuned on grey line strips (grey twins of harvested lines) plus binary real lines |
+| Line model, grey strips (v0.14.0) | `seq_line_gray7_en.npz`, `_2`, `_3` | 3 × 285k | none since v0.15.0 (gray9's start and teacher) | `train_seq.py` | the v0.13.0 grey reader fine-tuned 4 epochs with grey SROIE and FUNSD box-cut training lines and Legal Reports lines from 600 pages, L2-SP 1e-4 and learning without forgetting towards it; EMA weights |
+| Line model, grey strips (v0.13.0) | `seq_line_gray_en.npz`, `_2`, `_3` | 3 × 285k | none since v0.14.0 (gray7's start and teacher) | `train_seq.py` | the binary line model fine-tuned on grey line strips (grey twins of harvested lines) plus binary real lines |
 | Line model, binary strips (previous) | `seq_line_en.npz`, `_2`, `_3` | 3 × 285k | none since 2026-09-26 (v17a) | `train_seq.py` | the above plus long windows and real whole lines |
-| Word-confidence calibrator | `wordconf.npz` | 17 weights | neural (`decode.conf_path`) | `train_wordconf.py` | truth-labelled words with the decoder's evidence |
-| Line-choice judge | `linechoice.npz` | 16 weights | neural (`decode.line_choice_path`) | `train_line_choice.py` | truth-labelled line pairs (classic reading vs line reading) |
+| Word-confidence calibrator | `wordconf.npz` | 17 weights | neural, neural-table (`decode.conf_path`) | `train_wordconf.py` | truth-labelled words with the decoder's evidence |
+| Line-choice judge | `linechoice.npz` | 16 weights | neural, neural-table (`decode.line_choice_path`) | `train_line_choice.py` | truth-labelled line pairs (classic reading vs line reading) |
 | knn_scc link rule (experimental) | `linkkeep_v1.npz` | 15 weights | none (option `blocks.link_model_path`) | `train_links.py` | knn_scc graph links labelled by UNLV zone truth |
 | Segmenter judge | `segjudge.npz` | 32 weights | neural, neural-table (`blocks.impl = "judged"`, newspapers and magazines) | `segmenter_judge.py` | per-page accuracy of four segmenters read end to end on UNLV training-pool pages |
 | Glyph CNN | `cnn.npz` | 30k | none (kept off; `recognize.cnn_path`) | `train_cnn.py` | synthetic renders + truth-labelled real crops |
@@ -35,7 +38,7 @@ judged before it went live. The measurements themselves are in
 | Table structure network | `splitnet_v2.npz` (`splitnet_v1.npz` round one) | 277k | neural-table (`output.table_split_path`; on a table's crop chosen over the rules' table by `table_select.npz` unless it leaves out a whole figure row, `table_split_keep_rows`; on a page by the empty-cell rule) | `train_splitnet.py` | PubTables-1M structure training tables (100,000 of 758,849), FinTabNet.c training tables (78,537), 12,000 drawn tables, 2,550 tables of drawn business pages, 308 CORD receipts (`make_split_data.py`) |
 | Table structure choice | `table_select.npz` | 19 weights | neural-table (`output.table_split_select`: on a table's crop, the rules' table or the structure network's) | `train_table_select.py` | 297 tables the structure network never saw (FinTabNet.c validation, PubTables-1M training outside its draw), both tables' shapes and which scored higher |
 | Table detector | `tabledet_v1.npz` | 248k | neural-table (`output.table_det_path`, `table_det_mode = "complement"`) | `train_tabledet.py` | PubTables-1M detection training pages (60,000 of Part 1's 230,294) + 1,200 drawn business pages + 900 CORD training receipts (`make_det_data.py`) |
-| Word-relation network | `wordrel_v3.npz` | 321k | neural-table (`output.table_wordrel_path`; on a table's crop, its table or the engine's by `wordrel_select.npz`) | `train_wordrel.py` | the PDF words of 97,165 PubTables-1M and 68,733 FinTabNet.c training tables (`make_wordrel_data.py`) + the ENGINE's words on 3,906 + 2,713 more (`harvest_wordrel.py`, x10) |
+| Word-relation network | `wordrel_v3.npz` | 321k | neural-table (`output.table_wordrel_path`; on a table's crop, its table or the engine's by `wordrel_select_v2.npz`) | `train_wordrel.py` | the PDF words of 97,165 PubTables-1M and 68,733 FinTabNet.c training tables (`make_wordrel_data.py`) + the ENGINE's words on 3,906 + 2,713 more (`harvest_wordrel.py`, x10) |
 | Word-relation choice | `wordrel_select_v2.npz` | 32 inputs | neural-table (`output.table_wordrel_select`) | `train_wordrel_select.py` | 1,615 tables no network saw (`draw_unseen_tables.py`: 1,000 PubTables-1M training, 750 FinTabNet.c validation), read with gray18 (v0.18.12; v1, `wordrel_select.npz`, fitted on 257, v0.18.0-v0.18.11) |
 | Table sequence reader | `tableseq_v2.npz` (= `tseq3.e20.pt`), with its choice `tableseq_select_v2.npz` (26 inputs); `tableseq_v1.npz` the first run, not adopted | 1.88M | neural-table since v0.18.13 (`output.table_seq_path`, `table_seq_mode = "select"`, `table_seq_select`) | `train_tableseq.py`, `train_tableseq_select.py` | PubTables-1M and FinTabNet.c structure training tables as OTSL tokens with cell boxes (`make_tableseq_data.py`): 310k + 78k, 15 epochs, 17 h gentle; then 5 epochs with 60k drawn tables (`make_tableseq_drawn.py`), strong augmentation and random margins, 7.8 h; the choice fitted on sel3 and 300 screenshots of its structures (2,031 tables) |
 
@@ -43,9 +46,19 @@ The classic engine also builds three learned tables that are not networks
 but come from the same data: the condensed nearest-prototype pool
 (`prototypes.npz`, `build_prototypes.py`), the outline-segment prototype
 bank (`outline_protos.npz`, `build_outline_protos.py`) and the lexicon
-with character trigrams (`lang_en.npz`, `build_langmodel.py`). The
-**pure** profile runs with no network at all; **classic** uses the first
-two networks; **neural** uses all but the CNN.
+with character trigrams (`lang_en.npz`, `build_langmodel.py`); the word
+corrector adds each engine's learned confusions (`harvest_confusions.py`:
+`confusions_classic.json`, on in classic; `confusions_neural.json`, for
+neural and neural-table when the corrector is switched on). The
+**pure** profile runs with no network at all; **classic** uses the MLP and
+the character GRU, and the word scorer only in its word corrector;
+**neural** adds the word scorer, the grey line reader (gray9) with its
+judge, the word-confidence calibrator, the segmenter judge and the equation
+reader; **neural-table** is neural with its own line readers (gray15,
+gray18 and gray17b on table crops), the symbol classifier and the table
+models (separator, structure, detector, word-relation and sequence
+networks, their choices and the cell confidence). The glyph CNN and the
+knn_scc link rule are in no profile.
 
 ## Training on a second machine
 
@@ -112,6 +125,7 @@ were trained on the public sources named below and on nothing else.
 | v0.11.1 (2026-09-26) | the same fourteen files as v0.11.0: this release is workbench fixes |
 | v0.12.0 (2026-09-26) | fifteen files: v0.11.1's fourteen plus the segmenter judge `segjudge.npz` (= `segjudge_v1`), the neural profile's segmenter for newspapers and magazines |
 | v0.13.0 (2026-09-26) | eighteen files: v0.12.0's fifteen plus the grey-strip line reader `seq_line_gray_en.npz`, `_2`, `_3` (= `seq_line_gray2` seeds 3, 2, 1), the neural profile's reader; the v17a files stay for the previous reader |
+| v0.14.0 (2026-09-27) | twenty-one files: v0.13.0's eighteen plus the reader `seq_line_gray7_en.npz`, `_2`, `_3` (= `seq_line_gray7` seeds 3, 2, 1, EMA weights), the neural profile's reader; the v0.13.0 grey reader stays (it is the new one's teacher and the way back) |
 | v0.15.0 (2026-09-27) | twenty-four files: v0.14.x's twenty-one plus the reader `seq_line_gray9_en.npz`, `_2`, `_3` (= `seq_line_gray9`, EMA), the v0.14.0 reader with the alphabet widened by ``* = + @ [ ] _ ` ``; v0.14.0's reader stays (its teacher) |
 | v0.16.0 (2026-09-28) | twenty-six files: v0.15.0's twenty-four plus the table separator networks `sepnet_v2.npz` (the neural-table profile's row evidence) and `sepnet_v1.npz` (its predecessor) |
 | v0.17.0 (2026-09-30) | thirty-two files: v0.16.0's twenty-six plus the neural-table profile's table networks `tabledet_v1.npz` (detector), `splitnet_v2.npz` (structure network), `table_select.npz` (the rules-or-network choice) and its line reader `seq_line_gray12_en.npz`, `_2`, `_3` (= `seq_line_gray12`, EMA); the neural profile keeps `seq_line_gray9` |
@@ -131,7 +145,6 @@ were trained on the public sources named below and on nothing else.
 | v0.18.11 (2026-10-07) | the same forty-three files as v0.18.10: this release is profile and code (two-level headers the rebuild had refused) |
 | v0.18.12 (2026-10-09) | forty-three files: v0.18.11's with the table-crop reader `seq_line_gray18_en.npz`, `_2`, `_3` in place of `seq_line_gray16_en*` and the word-relation choice `wordrel_select_v2.npz` in place of `wordrel_select.npz` |
 | v0.18.13 (2026-10-11) | forty-five files: v0.18.12's forty-three plus the table sequence reader `tableseq_v2.npz` and its choice `tableseq_select_v2.npz` |
-| v0.14.0 (2026-09-27) | twenty-one files: v0.13.0's eighteen plus the reader `seq_line_gray7_en.npz`, `_2`, `_3` (= `seq_line_gray7` seeds 3, 2, 1, EMA weights), the neural profile's reader; the v0.13.0 grey reader stays (it is the new one's teacher and the way back) |
 
 ## Where the training data comes from
 
@@ -286,8 +299,8 @@ class cost the typewriter set 2.6 word points (RESEARCH 2026-09-16).
 ### Character GRU language model — `lang/gru.py`
 
 **Purpose.** The next-character predictor behind the beam decoder's
-`score(context, next)`, replacing the corpus trigram in the classic and
-neural profiles. A GRU because beam search extends hypotheses one
+`score(context, next)`, replacing the corpus trigram in the classic,
+neural and neural-table profiles. A GRU because beam search extends hypotheses one
 character at a time and a recurrent cell gives the whole next-character
 distribution from an O(1) state; 258k parameters, embeddings of 48,
 hidden 256, vocabulary of the character set.
@@ -371,7 +384,9 @@ words, up to 1,700 columns; `make_seq_data.py --words 3 8 --take 2 6
 15,549 from the five UNLV sets (`harvest_lines.py --line-out`), 30,325
 from the SROIE receipts and 6,598 from the FUNSD forms cut straight from
 their truth boxes (`harvest_boxes.py`); real strips repeated three times
-an epoch. The live reader is a three-seed ensemble of `seq_line_v17a` (2026-09-24; Status below); `seq_line_v13b` (2026-09-21) added 37,960 word
+an epoch. The live readers are grey-strip fine-tunes of this line (below): `seq_line_gray9` in neural; `seq_line_gray15`,
+`seq_line_gray18` on table crops and `seq_line_gray17b` for their symbols in neural-table. The last binary-strip
+reader was a three-seed ensemble of `seq_line_v17a` (2026-09-24 until v0.13.0; Status below); `seq_line_v13b` (2026-09-21) added 37,960 word
 strips and 1,993 whole lines from the Library of Congress Legal Reports
 (`make_btp_set.py`, `harvest_lines.py`); `seq_line_v11s2` (2026-09-19)
 had the receipts and forms, `seq_line_v7a` the UNLV lines only.
@@ -753,7 +768,12 @@ the fixed rules.
 .venv/bin/python scripts/train_line_choice.py data/linechoice_*.npz --out data/linechoice.npz
 ```
 
-**The live judge** is `linechoice14s` (2026-09-21): fitted against the
+**The live judge** is `linechoice_v17as` (2026-09-24; `linechoice.npz` in
+neural and neural-table): fitted on the `seq_line_v17a` ensemble's own line
+pairs (the four UNLV harvests plus receipt pairs, the page-level feature),
+80.3% decision accuracy, and kept for the grey ensemble because a judge
+refitted on its own pairs cost mag-8 4 points (2026-09-26). Before it,
+`linechoice14s` (2026-09-21): fitted against the
 `seq_line_v13b` reader on the four UNLV harvests plus 545 receipt line
 pairs, with the page-level feature added that day (the share of the
 page's classic lines with no endorsed word); real receipts 66.0 / 35.9 →
@@ -1019,7 +1039,10 @@ OMP_NUM_THREADS=1 .venv/bin/python scripts/harvest_wordrel.py <FinTabNet.c 3,000
 
 Held-back word pairs: F1 row 0.962, column 0.983, cell 0.930.
 
-**The choice** (`wordrel_select.npz`). The network's table is not always
+**The choice** (`wordrel_select_v2.npz` since v0.18.12: 32 inputs, fitted
+on 1,615 tables no network saw, read with gray18; the line model's
+v0.18.12 entry above has its recipe and numbers. What follows is the
+first, `wordrel_select.npz`, v0.18.0-v0.18.11.) The network's table is not always
 the better: it and the engine fail on different tables (the better of
 the two per table is worth +0.05-0.06).  A logistic regression of 23
 weights over both tables' shapes (`table_features`), their differences and
@@ -1210,9 +1233,34 @@ directory:
    real pool under `--lines-once`.
 4. Calibrators: `harvest_word_conf.py` + `train_wordconf.py`;
    `harvest_line_choice.py` + `train_line_choice.py` against the line
-   model in use.
+   model in use; `segmenter_judge.py` for the segmenter judge.
+5. The grey line readers, each a fine-tune of an earlier one in the order
+   of the line model's entries above (gray2, gray7, gray9; then for
+   neural-table gray15 with the table lines `harvest_boxes.py --tables`
+   cuts, gray16, gray17b with `make_table_symbol_corpus.py`, gray18).
+6. Table networks, with PubTables-1M and FinTabNet.c under
+   `~/mlws-ocr-data/keep/` (their sections above have the data, recipes
+   and commands): the separator network (`make_sep_data.py`,
+   `train_sepnet.py`), the structure network
+   (`make_split_data.py`, `train_splitnet.py`) and its choice
+   (`train_table_select.py`), the detector (`make_det_data.py`,
+   `train_tabledet.py`), the word-relation network (`make_wordrel_data.py`,
+   `harvest_wordrel.py`, `train_wordrel.py`) and its choice
+   (`draw_unseen_tables.py`, then `train_wordrel_select.py` over
+   `eval_tables.py` dumps), the table sequence reader
+   (`make_tableseq_data.py`, `make_tableseq_drawn.py`, `train_tableseq.py`)
+   and its choice (`make_screen_set.py --src`, `train_tableseq_select.py`).
+7. The symbol classifier (`harvest_symbols.py`, `train_symbols.py`) and
+   the table cell confidence (`eval_tables.py --set
+   output.table_cell_features=true --dump`, `train_cellconf.py`), as their
+   inventory rows describe.
+8. The equation reader: `make_math_set.py --max-line-tokens 50` (formulas
+   typeset by tectonic), `train_mathread.py`, `eval_math_pages.py`.
 
 Every trainer prints its own held-out number, but no model goes live on
 that number: the four evaluation sets (`eval_unlv.py`) and the block
 metric (`eval_blocks.py`) decide, against the seed-to-seed range of the
-recipe, and `docs/RESEARCH.md` records the measurement either way.
+recipe, and `docs/RESEARCH.md` records the measurement either way. The
+table models are adopted on `scripts/eval_tables.py` instead: the 240
+held-out tables of PubTables-1M and FinTabNet.c, the 60 scored, the
+screenshots and the business sets, in the neural-table profile.

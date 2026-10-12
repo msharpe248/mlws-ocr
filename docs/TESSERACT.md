@@ -78,9 +78,9 @@ against the truth's HTML; [TABLES.md](TABLES.md)):
 |---|---|
 | invoices / timesheets / paystubs (generated) | 0.967 / 0.942 / 0.940 |
 | payroll forms (generated WH-347) | 0.913 |
-| annual-report tables (FinTabNet.c, 240 held out) | 0.875 |
-| scientific tables (PubTables-1M, 240 held out) | 0.814 |
-| screenshots (80 tables drawn by a browser) | 0.911 |
+| annual-report tables (FinTabNet.c, 240 held out) | 0.880 |
+| scientific tables (PubTables-1M, 240 held out) | 0.879 |
+| screenshots (80 tables drawn by a browser) | 0.906 |
 
 The same is true of the other things the engine now writes beside the text:
 **pictures** cut from the original and named in the hOCR (`ocr_photo` with
@@ -136,7 +136,7 @@ does not have:
 | dictionary at decode | DAWG beam | lexicon prior inside the CTC beam; unendorsed words penalised |
 | document adaptation | none in the LSTM path | the classic side's per-document refit and word list still feed the judge |
 | light text on a dark ground | a line read with low confidence is inverted and read again (`tessedit_do_invert`) | dark grounds (dark mode, a coloured header band) found by local polarity and inverted before binarization; photographs kept out of it |
-| table structure | none | ruled grids, whitespace tables, a structure network, a word-relation transformer, and a fitted choice between their tables; spans, nesting, arithmetic checks |
+| table structure | none | ruled grids, whitespace tables, a table detector, a structure network, a word-relation transformer, a table sequence reader (v0.18.13), and fitted choices between their tables; spans, nesting, arithmetic checks |
 
 The **per-line judge** is the mechanism Tesseract lacks and the reason
 the neural profile keeps the classic engine's strengths on typewriter

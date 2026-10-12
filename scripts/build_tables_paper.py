@@ -173,5 +173,5 @@ print("wrote", OUT, sum(len(x) for x in out))
 
 # the page's own title (the head is borrowed from another paper's page)
 _s = open(OUT).read()
-_s = re.sub(r"<title>[^<]*</title>", "<title>Tables from Rules and One Small Network</title>", _s, count=1)
+_s = re.sub(r"<title>[^<]*</title>", "<title>Tables from Rules and Small Networks</title>", _s, count=1)
 open(OUT, "w").write(_s)

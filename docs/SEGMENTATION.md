@@ -162,7 +162,8 @@ XY-cut's limit is its geometry: it can only cut straight through the whole
 current region, so an L-shaped layout — a photo with text wrapping around
 it, a column that ends partway down — can only be cut in pieces. It is
 nonetheless the engine's default for every kind of page (the classic
-profile), and one of the judge's choices in the neural profile (§7).
+profile), and one of the judge's choices in the neural and neural-table
+profiles (§7).
 
 ## 5. Whitespace rectangles
 
@@ -234,10 +235,10 @@ every page.
 
 ## 7. The judge: choose per page
 
-If no segmenter wins every page, pick one per page. The neural profile's
-blocks stage (`blocks.judged`) runs six candidates on newspaper and
-magazine pages — XY-cut with and without its type hint, the tight k-NN,
-the SCC tree, and those two with headline joining — describes each result
+If no segmenter wins every page, pick one per page. The neural and
+neural-table profiles' blocks stage (`blocks.judged`) runs four candidates
+on newspaper and magazine pages — XY-cut with and without its type hint,
+the tight k-NN and the SCC tree — describes each result
 by four numbers (how many blocks, how much ink sits in blocks that span a
 gutter, how much in very wide blocks, how many tiny blocks) plus the page's
 gutters and type, and takes the candidate a small ridge regression
@@ -340,9 +341,9 @@ read with that segmenter, on the evaluation sets (`eval_unlv.py --blocks
 | imagezones | `density` | `density_thresh` 0.45, `protect_text_rows` on, `keep_grids` (neural-table) | every profile |
 | rulings | `morphological` | `min_len_300dpi` 150, `tolerant` on, `dash_gap_300dpi` 12, `short_in_grid_300dpi` 40, `edge_bars` and `faint_depth` 0.06 (neural-table) | every profile |
 | blocks | `xycut` | `min_gap_x_300dpi` 36, `min_gap_y_300dpi` 30, document-type priors | classic, pure |
-| | `judged` | `model_path` `data/segjudge.npz`, newspapers and magazines judged | neural, neural-table |
+| | `judged` | `model_path` `data/segjudge.npz`, newspapers and magazines judged; `keep_dashes` (neural-table) | neural, neural-table |
 | | `whitespace`, `knn_scc` | see the code and the papers | layout profiles for comparison |
-| lines | `profile` | tall-line re-split; `in_cells` (neural-table); `stacked_chunks` (table crops, neural-table) | every profile |
+| lines | `profile` | tall-line re-split; `in_cells` (neural-table); `stacked_chunks` (table crops, neural-table); `equations` (display equations, neural and neural-table) | every profile |
 | components | `overlap` | cut candidates for wide groups | every profile |
 
 ## References

@@ -80,8 +80,9 @@ ruled grids kept from the picture zones, short grid rules, spanned cells,
 open sides, nested tables, words split at cell borders, figure columns, and tables found
 on the page (the generated sets, scored page-wide over every table) or the
 `table` hint (FinTabNet's single-table crops, magnified from 72 dpi).
-The neural-table column adds the self-trained table detector, structure
-network and table line reader. Neither Tesseract engine outputs table
+The neural-table column adds the self-trained table networks: a detector, a
+structure network, a word-relation network, a table sequence reader and a
+reader for table lines. Neither Tesseract engine outputs table
 structure -- its text, hOCR and TSV carry no rows, columns or cells -- so
 there is nothing to score. With the options off, every set scores
 between 0.00 and 0.03.
@@ -96,7 +97,7 @@ between 0.00 and 0.03.
 | scientific tables | real tables from papers, PubTables-1M test crops (60 tables; on 240 held-out ones 0.879 / 0.940); page-level detection F1 0.967 at IoU 0.5 (40 pages, v0.17.2) | – | 0.886 / 0.951 |
 | screenshots | tables drawn as web pages by a browser -- plain, grid, zebra, dark mode, coloured header, spreadsheet -- at 96 and 192 dpi (80 tables) | – | 0.906 / 0.938 |
 
-Neural-table as of v0.18.13 (2026-10-03: nil dashes read, a receipt's paper edge dropped, receipt item rows kept apart, a frame round a table's crop not taken for the table, light-grey rules found in the grey page, captions and notes trimmed by whole rows, wrapped cells read line by line, row labels spanning their sub-rows, a word read across a column gap split, a table reader that writes ± and the tables' other symbols, a small transformer over a table crop's words whose table a fitted choice keeps when it is the better, a reader for table crops trained harder on table lines, light text on a dark ground inverted, row labels with dot leaders kept, photographs found on the grey page and kept out of that inversion, pictures cut out for the hOCR, wrapped cells read line by line within their column, lone '-' dashes kept, a row's label spanning its continuation rows, a second reader lending its dashes and signs to a table's text, dashes named by measure and a symbol classifier trained on real glyphs, a two-level header rebuilt from its text lines, a calibrated confidence for every cell, a heading above a table's figures put back, centred headings and short spanners seen in two-level headers, a table-crop reader trained on 781k more table lines with the per-table choice refitted on 1,615 unseen tables, a table sequence reader that reads a crop's grid from its pixels, its table kept where a fitted choice prefers it; scored from the output's table records since 2026-10-07 -- docs/RESEARCH.md); the generated sets' truth was corrected where it disagreed with its own images (timesheets, payroll forms). \* measured before the open-sides and short-rule options and before the payroll truth held both amounts of each diagonal gross cell (the set was regenerated, 2026-09-28); – not measured.
+Neural-table as of v0.18.13 (2026-10-11: nil dashes read, a receipt's paper edge dropped, receipt item rows kept apart, a frame round a table's crop not taken for the table, light-grey rules found in the grey page, captions and notes trimmed by whole rows, wrapped cells read line by line, row labels spanning their sub-rows, a word read across a column gap split, a table reader that writes ± and the tables' other symbols, a small transformer over a table crop's words whose table a fitted choice keeps when it is the better, a reader for table crops trained harder on table lines, light text on a dark ground inverted, row labels with dot leaders kept, photographs found on the grey page and kept out of that inversion, pictures cut out for the hOCR, wrapped cells read line by line within their column, lone '-' dashes kept, a row's label spanning its continuation rows, a second reader lending its dashes and signs to a table's text, dashes named by measure and a symbol classifier trained on real glyphs, a two-level header rebuilt from its text lines, a calibrated confidence for every cell, a heading above a table's figures put back, centred headings and short spanners seen in two-level headers, a table-crop reader trained on 781k more table lines with the per-table choice refitted on 1,615 unseen tables, a table sequence reader that reads a crop's grid from its pixels, its table kept where a fitted choice prefers it; scored from the output's table records since 2026-10-07 -- docs/RESEARCH.md); the generated sets' truth was corrected where it disagreed with its own images (timesheets, payroll forms). \* measured before the open-sides and short-rule options and before the payroll truth held both amounts of each diagonal gross cell (the set was regenerated, 2026-09-28); – not measured.
 
 **Held-out pages.** The eight-page sets flatter newspapers and magazines:
 on 30 fresh pages of each type, never used for any decision, the neural
@@ -234,11 +235,15 @@ marking the cells a failed check points at. None of this changes the
 page's text. For table documents, `configs/neural-table.toml` adds the
 options that do: a large ruled grid kept from the picture zones, short
 dividers under spanned headers, low-dpi crops magnified, rules taken out
-of the reader's strips, figure columns re-read with digits only, and four
-self-trained networks: a table detector over the whole page, a structure
-network that gives a table's rows, columns and extent, a separator network
-that joins a table's wrapped rows, and a line reader fine-tuned on table
-lines. A table image on its own reads best with `--doc-type table`. Measured by TEDS
+of the reader's strips, figure columns re-read with digits only, and the
+self-trained table networks: a table detector over the whole page, a
+structure network that gives a table's rows, columns and extent, a
+separator network that joins a table's wrapped rows, a word-relation
+network (a small transformer over a table's words), a table sequence reader
+that reads a table's grid from its pixels, readers and a symbol classifier
+trained on table lines, and a confidence for every cell. Where a network
+builds a table of its own, a small fitted choice keeps its table or the
+rules'. A table image on its own reads best with `--doc-type table`. Measured by TEDS
 against HTML truth (`scripts/eval_tables.py`), table by table in the
 comparison above.
 
@@ -329,7 +334,7 @@ library server, plain JavaScript and canvas, no build step
 
 ## Engines
 
-One codebase, three profiles under `configs/`; pass one to `mlws-ocr run`
+One codebase, five profiles under `configs/`; pass one to `mlws-ocr run`
 or to any evaluation script's `--config`. `default.toml` is the classic
 profile, kept as the reference; the neural profile is the accurate one.
 
@@ -337,13 +342,14 @@ profile, kept as the reference; the neural profile is the accurate one.
 |---|---|---|---|
 | **classic** | `configs/classic.toml` | the MLP second opinion (53k) and the character GRU (258k) | the feature engine: nearest-prototype, outline and MLP channels over explicit glyph features, a beam decoder with lexicon and language model, per-document adaptation. Its row is the regression guard after every neural adoption. |
 | **pure** | `configs/pure.toml` | none | classic with both networks off; what the feature engine reads on its own |
-| **neural** | `configs/neural.toml` | classic's, plus the word-strip CRNN+CTC scorer as the judge of the classic word variants, the line reader (every line read end to end by the line model), the fitted judge that decides each line between the two readings, and the word-confidence calibrator | the engine to use; reports table structure (spans, nesting, tables found on the page, figure columns, arithmetic checks) without changing the text |
-| **neural-table** | `configs/neural-table.toml` | neural's, with a line reader fine-tuned on table lines in place of neural's, plus the table separator network (wrapped rows joined), the table detector (248k), the table structure network (277k) and the fitted choice between the rules' table and the network's | neural plus the table options that also change what the reader sees (ruled grids kept from the picture zones, short grid rules, low-dpi crops magnified, rules taken out of the reader's strips, figure columns re-read as figures, turned cell text read): for payroll forms, paystubs, statements, invoices, receipts, and tables from reports and papers |
+| **neural** | `configs/neural.toml` | classic's, plus the word-strip CRNN+CTC scorer as the judge of the classic word variants, the line reader (every line read end to end by the line model), the fitted judge that decides each line between the two readings, the word-confidence calibrator, the segmenter judge (newspapers and magazines) and the equation reader (848k) | the engine to use; reports table structure (spans, nesting, tables found on the page, figure columns, arithmetic checks) without changing the text |
+| **neural-table** | `configs/neural-table.toml` | neural's, with a line reader fine-tuned on table lines in place of neural's (and on a table's crop a reader trained harder on table lines, a symbol reader and a symbol classifier), plus the table separator network (wrapped rows joined), the table detector (248k), the table structure network (277k), the word-relation network (321k), the table sequence reader (1.88M), a fitted choice for each network that builds a table, and the cell confidence | neural plus the table options that also change what the reader sees (ruled grids kept from the picture zones, short grid rules, low-dpi crops magnified, rules taken out of the reader's strips, figure columns re-read as figures, turned cell text read): for payroll forms, paystubs, statements, invoices, receipts, and tables from reports and papers |
 | **neural-line** | `configs/neural_line.toml` | the same, as the experiment profile for a new line model or choice rule | development |
 
 `tests/test_profiles.py` keeps the profiles honest (pure differs from
-classic only in the two network switches; neural only in the recognize
-and decode terms), and `tests/test_regression.py` reads the synthetic
+classic only in the two network switches; neural in the recognize and
+decode terms, the segmenter judge, the word corrector's switch, and the
+table, picture and equation options that leave the text alone), and `tests/test_regression.py` reads the synthetic
 page under each profile against the accuracies recorded at adoption.
 
 ## Models and data
@@ -372,7 +378,10 @@ account per model; the short form:
 .venv/bin/python scripts/train_seq.py --backend torch --synth data/seq_synth_v1.npz --lines data/lines_en.npz --out data/seq_en_vN.npz
 .venv/bin/python scripts/harvest_word_conf.py data/unlv/bus.3B --pages 60 --config configs/neural.toml && .venv/bin/python scripts/train_wordconf.py data/wordconf_en.npz
 # the table networks: make_det_data.py + train_tabledet.py (detector), make_split_data.py + train_splitnet.py (structure),
-# train_table_select.py (the rules-or-network choice), harvest_boxes.py --tables (the table reader's lines); recipes in docs/NETWORKS.md
+# train_table_select.py (the rules-or-network choice), harvest_boxes.py --tables (the table reader's lines),
+# train_wordrel.py + train_wordrel_select.py (word relations), make_tableseq_data.py + train_tableseq.py +
+# train_tableseq_select.py (the table sequence reader), make_math_set.py + train_mathread.py (equations);
+# recipes in docs/NETWORKS.md
 ```
 
 A trained network goes live only when it clears the seed-to-seed range
@@ -423,19 +432,22 @@ src/mlws_ocr/
   core/       Page artifact, Stage contract, registry, TOML config, runner, PDF and image I/O
   cleanup/    magnify, deskew (projection | Hough), illumination, binarize (Sauvola | Otsu), despeckle
   layout/     image zones, rulings, blocks (XY-cut | k-NN SCC | whitespace | judged), tables, lines;
-              whitespace and mesh table finders; the table separator, structure and detector networks
+              whitespace and mesh table finders, display equations found; the table separator, structure,
+              detector and word-relation networks, the table sequence reader, the segmenter judge
   glyph/      connected components and cuts, the 95-element feature vector, skeletons, line strips
   recognize/  nearest-prototype, MLP and outline channels; the CRNN sequence model (numpy + torch mirror) and CTC
   lang/       lexicon and character trigrams, the character GRU
+  math/       display equations: the LaTeX grammar, the equation reader (CNN + GRU with attention), MathML
   decode/     the beam decoder, its post-passes and sequence-scorer terms, numeric formats and shape repairs, the line reader, the judge, word confidence, the word corrector, text, hOCR and table output
   adapt/      per-document cluster refit
   factory/    synthetic data: font stock, glyph and line rendering, the degradation model, the table generator
   eval/       alignment of output to ground truth
   inspector/  the run browser and the segmentation lab (stdlib http.server + static HTML)
   workbench/  the interactive workbench: a session of per-stage snapshots, user corrections, its server and page
+  batch.py    many files or a PDF's pages in a process pool
   service.py  the HTTP service (process pool, one page per worker)
 configs/      classic.toml (= default.toml), pure.toml, neural.toml, neural-table.toml, neural_line.toml, and layout variants
-scripts/      builders, trainers, harvesters and evaluators (70 scripts; each has a docstring saying what it is for)
+scripts/      builders, trainers, harvesters and evaluators (91 Python scripts and 3 shell scripts; each says what it is for)
 tests/        every stage against synthetic ground truth; profile structure; regression on the synthetic page
 ```
 
@@ -491,8 +503,8 @@ typewriter pleadings, modern documents, business pages, the Library of
 Congress typescripts and a paragraph read alone; it trails the LSTM on held-out newspapers and on forms, where
 column layout and form structure are the open problems. Tables are the
 current focus ([docs/TABLES.md](docs/TABLES.md)): the generated business
-sets read at 0.91-0.97 TEDS, real financial tables at 0.87 and scientific
-tables at 0.80 (on tables no decision looked at). Receipts are parked for a
+sets read at 0.91-0.97 TEDS, real financial tables at 0.88 and scientific
+tables at 0.88 (on tables no decision looked at). Receipts are parked for a
 receipt profile of their own.
 
 The small items left on the text side were measured and closed or

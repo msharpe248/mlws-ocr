@@ -147,7 +147,7 @@ zone files are needed for the held-out pools and the block evaluation.
 | | |
 |---|---|
 | what | table crops from S&P 500 annual reports with rows, columns, spanning cells, header and word boxes (the corrected FinTabNet); rendered at 72 dpi |
-| used for | the "annual-report tables" evaluation set (60 of a 300-table sample); training tables for the separator and structure networks; validation tables for the table choice; table lines for the table reader |
+| used for | the "annual-report tables" evaluation set (60 of a 300-table sample); training tables for the separator and structure networks, the word-relation network (its PDF words and the engine's own) and the table sequence reader; validation tables for the table choice, the word-relation and table sequence choices and the cell confidence; table lines for the table readers |
 | licence | CDLA-Permissive 2.0 (B. Smock, R. Pesala & R. Abraham, ICDAR 2023; from FinTabNet, X. Zheng et al., WACV 2021) |
 | where from | <https://huggingface.co/datasets/bsmock/FinTabNet.c> (`FinTabNet.c-Structure.tar.gz`, about 3.2 GB) |
 | get it | download it into `data/raw/fintabnet/` and unpack there |
@@ -163,7 +163,7 @@ drawn from (300 test tables, half with spanning cells).
 | | |
 |---|---|
 | what | PubMed Central pages with table boxes (the detection split) and cropped tables with row, column and spanning-cell truth (the structure split) |
-| used for | the "scientific tables" evaluation set (60 crops of a 300-table sample) and the page-level detection F1 (40 test pages); training pages for the detector and tables for the structure network; table lines for the table reader |
+| used for | the "scientific tables" evaluation set (60 crops of a 300-table sample) and the page-level detection F1 (40 test pages); training pages for the detector and tables for the structure network, the word-relation network (its PDF words and the engine's own) and the table sequence reader; training tables no network saw for the word-relation and table sequence choices and the cell confidence; table lines for the table readers; the symbol classifier's real glyphs, harvested from training crops with the PDF words as truth |
 | licence | CDLA-Permissive 2.0 (B. Smock, R. Pesala & R. Abraham, CVPR 2022) |
 | where from | <https://huggingface.co/datasets/bsmock/pubtables-1m> |
 | get it | `sh scripts/fetch_pubtables.sh` — the eight evaluation archives (about 8 GB), unpacked into `x/`, with the `structure/` links the importer reads |
@@ -275,8 +275,16 @@ flowchart LR
     tablesrc[PubTables-1M, FinTabNet.c<br/>training splits] --> tablenets[detector, structure,<br/>separator networks]
     tablesrc --> readers
     tablesrc --> select[table choice]
+    tablesrc --> wordrel[word-relation network]
+    tablesrc --> tseq[table sequence reader]
+    tablesrc --> symbols[symbol classifier]
+    tablesrc --> choices[word-relation and<br/>sequence choices,<br/>cell confidence]
+    drawn[drawn tables<br/>make_tableseq_drawn.py] --> tseq
+    screens[screenshots of<br/>sel3's structures] --> choices
+    fonts --> symbols
     gen[generated tables<br/>seed 101] --> tablenets
     cordt[CORD train + val] --> tablenets
+    tex[formulas typeset by tectonic<br/>make_math_set.py] --> mathr[equation reader]
 ```
 
 | model | trained from |
@@ -291,6 +299,13 @@ flowchart LR
 | structure network | PubTables-1M and FinTabNet.c training tables + drawn tables + generated business tables + CORD receipts |
 | detector | PubTables-1M detection training pages + generated business pages + CORD receipts |
 | table choice | FinTabNet.c validation tables + PubTables-1M training tables the structure network never saw |
+| word-relation network | the PDF words of 97,165 PubTables-1M and 68,733 FinTabNet.c training tables + the engine's own words on 3,906 + 2,713 more |
+| word-relation choice | 1,615 tables no network saw (`draw_unseen_tables.py`: PubTables-1M training, FinTabNet.c validation), read by the engine |
+| table sequence reader | 385,953 PubTables-1M and FinTabNet.c structure training tables as cell tokens, then 60,000 drawn tables (`make_tableseq_drawn.py`) |
+| table sequence choice | the same unseen tables (sel3) + 300 screenshots of their structures (`make_screen_set.py --src`): 2,031 tables |
+| equation reader | 60,000 formulas drawn from a grammar and typeset by tectonic (`make_math_set.py`) |
+| symbol classifier | 116,156 real glyphs from PubTables-1M training crops, the PDF words as truth (`harvest_symbols.py`), + rendered glyphs of the confusion sets in table contexts |
+| cell confidence | 41,333 cells of 799 selection tables (PubTables-1M training outside every draw, FinTabNet.c validation) |
 
 The recipes and command lines are in [NETWORKS.md](NETWORKS.md); the
 network shapes in [NEURAL_NETWORK_THEORY.md](NEURAL_NETWORK_THEORY.md).

@@ -71,7 +71,7 @@ Alongside, at any point:
 
 1. [TESSERACT.md](TESSERACT.md) — the numbers and the shared ideas
 2. [RECOGNITION.md §9](RECOGNITION.md#9-compared-with-tesseracts-legacy-engine) and [DECODING.md §8](DECODING.md#8-compared-with-tesseract) — engine to engine
-3. [HOCR.md §6](HOCR.md#6-hocr-and-its-relatives) — the output formats
+3. [HOCR.md §7](HOCR.md#7-hocr-and-its-relatives) — the output formats
 
 ## Going deeper
 
@@ -87,7 +87,7 @@ Once the teaching pages make sense, the working documents are the record:
 - [ROADMAP.md](ROADMAP.md) — where the work stands and what comes next.
 - The papers in [papers/](papers/README.md): the k-NN + SCC segmentation
   method and its follow-on, *Diagnose, don't tune*, and *Tables from Rules
-  and One Small Network*.
+  and Small Networks*.
 
 ## Running it while you read
 

@@ -1,8 +1,8 @@
-# Tables from Rules and One Small Network: Table Structure for Business Documents in a Readable OCR Engine
+# Tables from Rules and Small Networks: Table Structure for Business Documents in a Readable OCR Engine
 
 **Michael Sharpe** — an empirical study in the mlws-ocr project (2026).
 
-*Working draft; measurements use mlws-ocr release v0.18.1 unless marked otherwise (the first draft reported v0.16.0), kept current as the engine improves. Figures are in the [HTML edition](https://msharpe248.github.io/mlws-ocr/docs/papers/tables-from-rules.html); this text refers to them by number.*
+*Working draft; measurements use mlws-ocr release v0.18.13 unless marked otherwise, kept current as the engine improves. Figures are in the [HTML edition](https://msharpe248.github.io/mlws-ocr/docs/papers/tables-from-rules.html); this text refers to them by number.*
 
 ## In brief
 
@@ -20,7 +20,8 @@ The steps, most of them rules:
   in a frame, invoices, timesheets with two-level headers, receipts, each
   in five rule styles from a full grid to whitespace alone. Real tables
   come from FinTabNet (annual reports), PubTables-1M (scientific papers)
-  and CORD (photographed receipts).
+  and CORD (photographed receipts), and real table structures are drawn
+  by a browser as screenshots.
 - **Ruled tables** needed repairs the sets exposed one at a time: a ruled
   grid taken for a picture, spanned cells, a form open at its sides,
   tables nested in a ruled frame, a broken rule that is not a span, and
@@ -33,19 +34,23 @@ The steps, most of them rules:
   of a column, the days that sum to the week — mark the cells that break
   them. A failed check held a real misreading 12 times in 13; a kept
   product check never did.
-- **Small networks, as witnesses first.** A 44k-parameter separator
-  network trained from scratch lost to the rules as the structure and won
-  as evidence for them. Four more followed on the same terms: a table
-  detector whose tables replace the finders' fragments, a structure
-  network chosen over the rules table by table by a 19-weight regression,
-  a line reader trained on real table lines that can write ± and the
-  tables' other symbols, and a small transformer over a table's words
-  that says which share a row, a column, a cell — its table kept, table by
-  table, when a fitted choice prefers it. None of them replaced the rules.
+- **Small networks, as witnesses and candidates.** A 44k-parameter
+  separator network trained from scratch lost to the rules as the
+  structure and won as evidence for them. More followed on the same
+  terms: a table detector whose tables replace the finders' fragments;
+  readers and a symbol classifier trained on real table lines; and three
+  networks that build a table of their own — a structure network, a small
+  transformer over a table's words, and a sequence reader that writes a
+  table's grid from its pixels — each kept, table by table, only where a
+  small fitted choice prefers it. None of them replaced the rules.
+- **Headers and confidence.** A header read as one row is rebuilt from
+  its text lines, and every cell carries a calibrated probability of
+  being right.
 
 Whole-page structure similarity (TEDS) on the generated sets went from
-0.02 to 0.91–0.97, on real annual-report tables from 0.03 to 0.88, on
-scientific tables to 0.81 (both on 240 held-out tables).
+0.02 to 0.91–0.97; on 240 held-out tables each, real annual-report
+tables from 0.03 to 0.88 and scientific tables to 0.88; tables drawn as
+screenshots by a browser read at 0.91.
 
 ## Abstract
 
@@ -54,19 +59,25 @@ whose every network is trained by the project itself. Tables are
 scored by TEDS (tree-edit-distance similarity of HTML trees) against
 exact truth: generated pages drawn from one table model in five rule
 styles, generated payroll forms, FinTabNet.c annual-report tables,
-PubTables-1M scientific tables and CORD receipt line items. Rule-based
+PubTables-1M scientific tables, real table structures drawn as browser
+screenshots, and CORD receipt line items. Rule-based
 stages find ruled grids with spanned, open-sided and nested cells; a
 junction graph of rules and whitespace finds the tables on a page. Two
 learned-from-the-table checks follow: column typing repairs misread
 figures, and arithmetic relations found in the table flag misread cells
-with high precision. Five small networks trained from scratch — a
-separator network, a table detector, a structure network, a table line
-reader and a transformer over a table's words — each enter as evidence
-or a candidate beside the rules, never in their place. Whole-page TEDS on the generated sets rises from about 0.02 to
-0.91–0.97; FinTabNet.c from 0.03 to 0.85 and PubTables-1M crops to 0.80
-on 240 held-out tables each. A census of the remaining error finds
-it in reading and in whole-table structure failures, not in words joined
-across cells. Each negative result is reported with its measurement.
+with high precision, and every cell is given a calibrated confidence.
+Networks trained from scratch — a separator network, a table detector,
+a structure network, readers and a symbol classifier for table lines, a
+transformer over a table's words, and a sequence reader that writes the
+grid from the pixels — each enter as evidence or a candidate beside the
+rules, never in their place; where a network builds a table, a small
+fitted choice keeps it or the rules' table, table by table. Whole-page
+TEDS on the generated sets rises from about 0.02 to 0.91–0.97;
+FinTabNet.c from 0.03 to 0.88 and PubTables-1M crops to 0.88 on 240
+held-out tables each; 80 browser screenshots read at 0.91. Censuses of
+the remaining error find it in header rows, in reading, and in
+whole-table structure failures, not in words joined across cells. Each
+negative result is reported with its measurement.
 
 ## 1. Why structure
 
@@ -100,7 +111,8 @@ its child subtree; dot leaders are layout, not content. For a page with
 several tables, every table found is scored against every truth table
 under one root, so a missed or invented table costs its nodes. Cell
 text is compared exactly, as published: an en dash read as a hyphen is
-an error.
+an error. A crop's table is scored from the output's table records — the
+JSON, HTML and CSV a user receives, with every repair applied.
 
 ### 2.2 Truth that cannot disagree with the picture
 
@@ -141,8 +153,12 @@ from Zheng et al., WACV 2021), cropped annual-report tables with row,
 column and spanning-cell boxes; 60 PubTables-1M test crops and 40 test
 pages (Smock, Pesala & Abraham, CVPR 2022), scientific tables cut from
 72-dpi page renderings; and CORD receipts (Park et al., 2019), whose
-labelled line items become each receipt's table. Each set has its own
-command line (a crop is read as one table; a page is searched), and
+labelled line items become each receipt's table. And screenshots: the
+HTML truth of 40 FinTabNet.c and 40 PubTables-1M test tables drawn as web
+pages in six styles (plain, a light grid, zebra stripes, dark mode, a
+coloured header, a spreadsheet's gridlines) and captured by a headless
+browser at 96 and 192 dpi, the truth exactly the HTML drawn. Each set has
+its own command line (a crop is read as one table; a page is searched), and
 every figure here was measured with it.
 
 ### 2.3 Where it started
@@ -279,6 +295,19 @@ was found on a failing crop:
 The three last together: PubTables-1M 0.755 → 0.779, FinTabNet 0.807 →
 0.810, the business sets level.
 
+### 4.4 Light text on a dark ground
+
+A screenshot in dark mode read at 0.14: the dark page, touching every
+edge, was taken for a scanner frame and painted white, and a coloured
+header's white letters were holes in the ink. Where most of a
+text-line-sized window is darker than 0.45 the ground is dark; the region
+grows through darkish pixels, must fill most of its box (a page, a band;
+a logo's bold letters are ragged), and is inverted with its anti-aliased
+edge set to paper — left, the edge read as a box round the header.
+Screenshots 0.725 → 0.860 (TEDS-S 0.817 → 0.922), the other sets level
+but one payroll form whose large bold logo fills its box and is inverted
+too (payroll forms 0.913 → 0.910): a cost stated and accepted.
+
 ## 5. The table checks itself
 
 **Figure columns.** In a column whose body cells are mostly figures, a
@@ -302,6 +331,18 @@ misreadings ('L 8' in a Monday cell; '1 8') and two not confirmed. Which figure 
 alone cannot say: it is a confidence signal, not a correction.
 
 <!--FIG:arith-->
+
+**A confidence for every cell.** A logistic regression over twenty
+features of a cell — its words' calibrated probabilities, whether it is a
+figure in a figure column, the arithmetic checks through it, its span,
+header and place in its row and column — fitted on 41,333 cells of 799
+tables no evaluation used, gives each cell a probability of being right
+where it stands. Labelled by the truth's text at the same row and column,
+it could not rise above 0.85: most wrong cells sat in tables shifted by a
+row or a column, an error no cell can see. Labelled after the two grids
+are lined up, it is calibrated (cells rated 0.85–0.95 are right 87% of
+the time, cells under 0.5 34%) and moderately sharp. It is a review
+queue, not a verdict.
 
 ## 6. Small networks
 
@@ -350,7 +391,7 @@ detection F1 0.967 at release v0.17.2.
 
 ### 6.3 A structure network, chosen table by table
 
-A 280k-parameter network predicts row and column separators and the
+A 277k-parameter network predicts row and column separators and the
 table's extent from the grey crop and a mask of its words. Alone it read
 PubTables-1M at 0.686 and FinTabNet.c at 0.624 — better than the rules
 on one, worse on the other. Its table replaces the rules' only when it
@@ -396,7 +437,31 @@ the cost. Each member was trained three more epochs with every harvested
 table line at full weight (twelve files, six never used before): on the
 240 held-out tables of each set PubTables-1M 0.795 → 0.804 (169 tables up,
 38 down — reading, not structure) and FinTabNet.c 0.849 → 0.853; the 60
-scored PubTables-1M tables 0.797 → 0.813.
+scored PubTables-1M tables 0.797 → 0.813. A census of the wrong cells in
+correctly gridded tables then put the text loss in real misreadings —
+'O' for '0' in figures, digits, a minus read as a hyphen — and 781,000
+more table lines, cut from 12,000 training tables never used before,
+took the crop reader three epochs further: with the word-relation choice
+refitted (§6.5), held-out PubTables-1M 0.817 → 0.828 and FinTabNet.c
+0.876 → 0.878.
+
+The dashes and signs took three steps, each lent to a cell's text after
+the structure is built, so the structure is untouched. A symbol reader
+— the crop reader trained two more epochs, gently, with 60,000 lines
+rich in the tables' symbols — reads the crop's lines again, and where its
+reading differs only in a symbol, the symbol is used. Each dash is then
+measured against the line's digits: shorter than a digit a hyphen,
+between figures an en dash, before one a minus. Of the 428 en dashes in
+the held-out tables' truth the readers had written 128; they now write
+211. And a two-layer classifier chooses within each confusion family
+('-' '–' '−', 'x' '×', 'o' '°', '+' '±', '<' '≤'). Trained on rendered
+glyphs it did not transfer to the 72-dpi crops (218 degree signs for the
+truth's 46); trained on 116,000 real glyphs harvested from PubTables-1M
+training crops at their PDF text, and gated by typography (a degree sign
+only after a figure, a minus only before one), it is right on 77% of the
+held-out crops' dashes and 92–99% of their other symbols. A dash is one
+character of a cell: TEDS moved by a thousandth or two, and the gain is
+in the cells' text.
 
 ### 6.5 A transformer over the words, chosen table by table
 
@@ -422,12 +487,66 @@ annotations the same way; trained on both, it beat the engine on the
 engine's words too (0.855 and 0.879).
 
 It fails on different tables from the engine — the better of the two per
-table would be worth five or six points. A logistic regression of 23
-weights over both tables' shapes and the network's own confidence (how
-decisive its row and column judgments were), trained on 257 tables no
-table network had seen, keeps one or the other. On the 240 held-out
-tables of each set: PubTables-1M 0.759 → **0.795**, FinTabNet.c 0.810 →
-**0.849**; the business sets, read as pages, are untouched.
+table would be worth five or six points. A logistic regression over both
+tables' shapes and the network's own confidence (how decisive its row
+and column judgments were) keeps one or the other. Fitted on 257 tables
+no table network had seen, it took the 240 held-out tables of each set
+from 0.759 to **0.795** (PubTables-1M) and from 0.810 to **0.849**
+(FinTabNet.c) at release v0.18.0; the business sets, read as pages, are
+untouched. With a new reader it flipped some tables the wrong way, and
+refitted on the same few tables it helped one set and hurt the other,
+differently on development and held-out tables: too few tables. It is
+now fitted on 1,615 tables that no network, reader or earlier choice had
+seen (32 inputs), drawn by a script that recomputes every earlier draw
+and leaves its tables out.
+
+### 6.6 A sequence reader, chosen table by table
+
+Every builder so far starts from what earlier stages found: the rules,
+the words, the gaps between them. The better of the three builders'
+tables, chosen per table by an oracle, would be worth about three points
+on each set (on an 800-table dev pool, PubTables-1M 0.806 → 0.835,
+FinTabNet.c 0.881 → 0.910), and a judge over all three could not find it
+(§8). A fourth builder shares none of their inputs. It reads the crop's
+pixels and writes its grid as a sequence of tokens (image-to-markup, after
+EDD, Zhong et al. 2020, and TableFormer, Nassar et al. 2022): OTSL's cell
+tokens (Lysak et al. 2023) — a filled cell, an empty one, a cell joined
+to its left or upper neighbour, a row's end — every row the same length,
+so any sequence decodes to a grid. Each cell-starting token carries the
+cell's box, where the engine's own words are placed; the text stays the
+line reader's. It is a CNN encoder with a 2-D position code and a GRU
+decoder with additive attention (Bahdanau, Cho & Bengio 2015), 1.88M
+parameters, trained from scratch on 385,953 PubTables-1M and FinTabNet.c
+training tables, 15 epochs on one consumer graphics card.
+
+Alone, on tables no network had seen, it read 1,000 PubTables-1M tables
+better than the builders (0.879 against 0.834) and 750 FinTabNet.c tables
+badly (0.495 against 0.874). FinTabNet.c's test tables come from
+companies its training never saw, which looked like the reason. It was
+not. PubTables-1M's crops keep the page's white margin round the table,
+the engine's FinTabNet.c crops are cut tight, and the reader had learned
+that a table sits in a margin: 80 tight FinTabNet.c crops scored 0.711 on
+structure as they are and 0.965 padded by 16 pixels, while padding
+PubTables-1M's crops lowered them, and no one trim-and-pad suited both.
+Five more epochs with half the tables cut to their ink and set in random
+margins, stronger augmentation (paper and ink levels, resampling, JPEG)
+and 60,000 drawn tables, three in four set like a company's financial
+statements, took the tight crops to 0.900 and FinTabNet.c alone to 0.764.
+
+Its table is kept where a logistic regression over 26 inputs prefers it:
+the reader's confidence (mean, least and mean log token probability),
+its grid's shape, whether the builders' table came from rulings, both
+tables' shapes and their differences. The choice taught two lessons. It
+must see both tables as they will be: on a ruled crop the builders' cells
+hold no text until the words are placed, after the choice, and the first
+choice judged every ruled table empty. And it must be fitted on the kinds
+of table it will meet: with no screenshots among its 1,750 fitting
+tables it took the reader's table on ruled browser grids the builders
+read almost perfectly (screenshots 0.907 → 0.894); with 300 screenshots
+of the fitting tables' structures beside them, level (0.906). On the 240
+held-out tables of each set: PubTables-1M 0.828 → **0.879** (104 tables
+up, 29 down), FinTabNet.c 0.878 → **0.880** (21 up, 33 down); the
+generated sets unchanged.
 
 ## 7. Where the remaining error is
 
@@ -444,6 +563,25 @@ spaces. FinTabNet.c: 82% exact, 1.7% joined. Column-constrained
 re-reading was dropped on that evidence; the structure failures were
 taken table by table (§3, §4.3), then by a network built for the
 question (§6.5), and the symbols by the reader (§6.4).
+
+The census was repeated as the work went on. Among the 60 worst
+held-out scientific tables (release v0.18.4) more words were lost than
+structure, and of 305 truth tokens holding an en dash or a minus sign
+only 55 were read exactly — the symbols of §6.4. Over all 480 held-out
+tables (v0.18.9) the largest structure cost was a missing row, and the
+missing row was a header row in 55 of 240 PubTables-1M and 34 of 240
+FinTabNet.c tables: a group heading and its sub-headings read into one
+row, or the heading over a report's year columns left out. Three header
+steps followed, developed on a separate 800-table dev pool from the
+training splits so that no held-out table shaped them. A header read as
+one row whose text lines show a heading over sub-headings is rebuilt as
+the levels it is, from its lines — gated to that case, since rebuilding
+every header lost the ones the engine had right (PubTables-1M 0.814 →
+0.798). Headings left out above a figures row are put back. And centred
+headings, short spanners and headings set in a gutter, which the rebuild
+had refused, are placed. Together they are worth a few thousandths on
+the held-out tables; the truth's header rows over the engine's body would
+be worth one to two hundredths, the bound on what headers can still give.
 
 ## 8. What did not work
 
@@ -476,6 +614,18 @@ question (§6.5), and the symbols by the reader (§6.4).
   0.847 / 0.873 held out) — a network has to be trained on what it will
   be given. **Clustering its cells** as well as its rows and columns only
   cost: cells where rows and columns cross were better (0.835 → 0.871).
+- **A judge over all three builders.** A three-way judge fitted on new
+  evidence — each table's cell confidences, failed arithmetic checks,
+  words placed, header rows, agreement with the other builders — reached
+  0.8035 / 0.8709 on the dev pool, below the two pairwise choices it would
+  replace (0.8061 / 0.8809), which carry the one input it lacked: the word
+  network's own judgement of each table.
+- **A symbol classifier trained on rendered glyphs**: 92–100% on faces it
+  had not seen, and on real 72-dpi crops 218 degree signs for the truth's
+  46. Real glyphs were needed.
+- **The symbol reader at the usual rate**: the symbols came and the real
+  lines' word accuracy drifted down (83.8% against 84.9%); a gentler rate,
+  held near its starting weights, kept both.
 - **Painting out the desk round a photographed receipt** by brightness:
   at a light blur bold print counted as desk, at a heavy blur dense print
   did, and the one real desk was never found. A sheet finder needs edges.
@@ -483,39 +633,40 @@ question (§6.5), and the symbols by the reader (§6.4).
 ## 9. Results
 
 The neural-table profile, TEDS / TEDS-S. The generated sets' v0.16.0
-column is on their first truth; v0.17.2 on the corrected truth (§2.2), so
-for timesheets and payroll forms the two differ by more than the engine.
+column is on their first truth, the last column on the corrected truth
+(§2.2), so for timesheets and payroll forms the two differ by more than
+the engine.
 
-| set | before (v0.15.1) | v0.16.0 | v0.18.1 |
+| set | before (v0.15.1) | v0.16.0 | v0.18.13 |
 |---|---|---|---|
 | payroll forms (generated, 20) | 0.003 | 0.717 / 0.896 | 0.913 / 0.939 |
 | paystubs (generated, 20) | 0.020 | 0.791 / 0.859 | 0.940 / 0.952 |
 | invoices (generated, 20) | 0.015 | 0.764 / 0.807 | 0.967 / 0.981 |
 | timesheets (generated, 20) | 0.015 | 0.612 / 0.735 | 0.942 / 0.964 |
-| FinTabNet.c (real, 60) | 0.032 | 0.763 / 0.879 | 0.855 / 0.901 |
-| PubTables-1M crops (real, 60) | – | – | 0.825 / 0.888 |
+| FinTabNet.c (real, 60) | 0.032 | 0.763 / 0.879 | 0.857 / 0.905 |
+| PubTables-1M crops (real, 60) | – | – | 0.886 / 0.951 |
+| screenshots (real structures, 80) | – | – | 0.906 / 0.938 |
 
 PubTables-1M page detection, 40 test pages, IoU ≥ 0.5: F1 0.967 (precision 0.936, recall 1.000).
 
 Most of the PubTables-1M repairs were found by looking at failing tables
 among the 60 scored, so the other 240 of the same 300-table draw were
-read as a held-out check, with the release before them and this one:
-PubTables-1M 0.716 → 0.759 (TEDS-S 0.814 → 0.847; 164 tables up, 49
-down), FinTabNet.c 0.802 → 0.810 at v0.17.2. The gains hold — FinTabNet.c's
-in full, PubTables-1M's at two thirds of the +0.065 measured on the 60,
-which are also an easier draw. The word-relation network and its choice
-(§6.5) then took the held-out tables to 0.795 (TEDS-S 0.881) and 0.849
-(0.911), while PubTables-1M's 60 — the tables the rules had been found on
-— did not move; the table-crop reader (§6.4) then 0.804 and 0.853. A
-census of the 60 worst held-out scientific tables then found more lost
-words than lost structure: a row whose cell wraps to two lines beside a
-one-line cell is one strip of stacked lines the reader cannot read, a
-nil '-' alone in its cell was dropped as a speck, and a 72-dpi crop's
-blurred type was taken for a photograph. Read column by column, kept,
-and not tested on such pages, they took the held-out tables to 0.812
-and 0.875; a row's label spanning its continuation rows (a gene over its
-two primer rows) then 0.814. The held-out figures are the ones to quote:
-**0.814** on scientific tables, **0.875** on annual-report tables.
+read as a held-out check, and from the header work on (§7) decisions were
+made on a separate 800-table dev pool from the training splits. The
+rules' repairs held on the held-out tables: PubTables-1M 0.716 → 0.759
+(TEDS-S 0.814 → 0.847; 164 tables up, 49 down), FinTabNet.c 0.802 →
+0.810 at v0.17.2 — FinTabNet.c's gain in full, PubTables-1M's at two
+thirds of the +0.065 measured on the 60, which are also an easier draw.
+The word-relation network and its choice (§6.5) took them to 0.795 and
+0.849 (v0.18.0); the crop reader (§6.4) and three repairs found by a
+census of the worst held-out tables — a row whose cell wraps to two
+lines beside a one-line cell read column by column, a nil '-' alone in
+its cell kept, no photographs found in a 72-dpi crop's blurred type —
+with a row label spanning its continuation rows, to 0.814 and 0.875
+(v0.18.5); the headers (§7), the retrained crop reader and the refitted
+choice to 0.828 and 0.878 (v0.18.12); and the sequence reader (§6.6) to
+**0.879** on scientific tables and **0.880** on annual-report tables
+(TEDS-S 0.940 and 0.930). These are the figures to quote.
 The neural profile reports the same structure without the options that
 change what the reader sees; its text is unchanged. Neither Tesseract
 engine outputs table structure.
@@ -524,9 +675,9 @@ These are not comparable to the published PubTables-1M and FinTabNet
 results of large pre-trained models such as the Table Transformer
 (Smock et al., 2022): those use the full test sets, their own metrics
 and backbones pre-trained on ImageNet, and report higher scores. The
-sets here are samples of 60 tables, and every network in this engine
-was trained from scratch on one consumer GPU; the largest has 321k
-parameters.
+sets here are samples of 60 and 240 tables, and every network in this
+engine was trained from scratch on consumer graphics cards at home; the
+largest has 1.88M parameters.
 
 ## 10. Limitations
 
@@ -535,15 +686,16 @@ habits; FinTabNet.c and PubTables-1M are the checks against that,
 and every threshold was chosen on a tuning subset and confirmed on
 held-out tables. The real sets are small samples (60 and 60 tables;
 40 pages), and differences of 0.005 are a table or two; the 240 held-out
-tables of each table set (§9) show the 60 flatter PubTables-1M by about
-0.04. Receipts — the generated set and CORD's photographs — are out of
+tables of each table set (§9) are the check, and on them the sequence
+reader's choice loses more FinTabNet.c tables than it wins (21 up, 33
+down), each by a little, for a small net gain. Receipts — the generated set and CORD's photographs — are out of
 the results: the engine now targets business-quality print and
 screenshots, and receipts wait for a profile that can assume what a
 receipt is (faint thermal and dot-matrix print, the paper a bright
 quadrilateral in a photo, a fixed output schema); the methods measured on
 them are described above, their figures kept in the project's research
 log. On scientific tables, 72-dpi reading caps the text half of the
-score — a minus sign and an en dash are hyphens to the reader.
+score: many a minus sign and en dash is a blob a few pixels wide.
 
 ## 11. Conclusion
 
@@ -552,9 +704,14 @@ provided each rule is found by looking at a failing page and kept only
 when the measurement agrees. The table's own arithmetic is an unusually
 honest confidence signal. Small networks trained from scratch earned
 their places as witnesses — evidence for the rules, a complement to the
-finders, a choice made table by table — and none as a replacement. And
-before building the next thing, count where the error is: the step that
-looked obvious (re-reading cells by column) addressed 3% of the cells.
+finders, a choice made table by table — and none as a replacement. The
+largest single gain came from the network that shares least with the
+rules, a reader of the pixels, and it too enters as a candidate that a
+fitted choice may decline; what it learned first was a habit of its
+training data, the margin round a table, found only by measuring it.
+And before building the next thing, count where the error is: the step
+that looked obvious (re-reading cells by column) addressed 3% of the
+cells.
 
 ## References
 
@@ -576,3 +733,6 @@ looked obvious (re-reading cells by column) addressed 3% of the cells.
 - B. Shi, X. Bai and C. Yao. An end-to-end trainable neural network for image-based sequence recognition and its application to scene text recognition. IEEE PAMI 39(11), 2017.
 - G. Hinton, O. Vinyals and J. Dean. Distilling the knowledge in a neural network. NIPS Deep Learning Workshop, 2015.
 - X. Li, Y. Grandvalet and F. Davoine. Explicit inductive bias for transfer learning with convolutional networks. ICML 2018.
+- A. Nassar, N. Livathinos, M. Lysak and P. Staar. TableFormer: table structure understanding with transformers. CVPR 2022.
+- M. Lysak, A. Nassar, N. Livathinos, C. Auer and P. Staar. Optimized table tokenization for table structure recognition. ICDAR 2023.
+- D. Bahdanau, K. Cho and Y. Bengio. Neural machine translation by jointly learning to align and translate. ICLR 2015.

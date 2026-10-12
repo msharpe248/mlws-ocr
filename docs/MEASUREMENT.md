@@ -34,8 +34,9 @@ word accuracy      = 1 − edit_distance(output words, truth words) / #words   (
 - A word with one wrong letter is a wrong word, so word accuracy is the
   stricter number — and the one a reader of the text feels.
 - Both are normalised by the **truth's** length, so an engine that invents
-  text can score below zero (the classic engine on photographed receipts,
-  which is why that cell of the README is blank).
+  text can score below zero (the classic engine did on photographed
+  receipts, a set the README no longer reports: receipts are out of scope
+  for now).
 - A set's figure is the **mean over its pages**, every page counting equally.
 
 **Order-free recall and precision.** Edit distance punishes reading order:
@@ -222,8 +223,9 @@ is [TESSERACT.md](TESSERACT.md).
 
 ## 10. Speed, and tests as measurement
 
-- `scripts/profile_page.py` times every stage of a page (a letter: about 17
-  seconds under the neural profile, recognition nearly half of it);
+- `scripts/profile_page.py` times every stage of a page (a letter: about 11
+  seconds under the neural profile, recognition about 3.9 of them, a
+  third; RESEARCH 2026-09-24);
   `service_load.py` checks the HTTP service returns the harness's own
   accuracy under concurrent load; batch throughput reached 33 pages a
   minute on 13 workers.
@@ -231,8 +233,11 @@ is [TESSERACT.md](TESSERACT.md).
   and fails if accuracy drops below the figures recorded at adoption (it
   asks for them to be updated, deliberately, when they rise).
 - `tests/test_profiles.py` holds the profiles to their definitions: pure
-  differs from classic only in its two network switches, neural only in its
-  recognition and decoding terms, neural-table only in its table options —
+  differs from classic only in its three network switches (the MLP, the
+  character GRU, the word corrector); neural only in its recognition and
+  decoding terms, the judged block segmenter, the corrector's switch, and
+  the table, picture and display-equation options;
+  neural-table only in its table options —
   and every parameter a profile names must exist, "so a typo cannot silently
   run the default".
 

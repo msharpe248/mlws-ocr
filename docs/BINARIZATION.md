@@ -139,7 +139,8 @@ tall (40 px at 300 dpi), if most of the pixels are dark, that is ground, not
 ink: strokes never fill most of a line-sized window. The region grows
 through the darkish pixels it touches, takes in what it encloses (the light
 letters on it), and must be close to a rectangle — a page, a band, a bar —
-filling 85% of its box. Each region is inverted and scaled so that its own
+filling 95% of its box in the table profile (`illumination.invert_rect`;
+85% by default, see below). Each region is inverted and scaled so that its own
 ground becomes paper, and the anti-aliased ring at its edge is set to paper
 too, or it reads as a rule.
 
@@ -149,7 +150,7 @@ dark mode 0.14 / 0.08 → 0.71 / 0.83 TEDS, coloured headers 0.61 / 0.71 → 0.8
 form's large, bold logo is dense enough to pass for a ground and is
 inverted (payroll forms 0.913 → 0.910).
 
-**Pictures first (options, 2026-10-03).** A photograph is neither: mostly
+**Pictures first (2026-10-03; on in neural-table since v0.18.3).** A photograph is neither: mostly
 mid-tones, which a threshold scatters into speckle (a mid-grey photo comes
 out nearly white) and which the dark-ground test takes for a band when the
 photo is dark (inverted to nothing). `illumination.grey_pictures` finds
@@ -284,6 +285,9 @@ it helped fax-resolution forms and hurt receipts and tables (RESEARCH,
 | illumination | `downsample`, `window`, `floor` | 8, 31, 0.05 | every profile |
 | | `frame_dark`, `frame_min_edges` | 0.3, 3 | every profile |
 | | `stretch_low`, `stretch_max_gain` | 0.35, 5 | neural-table (off elsewhere) |
+| | `invert_dark` (light text on a dark ground) | off | on in neural-table |
+| | `grey_pictures` (photographs found on the grey page) | off | on in neural-table |
+| | `invert_rect` (how much of its box a ground fills) | 0.85 | 0.95 in neural-table |
 | binarize | `impl` | `sauvola` | every profile (`otsu` selectable) |
 | | `window`, `k` | 41, 0.2 | every profile |
 | despeckle | `min_area_300dpi` | 5 | every profile |

@@ -13,11 +13,12 @@ that join the rules in the table profile, how cells are read and checked,
 what comes out, and how it is measured. Figures are drawn by
 `scripts/make_page_figures.py --only tables` on the project's own generated
 table pages (exact truth, ours to publish). The method is written up as a
-paper, [Tables from Rules and One Small Network](papers/tables-from-rules.md).
+paper, [Tables from Rules and Small Networks](papers/tables-from-rules.md).
 
 - Code: `layout/tables.py` (ruled grids), `layout/wstables.py` (tables
   without rules), `layout/junctions.py` (the junction mesh), the table
-  networks (`layout/tabledet.py`, `splitnet.py`, `sepnet.py`), `decode/output.py`
+  networks (`layout/tabledet.py`, `splitnet.py`, `sepnet.py`, `wordrel.py`,
+  `tableseq.py`), `decode/output.py`
   (finding tables on the page, words into cells), `decode/tableio.py`
   (records, nesting, HTML, CSV), `decode/arith.py` (checks), `decode/cellfix.py`
   (figure columns).
@@ -25,8 +26,8 @@ paper, [Tables from Rules and One Small Network](papers/tables-from-rules.md).
   text; **neural-table** (`configs/neural-table.toml`) adds the options that
   also change what the reader sees, and the networks.
 - Related: [SEGMENTATION.md](SEGMENTATION.md) (rules and blocks come first),
-  [NEURAL_NETWORK_THEORY.md](NEURAL_NETWORK_THEORY.md) (the three table
-  networks), [ARCHITECTURE.md §9](ARCHITECTURE.md#9-the-tables-subsystem).
+  [NEURAL_NETWORK_THEORY.md](NEURAL_NETWORK_THEORY.md) (the five table
+  networks, §E–H and §J), [ARCHITECTURE.md §9](ARCHITECTURE.md#9-the-tables-subsystem).
 
 ---
 
@@ -202,10 +203,13 @@ was "We are subject to lawsuits, investigations …"; `table_cell_lines`);
 on a table's crop a first-column label spans the rows of sub-labels beneath
 it ("Sex, n (%)" over Men and Women; `table_label_rowspans`), the
 PubTables-1M convention, though not a total row or a wrapped line beneath
-it. A receipt's two-line items — the name on its own line (wrapped over two when long), the quantity, price and amount on the next, or the figures first — are one row each, the name in its own column (`table_item_rows`; CORD 0.493 → 0.518). A value and its count set apart — '18.8  (6)', the counts lined up in their own column — are one cell again (`table_paren_columns`). And a row label followed by dot leaders is not taken for a dotted rule and dropped, as it had been wherever the dots were crisp: annual reports and screenshots (`components.dotted_rule_text`; FinTabNet.c 0.840 → 0.850). The three: PubTables-1M 0.755 → 0.779, FinTabNet 0.807 → 0.810. A total whose label is set to the right Three things found by a census of the worst held-out PubTables-1M tables (2026-10-03): a row whose cells wrap to two lines beside a cell of one line, centred, is one profile line two text lines tall that the reader turns to garbage -- on a table crop the line is now cut into its columns and each column's lines found on their own (`lines.stacked_chunks`); a nil '-' alone in its cell was dropped as a speck before it became a line, so a column of them vanished -- it is now kept and read as a dash (`blocks.keep_dashes`, `output.table_dash_aspect`); and a label with dot leaders is no longer trimmed from a table's foot as a note. With them PubTables-1M reads 0.824 (240 held out 0.812) and FinTabNet.c 0.855 (held out 0.875). A row's label spans its continuation rows (`output.table_group_rowspans`, label only: a gene over its two primer rows; v0.18.5). And the dashes and signs scientific tables print -- a range's en dash, a minus, ×, ° -- which a 72-dpi crop reads as hyphens and x's, come from a second reader taught them (`decode.line_model_path_symbols`, v0.18.6): it reads the crop's lines again, and where its read differs only in a symbol, the symbol goes into the cell's text after the structure is built, so the structure is untouched; and every dash is measured against the line's digits as well. A header read as one row whose text lines show a group heading over sub-headings is rebuilt as the two levels it is (`output.table_rebuild_header`). Every cell carries a calibrated probability of being right where it stands (`confidence` in the JSON, `x_cconf` in the hOCR; `decode/cellconf.py`): of the cells it rates 0.85 or above, 87% are right; under 0.5, 34%. And (`decode.line_dash_measure`): shorter than a digit a hyphen, between figures an en dash, before one a minus.
-("Subtotal", "Total Due") becomes one cell spanning to its figures (invoices
-0.847 → 0.958); tables side by side (a paystub's earnings beside its
-deductions) are nested into one layout.
+it. The three: PubTables-1M 0.755 → 0.779, FinTabNet 0.807 → 0.810. A
+total whose label is set to the right ("Subtotal", "Total Due") becomes
+one cell spanning to its figures (invoices 0.847 → 0.958); tables side by
+side (a paystub's earnings beside its deductions) are nested into one
+layout.
+
+A receipt's two-line items — the name on its own line (wrapped over two when long), the quantity, price and amount on the next, or the figures first — are one row each, the name in its own column (`table_item_rows`; CORD 0.493 → 0.518). A value and its count set apart — '18.8  (6)', the counts lined up in their own column — are one cell again (`table_paren_columns`). And a row label followed by dot leaders is not taken for a dotted rule and dropped, as it had been wherever the dots were crisp: annual reports and screenshots (`components.dotted_rule_text`; FinTabNet.c 0.840 → 0.850). Three things found by a census of the worst held-out PubTables-1M tables (2026-10-03): a row whose cells wrap to two lines beside a cell of one line, centred, is one profile line two text lines tall that the reader turns to garbage -- on a table crop the line is now cut into its columns and each column's lines found on their own (`lines.stacked_chunks`); a nil '-' alone in its cell was dropped as a speck before it became a line, so a column of them vanished -- it is now kept and read as a dash (`blocks.keep_dashes`, `output.table_dash_aspect`); and a label with dot leaders is no longer trimmed from a table's foot as a note. With them PubTables-1M reads 0.824 (240 held out 0.812) and FinTabNet.c 0.855 (held out 0.875). A row's label spans its continuation rows (`output.table_group_rowspans`, label only: a gene over its two primer rows; v0.18.5). And the dashes and signs scientific tables print -- a range's en dash, a minus, ×, ° -- which a 72-dpi crop reads as hyphens and x's, come from a second reader taught them (`decode.line_model_path_symbols`, v0.18.6): it reads the crop's lines again, and where its read differs only in a symbol, the symbol goes into the cell's text after the structure is built, so the structure is untouched; and every dash is measured against the line's digits as well. A header read as one row whose text lines show a group heading over sub-headings is rebuilt as the two levels it is (`output.table_rebuild_header`). Every cell carries a calibrated probability of being right where it stands (`confidence` in the JSON, `x_cconf` in the hOCR; `decode/cellconf.py`): of the cells it rates 0.85 or above, 87% are right; under 0.5, 34%. And (`decode.line_dash_measure`): shorter than a digit a hyphen, between figures an en dash, before one a minus.
 
 ![Tables on a paystub](img/tables/nested.png)
 
@@ -279,9 +283,10 @@ by rules. The table profile adds:
   quarter turn round (`rotated_cells`: "OT. OR ST.").
 - **Repairs** in figure cells: "S 25" → "$ 25", "1, 428.80" → "1,428.80", a
   lone 'o' in a marks column → 'O', a flat bar alone in a cell → "—"
-  (`dollar_s`, `join_digit_groups`, `cell_marks`, `table_dashes`); and in a
-  column of figures, a non-figure cell is re-mapped by look-alike shapes when
-  that makes it a figure (`fix_figure_columns`; 62 repairs on FinTabNet, all
+  (`dollar_s`, `join_digit_groups`, `cell_marks`, `table_dashes`, the
+  table profile's alone); and in a column of figures, a non-figure cell is
+  re-mapped by look-alike shapes when that makes it a figure
+  (`fix_figure_columns`, on in neural too; 62 repairs on FinTabNet, all
   correct).
 
 ## 7. The table checks its own arithmetic
@@ -337,8 +342,8 @@ The two real crop sets were also read on the 240 held-out tables of the same dra
 † Part of these two sets' gain came from correcting the generated truth
 where it disagreed with its own images (the images are byte-identical);
 RESEARCH.md records each correction. Every row above is re-measured with
-`scripts/eval_tables.py` ([DATA_SOURCES.md §10](DATA_SOURCES.md) has the
-command lines).
+`scripts/eval_tables.py`, the detection F1 with `scripts/eval_detection.py`
+([DATA_SOURCES.md §10](DATA_SOURCES.md) has the command lines).
 
 **Where the rest is lost.** FinTabNet's and PubTables' structure scores are
 well above their full scores — reading, not structure, is most of the gap.

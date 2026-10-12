@@ -39,14 +39,14 @@ graphics cards for games, two generations old as of 2026.
 
 **For this project the two cards are about equivalent.** They are built
 on the same chip (NVIDIA's GA102) with nearly the same compute and memory
-speed; the 3090's extra 12 GB of memory goes unused, because no trainer
-here needs more than about 6 GB (§2). Either machine runs any job, and
-the jobs go to whichever is free.
+speed; the 3090's extra 12 GB of memory goes unused, because every
+recipe here fits in 8 GB (§2). Either machine runs any job, and the jobs
+go to whichever is free.
 
 ## 2. What each kind of work needs
 
-**Running the engine.** The engine itself is numpy, scipy, scikit-image
-and Pillow. It needs no GPU and no PyTorch. An evaluation process takes
+**Running the engine.** The engine itself is numpy, scipy, scikit-image,
+Pillow and pypdf. It needs no GPU and no PyTorch. An evaluation process takes
 about 2 GB of memory, and a page takes from a few seconds to about
 fifteen. The Mac runs up to twelve evaluation processes side by side.
 The full set of
@@ -74,10 +74,12 @@ Some real training times, from [NETWORKS.md](NETWORKS.md):
 The Mac can run every one of these. A GPU card turns an overnight run
 into an hour, which matters when you are trying ten variants in a week.
 
-**Which graphics card is enough.** The largest trainer, the table
-sequence reader at its batch of 16, peaks at about 6 GB of graphics
-memory (measured, CUDA's own overhead included); the others need less.
-So any recent NVIDIA card with 12 GB or more has room to spare, and the
+**Which graphics card is enough.** Measured, with CUDA's own overhead
+included: the table detector, which trains on whole pages at a batch of
+8, peaks at about 7.8 GB of graphics memory, the most of any recipe here
+(a batch of 16 did not fit on the 12 GB card); the table sequence
+reader, at its batch of 16, about 6 GB; the line and word readers far
+less. So any recent NVIDIA card with 12 GB or more has room to spare, and the
 speed differences below are differences of hours, not of what is
 possible. The cards other than the two here have not been tried; their
 figures are the makers' published ones.
@@ -96,7 +98,7 @@ figures are the makers' published ones.
 | RTX 5070 Ti | 16 GB | 44 | 896 | enough; somewhat faster |
 | RTX 4060 Ti 16 GB / 5060 Ti 16 GB | 16 GB | 22 / 24 | 288 / 448 | enough memory; slower, perhaps half the speed |
 | RTX 3060 12 GB | 12 GB | 13 | 360 | enough memory; the slowest that is comfortable, perhaps a third of the speed |
-| any 8 GB card (RTX 3070, 4060, ...) | 8 GB | — | — | tight: the table sequence reader probably fits, with little room to spare; a smaller batch would fit easily, but a smaller batch is a different recipe |
+| any 8 GB card (RTX 3070, 4060, ...) | 8 GB | — | — | too tight for the table detector's recipe (7.8 GB), tight for the table sequence reader (6 GB); the rest fit. A smaller batch would fit, but a smaller batch is a different recipe |
 
 The networks here are small, so a training step is often limited by
 moving data rather than by arithmetic; that is why memory speed is in the

@@ -280,9 +280,12 @@ little in the direction that makes `L` smaller, and repeat.
   `L = −[y log p + (1−y) log(1−p)]`. When the "yes" answers are rare (a
   column separator is a few pixels in hundreds), a **positive weight**
   multiplies the "yes" term so that the rare class is not simply ignored;
-  the table networks use `pos_weight = 2`.
+  the separator and structure networks use `pos_weight = 2`; the detector
+  weights its border band 3 (`train_tabledet.py --band-weight`), and the
+  word-relation network its same-row, same-column and same-cell pairs 3, 3
+  and 10.
 - **CTC** for reading a line of text without knowing where each letter is:
-  §6.
+  §5.
 
 **The gradient.** For each parameter θ, the derivative `∂L/∂θ` says how
 the loss changes if θ is nudged. Collected over all parameters it is the
@@ -461,18 +464,25 @@ number rather than a yes/no.
 
 **Normalise the input, not the layers.** Deep networks elsewhere often use
 batch normalisation or layer normalisation inside the network, and dropout
-to regularise. None of the networks here has either. The inputs are
+to regularise. None of the networks here has batch normalisation or
+dropout, and only one has layer normalisation: the word-relation
+transformer (§H), as transformers need to train stably. The inputs are
 normalised before they enter instead — a line strip is always 32 rows with
 the x-height at 13 pixels and the baseline on row 22, its contrast
-stretched paper-to-ink; glyph features are z-scored; a table crop is always
-resampled to 75 dpi — and the networks are small enough that weight decay
-and held-out selection suffice. Fewer moving parts, and a numpy forward
+stretched paper-to-ink; glyph features are z-scored; a table crop is
+resampled to 75 dpi for the separator and structure networks, a page to
+37.5 dpi for the detector, and the table sequence reader's crop is scaled
+so its longer side is 448 pixels — and the networks are small enough that
+weight decay and held-out selection suffice. Fewer moving parts, and a numpy forward
 pass that is a few dozen readable lines.
 
 **One reference, one fast twin.** Every network's forward pass is written
 in numpy, and that is what the engine runs (`src/mlws_ocr`). The larger
 networks also have a PyTorch **mirror** (`recognize/seq_torch.py`,
-`layout/sepnet_torch.py`, `splitnet_torch.py`, `tabledet_torch.py`) used
+`layout/sepnet_torch.py`, `splitnet_torch.py`, `tabledet_torch.py`,
+`wordrel_torch.py`; the table sequence reader's and the equation reader's
+torch models live in their trainers, `scripts/train_tableseq.py` and
+`scripts/train_mathread.py`) used
 only for training on a GPU; weights are exported back to `.npz`, and the
 tests hold the two to the same outputs (the CRNN to 1e-4). torch is an
 optional extra; the pipeline never imports it unless asked.
@@ -493,9 +503,12 @@ losing attempts stay in [RESEARCH.md](RESEARCH.md) with their numbers.
 ## 8. Fine-tuning, forgetting, and distillation
 
 The line reader was not trained once. It was trained, and then taught
-again four times — grey strips instead of binary ones, then receipts and
-forms, then eight new symbols, then the text of tables — each time starting
-from the reader before. This section explains how that is done, what goes
+again eight times — grey strips instead of binary ones, then receipts and
+forms, then eight new symbols, then the text of tables (gray12, v0.17.0),
+then the tables' symbols as nineteen more classes (gray15, v0.17.2), all
+the harvested table lines (gray16, v0.18.1), the tables' typography
+(gray17b, v0.18.6) and 781k fresh table lines (gray18, v0.18.12) — each
+time starting from an earlier reader (the family tree is §8.9). This section explains how that is done, what goes
 wrong when it is done naively, and the four remedies the project uses.
 
 ### 8.1 Fine-tuning
@@ -512,8 +525,9 @@ bowls (§3); its middle layers, letter parts; its recurrent layer, how
 letters follow one another. A receipt's thermal print uses the same
 letters. Fine-tuning keeps all of that and adjusts it, so it needs far less
 data and time than training from scratch: each of the reader's fine-tunes
-ran for 3 to 8 epochs, half an hour to an hour and a half for the three
-ensemble members together on one GPU.
+ran for 2 to 8 epochs (gray17b 2), half an hour to an hour and a half for
+the three ensemble members together on one GPU, or, for gray18, on two
+(42 minutes on ai01 and ai02).
 
 It is also the only way to keep what cannot be re-created cheaply. A
 from-scratch retrain to add one new character moved the typewriter set by
@@ -689,6 +703,7 @@ flowchart LR
     g9 -->|"gray12's recipe + 19 symbol<br/>classes (± – × ° ...)"| g15["gray15<br/>v0.17.2<br/>neural-table profile"]
     g15 -->|"all table lines,<br/>full weight, 3 epochs"| g16["gray16<br/>v0.18.1<br/>table crops only"]
     g16 -->|"781k fresh table lines,<br/>3 epochs"| g18["gray18<br/>v0.18.12<br/>table crops only"]
+    g16 -->|"table-symbol lines,<br/>2 epochs"| g17b["gray17b<br/>v0.18.6<br/>symbols on table crops"]
 ```
 
 Every arrow is a fine-tune with the remedies above; every box was measured
@@ -921,7 +936,9 @@ One architecture, trained twice for two jobs:
   how likely each of the decoder's candidate spellings is;
 - the **line reader** (`seq_line_gray9_en*.npz` in the neural profile,
   `seq_line_gray15_en*.npz` in neural-table, `seq_line_gray18_en*.npz` on its table crops; three members each) reads a
-  whole line end to end, as a second reading beside the classic decoder's.
+  whole line end to end, as a second reading beside the classic decoder's;
+  in neural-table a **symbol reader** (`seq_line_gray17b_en*.npz`, three
+  members) reads a table crop's lines again for their symbols only.
 
 **The shape.** A **CRNN** (convolutional recurrent network; Shi, Bai & Yao,
 2015): convolutions to see, a recurrent layer to read along, CTC to spell.
@@ -938,9 +955,11 @@ One architecture, trained twice for two jobs:
 | linear → C classes, log-softmax | T × C |
 
 Parameters: convolutions 60,224, BiGRU 203,904, output 23,160 (C = 120 for
-the line readers: blank, a–z, A–Z, 0–9, punctuation, 33 accented letters,
-`* = + @ [ ] _ `` ` and space) — **287,288** per member. The word scorer
-has the 112 classes without the eight symbols: 285,744.
+the neural profile's reader, gray9: blank, a–z, A–Z, 0–9, punctuation, 32
+accented letters, `* = + @ [ ] _ `` ` and space) — **287,288** per member.
+The neural-table readers (gray15, gray17b, gray18) add the tables' 19
+symbols, 139 classes: 290,955 per member. The word scorer has the 112
+classes without the eight symbols: 285,744.
 
 **Why this shape.**
 
@@ -973,22 +992,37 @@ scans with their truth: UNLV pages, SROIE receipts, CORD receipt photos,
 FUNSD forms, Library of Congress legal reports, and — for the table reader —
 table cell lines from PubTables-1M and FinTabNet.c training crops. Adam
 with cosine decay, CTC loss, width-bucketed batches, page-disjoint held-out
-lines; the epoch with the best held-out word accuracy ships. The live
-readers were **fine-tuned** in steps, each from the one before, with L2-SP,
+lines; the word scorer keeps the epoch with the best held-out word
+accuracy, and every live line-reader member ships the EMA of its weights
+(§8.6, §9.3). The live
+readers were **fine-tuned** in steps, each from an earlier one, with L2-SP,
 self-distillation and EMA (§8), so each gained a new kind of text without
 losing the old: grey strips (v0.13), receipts and forms (v0.14), eight new
-symbols (v0.15), table lines (v0.17, table profile).
+symbols (v0.15), table lines (v0.17, table profile), the tables' symbols as
+classes (gray15, v0.17.2), all the table lines for table crops (gray16,
+v0.18.1), the tables' typography (gray17b, the symbol reader, v0.18.6) and
+fresh table lines (gray18, the table-crop reader, v0.18.12).
 
 **Where it runs.** The word scorer in `decode.seq_path` (neural,
 neural-table; classic uses it only to veto a correction the pixels
-contradict). The line reader in `decode.line_model_path`, with the
-line-choice judge (§K) deciding per line between its reading and the
-classic decoder's.
+contradict, `correct.seq_path`). The line reader in `decode.line_model_path`
+(gray9 in neural, gray15 in neural-table), with the line-choice judge (§K)
+deciding per line between its reading and the classic decoder's. In
+neural-table, on a table's crop, `decode.line_model_path_table` (gray18)
+reads in its place, and `decode.line_model_path_symbols` (gray17b) reads
+the crop's lines again: where the two readings differ only in a symbol
+('-' for '–' or '−', 'x' for '×'), gray17b's symbol is lent to the
+table's text.
 
 **Measured.** The line reader was the engine's largest single gain:
 dev-8 91.9 → 93.2 words, broad-30 87.5 → 89.8, legal-8 84.4 → 88.5 (its
-first adoption). The table reader, on the table profile: PubTables-1M
-structure TEDS 0.692 → 0.733, receipts 0.929 → 0.940.
+first adoption). The table readers, on the table profile: gray15 (v0.17.2,
+with the line-gap split adopted the same day) PubTables-1M 0.787 → 0.797,
+FinTabNet 0.810 → 0.815; gray18 on table crops (v0.18.12, with the
+word-relation choice refitted), on 240 held-out tables of each set,
+PubTables-1M 0.8171 → 0.8275, FinTabNet.c 0.8764 → 0.8781. gray17b's
+symbols left every TEDS as it was and wrote more of the held-out
+PubTables-1M tables' en dashes (128 → 204 of 428) and minus signs (43 → 54).
 
 ## D. The glyph CNN (kept off) — `recognize/cnn.py`, `cnn.npz`
 
@@ -1216,9 +1250,12 @@ will be given.
 **Where it runs.** `output.table_wordrel_path` in neural-table, on a
 table's crop: it builds a table, and a **fitted choice** (§K; 32 inputs
 over both tables' shapes and the network's own confidence) keeps its table
-or the engine's. They fail on different tables; on 240 held-out tables of
-each set the choice took PubTables-1M 0.759 → 0.795 and FinTabNet.c 0.810
-→ 0.849.
+or the engine's. They fail on different tables. The live choice
+(`wordrel_select_v2`, v0.18.12) was fitted on 1,615 tables no network saw;
+with it and the gray18 table-crop reader, the 240 held-out tables of each
+set went PubTables-1M 0.8171 → 0.8275 and FinTabNet.c 0.8764 → 0.8781. The
+first choice (v1, 23 inputs, fitted on 257 tables) had taken them, at
+v0.18.0, PubTables-1M 0.759 → 0.795 and FinTabNet.c 0.810 → 0.849.
 
 ## I. The equation reader — an encoder-decoder with attention — `math/reader.py`, `mathread_v3.npz`
 
@@ -1254,7 +1291,8 @@ under the bar for the denominator, back up and on. It ends by writing
 (ICML 2017), made small: **848k parameters** (only the table sequence
 reader, §J, is larger).
 
-**Training.** `scripts/train_mathread.py`, torch on the Mac's GPU, the
+**Training.** `scripts/train_mathread.py`, torch on a GPU (v2 on the Mac's,
+v3, the live one, on ai02's RTX 3090), the
 weights saved for the numpy reference (a test holds the two equal).
 **Teacher forcing**: at each step the decoder is fed the true previous
 token, not its own, and cross-entropy is taken against the next — so one
@@ -1365,6 +1403,7 @@ the grid. Every word in the output is still the line reader's.
 | **table choice** (`train_table_select.py`) | `table_select.npz` | logistic, 19 weights | both tables' empty-cell share, multi-figure cells, rows, columns, spans, words per cell, and their differences | on a table's crop: the rules' table or the structure network's |
 | **word-relation choice** (`train_wordrel_select.py`) | `wordrel_select_v2.npz` | logistic, 32 inputs | both tables' shapes and differences, and the word-relation network's own judgement of each | on a table's crop: the engine's table or the word-relation network's |
 | **table sequence choice** (`train_tableseq_select.py`) | `tableseq_select_v2.npz` | logistic, 26 inputs | the reader's confidence (mean, least and mean log token probability), its rows, columns and tokens, whether the table was ruled, both tables' shapes and differences | on a table's crop: the builders' table or the sequence reader's |
+| **cell confidence** (`decode/cellconf.py`; neural-table, `output.table_cell_conf_path`) | `cellconf_v1.npz` | logistic, 20 weights | its words' calibrated probabilities, whether it is a figure and how much of its column is, the table's arithmetic check, the table's source, the cell's shape and place | a probability per table cell in the table JSON and the hOCR (text unchanged) |
 | **segmenter judge** (`layout/segjudge.py`) | `segjudge.npz` | ridge, 32 weights | block count, gutter-spanning ink, wide-block ink, tiny blocks, page context | per newspaper or magazine page: which of four segmenters |
 | **link rule** (experimental; `layout/knn_scc.py`) | `linkkeep_v1.npz` | logistic, 15 weights | a neighbour link's length, direction, size ratio, baseline difference, gutter crossing… | keep or cut a link in the knn_scc segmenter |
 
@@ -1381,7 +1420,8 @@ confidence).
 labelled by the truth: `harvest_line_choice.py` → `train_line_choice.py`,
 `harvest_word_conf.py` → `train_wordconf.py`, the table crops the structure
 network never saw → `train_table_select.py` (each table weighted by how much
-the choice mattered), UNLV training-pool pages → `segmenter_judge.py`.
+the choice mattered), UNLV training-pool pages → `segmenter_judge.py`, the
+cells of 799 selection tables → `train_cellconf.py`.
 
 ## L. Learned, but not networks
 
@@ -1404,16 +1444,17 @@ the choice mattered), UNLV training-pool pages → `segmenter_judge.py`.
 |---|---|---|---|---|---|
 | MLP second opinion | fully connected, 1 hidden layer | 95 glyph features | 110 characters | 52,846 | classic, neural, neural-table |
 | character language model | embedding + GRU | previous characters | next character (78) | 258,030 | classic, neural, neural-table |
-| word-strip scorer | CRNN + CTC | 32-row word strip | per-frame 112 classes | 285,744 | neural, neural-table |
-| line reader (×3) | CRNN + CTC | 32-row grey line strip | per-frame 120 classes (neural), 139 (neural-table: the tables' symbols) | 287,288 / 290,955 each | neural (gray9), neural-table (gray15; gray16 on table crops) |
+| word-strip scorer | CRNN + CTC | 32-row word strip | per-frame 112 classes | 285,744 | neural, neural-table; classic (the word corrector's image check) |
+| line reader (×3) | CRNN + CTC | 32-row grey line strip | per-frame 120 classes (neural), 139 (neural-table: the tables' symbols) | 287,288 / 290,955 each | neural (gray9), neural-table (gray15; gray18 on table crops; gray17b for their symbols) |
 | glyph CNN | CNN | 32×32 glyph | 110 characters | 30,446 | off |
+| symbol classifier | fully connected, 1 hidden layer (270 → 64 → 16) | a glyph's 16×16 patch + 14 measures against the line and its neighbours | 16 classes (the confusion sets' plain characters and symbols), chosen within the family the reader wrote | 18,384 (`symbols_v2.npz`, `decode.line_symbol_net`) | neural-table |
 | table separator network | dilated CNN + axis heads | table crop, 75 dpi | P(separator) per x, per y | 44,162 | neural-table |
 | table structure network | dilated CNN + projection pooling | crop + word mask, 75 dpi | separator and inside per x, per y | 276,904 | neural-table |
 | table detector | dilated CNN + projection pooling + skip | page + word mask, 37.5 dpi | inside / border per pixel | 247,746 | neural-table |
 | word-relation network | transformer encoder (4 layers) + pair heads | a table crop's words: boxes and text facts | same row / column / cell per pair; in table, header per word | 320,997 | neural-table |
 | equation reader | CNN + 2-D position code; GRU decoder with additive attention | display equation, 64 rows high | LaTeX tokens (133), then MathML | 848,965 | neural, neural-table |
 | table sequence reader | CNN + 2-D position code; GRU decoder with additive attention + box head | table crop, longer side 448 | OTSL cell tokens (9) with a box per cell | 1,880,653 | neural-table |
-| line choice, word confidence, table choices, segmenter judge, link rule | logistic / ridge | named features | a probability or a score | 15–32 | as in §K |
+| line choice, word confidence, table choices, cell confidence, segmenter judge, link rule | logistic / ridge | named features | a probability or a score | 15–32 | as in §K |
 
 **What we deliberately do not use, and why**
 

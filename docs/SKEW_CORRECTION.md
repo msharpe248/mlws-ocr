@@ -106,8 +106,8 @@ carry the rules of §4.
 ## 4. When the estimator is fooled
 
 A variance search finds whatever makes the profile spikiest — usually the
-text, but not always. Two failures were found on real pages and fixed; both
-are reproduced here on synthetic pages:
+text, but not always. Three failures were found on real pages and fixed; the
+first two are reproduced here on synthetic pages:
 
 ![Two ways a search goes wrong](img/skew/pitfalls.png)
 

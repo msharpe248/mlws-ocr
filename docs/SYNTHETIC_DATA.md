@@ -8,7 +8,8 @@ camera do to a page, and keeps the text it drew as the label. "Labels are
 free because we drew the ink ourselves" (`factory/synth.py`).
 
 This page explains the degradation model, the fonts, the training windows
-the neural readers learn from, the generated test pages and tables, the
+the neural readers learn from, the drawn formulas, tables and screenshots
+the newer networks learn from, the generated test pages and tables, the
 attempt to fit the model to real scanners, and — as important — what
 synthetic data could not do, and where real scans had to take over.
 
@@ -17,7 +18,8 @@ synthetic data could not do, and where real scans had to take over.
   (training windows), `tablegen.py` (tables), `sheet.py`, `decode_sheet.py`,
   `fit_theta.py` (calibration).
 - Scripts: `make_seq_data.py`, `make_table_set.py`, `make_business_set.py`,
-  `make_modern_set.py`, `make_calibration_sheet.py`, `fit_theta_unlv.py`.
+  `make_modern_set.py`, `make_calibration_sheet.py`, `fit_theta_unlv.py`,
+  `make_math_set.py`, `make_tableseq_drawn.py`, `make_screen_set.py`.
 - Figures: `scripts/make_page_figures.py --only synth`.
 - Related: [DATA_SOURCES.md](DATA_SOURCES.md) (the real data),
   [NEURAL_NETWORK_THEORY.md](NEURAL_NETWORK_THEORY.md) (what trains on it).
@@ -103,6 +105,42 @@ damage:
 - **never the evaluation pages' text**.
 
 The first set was 250,000 windows (43% with a touching pair) in 8 minutes.
+
+**Drawn data for the newer networks.** Three more makers draw training
+data whose truth is what was drawn:
+
+- **Formulas for the equation reader** (`scripts/make_math_set.py`):
+  display formulas drawn from the grammar of `mlws_ocr.math.latex` in its
+  one canonical spelling, typeset by tectonic one to a page in one of four
+  type families (Computer Modern; Times; newtx; Fourier / Utopia),
+  rasterised by pdftoppm at 150, 200 or 300 dpi and cut to their ink; each
+  image's truth is the token list it was drawn as. `--max-line-tokens`
+  redraws a line until it is at most that long, since pages hold no display
+  line over about 45 tokens. Writes `<out>/<split>/*.png` and
+  `labels.jsonl`, the splits from different seeds (the live reader's set:
+  `--out data/math3 --train 60000 --max-line-tokens 50`).
+- **Drawn tables for the table sequence reader**
+  (`scripts/make_tableseq_drawn.py`): mostly tables in the manner of a
+  company's financial statements, the rest the general drawn tables of
+  `make_sep_data.random_table`, in the shape `make_tableseq_data.py`
+  writes (images, cell tokens, boxes). They vary what a house style fixes:
+  faces and sizes, column padding, the rules, the number of figure columns
+  and header rows, headings spanning the figure columns, '$' against a
+  figure, negatives in parentheses, nil dashes, indented items and their
+  totals, wrapped labels. The structure is exact (`factory/tablegen.py`
+  draws the cells it reports). The real FinTabNet.c tables come from a few
+  hundred companies, each with a house style, and the test companies are
+  none of the training ones; the 60,000 drawn tables of the reader's
+  fine-tune vary what those styles fix.
+- **Screenshots** (`scripts/make_screen_set.py`, needs Google Chrome):
+  real table structures and text (the HTML truth of FinTabNet.c and
+  PubTables-1M tables) drawn as web pages in six styles (plain, grid,
+  zebra, dark, material, sheet) and captured by headless Chrome at 96 or
+  192 dpi, cropped to the table; the truth is exactly the HTML drawn. With
+  the defaults it makes the 80-table evaluation set `data/tables/screens`
+  from test tables; with `--src` and another seed it draws the structures
+  of a fitting set instead (300 of sel3's, seed 11, for the table sequence
+  choice).
 
 ## 4. Generated test pages
 

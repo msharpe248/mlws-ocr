@@ -174,7 +174,8 @@ Other tools that read hOCR:
 
 ## 6. Pictures out, and back in
 
-With `--set output.pictures=true` each picture zone is cut out of the
+With `output.pictures` on — it is in both neural profiles; classic and
+pure need `--set output.pictures=true` — each picture zone is cut out of the
 **original** image — in its colour, at its resolution — and saved beside the
 hOCR, and the hOCR says where it went and where it goes back:
 
@@ -197,19 +198,22 @@ What becomes a picture zone (`imagezones`, [SEGMENTATION.md](SEGMENTATION.md)):
 solid or dense ink too big for type, and two options added for this
 (2026-10-03):
 
-- `illumination.grey_pictures` — photographs found on the **grey** page,
+- `illumination.grey_pictures` (on in neural-table, not in neural) —
+  photographs found on the **grey** page,
   before binarization scatters them: mostly mid-tones over a line-sized
   window, and varied (a flat coloured band with letters on it is not a
   picture). They are kept out of the dark-ground inversion, which had taken
   a dark photo for a dark-mode band and inverted it to nothing. Not on a
   page magnified 2x or more (a 72-dpi crop), where type itself is
   mid-grey blur.
-- `imagezones.display_height` — display type, solid letters several times
+- `imagezones.display_height` (off in every profile) — display type, solid letters several times
   the body glyph's height (a logo's lettering), named as a picture zone;
   `display_keep_text` (on) still reads its letters as text too.
 
-And `illumination.invert_rect` raises the bar a dark region must clear to be
-inverted as a ground, so that a bold logo stays a logo.
+And `illumination.invert_rect` (0.95 in neural-table; the default, 0.85,
+elsewhere) raises the bar a dark region must clear to be inverted as a
+ground, so that a bold logo stays a logo. The inversion itself
+(`illumination.invert_dark`) is on in neural-table only.
 
 **Display equations** (in the neural profiles since v0.18.5; `lines.equations`): hOCR 1.2 puts a display
 formula in an `ocr_display` holding an `ocr_math`, which must contain an

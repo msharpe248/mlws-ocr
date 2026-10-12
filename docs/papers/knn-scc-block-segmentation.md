@@ -2,7 +2,7 @@
 
 **Michael Sharpe** — algorithm (1995); empirical study in the mlws-ocr project (2026).
 
-*Figures are in the [HTML edition](https://msharpe248.github.io/mlws-ocr/docs/papers/knn-scc-block-segmentation.html); this text refers to them by number.*
+*Working draft; measurements use mlws-ocr release v0.15.1 unless marked otherwise. Figures are in the [HTML edition](https://msharpe248.github.io/mlws-ocr/docs/papers/knn-scc-block-segmentation.html); this text refers to them by number.*
 
 ## In brief
 

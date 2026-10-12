@@ -3,18 +3,20 @@
 A readable reference implementation of OCR for scanned documents, in
 two engines: the classic feature-based engine Tesseract's legacy mode
 should have been, and a neural engine that adds self-trained networks to
-it as gated, measured terms (§9).
+it as gated, measured terms (§8).
 This document says what the system is and why each part is shaped the way
 it is. `docs/RESEARCH.md` holds the provenance and the measurements
 behind every decision (including the negative ones); `docs/ROADMAP.md`
-holds what comes next. Numbers quoted here are from 2026-09-02.
+holds what comes next. Numbers quoted here are dated where they are given;
+the current scoreboard is the README's.
 
 ## 1. Principles
 
 **No pre-trained models, no vision or language foundation models.**
 Any network we train ourselves, on public data, on home hardware, and run
 locally is in scope — from the 53k-parameter MLP to a word-strip sequence
-model — provided it is small enough to read and to retrain in an evening.
+model — provided it is small enough to read and to retrain at home, in an
+hour to about a day ([DEV_ENVIRONMENT.md](DEV_ENVIRONMENT.md)).
 Anything that reads pixels or text with a model we did not build is not.
 The numpy implementation of every model is the reference; `torch` is an
 optional extra for training speed (and inference on an accelerator) and
@@ -101,7 +103,7 @@ as rules); removed from the working binary, recorded for the tables
 stage. Stroke-preserving removal exists as an opt-in; it measured
 negative on legal pages.
 
-**blocks.** Three implementations share the slot:
+**blocks.** Four implementations share the slot:
 
 - `xycut` (default): recursive XY-cut on the whitespace profiles (Nagy &
   Seth). Cuts on the widest gap, except that on letter/legal/book pages
@@ -121,6 +123,10 @@ negative on legal pages.
   magazine columns (news-8 45.4 char), and at a tighter cut the gap that
   remains there is its top-left reading order. The subject of
   `docs/papers/knn-scc-block-segmentation.md` (§5.3 has the set table).
+- `judged` (the neural profiles): on newspapers and magazines a ridge
+  judge over seven page features picks one of four candidates per page
+  (XY-cut with and without its hint, the tight k-NN, the SCC tree;
+  `layout/segjudge.py`); every other page keeps XY-cut.
 
 **tables (`grid`).** Ruling intersections become a cell grid; decoded
 words are later placed into cells by centre. Unruled tables are handled
@@ -299,7 +305,7 @@ survives only if both pieces beat the whole. It measured inert (397
 hypotheses per 8 pages, 9 accepted): cut pieces' whole-glyph candidates
 are wrong. It stays registered as the harness for piece-aware scoring.
 
-### 5.6b correct (`noisy_channel`, opt-in)
+### 5.6b correct (`noisy_channel`; on in classic)
 
 A last look at the words the lexicon does not know. The channel model is
 learned per engine from its own output aligned to truth on pages never
@@ -372,7 +378,7 @@ regression over the per-word evidence (page-disjoint holdout) and
 reports the Brier score, reliability and the coverage curve; the decoder
 applies it when `conf_path` is set.
 
-**6.6 Line reader (neural-line profile).** `decode/lineread.py`,
+**6.6 Line reader (neural and neural-table profiles).** `decode/lineread.py`,
 `impl = "hybrid"`, is the classic beam decoder plus a whole-line reading
 of every text line by the sequence model, end to end: the line's strip
 (`glyph/strip.py`, cut as the harvest cuts training strips), the CRNN's
@@ -381,19 +387,22 @@ word-level prior (`recognize/ctc.py prefix_beam_search`; Graves 2012,
 Hannun 2014) whose emission frames place the words back on the page. A
 strip longer than `line_max_cols` is read in chunks cut at its emptiest
 columns and the posteriors are joined end to end. Each line is then
-decided between the classic words and the reading under the reader's
-own posterior: the classic text is a hypothesis the reader can score, so
-the two are compared on one scale, and the reading replaces the words
-when it is likelier by `line_choose_margin` nats a character and
-endorses at least as many words (`line_mode = "choose"`; `"pure"`
-measures the reader alone, `"off"` is the neural profile). The reason
+decided between the classic words and the reading by a fitted judge
+(`line_mode = "choose"`, `line_choose_rule = "calibrated"`,
+`linechoice.npz`; §6.5 and DECODING.md): the reader's own likelihood
+prefers its own reading by construction, so the judge weighs it against
+independent evidence -- lexicon endorsement, agreement, the classic
+reading's confidence. (The first rule, a likelihood margin of
+`line_choose_margin` nats a character, is kept as an option; `"pure"`
+measures the reader alone.) The reason
 for a second decoder rather than another term in the first is in
 RESEARCH (2026-09-13): the scorer's own reading was above the oracle of
 the variants the classic decoder lets it rank, and a line reader never
 has to find a word gap. The model behind it is trained on real WHOLE
 lines (`harvest_lines.py --line-out`) as well as word windows and long
-synthetic windows. The profile is `configs/neural_line.toml`;
-`configs/neural.toml` is untouched until it wins.
+synthetic windows. It has been the neural profile's decoder since
+2026-09-13; `configs/neural_line.toml` stays as the experiment profile for
+a new line model or choice rule.
 
 **6.2 Glyph exemplars.** Three harvests feed every classifier channel:
 
@@ -443,15 +452,15 @@ help on UNLV, whose TIFFs are already bitonal — recorded).
 | sroie | ICDAR 2019 SROIE receipts (corrected mirror), 60 evaluation receipts by seeded draw, 566 for harvest; `data/ext/sroie` | REAL thermal-roll receipts with line-level truth (`make_external_sets.py`); public, research use |
 | funsd | FUNSD forms, the official 50 test forms at 2x, 149 for harvest; `data/ext/funsd` | REAL scanned forms with entity-level truth; reading order is a convention there, so recall / precision are the honest columns; non-commercial research |
 | cord | CORD v2 photographed receipts (Park et al. 2019, CC-BY-4.0), the official 100 test receipts; `data/ext/cord/eval` (full photos) and `evalcrop` (each cut to its annotated rows + 8%), 900 for harvest; `fetch_cord.py`, `make_external_sets.py --cord` | REAL camera photos of shop receipts with human word quads; only the receipt body is annotated (the header is blurred), so recall is the honest column; the cropped set measures reading, the full photos finding the document; neural 53.2 / 30.3 cropped with the deskew limit mode, 51.8 / 29.3 (recall 57.0) with the v0.14.0 reader, 52.4 / 30.6 (recall 56.4) with the form fixes (the page anchor and dashed rules, 2026-09-26), 46.4 / 21.7 (recall 45.8) with the grey-strip reader alone (v17a 37.7 / 8.0, recall 31.6), Tesseract LSTM 46.7 / 21.1 (44.1) |
-| btp_legal | Library of Congress "By the People", Historical Legal Reports campaign, 40 pages by seeded draw; `data/ext/btp_legal` (`make_btp_set.py`) | REAL typescript and printed office pages with HUMAN transcriptions, public domain; per-page truth in the volunteers' order, so recall / precision are the honest columns; the Library's TIFFs are tagged 300 dpi but are ~365-dpi scans of letter paper, so the set is built with the dpi inferred from the page width and resampled to 300 (`make_btp_set.py`, 2026-09-22; under the wrong tag the set read 76.7 / 57.2 and the LSTM 76.8 / 64.5); neural 85.5 / 69.9 (73.7 / 75.6; the 100-page draw 85.7 / 72.7) since the live reader became an ensemble of three seeds carrying the 600 harvested pages and one corrected 500-page shard (v15e 2026-09-23, v17a with CORD 2026-09-24), LSTM 78.8 / 66.3 (100-page draw 81.6 / 70.8) |
+| btp_legal | Library of Congress "By the People", Historical Legal Reports campaign, 40 pages by seeded draw; `data/ext/btp_legal` (`make_btp_set.py`) | REAL typescript and printed office pages with HUMAN transcriptions, public domain; per-page truth in the volunteers' order, so recall / precision are the honest columns; the Library's TIFFs are tagged 300 dpi but are ~365-dpi scans of letter paper, so the set is built with the dpi inferred from the page width and resampled to 300 (`make_btp_set.py`, 2026-09-22; under the wrong tag the set read 76.7 / 57.2 and the LSTM 76.8 / 64.5); neural now 87.5 / 73.7 (README); earlier 85.5 / 69.9 (73.7 / 75.6; the 100-page draw 85.7 / 72.7) since the live reader became an ensemble of three seeds carrying the 600 harvested pages and one corrected 500-page shard (v15e 2026-09-23, v17a with CORD 2026-09-24), LSTM 78.8 / 66.3 (100-page draw 81.6 / 70.8) |
 | blocks | the Text zones of dev-8, legal-8 and broad-30, cut from the page and read alone | recognition with no layout question (`eval_blocks.py`; legacy reads the same crops with `--psm 6`) |
 
 Metrics: character and word accuracy by edit distance, plus order-
 independent word recall and precision (edit distance books a reordered
 block as deletions and insertions regardless of content; zone-ordered
 scoring measured that convention at 1.4 char points on letters). The
-reference is Tesseract's legacy engine on the same pages (95.3 / 90.5 on
-broad-30; needs a legacy-capable `eng.traineddata` via `TESSDATA_PREFIX`).
+reference is Tesseract's legacy engine on the same pages (95.5 / 91.7 on
+broad-30 under the current scorer; needs a legacy-capable `eng.traineddata` via `TESSDATA_PREFIX`).
 `compare_legacy_errors.py` decomposes the gap by error type;
 `confusion_report.py` and `classifier_truth_eval.py` name the next target.
 Rules: three oscillations on dev-8 stop a sweep; a change is kept only if
@@ -462,7 +471,7 @@ word-accuracy range across three seeds 0.2 on broad-30, 0.4 on dev-8,
 0.7 on modern, 1.0 on legal-8): it is adopted only when it clears that
 range, or wins with two seeds.
 
-Current numbers (2026-09-08): broad-30 91.7 / 81.4 (recall 86.2, precision 89.1),
+Classic, as it stood on 2026-09-08 (the current rows are the README's): broad-30 91.7 / 81.4 (recall 86.2, precision 89.1),
 dev-8 95.1 / 88.8, legal-8 91.3 / 79.6, modern 84.7 / 72.3 (recall 89.7, precision 90.7; legacy 72.0 / 67.5 / 92.0 / 95.7;
 our modern business pages alone — letters, invoices, payslips — 87.9 / 81.6 / 94.2 / 93.9),
 synthetic 98.8 / 99.1 / 98.4 char. A week earlier broad-30 was 88.3 / 72.6 and at the
@@ -471,15 +480,17 @@ under the current scorer, is 95.5 / 91.7 (recall 96.3, precision 94.2).
 
 ## 8. Engine profiles
 
-One codebase, three profiles (`configs/classic.toml`, `pure.toml`,
-`neural.toml`), because every network enters as a gated additive term
+One codebase, three profiles at heart (`configs/classic.toml`, `pure.toml`,
+`neural.toml`; `neural-table.toml` is neural with the table options that
+change what the reader sees, `neural_line.toml` an experiment profile), because every network enters as a gated additive term
 (`mlp_path`, `char_lm`, and the neural profile's terms as they are adopted)
 and the cleanup, layout, glyph, prototype, adaptation and output stages are
 shared. Two code trees would fork those and drift. **classic** is the
 engine of §1–§7 and the reference; **pure** is classic with both networks
 off (the corpus n-gram scores characters); **neural** is classic plus the
 heavier self-trained networks, each added only after it wins on all four
-sets. `default.toml` is classic until the neural profile beats it. Rules:
+sets. `default.toml` is classic, kept as the reference; the neural profile
+leads it on every set and is the one to use. Rules:
 `classic.toml` never gains a network term; after every neural adoption a
 classic four-set run must reproduce the classic row; shared-stage changes
 are measured on both. `tests/test_profiles.py` enforces the structure.
@@ -492,8 +503,9 @@ with the MLP and the GRU off:
 
 | profile | dev-8 | broad-30 | legal-8 | modern |
 |---|---|---|---|---|
-| classic | 95.2 / 89.4 | 91.9 / 82.5 (86.8 / 89.8) | 91.7 / 81.2 | 91.6 / 83.5 (87.2 / 91.5) |
+| classic | 95.2 / 89.4 | 91.9 / 82.3 (86.8 / 89.8) | 91.7 / 81.3 | 91.6 / 83.5 (87.2 / 91.5) |
 | pure | 94.8 / 88.0 | 91.0 / 79.3 (83.0 / 86.2) | 90.9 / 78.0 | 88.2 / 77.1 (82.4 / 86.7) |
+| neural (gray9, v0.15.0, current) | 97.7 / 95.4 | 95.8 / 93.0 | 93.9 / 90.3 | 94.2 / 90.7 |
 | neural (grey-strip reader, 2026-09-26) | 97.7 / 95.0 | 95.7 / 92.3 | 94.0 / 90.4 | 94.2 / 90.8 |
 | neural (v17a, binary strips) | 97.3 / 94.6 | 95.3 / 91.6 (94.9 / 95.6) | 94.5 / 90.7 | 94.0 / 90.2 (92.5 / 96.8) |
 | legacy Tesseract | 95.0 / 91.7 | 95.5 / 91.7 (96.3 / 94.2) | 90.4 / 88.7 | 75.4 / 70.8 (88.9 / 95.7) |
@@ -540,7 +552,7 @@ row, 2026-09-11). The line-level case decision (2026-09-11) is worth half a poin
 two word points under classic and a tenth or two under neural; a first
 measurement claiming eight points on legal-8 was an evaluator artefact
 over pages a crash had dropped, corrected 2026-09-12 (RESEARCH). Pure
-re-measured 2026-09-11 on the rebuilt modern truth. The neural row is classic plus the word-strip
+re-measured 2026-09-11 on the rebuilt modern truth. In September 2026 (before the line reader) the neural row was classic plus the word-strip
 sequence scorer (§6.4, since 2026-09-12 trained on 615 open faces as
 well as the stock, and since 2026-09-13 fine-tuned on five real harvests) in three places: each word's segmentation variants
 rescored by the CTC likelihood of their text under a 285k-parameter CRNN
@@ -553,9 +565,10 @@ adds about a second and a half to a dense page. Every word also carries
 `p_correct`, a calibrated probability from the decoder's own evidence
 (§6.5): keep words at 0.9 or above and about nine in ten words stay, at
 98% right on dev-8, with the rest routed to review. Legacy Tesseract on broad-30
-is 95.5 / 91.7; on dev-8 95.0 / 91.7 (neural 96.1 / 91.5, parity) and on
-legal-8 90.4 / 88.7 (neural 92.2 / 84.3: two char points ahead, four word
-points behind, the difference being word recall, 98.3 against 91.2).
+is 95.5 / 91.7; on dev-8 95.0 / 91.7 (that neural row 96.1 / 91.5, parity) and on
+legal-8 90.4 / 88.7 (that row 92.2 / 84.3, four word points behind). With the
+line reader the neural profile leads legacy on both: dev-8 97.7 / 95.4,
+legal-8 93.9 / 90.3.
 
 **New domains (2026-09-12).** The UNLV magazine and newspaper sets
 (`data/unlv/mag.3B`, `news.3B`; eight pages each, seed 1, `--doc-type`
@@ -591,9 +604,8 @@ words and is level or ahead in characters; on the typewriter blocks it trails th
 The block columns are the recognition gap with layout taken out (neural
 read with `doc_type = "block"`, the caller's word that the input is one
 block; classic without it): the neural row is the line reader (§6.6)
-with the line-trained model; it is ahead of legacy on dev-8, level on
-the letter blocks in character accuracy and 0.2 behind on the typewriter
-blocks; legacy keeps a lead of one to two word points on both.
+with the line-trained model; since v0.15.0 it is ahead of legacy on all
+three block sets (table above).
 The reader alone reads the dev-8 blocks at 99.0 / 97.3 and the legal-8
 blocks at 96.2 / 95.9 (RESEARCH).
 
@@ -606,6 +618,7 @@ receipt profile that preceded it is retired.
 
 | profile | sroie | funsd |
 |---|---|---|
+| neural (current, README) | – | 65.9 / 44.3 |
 | classic | 48.0 / 13.6 (47.3 / 10.1 before the form fixes) | 37.4 / 12.7 (36.0 / 12.3) |
 | neural (v0.14.0 reader, case repair) | **78.6 / 60.2** | 66.0 / 43.9 |
 | neural (grey-strip reader, form fixes) | 68.2 / 47.6 | 66.1 / 44.0 |
@@ -617,7 +630,7 @@ receipt profile that preceded it is retired.
 The receipts are faded dot-matrix print at an x-height of 7–15 px, the
 forms 72-dpi faxes; every engine reads them at two thirds or less. The
 neural profile passes legacy Tesseract and the LSTM's characters on
-the receipts; the LSTM keeps its word lead, and the forms
+the receipts and, since the v0.14.0 reader, its words too; the forms
 are a layout and a noise problem for us as much as a recognition one.
 
 **Tesseract's LSTM engine (2026-09-16; the full side-by-side is `docs/TESSERACT.md`).** The rows above it are the legacy
@@ -718,14 +731,17 @@ Breuel 2007, `x_wconf` from the calibrator when it ran).
 
 ## 10. Known limits
 
-Everything real the models have seen is 300 dpi bitonal UNLV photocopy;
-the modern set is the first look at today's faces, and real scanner
-physics for them awaits the print-and-scan loop. Cut pieces of touching
+The readers' real training lines are UNLV photocopies, Library of
+Congress typescripts, SROIE and CORD receipts, FUNSD forms and table lines
+cut from PubTables-1M and FinTabNet.c (NETWORKS.md); today's office scans
+of today's faces are still mostly met through synthetic degradation (the
+print-and-scan loop of the first plan was dropped, §11). Cut pieces of touching
 characters are the weakest glyph population (13.9% error against 2.7%),
 and four chopper experiments say the fix is not in how pieces are cut or
 re-scored but in what a piece is compared against. Letterhead grotesques
-outside the 29-face stock have nothing to match. The outline channel is
-the runtime bottleneck on dense pages. Reading order on letters with
+outside the 29-face stock have nothing to match. On a dense page the
+line reader's CTC and beam loops take most of the time (RESEARCH,
+2026-09-22 and 09-24). Reading order on letters with
 sidebars is still worth about a point.
 
 ## 11. Lineage

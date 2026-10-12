@@ -45,8 +45,9 @@ evaluation as a check (neural-table 0.518), not a target.
    up, 33 down, small each) -- a census of those; long tables (rows a few
    pixels tall at 448).
 5. Done since the last list: the dash and symbol reader (v0.18.6-7), cell
-   confidence (v0.18.8), display equations read (v0.18.9; v3 reader and a
-   beam measured, an adoption to decide); row spans tried (label only kept).
+   confidence (v0.18.8), display equations read (v0.18.9; the v3 reader
+   with a beam of eight adopted in v0.18.10); row spans tried (label only
+   kept).
 
 The owner's direction: tables are the focus -- payroll forms, paystubs,
 timesheets, statements, invoices, receipts; tables inside tables; tables
@@ -62,7 +63,8 @@ plan stands (TEDS, neural-table; RESEARCH has every row):
 2. ✅ **Partly ruled tables** -- stacks of row rules as table regions.
 3. ✅ **Tables found on a page** -- whitespace detection (paystubs 0.151 →
    0.793, invoices 0.197 → 0.711, timesheets 0.178 → 0.604, receipts 0.022
-   → 0.624). Detection F1 on PubTables-1M pages: not yet.
+   → 0.624). Detection F1 on PubTables-1M pages: 0.967 at IoU 0.5 (40
+   pages, v0.17.2).
 4. ✅ **Nested tables in ruled frames; the payroll grid's open sides and
    short rules** (payroll forms 0.668 → 0.717, structure 0.854 → 0.896).
 5. ✅ **Column typing** -- figure columns ('$' read as 'S': 62 repairs on
@@ -78,7 +80,7 @@ plan stands (TEDS, neural-table; RESEARCH has every row):
 
 **Then, in this order (the owner, 2026-09-28):**
 
-9. ✅ **Harder tables** (2026-09-28: alignment split / rejoin, separator network v2 with CORD receipts; the monospace question and PubTables-1M detection open): tight key-value tables (cells a word space
+9. ✅ **Harder tables** (2026-09-28: alignment split / rejoin, separator network v2 with CORD receipts; the monospace question open; PubTables-1M detection since measured, F1 0.967 at v0.17.2): tight key-value tables (cells a word space
    apart, 'Omar Patel | Pay Date'); photographed receipts (CORD 0.316, now
    limited by reading more than structure); detection F1 on PubTables-1M
    pages; the network's columns (a v2 trained with CORD photos and '$'
@@ -112,29 +114,30 @@ plan stands (TEDS, neural-table; RESEARCH has every row):
     a grid is a MESH of overlapping E's. A table is the connected mesh grown
     from any E through shared teeth and spines, bounded where the E's stop
     (L at the corners, T along the sides); a prose gutter is a single chain
-    with no E across it. Also: header paths per
+    with no E across it. Also, both done 2026-09-28: header paths per
     cell (the day and O / S sub-row hierarchy of a payroll form, with the
-    arithmetic checked over them) and diagonal split cells.
+    arithmetic checked over them; `decode/tableio.py` `header_paths`) and
+    diagonal split cells (`tables.diagonals`).
 
 13. **The earlier items below** (Next): short newspaper columns under a
     headline, photo junk on magazines, typewriter blocks and FUNSD words.
 
 ## Next (2026-09-28)
 
-Where the work stands after v0.15.1. Against Tesseract 5.5's LSTM engine the neural profile leads on letters (tuning and held-out), legal pages, modern and business documents, receipts (SROIE, CORD), Library of Congress typescript, text blocks read alone, and fresh magazine pages; it trails on newspapers (fixed set and held-out), mag-8, FUNSD words and the typewriter blocks. Items, ranked:
+Where the work stood at v0.15.1 (2026-09-28). Against Tesseract 5.5's LSTM engine the neural profile leads on letters (tuning and held-out), legal pages, modern and business documents, receipts (SROIE, CORD), Library of Congress typescript, text blocks read alone, and fresh magazine pages; it trails on newspapers (fixed set and held-out), mag-8, FUNSD words and the typewriter blocks. Items, ranked:
 
 1. **Paper: "Diagnose, don't tune"** (written 2026-09-28, `docs/papers/diagnose-dont-tune`; a working draft, updated as the engine improves). The error-attribution method of September 26–28 and what it found: order-free recall, stage attribution of lost words, words outside the truth zones, error typing against a reference engine; the bugs each exposed (picture zones swallowing captions, the dashed-rule x-height anchor, deskew at its search limit, the facing page, the letter-spacing join, the sentence-case pass, contractions, the alphabet) with held-out measurements, and the negative results (photo-masked deskew, re-reading picture zones). A draft for the owner's review before it is published.
 2. **Paper: the system — a readable, self-trained OCR engine.** Every network trained on the project's own renders and harvests, no pretrained weights; the stage/DebugBundle contract; three profiles over one pipeline; the hybrid decoder with its per-line judge; results against both Tesseract engines on held-out pages, with the SROIE shop-overlap split. Stronger once the newspaper gap below is closed.
 3. **Paper: adding a domain to a line reader without forgetting.** The receipts study v4 → v9: a plain fine-tune (+12.7 SROIE, up to −1.7 elsewhere); weight averaging (a linear trade), the six-reader ensemble (diluted), contrast routing (the wrong signal), L2-SP, data shares, Learning without Forgetting with EMA (every other set within 0.4 word), distillation across a widened alphabet, the receipts' case bias measured on unseen faces. All measured; RESEARCH 2026-09-26/27.
 4. **Newspapers: short columns under a full-width headline.** The worst held-out newspaper page (8203_014, 40% of words missing): its columns are shorter than the gutter finder's 28% of the text height, so every segmenter joins them. The largest remaining newspaper loss found by attribution.
 5. **Photo junk on magazines.** About 800 words on 30 held-out magazine pages are fragments of photographs and graphics read as text ('MiAx', '--w 40'); a stricter gate for short unendorsed lines beside picture zones (RESEARCH 2026-09-27).
-6. **Tables: structure beyond the first measurements** (2026-09-28). Ruled grids with spans (payroll forms 0.668 TEDS) and whitespace tables (FinTabNet 0.738) are in as options, with JSON / HTML / hOCR output. Next: (a) measure the grid test's effect on text where it changes the picture zones (magazines 17/30, FUNSD 10/30, playbills 11/30) and propose defaults; (b) find whitespace tables on a page, not only when the image is the table (the output stage's aligned-column groups are the candidates); (c) more templates with nested truth -- paystubs (earnings, deductions and year-to-date tables inside the stub), timesheets, statements, invoices, receipts -- each ruled, partly ruled and whitespace; CORD's line items as receipt-table truth; (d) the short sub-row rules the payroll grid loses; (e) samples of PubTables-1M, PubTabNet and SciTSR for scientific tables; (f) orientation for tables scanned sideways.
+6. **Tables: structure beyond the first measurements** (2026-09-28; superseded by "Now: tables" above, except (e)'s PubTabNet and SciTSR samples and (f), which are still open). Ruled grids with spans (payroll forms 0.668 TEDS) and whitespace tables (FinTabNet 0.738) are in as options, with JSON / HTML / hOCR output. Next: (a) measure the grid test's effect on text where it changes the picture zones (magazines 17/30, FUNSD 10/30, playbills 11/30) and propose defaults; (b) find whitespace tables on a page, not only when the image is the table (the output stage's aligned-column groups are the candidates); (c) more templates with nested truth -- paystubs (earnings, deductions and year-to-date tables inside the stub), timesheets, statements, invoices, receipts -- each ruled, partly ruled and whitespace; CORD's line items as receipt-table truth; (d) the short sub-row rules the payroll grid loses; (e) samples of PubTables-1M, PubTabNet and SciTSR for scientific tables; (f) orientation for tables scanned sideways.
    The segmenter judge refit on v0.15.1 (formerly this item) was a wash on held-out pages (news 86.9 vs 86.7, mag 83.5 vs 83.7); the live judge stays.
-7. **Typewriter blocks and FUNSD words.** The two recognition sets still behind Tesseract's LSTM (legal-8 blocks 96.9 / 95.9 against 97.1 / 96.0; FUNSD 66.0 / 43.9 against 66.4 / 47.2, about half of FUNSD's gap being its field-order convention).
+7. **Typewriter blocks and FUNSD words.** The two recognition sets still behind Tesseract's LSTM (legal-8 blocks 96.9 / 95.9 against 97.1 / 96.0; FUNSD 66.0 / 43.9 against 66.4 / 47.2 at v0.15.1, 65.9 / 44.3 now, about half of FUNSD's gap being its field-order convention).
 
 Superseded below: "Block recognition" (ahead since v0.15.0), "Magazine layout" (a) and "Photo-heavy magazine recall" (picture-zone text-row protection, the deskew limit rule and the facing page closed most of it), and the '@' class (in the reader's alphabet since v0.15.0).
 
-## Now: close the gap to the legacy reference
+## Earlier: close the gap to the legacy reference
 
 **Decomposition (2026-09-01, `scripts/compare_legacy_errors.py`).**
 Morning: two gaps, not one — three catastrophic pages (about a quarter)
@@ -216,7 +219,7 @@ is a scorer that never needs a cut, which is the neural profile's first
 term (below). `scripts/compare_legacy.py` produces the paired per-page
 table that localizes the gap.
 
-## Now (2026-09-02, agreed plan): modern documents, then wider opinions
+## Earlier (2026-09-02, agreed plan): modern documents, then wider opinions
 
 1. ~~A modern test set, and our number on it.~~ BUILT and measured
    (RESEARCH). Current (2026-09-08, cleaned truth): **84.7 / 72.3 /
@@ -666,9 +669,13 @@ separately attributable because of this.
   business and trail on broad-30 by 1.2 char / 1.9 word. Next for the
   reader: a second seed and a longer schedule (the curve was still rising
   at epoch 8), the judge's threshold swept on the headline set, and the
-  reader's own words carrying calibrated confidence.
+  reader's own words carrying calibrated confidence. Superseded: the
+  reader became a three-seed ensemble (v0.8.0), then the grey-strip
+  readers (v0.13.0-v0.15.0).
 
-- **Business tabular pages** (the user's stated priority, 2026-09-13):
+- **Business tabular pages** (the user's stated priority, 2026-09-13;
+  superseded: business now reads 98.0 / 96.8 neural against legacy's
+  70.7 / 68.0, README, and '@' is in the reader's alphabet since v0.15.0):
   neural recall 93.9 against legacy's 97.5 on the sixty-page business
   set. Named losses, each measurable per kind with `--by-kind`: fused and
   split capital-letter cells ('ATMWITHDRAWAL', 'white board'), a leading
