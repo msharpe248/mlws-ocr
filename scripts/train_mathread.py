@@ -13,6 +13,15 @@ augmented as a scan might change it (a blur, noise, a slight scale, at times
 thresholded to ink and paper).
 
     scripts/train_mathread.py data/math --epochs 20 --out data/mathread_v1.npz
+
+``--init`` starts from a trained reader's .npz (a fine-tune): every weight
+copied, and where the vocabulary has grown (the extended grammar's tokens)
+the old tokens' rows of the embedding and the output layer copied by name,
+the new ones left as initialised.  ``--duty`` sleeps that share of each
+step's time after it, so a box is not run at full load (gentle training):
+
+    scripts/train_mathread.py data/math4 --init data/mathread_v3.npz --epochs 10 --lr 3e-4 --duty 0.5 \
+        --out data/mathread_v4.npz
 """
 from __future__ import annotations
 
@@ -137,6 +146,33 @@ def save(model, path: Path):
     np.savez(path, **out)
 
 
+def load_init(model, path: Path):
+    """Copy a saved reader's weights into ``model`` (save()'s inverse), the
+    vocabulary matched by token: rows of tokens the saved reader did not know
+    keep their fresh initialisation."""
+    import torch
+    z = np.load(path, allow_pickle=True)
+    old = [str(t) for t in z["vocab"]]
+    sd = model.state_dict()
+    t = lambda a: torch.from_numpy(np.ascontiguousarray(a))  # noqa: E731
+    for k in range(5):
+        sd[f"convs.{k}.weight"] = t(z[f"conv{k}_w"]); sd[f"convs.{k}.bias"] = t(z[f"conv{k}_b"])
+    sd["att_k.weight"] = t(z["att_k"].T); sd["att_q.weight"] = t(z["att_q"].T); sd["att_v.weight"] = t(z["att_v"][None])
+    sd["init.weight"] = t(z["init_w"].T); sd["init.bias"] = t(z["init_b"])
+    sd["gru.weight_ih"] = t(z["gru_wi"].T); sd["gru.bias_ih"] = t(z["gru_bi"])
+    sd["gru.weight_hh"] = t(z["gru_wh"].T); sd["gru.bias_hh"] = t(z["gru_bh"])
+    rows = [(INDEX[tok], i) for i, tok in enumerate(old) if tok in INDEX]
+    new, was = [r[0] for r in rows], [r[1] for r in rows]
+    sd["emb.weight"][new] = t(z["emb"][was])
+    sd["out.weight"][new] = t(z["out_w"].T[was]); sd["out.bias"][new] = t(z["out_b"][was])
+    if len(old) < len(VOCAB):
+        # a new token starts unlikely, as a trained reader's rare tokens are, not at a fresh layer's chance
+        fresh = [i for i in range(len(VOCAB)) if i not in set(new)]
+        sd["out.bias"][fresh] = float(z["out_b"].min())
+    model.load_state_dict(sd)
+    return len(old)
+
+
 def main():
     import torch
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
@@ -148,6 +184,8 @@ def main():
     ap.add_argument("--max-minutes", type=float, default=0, help="stop after this long (a smoke test)")
     ap.add_argument("--device", default="mps" if torch.backends.mps.is_available() else
                     ("cuda" if torch.cuda.is_available() else "cpu"))
+    ap.add_argument("--init", type=Path, help="start from this reader's .npz (a fine-tune)")
+    ap.add_argument("--duty", type=float, default=0.0, help="sleep this share of each step's time after it (gentle)")
     ap.add_argument("--out", type=Path, required=True)
     args = ap.parse_args()
     rng = random.Random(1)
@@ -157,7 +195,10 @@ def main():
         xs, ys = xs[: args.n], ys[: args.n]
     vx, vy = load_split(args.root, "val")
     vx, vy = vx[:300], vy[:300]
-    model = build().to(args.device)
+    model = build()
+    if args.init:
+        print(f"from {args.init}: {load_init(model, args.init)} of {len(VOCAB)} tokens known", flush=True)
+    model = model.to(args.device)
     print(f"{len(xs)} training formulas, {sum(p.numel() for p in model.parameters())} parameters, on {args.device}",
           flush=True)
     opt = torch.optim.Adam(model.parameters(), lr=args.lr)
@@ -167,11 +208,14 @@ def main():
         model.train()
         tot = n = 0
         for x, m, y in batches(xs, ys, args.batch, rng, aug=True):
+            s0 = time.time()
             x, m, y = x.to(args.device), m.to(args.device), y.to(args.device)
             out = model(x, m, y)
             loss = lossf(out.reshape(-1, out.shape[-1]), y[:, 1:].reshape(-1))
             opt.zero_grad(); loss.backward(); torch.nn.utils.clip_grad_norm_(model.parameters(), 5.0); opt.step()
             tot += float(loss) * len(y); n += len(y)
+            if args.duty > 0:
+                time.sleep(args.duty * (time.time() - s0))
             if args.max_minutes and time.time() - t0 > 60 * args.max_minutes:
                 break
         model.eval()

@@ -118,7 +118,14 @@ data whose truth is what was drawn:
   redraws a line until it is at most that long, since pages hold no display
   line over about 45 tokens. Writes `<out>/<split>/*.png` and
   `labels.jsonl`, the splits from different seeds (the live reader's set:
-  `--out data/math3 --train 60000 --max-line-tokens 50`).
+  `--out data/math3 --train 60000 --max-line-tokens 50`). `--ext` draws
+  from the EXTENDED grammar (v4, 2026-10-12): accents (`\hat`, `\bar`,
+  `\tilde`, `\vec`, `\dot`), a superscript stacked over a primed
+  subscript, absolute values, matrices (`pmatrix`, `bmatrix`, two or three
+  rows of one to three columns) and cases; without it the draws are exactly
+  the first grammar's, so every older set is made again the same from its
+  seed (`--out data/math4 --train 60000 --max-line-tokens 50 --ext`: about
+  half its formulas hold the new notation; all 62,000 typeset).
 - **Drawn tables for the table sequence reader**
   (`scripts/make_tableseq_drawn.py`): mostly tables in the manner of a
   company's financial statements, the rest the general drawn tables of

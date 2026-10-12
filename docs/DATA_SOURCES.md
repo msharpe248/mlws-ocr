@@ -303,7 +303,7 @@ flowchart LR
 | word-relation choice | 1,615 tables no network saw (`draw_unseen_tables.py`: PubTables-1M training, FinTabNet.c validation), read by the engine |
 | table sequence reader | 385,953 PubTables-1M and FinTabNet.c structure training tables as cell tokens, then 60,000 drawn tables (`make_tableseq_drawn.py`) |
 | table sequence choice | the same unseen tables (sel3) + 300 screenshots of their structures (`make_screen_set.py --src`): 2,031 tables |
-| equation reader | 60,000 formulas drawn from a grammar and typeset by tectonic (`make_math_set.py`) |
+| equation reader | 60,000 formulas drawn from a grammar and typeset by tectonic (`make_math_set.py`; v4's from the extended grammar, `--ext`) |
 | symbol classifier | 116,156 real glyphs from PubTables-1M training crops, the PDF words as truth (`harvest_symbols.py`), + rendered glyphs of the confusion sets in table contexts |
 | cell confidence | 41,333 cells of 799 selection tables (PubTables-1M training outside every draw, FinTabNet.c validation) |
 
@@ -330,7 +330,7 @@ pipeline) and name the profile with any figure you report.
 | real receipts | `data/tables/cord` | `eval_tables.py data/tables/cord --pages 30 --config configs/neural-table.toml` |
 | annual-report tables, scientific tables | `data/tables/fintabnet`, `data/tables/pubtables` | §4 |
 | display equations | `data/equations` | `eval_equations.py data/equations --config configs/neural.toml` (finding only: P / R / F1 at IoU 0.5, and of the numbers) |
-| equations read | `data/equations_math` (30 pages, behind the reader's decisions); `data/equations_math_heldout` (60 fresh pages, `make_equation_set.py --math --n 60 --seed 97`, 2026-10-12) | `eval_math_pages.py <dir> --model data/mathread_v3.npz --beam 8 --config configs/neural.toml` (`--set output.math_split_lines=true` line by line; `--dump` each equation's truth and reading) |
+| equations read | `data/equations_math` (30 pages, behind the reader's decisions); `data/equations_math_heldout` (60 fresh pages, `make_equation_set.py --math --n 60 --seed 97`, 2026-10-12); `data/equations_math_ext` (60 pages of the extended grammar -- matrices, cases, accents -- `make_equation_set.py --math --ext --n 60 --seed 98`, 2026-10-12) | `eval_math_pages.py <dir> --model data/mathread_v3.npz --beam 8 --config configs/neural.toml` (`--set output.math_split_lines=true` line by line; `--dump` each equation's truth and reading) |
 
 ## 11. Keeping evaluation data out of training
 

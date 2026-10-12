@@ -68,3 +68,52 @@ def test_widest_gap_and_read_display():
     assert r.read_display(g) == ["x", "\\\\", "x"] and calls == [60, 30, 30]
     calls.clear(); r.read = lambda gray, beam=1: calls.append(1) or ["a"]
     assert r.read_display(g) == ["a"] and calls == [1]
+
+
+def test_a_fine_tune_starts_from_the_saved_reader(tmp_path):
+    """--init copies every weight, the old tokens' rows matched by name, so a
+    reader saved and loaded reads the same."""
+    from train_mathread import build, load_init, save
+    from mlws_ocr.math.reader import MathReader
+    torch.manual_seed(0)
+    a = build().eval()
+    f = tmp_path / "a.npz"
+    save(a, f)
+    b = build().eval()
+    assert load_init(b, f) == len(MathReader(str(f)).vocab)
+    g = tmp_path / "b.npz"
+    save(b, g)
+    img = np.ones((60, 300), np.float32); img[20:40, 30:270:12] = 0.0
+    assert MathReader(str(f)).read(img) == MathReader(str(g)).read(img)
+
+
+def test_the_extended_grammar():
+    """ext=False draws the first grammar exactly; ext=True's formulas are in
+    the vocabulary, round-trip through LaTeX and make well-formed MathML; a
+    matrix's rows are not lines."""
+    import random
+    import xml.dom.minidom as md
+    from mlws_ocr.math.latex import INDEX, Grammar, display_latex, split_lines, to_latex, to_mathml, tokenize
+    g = Grammar(random.Random(5), ext=True)
+    for _ in range(300):
+        t = g.formula()
+        assert all(x in INDEX for x in t) and tokenize(to_latex(t)) == t
+        md.parseString(to_mathml(t)); display_latex(t)
+    m = tokenize(r"A=\begin{pmatrix}a&b\\c&d\end{pmatrix}")
+    assert len(split_lines(m)) == 1 and len(split_lines(m + ["\\\\"] + tokenize("x=1"))) == 2
+    assert "<mtable><mtr><mtd><mrow><mi>a</mi></mrow></mtd>" in to_mathml(m)
+    assert display_latex(m + ["\\\\"] + tokenize("x=1")).startswith(r"\begin{aligned}A &=\begin{pmatrix}")
+
+
+def test_read_lines_cuts_between_the_numbers():
+    """An equation numbered line by line is cut in the blank rows between its
+    numbers' centres, whatever the reader says of the whole."""
+    from mlws_ocr.math.reader import MathReader, cut_between
+    g = np.ones((60, 40))
+    g[5:15, 5:30] = 0          # line 1, its number's centre about row 10
+    g[25:26, 5:30] = 0         # a bar between them, inked
+    g[40:50, 5:30] = 0         # line 2, its number's centre about row 45
+    assert 26 <= cut_between(g, 10, 45) <= 39
+    r = MathReader.__new__(MathReader)
+    r.read_display = lambda gray, beam=1, depth=3: [str(gray.shape[0])]
+    assert r.read_lines(g, [45, 10]) == [str(cut_between(g, 10, 45)), "\\\\", str(60 - cut_between(g, 10, 45))]

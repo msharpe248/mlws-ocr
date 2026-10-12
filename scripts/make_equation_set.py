@@ -17,6 +17,10 @@ Writes <name>.png (300 dpi, grey) and <name>.eq.json:
                     "number_box": [...] | null}], "columns": 1 | 2}
 
     scripts/make_equation_set.py --n 40 --out data/equations
+    scripts/make_equation_set.py --math --ext --n 60 --seed 98 --out data/equations_math_ext
+
+--ext draws the displays from the extended grammar (v4: accents, matrices,
+cases, a superscript over a primed subscript).
 """
 from __future__ import annotations
 
@@ -92,7 +96,7 @@ def paragraph(rng: random.Random, words: list[str]) -> str:
 
 
 def latex(rng: random.Random, words: list[str], family: str, twocol: bool, colour: bool,
-          displays: list | None = None) -> str:
+          displays: list | None = None, ext: bool = False) -> str:
     """The page's LaTeX; with ``displays`` (a list), its equations are drawn
     from the math grammar (mlws_ocr.math.latex) and each display's token list
     is appended to it in document order -- the truth for reading them."""
@@ -100,7 +104,7 @@ def latex(rng: random.Random, words: list[str], family: str, twocol: bool, colou
     g = None
     if displays is not None:
         from mlws_ocr.math.latex import Grammar, to_latex
-        g = Grammar(rng)
+        g = Grammar(rng, ext=ext)
     for _ in range(rng.randint(5, 9)):
         body.append(paragraph(rng, words))
         r = rng.random()
@@ -197,6 +201,7 @@ def main():
     ap.add_argument("--out", type=Path, default=ROOT / "data/equations")
     ap.add_argument("--math", action="store_true",
                     help="equations from the math grammar, each display's tokens kept as truth (eq.json 'tokens')")
+    ap.add_argument("--ext", action="store_true", help="with --math: the extended grammar (v4)")
     args = ap.parse_args()
     rng = random.Random(args.seed)
     words = []
@@ -212,9 +217,9 @@ def main():
             d = Path(d)
             rng.setstate(state)
             displays = [] if args.math else None
-            plain = render(latex(rng, words, family, twocol, False, displays), d, "plain")
+            plain = render(latex(rng, words, family, twocol, False, displays, args.ext), d, "plain")
             rng.setstate(state)
-            colour = render(latex(rng, words, family, twocol, True, [] if args.math else None), d, "colour")
+            colour = render(latex(rng, words, family, twocol, True, [] if args.math else None, args.ext), d, "colour")
             if not plain or len(plain) != len(colour):
                 continue
             name = f"eq_{k:03d}_{family}_{'2col' if twocol else '1col'}"

@@ -148,10 +148,14 @@ def _maths(piece: np.ndarray, glyph: float, line_h: float) -> bool:
     return False
 
 
-def find_equations(binary: np.ndarray, lines: list[dict]) -> tuple[list[dict], list[dict]]:
+def find_equations(binary: np.ndarray, lines: list[dict], beside: bool = False) -> tuple[list[dict], list[dict]]:
     """The display equations among ``lines``: returns (lines without the
     equations' bodies, with their numbers as lines of their own; equations as
-    {"box", "number_box" | None, "n_lines"})."""
+    {"box", "number_box" | None, "n_lines"}).  ``beside`` (lines.equations_beside):
+    the set-in pieces on an equation's rows within three glyphs across are
+    its own too -- the line finder parts a matrix's columns and a case's value
+    from its condition at their gaps -- and groups so joined, or now over one
+    another, are one; a candidate's pieces are marked with it."""
     glyph = _glyph_height(binary)
     if glyph <= 0 or not lines:
         return lines, []
@@ -205,6 +209,7 @@ def find_equations(binary: np.ndarray, lines: list[dict]) -> tuple[list[dict], l
     rank = {i: k for k, i in enumerate(order)}
     eq = set()
     displays = []
+    inset = set()                    # set in from both sides: displays, and the pieces of one
     for i in order:
         bx0, by0, bx1, by1 = info[i]["body"]
         near = order[max(0, rank[i] - 12): rank[i] + 13]
@@ -212,6 +217,8 @@ def find_equations(binary: np.ndarray, lines: list[dict]) -> tuple[list[dict], l
         prose = [j for j in near if j != i and info[j]["number"] is None and info[j]["chunks"] <= 2
                  and lines[j]["box"][0] <= bx0 - 2 * glyph and lines[j]["box"][2] >= bx1 + 2 * glyph
                  and lines[j]["box"][3] - lines[j]["box"][1] <= 1.3 * line_h]
+        if prose and not info[i]["is_number"]:
+            inset.add(i)
         # a display is one chunk or a few ('a = b,  c = d'); a form's header row is many
         if not prose or info[i]["is_number"] or info[i]["chunks"] > 3 or bx1 - bx0 < 2 * glyph:
             continue
@@ -235,45 +242,95 @@ def find_equations(binary: np.ndarray, lines: list[dict]) -> tuple[list[dict], l
             bx0, by0, bx1, by1 = info[i]["body"]
             if i not in eq and _large_operator(binary[by0:by1, bx0:bx1], glyph):
                 eq.add(i)
+    use_beside = beside
+
+    def beside(b, g):
+        """A piece on the same rows as a group, within three glyphs of it across:
+        the line finder parts a matrix's columns and a case's value from its
+        condition at their gaps, as it parts two words."""
+        ov = min(b[3], g[3]) - max(b[1], g[1])
+        return ov >= 0.5 * min(b[3] - b[1], g[3] - g[1]) and max(b[0] - g[2], g[0] - b[2]) <= 3 * glyph
+
+    def grow(groups, taken, pool):
+        """Each group's pieces absorbed until none is left to take: those within a
+        line height above or below it, inside its width (a sum's limits, a root's
+        index, a fraction's numerator the row profile cut off), and the set-in
+        pieces beside it (``pool``)."""
+        for g in groups:
+            changed = True
+            while changed:
+                changed = False
+                gb = [min(info[i]["body"][0] for i in g), min(info[i]["body"][1] for i in g),
+                      max(info[i]["body"][2] for i in g), max(info[i]["body"][3] for i in g)]
+                for i in order:
+                    if i in taken or info[i]["is_number"]:
+                        continue
+                    bx0, by0, bx1, by1 = b = info[i]["body"]
+                    if ((bx0 >= gb[0] - glyph and bx1 <= gb[2] + glyph and by1 > gb[1] - line_h and by0 < gb[3] + line_h
+                         and by1 - by0 <= 1.3 * line_h) or (use_beside and i in pool and beside(b, gb))):
+                        g.append(i)
+                        taken.add(i)
+                        changed = True
+        # groups that grew into one another, or beside or over one another now (a matrix's two
+        # columns, each a group; an aligned pair's line under a case's conditions) are one
+        merged = use_beside
+        while merged:
+            merged = False
+            for a in range(len(groups)):
+                for c in range(a + 1, len(groups)):
+                    ba = [min(info[i]["body"][k] for i in groups[a]) if k < 2 else max(info[i]["body"][k] for i in groups[a]) for k in range(4)]
+                    bc = [min(info[i]["body"][k] for i in groups[c]) if k < 2 else max(info[i]["body"][k] for i in groups[c]) for k in range(4)]
+                    across = min(ba[2], bc[2]) > max(ba[0], bc[0])
+                    if beside(ba, bc) or (across and max(bc[1] - ba[3], ba[1] - bc[3]) < 1.5 * line_h):
+                        groups[a] += groups.pop(c)
+                        merged = True
+                        break
+                if merged:
+                    break
+        return groups
+
+    def stack(members):
+        """Lines into groups: under 1.5 line heights apart, overlapping across."""
+        groups: list[list[int]] = []
+        for i in order:
+            if i not in members:
+                continue
+            b = info[i]["body"]
+            for g in groups:
+                gb = info[g[-1]]["body"]
+                if b[1] - gb[3] < 1.5 * line_h and b[0] < gb[2] and gb[0] < b[2]:
+                    g.append(i)
+                    break
+            else:
+                groups.append([i])
+        return groups
+
+    if any(info[i]["number"] is not None for i in eq):
         # the rest are CANDIDATES (``display``): a centred line of mathematics needs no
         # fraction bar, but its shape alone does not tell it from a centred heading; the
-        # equation reader decides later, when it can (output.math_display_logp)
-        for i in displays:
-            if i not in eq and info[i]["number"] is None:
+        # equation reader decides later, when it can (output.math_display_logp).  A
+        # candidate's pieces beside it go with it (a matrix's columns), each candidate
+        # marked with its group's number, read as one
+        cands = {i for i in displays if i not in eq and info[i]["number"] is None}
+        if cands and not use_beside:
+            for i in cands:
                 lines[i]["display"] = True
+        elif cands:
+            # (pieces an equation will take are not a candidate's)
+            pool = inset - eq
+            cg = grow(stack(cands), set(cands) | eq, pool - cands)
+            for k, g in enumerate(cg, 1):
+                for i in g:
+                    lines[i]["display"] = k
     if not eq:
         return lines, []
-    # adjacent equation lines are one equation: a gap under a line height, overlapping columns
-    groups: list[list[int]] = []
-    for i in order:
-        if i not in eq:
-            continue
-        b = info[i]["body"]
-        for g in groups:
-            gb = info[g[-1]]["body"]
-            if b[1] - gb[3] < 1.5 * line_h and b[0] < gb[2] and gb[0] < b[2]:
-                g.append(i)
-                break
-        else:
-            groups.append([i])
-    # pieces the row profile cut off an equation -- a sum's limits, a root's index, a
-    # fraction's numerator -- lie within a line height of it, inside its width: absorbed
+    # adjacent equation lines are one equation (a gap under 1.5 line heights, overlapping
+    # columns), with the pieces the row profile or the line finder cut off it
     taken = set(eq)
+    groups = grow(stack(eq), taken, inset)
     for g in groups:
-        changed = True
-        while changed:
-            changed = False
-            gx0 = min(info[i]["body"][0] for i in g); gx1 = max(info[i]["body"][2] for i in g)
-            gy0 = min(info[i]["body"][1] for i in g); gy1 = max(info[i]["body"][3] for i in g)
-            for i in order:
-                if i in taken or info[i]["is_number"]:
-                    continue
-                bx0, by0, bx1, by1 = info[i]["body"]
-                if (bx0 >= gx0 - glyph and bx1 <= gx1 + glyph and by1 > gy0 - line_h and by0 < gy1 + line_h
-                        and by1 - by0 <= 1.3 * line_h):
-                    g.append(i)
-                    taken.add(i)
-                    changed = True
+        for i in g:
+            lines[i].pop("display", None)    # a candidate's piece an equation took
     eq = taken
     keep = [ln for i, ln in enumerate(lines) if i not in eq]
     equations = []

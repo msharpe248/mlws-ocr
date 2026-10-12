@@ -566,6 +566,13 @@ const PICTURE_SWITCHES = [
     title: "each display equation read by the equation reader (mathread_v3, a beam of eight): its LaTeX in the layout, its MathML in the hOCR's ocr_math beside the image" },
   { slot: "output", key: "math_split_lines", on: true, off: false, label: "Equations line by line",
     title: "an equation read as two lines (an aligned pair) is cut at its widest gap and each line read on its own, at the reader's full height" },
+  { slot: "output", key: "math_reader_path", on: "data/mathread_v4.npz", off: "data/mathread_v3.npz", is: (v) => String(v || "").includes("mathread_v4"),
+    label: "Equation reader v4",
+    title: "the v4 equation reader (v3 fine-tuned on the extended grammar: matrices, cases, accents, a superscript over a primed subscript) in place of v3" },
+  { slot: "lines", key: "equations_beside", on: true, off: false, label: "Equation pieces beside",
+    title: "the pieces the line finder parted beside an equation (a matrix's columns, a case's conditions) grouped with it, and with a candidate display" },
+  { slot: "output", key: "math_split_at_numbers", on: true, off: false, label: "Equation lines at their numbers",
+    title: "an equation numbered line by line is cut between its numbers and each line read on its own, whatever the reader says of the whole" },
   { slot: "output", key: "math_display_logp", on: -0.1, off: 0, label: "Confirm equations by reading",
     title: "on a page with a numbered equation, a centred line with no number or fraction bar is read by the equation reader and kept as an equation when the reader is sure of it" },
   { slot: "imagezones", key: "display_height", on: 4, off: 0, label: "Display type is a picture",
@@ -576,7 +583,7 @@ function pictureSwitches() {
   for (const sw of PICTURE_SWITCHES) {
     const st = S.st.stages.find((t) => t.slot === sw.slot);
     const v = st ? (sw.key in st.params ? st.params[sw.key] : st.defaults[sw.key]) : null;
-    const on = typeof sw.on === "number" ? Number(v) === sw.on || (sw.off === 0 && Number(v) > 0) : !!v;
+    const on = sw.is ? sw.is(v) : typeof sw.on === "number" ? Number(v) === sw.on || (sw.off === 0 && Number(v) > 0) : !!v;
     const cb = el("input", { type: "checkbox", ...(on ? { checked: "" } : {}), ...(st ? {} : { disabled: "" }),
       onchange: async (e) => {
         await api(`/api/stage/${st.index}`, { params: { [sw.key]: e.target.checked ? sw.on : sw.off } });

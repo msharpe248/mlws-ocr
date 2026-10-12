@@ -14,12 +14,16 @@ long (a two-line formula keeps two such lines): pages hold no display line
 over about 45 tokens, and a reader trained mostly on longer ones spends its
 training where it is never used (v2's set, RESEARCH).
 
+With --ext the formulas come from the extended grammar (v4: accents,
+a superscript over a primed subscript, absolute values, matrices, cases).
+
 Writes <out>/<split>/<chunk>_<n>.png and <out>/<split>/labels.jsonl
 ({"file", "tokens", "font", "dpi"}); the splits are drawn from different
 seeds, so no formula is shared.
 
     scripts/make_math_set.py --out data/math --train 20000 --val 1000 --test 1000
     scripts/make_math_set.py --out data/math3 --train 60000 --max-line-tokens 50
+    scripts/make_math_set.py --out data/math4 --train 60000 --max-line-tokens 50 --ext
 """
 from __future__ import annotations
 
@@ -80,9 +84,9 @@ def render(batch: list[list[str]], family: str, dpi: int, d: Path) -> list[np.nd
 def _chunk(args):
     """One chunk of a split: its own seed (the split's seed and the chunk's
     number), so the set is the same whatever the number of workers."""
-    split, i, n, seed, out, cap = args
+    split, i, n, seed, out, cap, ext = args
     rng = random.Random(seed * 1000 + i)
-    g = Grammar(rng)
+    g = Grammar(rng, ext=ext)
     family, dpi = rng.choice(list(FAMILIES)), rng.choice(DPIS)
     if cap:
         short = lambda: next(t for t in (g.line() for _ in range(1000)) if len(t) <= cap)  # noqa: E731
@@ -101,10 +105,11 @@ def _chunk(args):
     return rows
 
 
-def make(split: str, n: int, seed: int, out: Path, chunk: int = 200, workers: int = 8, cap: int = 0) -> None:
+def make(split: str, n: int, seed: int, out: Path, chunk: int = 200, workers: int = 8, cap: int = 0,
+         ext: bool = False) -> None:
     from multiprocessing import Pool
     (out / split).mkdir(parents=True, exist_ok=True)
-    jobs = [(split, i, min(chunk, n - i * chunk), seed, out, cap) for i in range((n + chunk - 1) // chunk)]
+    jobs = [(split, i, min(chunk, n - i * chunk), seed, out, cap, ext) for i in range((n + chunk - 1) // chunk)]
     done = 0
     with Pool(workers) as pool, (out / split / "labels.jsonl").open("w") as lab:
         for rows in pool.imap(_chunk, jobs):
@@ -122,10 +127,11 @@ def main():
     ap.add_argument("--test", type=int, default=1000)
     ap.add_argument("--workers", type=int, default=8)
     ap.add_argument("--max-line-tokens", type=int, default=0, help="each line at most this long (0: as drawn)")
+    ap.add_argument("--ext", action="store_true", help="the extended grammar (v4: accents, matrices, cases)")
     args = ap.parse_args()
     for split, n, seed in (("test", args.test, 301), ("val", args.val, 202), ("train", args.train, 101)):
         if n:
-            make(split, n, seed, args.out, workers=args.workers, cap=args.max_line_tokens)
+            make(split, n, seed, args.out, workers=args.workers, cap=args.max_line_tokens, ext=args.ext)
 
 
 if __name__ == "__main__":

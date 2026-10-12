@@ -225,6 +225,8 @@ class ProfileLines(Stage):
         "equations": False,      # display equations found among the lines (layout/equations.py): their
                                  # bodies kept from the reader (layout["equations"]), their numbers left
                                  # as lines of their own (2026-10-03)
+        "equations_beside": False,  # ...with the pieces the line finder parted beside an equation (a
+                                 # matrix's columns, a case's conditions) grouped with it (2026-10-12)
         "stacked_doc_types": "table",  # ... on these doc types only ('*' = every page): on whole
                                  # payroll forms a large hand-lettered row was cut into ascender and
                                  # descender fragments that look like lines; on table crops it helps
@@ -313,7 +315,7 @@ class ProfileLines(Stage):
         # taken for a numbered equation and its words lost (PubTables-1M, 2026-10-04)
         if p["equations"] and all_lines and page.meta.get("doc_type") != "table":
             from .equations import find_equations
-            all_lines, equations = find_equations(page.binary, all_lines)
+            all_lines, equations = find_equations(page.binary, all_lines, beside=p["equations_beside"])
 
         out = page.evolve()
         out.meta["layout"] = dict(layout, lines=all_lines)

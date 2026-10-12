@@ -326,6 +326,7 @@ class TextOutput(Stage):
                                          # into the hOCR's ocr_math beside the image; "" = cut out only
         "math_beam": 1,                  # ...greedy (1) or a beam search of this width (math/reader.py)
         "math_split_lines": False,       # ...a reading of two lines read again line by line (MathReader.read_display)
+        "math_split_at_numbers": False,  # ...an equation with a number for each line cut between its numbers (read_lines)
         "math_display_logp": 0.0,        # ...a centred display line the finder could not call (``display``, on a page
                                          # with a numbered equation) kept as an equation when the reader's mean
                                          # log-probability on it is above this (-0.1); 0 off
@@ -799,26 +800,33 @@ class TextOutput(Stage):
         ``math_display_logp`` (``MathReader.confidence``).  Its shape alone
         does not tell a centred line of mathematics from a centred heading; a
         reader trained only on mathematics is sure of the one and not the
-        other.  Adjacent confirmed lines (under 1.5 line heights apart,
+        other.  A candidate is read whole with the pieces the finder grouped
+        with it (the same number in ``display``: a matrix's columns, a case's
+        conditions).  Adjacent confirmed ones (under 1.5 line heights apart,
         overlapping across) are one equation, as in the finder."""
         th = float(self.params["math_display_logp"])
         rd = self._math_reader()
         hs = sorted(ln["box"][3] - ln["box"][1] for ln in layout["lines"])
         line_h = float(hs[len(hs) // 2]) if hs else 0.0
-        took = []
+        cands: dict = {}
         for k, ln in enumerate(layout["lines"]):
-            if not ln.get("display"):
-                continue
-            x0, y0, x1, y1 = (int(v) for v in ln["box"])
+            d = ln.get("display")
+            if d:
+                cands.setdefault(("line", k) if d is True else d, []).append(k)
+        took, boxes = [], []
+        for ks in cands.values():
+            bs = [layout["lines"][k]["box"] for k in ks]
+            x0, y0 = int(min(b[0] for b in bs)), int(min(b[1] for b in bs))
+            x1, y1 = int(max(b[2] for b in bs)), int(max(b[3] for b in bs))
             if x1 - x0 < 4 or y1 - y0 < 4:
                 continue
             if rd.confidence(page.gray[max(0, y0):y1, max(0, x0):x1]) > th:
-                took.append(k)
+                took += ks
+                boxes.append([x0, y0, x1, y1])
         if not took:
             return layout
         groups: list[list] = []
-        for k in sorted(took, key=lambda k: layout["lines"][k]["box"][1]):
-            b = layout["lines"][k]["box"]
+        for b in sorted(boxes, key=lambda b: b[1]):
             for g in groups:
                 gb = g[-1]
                 if b[1] - gb[3] < 1.5 * line_h and b[0] < gb[2] and gb[0] < b[2]:
@@ -1148,7 +1156,13 @@ class TextOutput(Stage):
                 x0, y0, x1, y1 = (int(v) for v in e["box"])
                 crop = page.gray[max(0, y0):y1, max(0, x0):x1]
                 bm = int(self.params["math_beam"])
-                toks = rd.read_display(crop, beam=bm) if self.params["math_split_lines"] else rd.read(crop, beam=bm)
+                nums = e.get("number_boxes") or []
+                if self.params["math_split_at_numbers"] and len(nums) >= 2:
+                    toks = rd.read_lines(crop, [(n[1] + n[3]) / 2 - max(0, y0) for n in nums], beam=bm)
+                elif self.params["math_split_lines"]:
+                    toks = rd.read_display(crop, beam=bm)
+                else:
+                    toks = rd.read(crop, beam=bm)
                 # the tokens as read; the LaTeX to set them (two lines: an aligned pair); the MathML
                 eqs.append(dict(e, tokens=toks, latex=display_latex(toks), mathml=to_mathml(toks)))
             layout = dict(layout, equations=eqs)

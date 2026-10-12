@@ -24,7 +24,7 @@ from __future__ import annotations
 import numpy as np
 from scipy import ndimage
 
-from .latex import INDEX, VOCAB
+from .latex import INDEX, VOCAB, split_lines
 
 HEIGHT = 64
 MAX_WIDTH = 1024
@@ -178,6 +178,21 @@ class MathReader:
             tok = t
         return float(np.mean(lps))
 
+    def read_lines(self, gray: np.ndarray, centres: list[float], beam: int = 1) -> list[str]:
+        """A display whose lines are known -- an aligned pair numbered line by
+        line, ``centres`` its numbers' middle rows in the crop -- cut between
+        each two lines (``cut_between``) and each read with ``read_display``:
+        the lines come from the page, not from the reader's guess that there
+        are two (v4 named 58 of 68 numbered pairs, and read one line of the
+        rest)."""
+        cs = sorted(centres)
+        cuts = [cut_between(gray, cs[k], cs[k + 1]) for k in range(len(cs) - 1)]
+        out: list[str] = []
+        for a, b in zip([0] + cuts, cuts + [gray.shape[0]]):
+            if b - a >= 4:
+                out += (["\\\\"] if out else []) + self.read_display(gray[a:b], beam)
+        return out
+
     def read_display(self, gray: np.ndarray, beam: int = 1, depth: int = 3) -> list[str]:
         """A display read line by line: read whole, and when the reading has
         two lines ('\\\\', an aligned pair) the image is cut at its widest
@@ -192,13 +207,33 @@ class MathReader:
         lines for 66 of 69 pairs and none of 254 one-line displays
         (2026-10-12)."""
         toks = self.read(gray, beam=beam)
-        if depth <= 0 or "\\\\" not in toks:
+        if depth <= 0 or len(split_lines(toks)) < 2:      # (a matrix's rows are not lines)
             return toks
         cut = widest_gap(gray)
         if cut is None:
             return toks
         return (self.read_display(gray[:cut], beam, depth - 1) + ["\\\\"]
                 + self.read_display(gray[cut:], beam, depth - 1))
+
+
+def cut_between(gray: np.ndarray, a: int, b: int, level: float = 0.5) -> int:
+    """The row to part two lines whose numbers' centres are rows ``a`` and
+    ``b``: the middle of the longest run of the rows between them with the
+    least ink (a band of blank rows, where there is one)."""
+    a, b = max(0, int(a)), min(gray.shape[0], int(b))
+    if b - a < 2:
+        return (a + b) // 2
+    ink = (np.asarray(gray[a:b]) < level).sum(1)
+    low = ink == ink.min()
+    best, start = (0, (a + b) // 2), None
+    for y in range(len(low) + 1):
+        if y < len(low) and low[y]:
+            start = y if start is None else start
+        elif start is not None:
+            if y - start > best[0]:
+                best = (y - start, a + (start + y) // 2)
+            start = None
+    return best[1]
 
 
 def widest_gap(gray: np.ndarray, level: float = 0.5) -> int | None:
