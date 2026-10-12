@@ -12,7 +12,7 @@ tableseq_choice_inputs (the reader's confidence and shape, whether the
 builders' table came from rulings, both tables' shapes and their
 differences), each table weighted by how much the choice mattered there
 (scripts/train_wordrel_select.py's fit).  Reports 5-fold and
-leave-one-set-out mean TEDS for the builders alone, the reader alone, the
+leave-one-set-out mean TEDS per set for the builders alone, the reader alone, the
 choice and the best of the two, then fits on all and saves {w, b, mu, sd}.
 
     scripts/train_tableseq_select.py --eng 's3_prof_*.txt' --net 's3_seq_*.txt' \\
@@ -48,9 +48,12 @@ def main():
             X.append(x); names.append(n)
     X = np.array(X, float)
     a = np.array([eng[n][0] for n in names]); b = np.array([net[n][0] for n in names])
-    tag = np.array([eng[n][1] for n in names]); ruled = X[:, 7] > 0.5
+    # the set: PubTables-1M, FinTabNet.c, or screenshots of either's structures (make_screen_set.py)
+    tag = np.array(["scr" if n.startswith("screen_") else eng[n][1] for n in names]); ruled = X[:, 7] > 0.5
+    sets = [t for t in ("pt", "fin", "scr") if (tag == t).any()]
     y = (b > a).astype(float); w = np.abs(b - a) + 1e-3
-    print(f"{len(names)} tables ({(tag == 'pt').sum()} PubTables-1M, {(tag == 'fin').sum()} FinTabNet.c; "
+    print(f"{len(names)} tables ({(tag == 'pt').sum()} PubTables-1M, {(tag == 'fin').sum()} FinTabNet.c, "
+          f"{(tag == 'scr').sum()} screenshots; "
           f"{ruled.sum()} ruled); inputs {X.shape[1]}; reader better on {int((b > a + 0.02).sum())}, "
           f"builders on {int((a > b + 0.02).sum())}")
 
@@ -66,11 +69,11 @@ def main():
     for k in range(5):
         te = folds[k]; tr = np.concatenate([folds[j] for j in range(5) if j != k])
         chosen[te], picked[te] = run(tr, te)
-    for t in ("pt", "fin"):
+    for t in sets:
         m = tag == t
         print(f"  5-fold {t:3s}: builders {a[m].mean():.4f}  reader {b[m].mean():.4f}  choice {chosen[m].mean():.4f} "
               f"(reader's on {picked[m].sum()} of {m.sum()})  best of two {np.maximum(a, b)[m].mean():.4f}")
-    for t in ("pt", "fin"):
+    for t in sets:
         te = np.nonzero(tag == t)[0]; tr = np.nonzero(tag != t)[0]
         c, p = run(tr, te)
         print(f"  trained on the other set only, {t:3s}: choice {c.mean():.4f} (reader's on {p.sum()})")

@@ -340,6 +340,8 @@ flowchart LR
     split[(splitnet_v2.npz<br/>structure network)] --> outS
     sel[(table_select.npz<br/>logistic choice)] --> outS
     sep[(sepnet_v2.npz<br/>separator network)] --> outS
+    wrel[(wordrel_v3.npz + wordrel_select_v2.npz<br/>word-relation network, its choice)] --> outS
+    tseq[(tableseq_v2.npz + tableseq_select_v2.npz<br/>table sequence reader, its choice)] --> outS
 ```
 
 | model | config key | profiles |
@@ -348,7 +350,7 @@ flowchart LR
 | MLP second opinion | `recognize.mlp_path` | classic, neural, neural-table |
 | character GRU | `decode.char_lm` | classic, neural, neural-table |
 | word-strip CRNN scorer | `decode.seq_path` (and `correct.seq_path`) | neural, neural-table (classic: the corrector's pixel check) |
-| line reader (3-member ensemble) | `decode.line_model_path` | neural (`seq_line_gray9`), neural-table (`seq_line_gray15`; on a table's crop `seq_line_gray16`, `decode.line_model_path_table`) |
+| line reader (3-member ensemble) | `decode.line_model_path` | neural (`seq_line_gray9`), neural-table (`seq_line_gray15`; on a table's crop `seq_line_gray18`, `decode.line_model_path_table`) |
 | line-choice judge | `decode.line_choice_path` | neural, neural-table |
 | word-confidence calibrator | `decode.conf_path` | neural, neural-table |
 | table detector | `output.table_det_path` | neural-table |
@@ -356,6 +358,8 @@ flowchart LR
 | rules-or-network choice | `output.table_split_select` | neural-table |
 | word-relation network (a small transformer over a crop's words) | `output.table_wordrel_path` | neural-table |
 | engine-or-word-network choice | `output.table_wordrel_select` | neural-table |
+| table sequence reader (a crop's grid from its pixels, as cell tokens) | `output.table_seq_path`, `output.table_seq_mode = "select"` | neural-table (v0.18.13) |
+| builders-or-sequence-reader choice | `output.table_seq_select` | neural-table (v0.18.13) |
 | table separator network | `output.table_net_path` | neural-table |
 
 What each network is and why it has the shape it has:

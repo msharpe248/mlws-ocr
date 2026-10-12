@@ -91,3 +91,14 @@ def test_choice_inputs():
     assert x[14:20] == x[20:26]                       # the differences, then, the reader's own shape
     y = tableseq_choice_inputs(st, st, [0.9, 0.5, -0.1, 2, 2, 1.0, 6], ruled=False)
     assert y[7] == 0.0 and y[20:26] == [0.0] * 6
+
+
+def test_with_cell_text():
+    from mlws_ocr.decode.output import with_cell_text
+    t = {"n_rows": 1, "n_cols": 2, "cells": [{"row": 0, "col": 0, "box": [0, 0, 50, 20]},
+                                             {"row": 0, "col": 1, "box": [50, 0, 100, 20]}]}
+    words = [{"text": "Net", "box": [2, 2, 20, 18]}, {"text": "sales", "box": [22, 2, 45, 18]},
+             {"text": "1,234", "box": [60, 2, 95, 18]}]
+    u = with_cell_text(t, words)
+    assert [c["text"] for c in u["cells"]] == ["Net sales", "1,234"]
+    assert "text" not in t["cells"][0]                # the table itself left as it was

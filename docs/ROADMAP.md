@@ -37,10 +37,13 @@ evaluation as a check (neural-table 0.518), not a target.
    right -- the reader on table crops.
 4. A new structure source (from 2026-10-10, the owner's option 1): the table
    sequence reader (OTSL tokens from the pixels, trained gently on ai02), its
-   table chosen per crop over the builders' (`table_seq_mode = "select"`;
-   held out PubTables-1M 0.828 -> 0.867, FinTabNet.c unchanged). Then: an
-   adoption to decide, a gentle FinTabNet.c run for unseen companies'
-   styles.
+   table chosen per crop over the builders' (`table_seq_mode = "select"`).
+   ADOPTED in v0.18.13 after a gentle fine-tune (random margins, drawn
+   financial tables) and a choice refitted with screenshots: held out
+   PubTables-1M 0.828 -> 0.879, FinTabNet.c 0.878 -> 0.880, screenshots
+   level. Next: FinTabNet.c's held-out tables lost more often than won (21
+   up, 33 down, small each) -- a census of those; long tables (rows a few
+   pixels tall at 448).
 5. Done since the last list: the dash and symbol reader (v0.18.6-7), cell
    confidence (v0.18.8), display equations read (v0.18.9; v3 reader and a
    beam measured, an adoption to decide); row spans tried (label only kept).

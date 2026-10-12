@@ -37,7 +37,7 @@ judged before it went live. The measurements themselves are in
 | Table detector | `tabledet_v1.npz` | 248k | neural-table (`output.table_det_path`, `table_det_mode = "complement"`) | `train_tabledet.py` | PubTables-1M detection training pages (60,000 of Part 1's 230,294) + 1,200 drawn business pages + 900 CORD training receipts (`make_det_data.py`) |
 | Word-relation network | `wordrel_v3.npz` | 321k | neural-table (`output.table_wordrel_path`; on a table's crop, its table or the engine's by `wordrel_select.npz`) | `train_wordrel.py` | the PDF words of 97,165 PubTables-1M and 68,733 FinTabNet.c training tables (`make_wordrel_data.py`) + the ENGINE's words on 3,906 + 2,713 more (`harvest_wordrel.py`, x10) |
 | Word-relation choice | `wordrel_select_v2.npz` | 32 inputs | neural-table (`output.table_wordrel_select`) | `train_wordrel_select.py` | 1,615 tables no network saw (`draw_unseen_tables.py`: 1,000 PubTables-1M training, 750 FinTabNet.c validation), read with gray18 (v0.18.12; v1, `wordrel_select.npz`, fitted on 257, v0.18.0-v0.18.11) |
-| Table sequence reader | `tableseq_v1.npz` (= `tseq2.e15.pt`), with its choice `tableseq_select_v1.npz` (26 inputs) | 1.88M | none yet (`output.table_seq_path`, `table_seq_mode = "select"`; an adoption to decide) | `train_tableseq.py`, `train_tableseq_select.py` | PubTables-1M and FinTabNet.c structure training tables as OTSL tokens with cell boxes (`make_tableseq_data.py`); pilot 28k tables, full run 310k + 78k (15 epochs, 17 h gentle); the choice fitted on sel3 (1,732 tables) |
+| Table sequence reader | `tableseq_v2.npz` (= `tseq3.e20.pt`), with its choice `tableseq_select_v2.npz` (26 inputs); `tableseq_v1.npz` the first run, not adopted | 1.88M | neural-table since v0.18.13 (`output.table_seq_path`, `table_seq_mode = "select"`, `table_seq_select`) | `train_tableseq.py`, `train_tableseq_select.py` | PubTables-1M and FinTabNet.c structure training tables as OTSL tokens with cell boxes (`make_tableseq_data.py`): 310k + 78k, 15 epochs, 17 h gentle; then 5 epochs with 60k drawn tables (`make_tableseq_drawn.py`), strong augmentation and random margins, 7.8 h; the choice fitted on sel3 and 300 screenshots of its structures (2,031 tables) |
 
 The classic engine also builds three learned tables that are not networks
 but come from the same data: the condensed nearest-prototype pool
@@ -130,6 +130,7 @@ were trained on the public sources named below and on nothing else.
 | v0.18.10 (2026-10-06) | forty-three files: v0.18.9's with the equation reader `mathread_v3.npz` in place of `mathread_v2.npz` |
 | v0.18.11 (2026-10-07) | the same forty-three files as v0.18.10: this release is profile and code (two-level headers the rebuild had refused) |
 | v0.18.12 (2026-10-09) | forty-three files: v0.18.11's with the table-crop reader `seq_line_gray18_en.npz`, `_2`, `_3` in place of `seq_line_gray16_en*` and the word-relation choice `wordrel_select_v2.npz` in place of `wordrel_select.npz` |
+| v0.18.13 (2026-10-11) | forty-five files: v0.18.12's forty-three plus the table sequence reader `tableseq_v2.npz` and its choice `tableseq_select_v2.npz` |
 | v0.14.0 (2026-09-27) | twenty-one files: v0.13.0's eighteen plus the reader `seq_line_gray7_en.npz`, `_2`, `_3` (= `seq_line_gray7` seeds 3, 2, 1, EMA weights), the neural profile's reader; the v0.13.0 grey reader stays (it is the new one's teacher and the way back) |
 
 ## Where the training data comes from
@@ -1036,7 +1037,7 @@ scripts/eval_tables.py <the 274 tables> ... --set output.table_wordrel_path=data
 neural-table on the 240 held-out tables of each set: PubTables-1M 0.759 ->
 0.795, FinTabNet.c 0.810 -> 0.849 (RESEARCH 2026-10-01).
 
-### Table sequence reader — `layout/tableseq.py`, `scripts/train_tableseq.py` (trained, not in a profile yet)
+### Table sequence reader — `layout/tableseq.py`, `scripts/train_tableseq.py` (neural-table since v0.18.13)
 
 **Purpose.** A fourth table builder that does not start from the engine's
 rulings, words or row and column cuts: the table's IMAGE in, its grid out
@@ -1095,7 +1096,7 @@ epoch 6, unsteady at 24-40% over epochs 7-9 (the rate too high), then 57%,
 3.8 px.  Its table in place of the builders' ("replace") on sel3:
 PubTables-1M TEDS 0.879 (the builders' 0.834), FinTabNet.c 0.495 (0.874).
 
-**The fine-tune, v3** (2026-10-11, the owner's go-ahead; under way): the
+**The fine-tune, v3** (2026-10-11, the owner's go-ahead; `tableseq_v2.npz`, live): the
 scored sets showed v1 losing on screenshots (0.907 → 0.876, nearly all
 ruled grids, one row dropped) and reading FinTabNet.c poorly alone.  Both
 are MARGINS, not companies: the datasets' images keep their padding, our
@@ -1121,11 +1122,21 @@ cp tseq2.pt tseq3.pt
 scripts/train_tableseq.py --data "tseq2_*.npz" "tseq3_drawn_*.npz" --stream 4 --aug strong --margins 0.5 \
     --init tseq3.pt --val-data tseq2_pt_00.npz tseq2_fin_00.npz tseq3_finval.npz --val-n 300 \
     --epochs 20 --lr-steps 10 13 18 --batch 16 --duty 0.5 --out tseq3.pt
+scripts/train_tableseq.py --export tseq3.e20.pt --out data/tableseq_v2.npz
 ```
 
-**In the engine** (an option, off in every profile): `output.table_seq_path`
-names the reader's weights, exported from a saved state with
-`scripts/train_tableseq.py --export tseq2.e15.pt --out data/tableseq_v1.npz` (above);
+7.8 hours (465 minutes) at half duty; CPU at most 70 C, GPU 61 C, the card
+at 211 W on average.  Held back, tokens / sequences exact, v1 → v3:
+FinTabNet.c validation (companies never trained on) 0.920 / 1.0% →
+0.971 / 24.7%; FinTabNet.c training companies 0.991 / 75.3% → 0.991 /
+74.7%; PubTables-1M 0.986 / 62.7% → 0.987 / 61.3%.  Alone on sel3 it reads
+FinTabNet.c at TEDS 0.764 (v1 0.495; PubTables-1M 0.883, v1 0.879), and 80
+tight FinTabNet.c dev crops at TEDS-S 0.900 as they are (v1 0.711): the
+margin convention is mostly gone.
+
+**In the engine** (neural-table since v0.18.13; off in the other profiles):
+`output.table_seq_path` names the reader's weights, exported from a saved
+state with `scripts/train_tableseq.py --export` (above);
 `layout/tableseq.py` `TableSeqReader` is the numpy forward (equal to the
 torch model, `tests/test_tableseq.py`) and `fill` puts the engine's words in
 its cells.  `output.table_seq_mode` "replace" uses its table on a table's
@@ -1150,6 +1161,35 @@ v0.18.12: dev pool PubTables-1M 0.8061 → 0.8716, FinTabNet.c 0.8809 →
 0.8785; held out PubTables-1M 0.8275 → 0.8672, FinTabNet.c 0.8781 → 0.8778
 (RESEARCH).  FinTabNet.c's test companies are not in its training, and it
 reads them poorly alone (0.495); the choice keeps the builders' table there.
+v1 was not adopted: it lost the screenshots (0.907 → 0.876).
+
+**The choice for v3** (`tableseq_select_v2.npz`, live).  Two changes.  On a
+ruled crop the builders' cells hold no text until it is placed after the
+choice, so the choice had judged that table empty; its words are now put in
+its cells first (`with_cell_text`).  And the fitting set gains 300
+SCREENSHOTS of sel3's structures (`make_screen_set.py --src`, seed 11; the
+scored screenshots are drawn from the scored tables, these from the fitting
+tables), the kind of table where the builders' ruled grids were nearly
+perfect and v3's first choice still took the reader's:
+
+```bash
+scripts/make_screen_set.py --n 300 --seed 11 --src $SP/s3a_pt_? $SP/s3a_fin_? --out $SP/scrfit   # six shards
+eval_tables.py $SP/scrfit_K --doc-type table --config configs/neural-table.toml ... > $SP/s3_prof_scr_K.txt
+eval_tables.py $SP/scrfit_K ... --set output.table_seq_path=data/tableseq_v2.npz --dump $SP/s3_seq20b_scr
+data/evalruns/s3.sh seq20b --set output.table_seq_path=$PWD/data/tableseq_v2.npz
+scripts/train_tableseq_select.py --eng "$SP/s3_prof_*_?.txt" --net "$SP/s3_seq20b_*_?.txt" \
+    --dump $SP/s3_seq20b_pt $SP/s3_seq20b_fin $SP/s3_seq20b_scr --out data/tableseq_select_v2.npz
+```
+
+Fitted on 2,031 tables, 5-fold: PubTables-1M 0.8345 (builders) → 0.8837,
+FinTabNet.c 0.8738 → 0.8775, screenshots 0.8883 → 0.9019.  In neural-table,
+against v0.18.12: dev pool PubTables-1M 0.8061 → 0.8791 (197 tables up, 26
+down), FinTabNet.c 0.8809 → 0.8864 (38 up, 35 down); held out PubTables-1M
+0.8275 → 0.8785 (104 up, 29 down), FinTabNet.c 0.8781 → 0.8797 (21 up, 33
+down); the 60 scored 0.839 → 0.886 and 0.859 → 0.857; screenshots 0.907 →
+0.906; the business sets identical.  Without the screenshots and the
+ruled-crop words (`tableseq_select` fitted on sel3 alone) the screenshots
+read 0.894.
 
 ## Rebuilding everything from scratch
 

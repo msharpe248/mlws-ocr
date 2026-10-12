@@ -100,6 +100,22 @@ def tableseq_choice_inputs(t: dict | None, st: dict, seq_x: list[float], ruled: 
     return [float(v) for v in seq_x] + [float(ruled)] + [float(v) for v in select_inputs(a, b)]
 
 
+def with_cell_text(t: dict, words: list[dict]) -> dict:
+    """A copy of a table whose cells hold no text yet (a ruled grid, filled
+    only when the text is placed) with each word in the cell holding its
+    centre, so its shape can be judged as a whitespace table's is."""
+    texts: dict = {}
+    for w in words:
+        cx, cy = (w["box"][0] + w["box"][2]) / 2, (w["box"][1] + w["box"][3]) / 2
+        for k, c in enumerate(t["cells"]):
+            b = c["box"]
+            if b[0] <= cx < b[2] and b[1] <= cy < b[3]:
+                texts.setdefault(k, []).append(w["text"])
+                break
+    return dict(t, cells=[dict(c, text=c.get("text") or " ".join(texts.get(k, [])))
+                          for k, c in enumerate(t["cells"])])
+
+
 def select_inputs(a: list[float], b: list[float]) -> np.ndarray:
     """The chooser's inputs: the rules' table's features, the network's, and
     their differences."""
@@ -868,9 +884,11 @@ class TextOutput(Stage):
         crop_types = [t for t in self.params["ws_table_doc_types"].split(",") if t]
         if (self.params["table_seq_path"] and self.params["table_seq_mode"] in ("replace", "select")
                 and layout.get("tables") and ("*" in crop_types or doc_type in crop_types)):
-            st, seq_ruled = self._seq_table(page, [w for ln in layout["lines"] for w in ln.get("words", [])])
+            words = [w for ln in layout["lines"] for w in ln.get("words", [])]
+            st, seq_ruled = self._seq_table(page, words)
             if st is not None:
-                x = tableseq_choice_inputs(layout["tables"][0], st, seq_ruled, True)
+                # the rulings' cells hold no text until it is placed below: placed here for the choice
+                x = tableseq_choice_inputs(with_cell_text(layout["tables"][0], words), st, seq_ruled, True)
                 if self.params["table_seq_mode"] == "replace" or self._seq_prefer(x):
                     layout = dict(layout, tables=[st])
                 layout = dict(layout, tableseq_x=x)

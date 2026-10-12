@@ -58,7 +58,7 @@ Alongside, at any point:
 
 1. [SEGMENTATION.md §2](SEGMENTATION.md#2-before-the-blocks-pictures-and-rules-come-out) — rules found and taken out
 2. [TABLES.md](TABLES.md) — the whole table subsystem
-3. [NEURAL_NETWORK_THEORY.md §E–H](NEURAL_NETWORK_THEORY.md#e-the-table-separator-network--layoutsepnetpy-sepnet_v2npz) — the four table networks, the last a small transformer over a table's words
+3. [NEURAL_NETWORK_THEORY.md §E–H](NEURAL_NETWORK_THEORY.md#e-the-table-separator-network--layoutsepnetpy-sepnet_v2npz) — the four table networks, the last a small transformer over a table's words; and [§J, the table sequence reader](NEURAL_NETWORK_THEORY.md#j-the-table-sequence-reader--a-table-read-as-tokens--layouttableseqpy-tableseq_v2npz), which reads a table's grid from its pixels as tokens
 4. [TABLES.md §8](TABLES.md#8-measuring-tables) — how tables are scored (TEDS)
 
 **"I want to change something and know whether it helped."**

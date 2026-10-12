@@ -32,7 +32,7 @@ Two rules shape everything below. **Every network is trained here**, from
 public data, on ordinary hardware — no pre-trained weights, no foundation
 model. And **the classic engine stays**: each network joins as a measured
 term beside explicit, readable algorithms, not as their replacement. So the
-networks are small (the largest, the equation reader, is under 850k
+networks are small (the largest, the table sequence reader, has 1.88M
 parameters; a phone camera's face detector is larger), and each one is there because it won a
 measurement, recorded in [RESEARCH.md](RESEARCH.md).
 
@@ -84,7 +84,7 @@ on, from top to bottom:
   column of pixels a yes or no, "may a column boundary run here?" (blue);
   the same for every row of pixels (orange). The truth is exact because
   the table was drawn by our own code, which knows where every cell is.
-- **Table sequence reader**: a table's picture, and the tokens it must
+- **Table sequence reader** (§J): a table's picture, and the tokens it must
   write, one per cell, row by row (`fcel` a filled cell, `ecel` an empty
   one, `lcel` a cell joined to the one on its left, so "Payments Due by
   Period" spans three columns; `nl` ends a row). It must also give each
@@ -172,7 +172,7 @@ words for them are used precisely throughout the documents:
 |---|---|---|
 | **training set** | the examples the parameters are fitted to | the trainer, every epoch |
 | **held back** (the **validation** set) | the trainer's own check after each epoch: is it still improving, which epoch to keep | the trainer, scoring only, never learning from it |
-| **fitting set** (e.g. `sel3`) | the examples the small **choices** are fitted on (§J): when to trust a network's answer over the rules' | the choice's fitter; no network trained on it |
+| **fitting set** (e.g. `sel3`) | the examples the small **choices** are fitted on (§K): when to trust a network's answer over the rules' | the choice's fitter; no network trained on it |
 | **dev pool** | the pages we look at while improving the engine: errors are studied, settings are tuned | people and tuning; no network trains on it |
 | **held out** (the **test** or **evaluation** sets) | the final judgement of the whole engine, the numbers in the README | nothing that learns, ever; the harvest scripts refuse their pages |
 
@@ -194,7 +194,7 @@ sets back for the final word.
 | **augmentation** | changing a training example a little each time it is used (blur, contrast, scale, JPEG, margins) with its truth unchanged, §0.2 |
 | **batch** | the handful of examples one step learns from, 16 to 256 here |
 | **checkpoint** | the parameters saved at a point in training (each epoch here), to resume from or to keep |
-| **choice** (or **judge**) | a small fitted model that decides, per line or per table, whether to keep a network's answer or the rules', §J |
+| **choice** (or **judge**) | a small fitted model that decides, per line or per table, whether to keep a network's answer or the rules', §K |
 | **class** | one of the answers a network chooses among: a character, a token, yes/no |
 | **dev pool** | evaluation pages used while developing the engine, §0.4 |
 | **epoch** | one pass through all the training data, §0.3 |
@@ -982,7 +982,7 @@ symbols (v0.15), table lines (v0.17, table profile).
 **Where it runs.** The word scorer in `decode.seq_path` (neural,
 neural-table; classic uses it only to veto a correction the pixels
 contradict). The line reader in `decode.line_model_path`, with the
-line-choice judge (§J) deciding per line between its reading and the
+line-choice judge (§K) deciding per line between its reading and the
 classic decoder's.
 
 **Measured.** The line reader was the engine's largest single gain:
@@ -1106,7 +1106,7 @@ with a one-cycle schedule. Held-out separator F1 0.922 after two rounds.
 **Where it runs.** `output.table_split_path` in neural-table. Its table is
 one of two candidates; the rules' table is the other. On a table's crop,
 the rules' table stands if the network's leaves out a whole row of figures
-(a header of years, a totals row); otherwise the fitted table choice (§J)
+(a header of years, a totals row); otherwise the fitted table choice (§K)
 decides. On a table found on a page, the network's table is used only if
 it leaves no more cells empty than the rules' and merges no figures the
 rules kept apart.
@@ -1214,7 +1214,7 @@ gained on the engine's words too. A network should be trained on what it
 will be given.
 
 **Where it runs.** `output.table_wordrel_path` in neural-table, on a
-table's crop: it builds a table, and a **fitted choice** (§J; 23 weights
+table's crop: it builds a table, and a **fitted choice** (§K; 32 inputs
 over both tables' shapes and the network's own confidence) keeps its table
 or the engine's. They fail on different tables; on 240 held-out tables of
 each set the choice took PubTables-1M 0.759 → 0.795 and FinTabNet.c 0.810
@@ -1251,7 +1251,8 @@ next token is chosen from its new state and the context. Trained, the
 attention moves over the formula as it writes: to the numerator, down
 under the bar for the denominator, back up and on. It ends by writing
 `</s>`. This is the im2latex reader of Deng, Kanervisto, Ling & Rush
-(ICML 2017), made small: **848k parameters**, the engine's largest.
+(ICML 2017), made small: **848k parameters** (only the table sequence
+reader, §J, is larger).
 
 **Training.** `scripts/train_mathread.py`, torch on the Mac's GPU, the
 weights saved for the numpy reference (a test holds the two equal).
@@ -1286,13 +1287,84 @@ must carry a long way, and v3 never saw one. And it reads
 typeset mathematics only: handwriting, and the notations its grammar does
 not draw (matrices, cases, accents), it has never seen.
 
-## J. The judges — small fitted models over named evidence
+## J. The table sequence reader — a table read as tokens — `layout/tableseq.py`, `tableseq_v2.npz`
+
+**The job.** A table's crop, as a picture, in; its grid out, as a
+sequence of tokens with a box for each cell. The engine's other table
+builders start from what the earlier stages found: the ruled lines, the
+words, the gaps between columns (§E–H). This one starts from the pixels
+alone, as a person does who sees a table before reading a word of it. It
+is a fourth, independent opinion, wrong in different places from the
+others, and that is its value.
+
+**The tokens.** A grid is written row by row, one token a cell, in the
+**OTSL** set (Lysak et al., ICDAR 2023): `fcel` a cell with text, `ecel`
+an empty one, `lcel` "part of the cell to my left" (a heading spanning
+columns), `ucel` "part of the cell above", `xcel` both, and `nl` at each
+row's end. Every row has the same number of tokens, so a wrong sequence
+is easy to see and to repair, and any sequence at all can be turned into
+a grid (`tableseq.decode`). Each token that starts a cell also carries
+the cell's box. The engine's own words are then put into the cells whose
+boxes hold them, so the text is the line reader's, and the grid is this
+network's. §0.2 shows a training table and its tokens.
+
+**The shape.** The equation reader's design (§I), larger: **1.88M
+parameters**, the engine's largest. The crop, scaled so its longer side is
+448 pixels, goes through five 3×3 convolution blocks (32, 64, 128, 192, 256
+channels) and four 2×2 pools, with the 2-D position code added. A GRU
+decoder (hidden 384) with additive attention over that map writes the
+tokens one at a time. At each step it looks at the part of the table it is
+writing: the next cell along, the start of the next row. A small head on
+the same state gives the cell's box. Training is teacher-forced (§I), the
+loss cross-entropy on the tokens plus twice the L1 error of the boxes.
+
+**Training.** 385,953 tables from PubTables-1M and FinTabNet.c, their
+grids taken from the datasets' row, column and spanning-cell boxes; 15
+epochs, 17 hours on an RTX 3090, run gently. §0.3 follows that run epoch
+by epoch. Then a fine-tune (§8) of 5 more epochs, with 60,000 drawn tables
+(three in four set like a company's financial statements) and stronger
+augmentation.
+
+**The lesson of its training: a network learns the habits of its data.**
+The first model read PubTables-1M's tables well and FinTabNet.c's badly.
+Those test tables come from companies the training never saw, which looked
+like the reason. It was not. PubTables-1M's crops keep a white margin
+round the table, while the FinTabNet.c and screenshot crops it was tested
+on are cut tight to the ink. The
+reader had learned that a table sits in a margin: padded by 16 pixels,
+tight FinTabNet.c crops went from 0.711 to 0.965 on structure. The fine-tune sets
+half its tables in random margins, so the margin carries no information.
+Afterwards the tight crops read 0.900 as they are. A network cannot tell
+the task from a coincidence that holds across all its examples; only
+varying the coincidence can.
+
+**Where it runs.** In neural-table, on a table's crop, ruled or not, in
+0.02–0.07 s. A reading that runs to the 400-token limit is the decoder
+repeating a row, and is not used. A fitted **choice** (§K, 26 inputs: the
+reader's confidence, both tables' shapes, whether the table was ruled)
+keeps its table or the builders'. The choice taught a lesson of its own:
+it must see both tables as they will be. On ruled crops it was first given
+the builders' table before the words were placed in it, judged that table
+empty, and took the reader's where the builders' was nearly perfect.
+
+**Measured.** On 240 held-out tables of each set: PubTables-1M 0.828 →
+0.879, FinTabNet.c 0.878 → 0.880, browser screenshots level (0.907 →
+0.906), the generated business tables unchanged.
+
+**What it does not do.** A long table squeezed to 448 pixels has rows a
+few pixels tall, and one over 400 tokens (about 1% of the datasets'
+tables) is not attempted; the builders' table stands. And it reads only
+the grid. Every word in the output is still the line reader's.
+
+## K. The judges — small fitted models over named evidence
 
 | judge | file | model | inputs | decides |
 |---|---|---|---|---|
 | **line choice** (`decode/linechoice.py`) | `linechoice.npz` | logistic, 16 weights | each reading's endorsed and unendorsed words, mean confidences, length ratio, agreement, figures share, the reader's likelihood of each reading, page quality | per line: the classic decoder's reading or the line reader's |
 | **word confidence** (`decode/wordconf.py`) | `wordconf.npz` | logistic, 17 weights | the decoder's confidence, lexicon / numeric / page endorsement, the scorer's agreement, likelihood and margin, word length and make-up | `p_correct` per word in the hOCR (text unchanged) |
 | **table choice** (`train_table_select.py`) | `table_select.npz` | logistic, 19 weights | both tables' empty-cell share, multi-figure cells, rows, columns, spans, words per cell, and their differences | on a table's crop: the rules' table or the structure network's |
+| **word-relation choice** (`train_wordrel_select.py`) | `wordrel_select_v2.npz` | logistic, 32 inputs | both tables' shapes and differences, and the word-relation network's own judgement of each | on a table's crop: the engine's table or the word-relation network's |
+| **table sequence choice** (`train_tableseq_select.py`) | `tableseq_select_v2.npz` | logistic, 26 inputs | the reader's confidence (mean, least and mean log token probability), its rows, columns and tokens, whether the table was ruled, both tables' shapes and differences | on a table's crop: the builders' table or the sequence reader's |
 | **segmenter judge** (`layout/segjudge.py`) | `segjudge.npz` | ridge, 32 weights | block count, gutter-spanning ink, wide-block ink, tiny blocks, page context | per newspaper or magazine page: which of four segmenters |
 | **link rule** (experimental; `layout/knn_scc.py`) | `linkkeep_v1.npz` | logistic, 15 weights | a neighbour link's length, direction, size ratio, baseline difference, gutter crossing… | keep or cut a link in the knn_scc segmenter |
 
@@ -1311,7 +1383,7 @@ labelled by the truth: `harvest_line_choice.py` → `train_line_choice.py`,
 network never saw → `train_table_select.py` (each table weighted by how much
 the choice mattered), UNLV training-pool pages → `segmenter_judge.py`.
 
-## K. Learned, but not networks
+## L. Learned, but not networks
 
 - **Glyph prototypes** (`recognize/nearest.py`, `prototypes.npz`): 90
   stored examples of each of 110 characters, chosen by k-means per class
@@ -1340,7 +1412,8 @@ the choice mattered), UNLV training-pool pages → `segmenter_judge.py`.
 | table detector | dilated CNN + projection pooling + skip | page + word mask, 37.5 dpi | inside / border per pixel | 247,746 | neural-table |
 | word-relation network | transformer encoder (4 layers) + pair heads | a table crop's words: boxes and text facts | same row / column / cell per pair; in table, header per word | 320,997 | neural-table |
 | equation reader | CNN + 2-D position code; GRU decoder with additive attention | display equation, 64 rows high | LaTeX tokens (133), then MathML | 848,965 | neural, neural-table |
-| line choice, word confidence, table choice, segmenter judge, link rule | logistic / ridge | named features | a probability or a score | 15–32 | as in §J |
+| table sequence reader | CNN + 2-D position code; GRU decoder with additive attention + box head | table crop, longer side 448 | OTSL cell tokens (9) with a box per cell | 1,880,653 | neural-table |
+| line choice, word confidence, table choices, segmenter judge, link rule | logistic / ridge | named features | a probability or a score | 15–32 | as in §K |
 
 **What we deliberately do not use, and why**
 

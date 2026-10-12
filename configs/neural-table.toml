@@ -338,6 +338,19 @@ table_wordrel_select = "data/wordrel_select_v2.npz"
                                # 240 held-out tables each: PubTables-1M 0.759 -> 0.795, FinTabNet.c 0.810 -> 0.849;
                                # the 60 scored 0.797 -> 0.797, 0.815 -> 0.839; business sets and CORD unchanged
                                # (2026-10-02)
+table_seq_path = "data/tableseq_v2.npz"  # table profile: on a table's crop, ruled or not, the table sequence reader
+                               # (layout/tableseq.py, 1.88M: a CNN and a GRU decoder with attention reading the grid
+                               # from the pixels as OTSL cell tokens and boxes; the engine's words go into its cells)
+                               # reads a table too ... (v0.18.13: tseq2 15 epochs on 385,953 PubTables-1M and FinTabNet.c
+                               # training tables, then 5 epochs with 60k drawn tables, strong augmentation and random
+                               # margins)
+table_seq_mode = "select"      # ... and a learned choice keeps its table or the builders'
+table_seq_select = "data/tableseq_select_v2.npz"
+                               # 26 inputs (the reader's confidence and shape, ruled or not, both tables' shapes),
+                               # fitted on sel3 (1,750 tables no network saw) and 300 screenshots of sel3's structures.
+                               # 240 held-out tables each: PubTables-1M 0.8275 -> 0.8785, FinTabNet.c 0.8781 -> 0.8797;
+                               # the 60 scored 0.839 -> 0.886, 0.859 -> 0.857; screenshots 0.907 -> 0.906; dev pool
+                               # 0.806 -> 0.879, 0.881 -> 0.886; business sets unchanged (2026-10-11)
 table_paren_columns = true     # table profile: a column of parenthesised figures beside a figure column joined into it
                                # ('18.8 (6)' one cell): screenshots 0.893 -> 0.898, the rest unchanged (2026-10-03)
 table_item_rows = true         # table profile: a receipt's two-line items (the name on its own line, then quantity /

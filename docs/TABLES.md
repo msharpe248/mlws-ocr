@@ -211,8 +211,8 @@ deductions) are nested into one layout.
 
 ## 5. The networks, in the table profile
 
-Four self-trained networks join the rules (their shapes and training:
-[NEURAL_NETWORK_THEORY.md §E–H](NEURAL_NETWORK_THEORY.md)):
+Five self-trained networks join the rules (their shapes and training:
+[NEURAL_NETWORK_THEORY.md §E–H and §J](NEURAL_NETWORK_THEORY.md)):
 
 - **The detector** looks at the whole page and says where tables are. In
   **complement** mode its detections replace the finders' fragments inside
@@ -237,14 +237,17 @@ Four self-trained networks join the rules (their shapes and training:
   FinTabNet.c 0.810 → 0.849). It learned from the datasets' PDF words and
   from the engine's own words on the same kind of crop: trained on the
   PDF words alone, it lost to the engine on the engine's words.
-- **The table sequence reader** (an option, in trial) looks at a table
+- **The table sequence reader** (v0.18.13) looks at a table
   crop's PIXELS and writes its grid as a sequence of cell tokens (OTSL:
   a filled cell, an empty one, a cell joined to its left or upper
   neighbour, a new row), with a box for every cell; the engine's words go
   into the cells by those boxes. A fitted choice over its confidence and
-  both tables' shapes keeps its table or the builders' (held out,
-  PubTables-1M 0.828 → 0.867; FinTabNet.c, whose test companies it never
-  saw, 0.878 unchanged: there the choice keeps the builders').
+  both tables' shapes keeps its table or the builders' (240 held-out
+  tables each: PubTables-1M 0.828 → 0.879, FinTabNet.c 0.878 → 0.880;
+  screenshots level, 0.907 → 0.906). Its first model had learned that a
+  table sits in a white margin, as PubTables-1M's crops do, and misread
+  tight crops; it was trained again with half its tables set in random
+  margins, beside 60,000 drawn financial tables.
 
 The pattern is the engine's usual one: the network is a candidate or a
 witness beside an explicit rule, never an unexamined replacement.
@@ -324,12 +327,12 @@ The evaluation sets, and where they stand (neural-table, TEDS / TEDS-S):
 | timesheets (generated) † | 20 | 0.612 | **0.942 / 0.964** |
 | paystubs (generated) | 20 | 0.791 | **0.940 / 0.952** |
 | payroll forms (generated) † | 20 | 0.717 | **0.913 / 0.939** |
-| annual-report tables (FinTabNet.c) | 60 | 0.763 | 0.859 / 0.907 |
-| scientific tables (PubTables-1M) | 60 | – | 0.839 / 0.900 |
-| screenshots (FinTabNet.c and PubTables-1M structures drawn by a browser, six styles) | 80 | – | 0.907 / 0.937 |
+| annual-report tables (FinTabNet.c) | 60 | 0.763 | 0.857 / 0.905 |
+| scientific tables (PubTables-1M) | 60 | – | 0.886 / 0.951 |
+| screenshots (FinTabNet.c and PubTables-1M structures drawn by a browser, six styles) | 80 | – | 0.906 / 0.938 |
 | scientific pages, detection F1 | 40 | – | 0.967 |
 
-The two real crop sets were also read on the 240 held-out tables of the same draws, none of which any decision looked at: PubTables-1M 0.828 / 0.887, FinTabNet.c 0.878 / 0.919 (2026-10-09, v0.18.12, scored from the table records; v0.18.11 0.816 / 0.885, 0.876 / 0.918; v0.18.10 -- the headings-above rule was shaped on held-out losers, RESEARCH; 0.875 at v0.18.8; 0.759 and 0.810 before the word-relation network) — the 60 flatter PubTables-1M ([MEASUREMENT.md §4](MEASUREMENT.md)).
+The two real crop sets were also read on the 240 held-out tables of the same draws, none of which any decision looked at: PubTables-1M 0.879 / 0.940, FinTabNet.c 0.880 / 0.930 (2026-10-11, v0.18.13, scored from the table records; v0.18.12 0.828 / 0.887, 0.878 / 0.919; v0.18.11 0.816 / 0.885, 0.876 / 0.918; v0.18.10 -- the headings-above rule was shaped on held-out losers, RESEARCH; 0.875 at v0.18.8; 0.759 and 0.810 before the word-relation network) — the 60 flatter PubTables-1M ([MEASUREMENT.md §4](MEASUREMENT.md)).
 
 † Part of these two sets' gain came from correcting the generated truth
 where it disagreed with its own images (the images are byte-identical);

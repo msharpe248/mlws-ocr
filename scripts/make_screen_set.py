@@ -19,6 +19,7 @@ and rendered by headless Chrome at device scale 1 (labelled 96 dpi) or 2
 (192 dpi, a Retina screenshot), cropped to the table with a margin.
 
     scripts/make_screen_set.py --n 80 --out data/tables/screens
+    scripts/make_screen_set.py --n 300 --seed 11 --src SEL3_PT SEL3_FIN --out screens_fit   # for fitting
     scripts/eval_tables.py data/tables/screens --pages 80 --doc-type table \\
         --config configs/neural-table.toml --set output.ws_table_doc_types=table
 """
@@ -89,13 +90,18 @@ def main():
     ap.add_argument("--n", type=int, default=80)
     ap.add_argument("--seed", type=int, default=5)
     ap.add_argument("--out", type=Path, default=ROOT / "data/tables/screens")
+    ap.add_argument("--src", type=Path, nargs="+", default=None,
+                    help="draw the structures from these directories' *.table.html instead, an equal share from "
+                         "each (a set for fitting a choice, apart from the scored tables)")
     args = ap.parse_args()
     rng = random.Random(args.seed)
     srcs = []
-    for s in ("fintabnet", "pubtables"):
-        names = sorted((ROOT / "data/tables" / s).glob("*.table.html"))
+    dirs = args.src or [ROOT / "data/tables/fintabnet", ROOT / "data/tables/pubtables"]
+    for d in dirs:
+        names = sorted(d.glob("*.table.html"))
         rng.shuffle(names)
-        srcs += [(s, p) for p in names[: args.n // 2]]
+        # the set in the name: PubTables-1M's tables are PubMed Central articles'
+        srcs += [("pub" if p.name.startswith("PMC") else "fin", p) for p in names[: args.n // len(dirs)]]
     args.out.mkdir(parents=True, exist_ok=True)
     styles = list(STYLES)
     made = 0
@@ -103,7 +109,7 @@ def main():
         table = p.read_text()
         style, font = styles[k % len(styles)], rng.choice(FONTS)
         px, scale = rng.choice([12, 13, 14, 15, 16]), (1, 2)[(k // len(styles)) % 2]
-        name = f"screen_{k:03d}_{style}_x{scale}_{s[:3]}"
+        name = f"screen_{k:03d}_{style}_x{scale}_{s}"
         if shoot(page_html(table, style, font, px), scale, args.out / f"{name}.png"):
             (args.out / f"{name}.table.html").write_text(table)
             made += 1
