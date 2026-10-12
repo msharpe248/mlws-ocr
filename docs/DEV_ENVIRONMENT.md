@@ -11,10 +11,10 @@ The short version:
 - **One desktop Mac** does everything: writing the code, running the
   engine, every evaluation, and the smaller training runs on its built-in
   GPU.
-- **Two gaming PCs** from about 2021, each with one consumer NVIDIA
-  graphics card, run the long training jobs and the big data harvests. They
-  make training several times faster (ten times for the line reader).
-  They are a convenience, not a requirement.
+- **Two gaming PCs**, a few years old and about $2,000 each, each with
+  one consumer NVIDIA graphics card, run the long training jobs and the
+  big data harvests. They make training several times faster (ten times
+  for the line reader). They are a convenience, not a requirement.
 - **All the software is free**, and so is all the data.
 
 ## 1. The machines
@@ -30,13 +30,18 @@ The short version:
 | role | development, every evaluation, small training runs, figures | training, harvests over the big table datasets | training |
 
 The two PCs sit on the home network and are used over `ssh` with no
-screen attached. Neither GPU is a data-centre part. The RTX 3080 Ti and
-RTX 3090 are graphics cards for games, two generations old as of 2026.
-For the project's first three weeks (it began on 31 August 2026) all the
-training ran on the Mac. ai01 joined on 21 September, ai02 on 6 October.
-ai01 also needed a new CPU cooler along the way: its liquid cooler's pump
-failed on 5 October, and until it was replaced the work moved to the
-other two machines.
+screen attached. Each cost about $2,000, the whole machine. The RTX 3090
+machine was bought new about three years ago; the RTX 3080 Ti machine was
+an open-box purchase. Both were bought before memory prices rose
+sharply, so the same machines may cost more today, and less second-hand.
+Neither GPU is a data-centre part: the RTX 3080 Ti and RTX 3090 are
+graphics cards for games, two generations old as of 2026.
+
+**For this project the two cards are about equivalent.** They are built
+on the same chip (NVIDIA's GA102) with nearly the same compute and memory
+speed; the 3090's extra 12 GB of memory goes unused, because no trainer
+here needs more than about 6 GB (§2). Either machine runs any job, and
+the jobs go to whichever is free.
 
 ## 2. What each kind of work needs
 
@@ -64,10 +69,37 @@ Some real training times, from [NETWORKS.md](NETWORKS.md):
 | equation reader (848k) | 30 epochs, 60,000 equations | 4.4 hours | 86 minutes (RTX 3090) |
 | word-relation network (321k) | 20 epochs | — | about 45 minutes (RTX 3080 Ti) |
 | table structure network (277k) | 12 epochs | — | 13 minutes an epoch (RTX 3080 Ti) |
-| table sequence reader (1.88M) | 15 epochs, 385,953 tables, at half speed | — | 17 hours (RTX 3090) |
+| table sequence reader (1.88M) | 15 epochs, 385,953 tables, run gently (§3) | — | 17 hours (RTX 3090) |
 
 The Mac can run every one of these. A GPU card turns an overnight run
 into an hour, which matters when you are trying ten variants in a week.
+
+**Which graphics card is enough.** The largest trainer, the table
+sequence reader at its batch of 16, peaks at about 6 GB of graphics
+memory (measured, CUDA's own overhead included); the others need less.
+So any recent NVIDIA card with 12 GB or more has room to spare, and the
+speed differences below are differences of hours, not of what is
+possible. The cards other than the two here have not been tried; their
+figures are the makers' published ones.
+
+| card | memory | compute (FP32 TFLOPS) | memory speed (GB/s) | for this project |
+|---|---|---|---|---|
+| RTX 3090 (ai02) | 24 GB | 36 | 936 | the reference |
+| RTX 3080 Ti (ai01) | 12 GB | 34 | 912 | the same as the 3090 here |
+| RTX 4070 Ti | 12 GB | 40 | 504 | enough; about the same speed (more compute, slower memory) |
+| RTX 4070 Ti Super | 16 GB | 44 | 672 | enough; about the same or a little faster |
+| RTX 4070 / 4070 Super | 12 GB | 29 / 36 | 504 | enough; a little slower to about the same |
+| RTX 4080 / 4080 Super | 16 GB | 49 / 52 | 717 / 736 | enough; somewhat faster |
+| RTX 5070 | 12 GB | 31 | 672 | enough; about the same |
+| RTX 5070 Ti | 16 GB | 44 | 896 | enough; somewhat faster |
+| RTX 4060 Ti 16 GB / 5060 Ti 16 GB | 16 GB | 22 / 24 | 288 / 448 | enough memory; slower, perhaps half the speed |
+| RTX 3060 12 GB | 12 GB | 13 | 360 | enough memory; the slowest that is comfortable, perhaps a third of the speed |
+| any 8 GB card (RTX 3070, 4060, ...) | 8 GB | — | — | tight: the table sequence reader probably fits, with little room to spare; a smaller batch would fit easily, but a smaller batch is a different recipe |
+
+The networks here are small, so a training step is often limited by
+moving data rather than by arithmetic; that is why memory speed is in the
+table, and why the speeds are estimates. AMD cards run PyTorch on Linux
+through ROCm and should work; none has been tried here.
 
 **Harvesting data.** Cutting training lines and tables out of the large
 public datasets is processor work (numpy). It runs on the PCs, near the
@@ -140,9 +172,9 @@ the computer's fonts, tables, equations, screenshots
 - **An Apple-silicon Mac.** Everything here runs on one, including every
   trainer, through PyTorch's MPS backend: about ten times slower than a
   gaming card for the line reader, which is still an overnight run.
-- **One used gaming card.** A 12 GB NVIDIA card trained the line readers,
-  the table structure network and the word-relation network here. If you
-  add one thing to a Mac or laptop, this is the one.
+- **One gaming card.** Any NVIDIA card with 12 GB or more (the table in
+  §2), new or used. If you add one thing to a Mac or laptop, this is the
+  one.
 - **Less disk.** The big table datasets are only needed to retrain the
   table networks. The engine, its models and the evaluation sets fit in
   a few gigabytes.
