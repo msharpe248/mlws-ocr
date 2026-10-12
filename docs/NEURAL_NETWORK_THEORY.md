@@ -155,9 +155,11 @@ fine-tuned for 5 more epochs with drawn financial tables, stronger
 augmentation and random margins. On tables from companies it had never
 seen, its share read exactly in the trainer's check went from 1% to 25%.
 
-Training here is run **gently**: the GPU works half the time and rests
-the other half, and the temperatures are logged. That is slower, but a
-home machine is not run flat out for days.
+Training here is run **gently**: after each step the trainer rests for
+half as long as the step took, and the temperatures are logged. That is
+slower, but a home machine is not run flat out for days. What the
+machines are, and what training costs on them:
+[DEV_ENVIRONMENT.md](DEV_ENVIRONMENT.md).
 
 ## 0.4 Training, held back, held out: keeping the data apart
 
@@ -200,7 +202,7 @@ sets back for the final word.
 | **fine-tune** | training a finished network further, usually on new data with a smaller learning rate, §8 |
 | **fitting set** | data kept for fitting the choices, which no network trained on, §0.4 |
 | **forward pass** | running the network on an input to get its output; all the engine does with a network |
-| **gentle training** | training at half duty (work, then rest as long), at low priority, with temperatures logged |
+| **gentle training** | training that rests after each step for half as long as the step took, at low priority, with temperatures logged ([DEV_ENVIRONMENT.md](DEV_ENVIRONMENT.md)) |
 | **gradient** | for each parameter, which way and how strongly the loss changes when it is nudged, §2 |
 | **held back** | the trainer's own validation examples, scored after each epoch, never learned from, §0.4 |
 | **held out** | the engine's evaluation sets, which no training and no choice ever sees, §0.4 |

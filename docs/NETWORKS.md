@@ -49,6 +49,10 @@ two networks; **neural** uses all but the CNN.
 
 ## Training on a second machine
 
+The machines themselves (a Mac mini and two gaming PCs with RTX 3080 Ti
+and RTX 3090 cards), their roles, training times and energy are described
+in [DEV_ENVIRONMENT.md](DEV_ENVIRONMENT.md).
+
 The trainer runs anywhere torch runs; the pipeline and the evaluations
 stay where the evaluation sets and Tesseract are. A Linux box with an
 RTX 3080 Ti (2026-09-21) steps the line recipe at 0.018 s a batch of 64

@@ -8,8 +8,12 @@ a word-strip scorer, a line reader, a per-line judge.
 
 **Every model is trained here.** No pre-trained weights, no vision or
 language foundation model. Each network is small enough to read (the
-largest is under 290k parameters), trains on a laptop or its GPU in an evening
-from public data, and runs locally from one exported `.npz`.
+largest in a profile, the equation reader, has 848k parameters), trains
+from public data on a home computer (a Mac, or a gaming PC's graphics
+card) in an hour to an overnight run, and runs locally from one exported
+`.npz`. [docs/DEV_ENVIRONMENT.md](docs/DEV_ENVIRONMENT.md) describes the
+machines, the training times and the energy: none of it needs a data
+centre.
 [docs/NEURAL_NETWORK_THEORY.md](docs/NEURAL_NETWORK_THEORY.md) teaches
 the theory from a single neuron up and draws each network's shape and the
 reasons for it; `docs/NETWORKS.md` records what each is for, how its
@@ -458,6 +462,7 @@ way?" by looking.
 - [docs/SYNTHETIC_DATA.md](docs/SYNTHETIC_DATA.md) — drawing our own pages with the answers known: the degradation model, fonts, training windows, generated test sets, scanner calibration, and what synthetic data could not do.
 - [docs/MEASUREMENT.md](docs/MEASUREMENT.md) — how accuracy is computed, the evaluation sets, held-out pages, seed variance and the bootstrap, adoption rules, and the numbers that turned out to be wrong.
 - [docs/NETWORKS.md](docs/NETWORKS.md) — every network and learned model: purpose, data, training, rebuild order.
+- [docs/DEV_ENVIRONMENT.md](docs/DEV_ENVIRONMENT.md) — what the project runs on: a Mac mini and two gaming PCs, what each does, training times and energy, the free software, and how to do it with less.
 - [docs/DATA_SOURCES.md](docs/DATA_SOURCES.md) — every dataset and document source: what it is, its licence, where to download it, where it goes under `data/`, what it trains or measures.
 - [docs/TESSERACT.md](docs/TESSERACT.md) — mlws-ocr against Tesseract's legacy and LSTM engines: the numbers, what is the same idea, what differs and why.
 - [docs/RESEARCH.md](docs/RESEARCH.md) — the provenance of every algorithm (papers, deviations, code) and the measurement behind every decision, negative results included. Nothing lands without an entry.

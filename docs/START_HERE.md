@@ -31,6 +31,7 @@ Alongside, at any point:
 |---|---|
 | [NEURAL_NETWORK_THEORY.md](NEURAL_NETWORK_THEORY.md) | neural networks from one neuron up — what training is and what its data looks like, a glossary, then learning, convolutions, recurrence, CTC, fine-tuning and distillation, ensembles and soups — then every network in the engine, its exact shape and why |
 | [SYNTHETIC_DATA.md](SYNTHETIC_DATA.md) | drawing our own pages with the answers known: the degradation model, fonts, training windows, test sets — and what synthetic data could not do |
+| [DEV_ENVIRONMENT.md](DEV_ENVIRONMENT.md) | what the project runs on: a Mac mini and two gaming PCs, training times and energy, the free software, doing it with less |
 | [DATA_SOURCES.md](DATA_SOURCES.md) | every real dataset: licence, download, where it goes, what it trains or measures |
 
 ## Tracks
