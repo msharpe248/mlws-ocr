@@ -355,7 +355,7 @@ flowchart LR
     wrel[(wordrel_v3.npz + wordrel_select_v2.npz<br/>word-relation network, its choice)] --> outS
     tseq[(tableseq_v2.npz + tableseq_select_v2.npz<br/>table sequence reader, its choice)] --> outS
     cconf[(cellconf_v1.npz<br/>cell confidence)] --> outS
-    math[(mathread_v3.npz<br/>equation reader)] --> outS
+    math[(mathread_v4.npz<br/>equation reader)] --> outS
 ```
 
 | model | config key | profiles |

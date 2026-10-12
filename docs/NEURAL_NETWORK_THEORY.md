@@ -1257,11 +1257,11 @@ set went PubTables-1M 0.8171 → 0.8275 and FinTabNet.c 0.8764 → 0.8781. The
 first choice (v1, 23 inputs, fitted on 257 tables) had taken them, at
 v0.18.0, PubTables-1M 0.759 → 0.795 and FinTabNet.c 0.810 → 0.849.
 
-## I. The equation reader — an encoder-decoder with attention — `math/reader.py`, `mathread_v3.npz`
+## I. The equation reader — an encoder-decoder with attention — `math/reader.py`, `mathread_v4.npz`
 
 **The job.** A display equation, cut from the page by the layout stage
 ([SEGMENTATION.md §8](SEGMENTATION.md)), in; its LaTeX out, token by token
-(`\frac`, `{`, `x`, `^`, `{`, `2`, `}`, … — 133 of them), from which the
+(`\frac`, `{`, `x`, `^`, `{`, `2`, `}`, … — 146 of them), from which the
 output stage makes the MathML the hOCR carries. A line reader (§C) can say
 what is on a line because a line is a sequence left to right and CTC lines
 the frames up with the characters. A formula is not: a fraction's
@@ -1288,7 +1288,7 @@ next token is chosen from its new state and the context. Trained, the
 attention moves over the formula as it writes: to the numerator, down
 under the bar for the denominator, back up and on. It ends by writing
 `</s>`. This is the im2latex reader of Deng, Kanervisto, Ling & Rush
-(ICML 2017), made small: **848k parameters** (only the table sequence
+(ICML 2017), made small: **855k parameters** (v3 848k: its vocabulary 13 tokens smaller) (only the table sequence
 reader, §J, is larger).
 
 **Training.** `scripts/train_mathread.py`, torch on a GPU (v2 on the Mac's,
@@ -1322,8 +1322,24 @@ engine itself: 61.1% of equations read exactly, 88.2% of tokens right
 (v2: 54.9% and 85.9%). Over about 50 tokens it fails — at 64 rows high a
 long formula is squeezed into at most 1,024 columns, the decoder's state
 must carry a long way, and v3 never saw one. And it reads
-typeset mathematics only: handwriting, and the notations its grammar does
-not draw (matrices, cases, accents), it has never seen.
+typeset mathematics only: handwriting it has never seen.
+
+**Teaching it more (v4, v0.18.15).** v3 knew no matrices, cases or
+accents, and dropped a superscript stacked over a primed subscript. The
+grammar gained them, the vocabulary 13 tokens, and v3 was **fine-tuned**
+rather than trained again: every weight copied, the new tokens' rows of the
+embedding and the output layer fresh, 12 epochs at a third of the learning
+rate on 60,000 formulas of the extended grammar (50 minutes). It kept what
+it knew -- one-line equations read better than before -- but learned
+something unwanted too: tall matrices and cases taught it that a tall image
+can be one line, and it began to read only one line of some two-line
+pairs. The page knew better: such a pair carries a number for each line, so
+the engine now cuts it between its numbers (`output.math_split_at_numbers`)
+instead of trusting the reader to say there are two. On 60 fresh pages,
+86% of equations exact and 97% of tokens; on 60 pages with matrices,
+cases and accents, 73% and 96%. A network fine-tuned on a wider task can
+shift what it does on the old one in ways no single number shows: look at
+what changed, equation by equation.
 
 **The input's height matters.** Every equation is scaled to the same 64
 rows, so an aligned pair of two lines gets about 30 rows a line, and its
@@ -1335,6 +1351,9 @@ band of blank rows and each line is read on its own, at the full 64 rows
 (`output.math_split_lines`, in the neural profiles since v0.18.14): the pairs go to 63% exact, all the
 equations from 68% to 78%. A network's input resolution is part of its
 design, and sometimes the cheapest improvement is to give it a better view.
+Not always: a matrix of three rows is one line to the reader and cannot be
+cut, so each row gets about 18 of the 64 -- v4 reads its structure and
+misses entries. That one needs a taller input, and so a retrain.
 
 ## J. The table sequence reader — a table read as tokens — `layout/tableseq.py`, `tableseq_v2.npz`
 

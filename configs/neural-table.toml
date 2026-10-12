@@ -127,6 +127,7 @@ in_cells = true                # table profile: inside a ruled table of 2+ colum
 equations = true               # display equations found before reading (layout/equations.py): cut out as
                                # equation_N.png, hOCR ocr_display / ocr_math, numbers read; 22 fresh typeset pages
                                # F1 0.906, none on business, letter, legal, news, magazine pages (2026-10-04)
+equations_beside = true        # ...with the pieces beside an equation its own, as neural (v0.18.15)
 stacked_chunks = 2.6           # table profile: on a table crop, a line 2.6 glyphs tall cut into its columns and
                                # each column's lines found (a wrapped cell beside a one-line cell); with the lone
                                # dashes: PubTables-1M held out 0.806 -> 0.812, FinTabNet.c 0.868 -> 0.875 (2026-10-03)
@@ -286,11 +287,12 @@ case_repair = true      # I/l and case-twin repair runs even with the corrector 
 [stage.output]
 pictures = true             # table profile: each picture cut from the original image as picture_N.png, named in
                             # the hOCR's ocr_photo with its box in the original (core/pictures.py; 2026-10-03)
-math_reader_path = "data/mathread_v3.npz"  # as neural: each display equation read, its LaTeX in the layout and
+math_reader_path = "data/mathread_v4.npz"  # as neural: each display equation read, its LaTeX in the layout and
                             # its MathML in the hOCR's ocr_math (math/reader.py; 2026-10-06)
 math_beam = 8               # ...a beam search of eight readings (v0.18.10)
 math_split_lines = true     # ...read line by line, and unnumbered displays confirmed by the reader, as neural
 math_display_logp = -0.1    # (v0.18.14)
+math_split_at_numbers = true  # ...and cut between its numbers, as neural (v0.18.15)
 drop_facing_page = true     # the facing page's column clipped at a spread's edge is left out (newspaper and
                             # magazine pages; 2026-09-27: news-8 +1.5 / +1.8, mag-8 +5.8 / +6.5 neural, RESEARCH)
 impl = "text"

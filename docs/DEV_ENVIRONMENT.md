@@ -67,6 +67,7 @@ Some real training times, from [NETWORKS.md](NETWORKS.md):
 | character language model | one epoch, pure numpy on the processor | under a minute | — |
 | line reader (291k parameters) | eight epochs | about 11 hours | about 1 hour (RTX 3080 Ti) |
 | equation reader (848k) | 30 epochs, 60,000 equations | 4.4 hours | 86 minutes (RTX 3090) |
+| equation reader fine-tune (855k, v4) | 12 epochs, 60,000 equations, run gently (§3) | — | 50 minutes (RTX 3090) |
 | word-relation network (321k) | 20 epochs | — | about 45 minutes (RTX 3080 Ti) |
 | table structure network (277k) | 12 epochs | — | 13 minutes an epoch (RTX 3080 Ti) |
 | table sequence reader (1.88M) | 15 epochs, 385,953 tables, run gently (§3) | — | 17 hours (RTX 3090) |

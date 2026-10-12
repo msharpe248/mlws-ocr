@@ -20,7 +20,7 @@ the old tokens' rows of the embedding and the output layer copied by name,
 the new ones left as initialised.  ``--duty`` sleeps that share of each
 step's time after it, so a box is not run at full load (gentle training):
 
-    scripts/train_mathread.py data/math4 --init data/mathread_v3.npz --epochs 10 --lr 3e-4 --duty 0.5 \
+    scripts/train_mathread.py data/math4 --init data/mathread_v3.npz --epochs 12 --lr 3e-4 --duty 0.5 \
         --out data/mathread_v4.npz
 """
 from __future__ import annotations

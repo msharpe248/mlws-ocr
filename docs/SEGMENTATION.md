@@ -301,6 +301,15 @@ log-probability per token is above that -- it is sure of mathematics and not
 of a heading. The 22 pages' F1 then 0.941 (recall 0.889 → 0.963), the 33
 pages' 0.920; text pages unchanged.
 
+The line finder parts a matrix's columns, and a case's values from their
+conditions, at their gaps as it parts two words. With `lines.equations_beside`
+(in the neural profiles since v0.18.15) a set-in piece on an equation's rows
+within three glyph heights across is the equation's own, groups so joined
+or now over one another are one, and a candidate's pieces are marked with it
+and read with it. With the v4 reader: the 22 pages' F1 0.967 (false finds 9
+→ 3), the 33 pages' 0.983 (16 → 1); on 60 pages full of matrices and cases
+302 found of 310 where 329 had been (RESEARCH).
+
 ## 9. Glyph groups
 
 The last layout step (`components.overlap`) splits each line into glyphs:

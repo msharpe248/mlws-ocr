@@ -243,7 +243,9 @@ in `tokens`). On 30 held-out typeset pages (v0.18.10: the v3 reader, a beam
 of eight), 61.1% of the equations are read exactly and 88.2% of their
 tokens are right ([RESEARCH.md](RESEARCH.md)), and 72.2% and 94.3% with
 `output.math_split_lines` (a two-line equation read line by line, in the
-neural profiles since v0.18.14); long formulas (over about 45 tokens) are read poorly. A consumer that needs certainty keeps the image.
+neural profiles since v0.18.14); with the v4 reader (v0.18.15) 85.4% and
+97.4%. A matrix or a case is an `mtable` in its fences in the MathML, an
+accent an `mover`; long formulas (over about 45 tokens) are read poorly. A consumer that needs certainty keeps the image.
 
 ## 7. hOCR and its relatives
 

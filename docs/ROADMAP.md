@@ -66,15 +66,14 @@ evaluation as a check (neural-table 0.518), not a target.
    lines), and unnumbered displays found 10 of 48. Two changes, no training,
    adopted in v0.18.14 (RESEARCH): reading line by line (`math_split_lines`, 68 -> 78% exact)
    and the reader confirming centred lines (`math_display_logp`, found 278
-   -> 322 of 323; finding F1 0.906 -> 0.941). Then (2026-10-12, options,
-   off, for the owner): the EXTENDED grammar (matrices, cases, accents, a
+   -> 322 of 323; finding F1 0.906 -> 0.941). Then (2026-10-12): the EXTENDED grammar (matrices, cases, accents, a
    superscript over a primed subscript) and the v4 reader fine-tuned on it
    (50 min, gentle); the finder joining the pieces beside an equation
    (`lines.equations_beside`: a matrix's columns, a case's conditions); an
    aligned pair cut between its numbers (`output.math_split_at_numbers`).
    Together: 60 fresh pages 78.8 -> 86.1% exact, 95.0 -> 97.3% tokens; 60
    extended pages 53.7 -> 72.6%, 81.8 -> 95.7%; finding F1 0.941 ->
-   0.967. Left: tall displays (a three-row matrix gets about 18 px a row at
+   0.967. All three ADOPTED in v0.18.15. Left: tall displays (a three-row matrix gets about 18 px a row at
    the reader's 64 px input: a taller input, a retrain), and real
    scientific pages (no truth yet).
 

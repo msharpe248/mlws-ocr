@@ -72,9 +72,9 @@ def test_neural_shares_the_stage_list_with_classic():
     # v0.18.5), and read (2026-10-06; line by line and confirming unnumbered displays, 2026-10-12):
     # the neural profiles only; the classic reference reads as before
     table_only = {"tables": {"spans", "open_sides", "nested"},
-                  "lines": {"equations"},
+                  "lines": {"equations", "equations_beside"},
                   "output": {"split_words_at_cells", "fix_figure_columns", "check_arithmetic", "ws_detect",
-                             "pictures", "math_reader_path", "math_beam", "math_split_lines", "math_display_logp"}}
+                             "pictures", "math_reader_path", "math_beam", "math_split_lines", "math_display_logp", "math_split_at_numbers"}}
     for key, spec in neural.items():
         c = classic.get(key, classic.get(("decode", "beam"))).params
         if key[1] in table_only:

@@ -303,9 +303,14 @@ small self-trained network into LaTeX (in the layout JSON) and MathML (in the
 equations exact, 88.2% of tokens on 30 held-out typeset pages. Since v0.18.14
 a two-line equation is read line by line (`output.math_split_lines`), and
 the reader confirms a centred line the finder could not call (no number, no
-fraction bar) on a page with numbered equations (`output.math_display_logp`):
-72.9% exact and 94.6% of tokens on those pages, 78.8% and 95.0% on 60 fresh
-ones; finding F1 0.906 → 0.941 on the fresh pages, text pages unchanged. The Pictures view shows each equation cut out, drawn from its MathML,
+fraction bar) on a page with numbered equations (`output.math_display_logp`).
+Since v0.18.15 the reader (v4) also reads matrices, cases and accents, the
+finder keeps a matrix's columns and a case's conditions with their equation
+(`lines.equations_beside`), and a pair numbered line by line is cut between
+its numbers (`output.math_split_at_numbers`): 86.1% of equations exact and
+97.3% of tokens on 60 fresh typeset pages (85.4% / 97.4% on the 30), 72.6% /
+95.7% on 60 pages full of matrices, cases and accents; finding F1 0.967 on
+the fresh article pages; text pages unchanged. The Pictures view shows each equation cut out, drawn from its MathML,
 with its LaTeX beneath ("Read equations" turns it off).
 
 ![The Pictures view on a held-out typeset page: each display equation cut out, then drawn from the MathML the reader wrote, its LaTeX beneath -- equations 2, 3 and 4 read exactly; 1 (long) and 5 (t read as i) not](docs/img/workbench_equations.png)
@@ -347,7 +352,7 @@ profile, kept as the reference; the neural profile is the accurate one.
 |---|---|---|---|
 | **classic** | `configs/classic.toml` | the MLP second opinion (53k) and the character GRU (258k) | the feature engine: nearest-prototype, outline and MLP channels over explicit glyph features, a beam decoder with lexicon and language model, per-document adaptation. Its row is the regression guard after every neural adoption. |
 | **pure** | `configs/pure.toml` | none | classic with both networks off; what the feature engine reads on its own |
-| **neural** | `configs/neural.toml` | classic's, plus the word-strip CRNN+CTC scorer as the judge of the classic word variants, the line reader (every line read end to end by the line model), the fitted judge that decides each line between the two readings, the word-confidence calibrator, the segmenter judge (newspapers and magazines) and the equation reader (848k) | the engine to use; reports table structure (spans, nesting, tables found on the page, figure columns, arithmetic checks) without changing the text |
+| **neural** | `configs/neural.toml` | classic's, plus the word-strip CRNN+CTC scorer as the judge of the classic word variants, the line reader (every line read end to end by the line model), the fitted judge that decides each line between the two readings, the word-confidence calibrator, the segmenter judge (newspapers and magazines) and the equation reader (855k) | the engine to use; reports table structure (spans, nesting, tables found on the page, figure columns, arithmetic checks) without changing the text |
 | **neural-table** | `configs/neural-table.toml` | neural's, with a line reader fine-tuned on table lines in place of neural's (and on a table's crop a reader trained harder on table lines, a symbol reader and a symbol classifier), plus the table separator network (wrapped rows joined), the table detector (248k), the table structure network (277k), the word-relation network (321k), the table sequence reader (1.88M), a fitted choice for each network that builds a table, and the cell confidence | neural plus the table options that also change what the reader sees (ruled grids kept from the picture zones, short grid rules, low-dpi crops magnified, rules taken out of the reader's strips, figure columns re-read as figures, turned cell text read): for payroll forms, paystubs, statements, invoices, receipts, and tables from reports and papers |
 | **neural-line** | `configs/neural_line.toml` | the same, as the experiment profile for a new line model or choice rule | development |
 
