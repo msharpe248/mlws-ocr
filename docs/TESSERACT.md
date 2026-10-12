@@ -28,7 +28,7 @@ install carries (`tessdata_fast`).
 | news-8 | UNLV newspapers (the layout rules were tuned here) | **96.9** / 94.2 | 96.3 / 93.1 | 96.7 / **94.8** | level |
 | newspapers, held out | 30 UNLV newspaper pages | 86.7 / 81.6 | 87.1 / 82.4 | **87.7 / 84.2** | behind the LSTM by 1 character, 2.6 words: column layout |
 | mag-8 | UNLV magazines (the layout rules were tuned here) | 87.2 / 81.3 | 87.3 / **84.7** | **87.8** / 84.4 | behind in words |
-| magazines, held out | 30 UNLV magazine pages | **83.7 / 75.6** | 77.9 / 71.3 | 78.5 / 73.6 | ahead of both |
+| magazines, held out | 30 UNLV magazine pages | **83.8 / 75.7** | 77.9 / 71.3 | 78.5 / 73.6 | ahead of both |
 | funsd | real scanned forms, FUNSD (50, at 2x) | 65.9 / 44.3 | 54.8 / 32.0 | **66.4 / 47.2** | behind the LSTM by 0.5 characters, 2.9 words |
 | legal reports | Library of Congress typescript and print (40) | **87.5 / 73.7** | 57.5 / 42.8 | 78.8 / 66.3 | ahead of both |
 | blocks | broad-30's text zones read alone, no layout | **98.6 / 97.2** | 98.2 / 96.6 | 98.5 / 96.5 | ahead of both |

@@ -65,7 +65,7 @@ scoreboard and its history are in `docs/DESIGN.md` §8.
 | news-8 | UNLV newspapers (the layout rules were tuned here) | 94.2 / 84.1 | **96.9** / 94.2 | 96.3 / 93.1 | 96.7 / **94.8** |
 | mag-8 | UNLV magazines (the layout rules were tuned here) | 66.8 / 45.5 | 87.2 / 81.3 | 87.3 / **84.7** | **87.8** / 84.4 |
 | newspapers, held out | 30 UNLV newspaper pages no decision has used | 76.5 / 63.4 | 86.7 / 81.6 | 87.1 / 82.4 | **87.7 / 84.2** |
-| magazines, held out | 30 UNLV magazine pages no decision has used | 68.3 / 50.7 | **83.7 / 75.6** | 77.9 / 71.3 | 78.5 / 73.6 |
+| magazines, held out | 30 UNLV magazine pages no decision has used | 68.3 / 50.7 | **83.8 / 75.7** | 77.9 / 71.3 | 78.5 / 73.6 |
 | letters, held out | 30 UNLV business letters no decision has used | 90.7 / 83.1 | **93.9 / 91.1** | 92.4 / 88.8 | 93.1 / 90.6 |
 | funsd | real scanned forms, FUNSD, at 2x | 37.4 / 12.7 | 65.9 / 44.3 | 54.8 / 32.0 | **66.4 / 47.2** |
 | legal reports | real typescript and printed office pages, Library of Congress | 70.5 / 47.3 | **87.5 / 73.7** | 57.5 / 42.8 | 78.8 / 66.3 |
@@ -101,14 +101,14 @@ Neural-table as of v0.18.13 (2026-10-11: nil dashes read, a receipt's paper edge
 
 **Held-out pages.** The eight-page sets flatter newspapers and magazines:
 on 30 fresh pages of each type, never used for any decision, the neural
-profile reads newspapers at 86.7 / 81.6 and magazines at 83.7 / 75.6 (with
+profile reads newspapers at 86.7 / 81.6 and magazines at 83.8 / 75.7 (v0.18.13; with
 the per-page segmenter judge on those two types since 26 September 2026;
 XY-cut alone read them at 79.7 and 65.9; magazines 68.1 before text-row protection
 and 77.1 before deskew stopped trusting an estimate at its search limit, which had
-rotated three straight photo-heavy pages by 5 degrees). Letters (93.7), legal pages
-(94.2) and a freshly rendered business set (97.5) hold up. Tesseract LSTM
+rotated three straight photo-heavy pages by 5 degrees). Letters (93.9), legal pages
+(94.3) and a freshly rendered business set (97.5) hold up. Tesseract LSTM
 on the same held-out pages: newspapers 87.7 / 84.2, magazines 78.5 / 73.6,
-letters 93.1 / 90.6 (neural 93.7 / 90.8).
+letters 93.1 / 90.6 (neural 93.9 / 91.1).
 `scripts/eval_unlv.py --heldout` draws them.
 
 **Photographs and the facing page (27 September 2026).** Photographs no

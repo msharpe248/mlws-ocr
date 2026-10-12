@@ -321,7 +321,7 @@ pipeline) and name the profile with any figure you report.
 | broad-30 | `data/unlv/bus.3B` | `eval_unlv.py data/unlv/bus.3B --pages 30 --seed 2 --doc-type letter` |
 | legal-8 | `data/unlv/legal.3B` | `eval_unlv.py data/unlv/legal.3B --pages 8 --seed 1 --doc-type legal` |
 | news-8, mag-8 | `data/unlv/news.3B`, `mag.3B` | `--pages 8 --seed 1 --doc-type newspaper` / `magazine` |
-| held-out newspapers, magazines, letters | `data/unlv/news.3B`, `mag.3B`, `bus.3B` | `eval_unlv.py <set> --heldout` (and `eval_tesseract.py --heldout` for the same pages) |
+| held-out newspapers, magazines, letters, legal pages | `data/unlv/news.3B`, `mag.3B`, `bus.3B`, `legal.3B` | `eval_unlv.py <set> --heldout --pages 30 --seed 5 --doc-type newspaper` / `magazine` / `letter` / `legal` (and `eval_tesseract.py --heldout` for the same pages); without the hint every type reads worse (RESEARCH, 2026-09-26) |
 | modern | `data/modern/sev0..2` | `eval_unlv.py data/modern/sevN --pages 59 --by-kind` |
 | business | `data/business/sev0` | `eval_unlv.py data/business/sev0 --pages 60 --seed 1 --by-kind` |
 | sroie, funsd, legal reports, cord | `data/ext/sroie/eval` (60), `data/ext/funsd/eval` (50), `data/ext/btp_legal/eval` (40), `data/ext/cord/evalcrop` (100) | `eval_unlv.py <dir> --pages <all of them>` (the default is 10) |
