@@ -63,13 +63,15 @@ evaluation as a check (neural-table 0.518), not a target.
 6. Equations (the owner: "I do want to get them working well", 2026-10-12).
    A census of v3 on 60 fresh typeset pages: one-line displays 83% exact,
    aligned pairs 24% (scripts and denominators left out at 64 px for two
-   lines), and unnumbered displays found 10 of 48. Two options, no training
-   (RESEARCH): reading line by line (`math_split_lines`, 68 -> 78% exact)
+   lines), and unnumbered displays found 10 of 48. Two changes, no training,
+   adopted in v0.18.14 (RESEARCH): reading line by line (`math_split_lines`, 68 -> 78% exact)
    and the reader confirming centred lines (`math_display_logp`, found 278
    -> 322 of 323; finding F1 0.906 -> 0.941). Left: formulas of 26-45
    tokens (54% exact), notations the grammar does not draw (matrices,
-   cases, accents: a grammar extension and a gentle retrain, to announce
-   first), and real scientific pages (no truth yet).
+   cases, accents) and a superscript stacked over a primed subscript
+   (R_{D'}^{-1}, dropped by the reader on a line alone): a grammar extension
+   and a gentle retrain, to announce first; and real scientific pages (no
+   truth yet).
 
 The owner's direction: tables are the focus -- payroll forms, paystubs,
 timesheets, statements, invoices, receipts; tables inside tables; tables

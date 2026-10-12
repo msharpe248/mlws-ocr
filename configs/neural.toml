@@ -194,6 +194,11 @@ math_reader_path = "data/mathread_v3.npz"  # each display equation READ (math/re
                             # in the layout, its MathML in the hOCR's ocr_math beside the image; 30 held-out
                             # typeset pages: 61.1% of equations exact, token accuracy 88.2% (v3, beam 8; RESEARCH)
 math_beam = 8               # ...a beam search of eight readings (v0.18.10; +4 ms an equation)
+math_split_lines = true     # ...and a reading of two lines read again line by line, cut at its widest gap (v0.18.14):
+                            # 60 fresh pages exact 68.2 -> 78.1%, tokens 89.1 -> 94.9%; one-line equations unchanged
+math_display_logp = -0.1    # an unnumbered centred line kept as an equation when the reader is sure of it, on a page
+                            # with a numbered one (v0.18.14): found 278 -> 322 of 323, finding F1 0.906 -> 0.941;
+                            # text pages identical
 drop_facing_page = true     # the facing page's column clipped at a spread's edge is left out (newspaper and
                             # magazine pages; 2026-09-27: news-8 +1.5 / +1.8, mag-8 +5.8 / +6.5 neural, RESEARCH)
 impl = "text"

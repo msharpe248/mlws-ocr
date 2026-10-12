@@ -93,11 +93,11 @@ between 0.00 and 0.03.
 | paystubs | generated: earnings and deductions nested in the stub, in five rule styles from full grid to whitespace (20 pages) | – | 0.940 / 0.952 |
 | invoices | generated: line items with spanned totals, five rule styles (20 pages) | – | 0.967 / 0.981 |
 | timesheets | generated: two-level spanned headers, five rule styles (20 pages) | – | 0.942 / 0.964 |
-| annual-report tables | real financial tables, FinTabNet.c, ruled by whitespace (60 tables; on 240 held-out ones 0.880 / 0.930) | 0.607 / 0.781 | **0.857 / 0.905** |
+| annual-report tables | real financial tables, FinTabNet.c, ruled by whitespace (60 tables; on 240 held-out ones 0.881 / 0.930) | 0.607 / 0.781 | **0.857 / 0.905** |
 | scientific tables | real tables from papers, PubTables-1M test crops (60 tables; on 240 held-out ones 0.879 / 0.940); page-level detection F1 0.967 at IoU 0.5 (40 pages, v0.17.2) | – | 0.886 / 0.951 |
 | screenshots | tables drawn as web pages by a browser -- plain, grid, zebra, dark mode, coloured header, spreadsheet -- at 96 and 192 dpi (80 tables) | – | 0.906 / 0.938 |
 
-Neural-table as of v0.18.13 (2026-10-11: nil dashes read, a receipt's paper edge dropped, receipt item rows kept apart, a frame round a table's crop not taken for the table, light-grey rules found in the grey page, captions and notes trimmed by whole rows, wrapped cells read line by line, row labels spanning their sub-rows, a word read across a column gap split, a table reader that writes ± and the tables' other symbols, a small transformer over a table crop's words whose table a fitted choice keeps when it is the better, a reader for table crops trained harder on table lines, light text on a dark ground inverted, row labels with dot leaders kept, photographs found on the grey page and kept out of that inversion, pictures cut out for the hOCR, wrapped cells read line by line within their column, lone '-' dashes kept, a row's label spanning its continuation rows, a second reader lending its dashes and signs to a table's text, dashes named by measure and a symbol classifier trained on real glyphs, a two-level header rebuilt from its text lines, a calibrated confidence for every cell, a heading above a table's figures put back, centred headings and short spanners seen in two-level headers, a table-crop reader trained on 781k more table lines with the per-table choice refitted on 1,615 unseen tables, a table sequence reader that reads a crop's grid from its pixels, its table kept where a fitted choice prefers it; scored from the output's table records since 2026-10-07 -- docs/RESEARCH.md); the generated sets' truth was corrected where it disagreed with its own images (timesheets, payroll forms). \* measured before the open-sides and short-rule options and before the payroll truth held both amounts of each diagonal gross cell (the set was regenerated, 2026-09-28); – not measured.
+Neural-table as of v0.18.14 (2026-10-12: nil dashes read, a receipt's paper edge dropped, receipt item rows kept apart, a frame round a table's crop not taken for the table, light-grey rules found in the grey page, captions and notes trimmed by whole rows, wrapped cells read line by line, row labels spanning their sub-rows, a word read across a column gap split, a table reader that writes ± and the tables' other symbols, a small transformer over a table crop's words whose table a fitted choice keeps when it is the better, a reader for table crops trained harder on table lines, light text on a dark ground inverted, row labels with dot leaders kept, photographs found on the grey page and kept out of that inversion, pictures cut out for the hOCR, wrapped cells read line by line within their column, lone '-' dashes kept, a row's label spanning its continuation rows, a second reader lending its dashes and signs to a table's text, dashes named by measure and a symbol classifier trained on real glyphs, a two-level header rebuilt from its text lines, a calibrated confidence for every cell, a heading above a table's figures put back, centred headings and short spanners seen in two-level headers, a table-crop reader trained on 781k more table lines with the per-table choice refitted on 1,615 unseen tables, a table sequence reader that reads a crop's grid from its pixels, its table kept where a fitted choice prefers it, a cell's words kept in reading order where a descender splits a line, a row of check marks not taken for a note; scored from the output's table records since 2026-10-07 -- docs/RESEARCH.md); the generated sets' truth was corrected where it disagreed with its own images (timesheets, payroll forms). \* measured before the open-sides and short-rule options and before the payroll truth held both amounts of each diagonal gross cell (the set was regenerated, 2026-09-28); – not measured.
 
 **Held-out pages.** The eight-page sets flatter newspapers and magazines:
 on 30 fresh pages of each type, never used for any decision, the neural
@@ -300,13 +300,12 @@ F1 0.906 on fresh typeset pages, none found on business, letter, legal,
 newspaper or magazine pages. Since v0.18.9 each equation is also READ by a
 small self-trained network into LaTeX (in the layout JSON) and MathML (in the
 `ocr_math`): since v0.18.10 (the v3 reader, a beam of eight) 61.1% of
-equations exact, 88.2% of tokens on 30 held-out typeset pages. An option
-reads a two-line equation line by line (`output.math_split_lines`, off for
-now): 72.2% exact and 94.3% of tokens on those pages. Another lets the
-reader confirm a centred line the finder could not call (no number, no
-fraction bar) on a page with numbered equations (`output.math_display_logp`,
-off for now): finding F1 0.906 → 0.941 on the fresh pages, text pages
-unchanged. The Pictures view shows each equation cut out, drawn from its MathML,
+equations exact, 88.2% of tokens on 30 held-out typeset pages. Since v0.18.14
+a two-line equation is read line by line (`output.math_split_lines`), and
+the reader confirms a centred line the finder could not call (no number, no
+fraction bar) on a page with numbered equations (`output.math_display_logp`):
+72.9% exact and 94.6% of tokens on those pages, 78.8% and 95.0% on 60 fresh
+ones; finding F1 0.906 → 0.941 on the fresh pages, text pages unchanged. The Pictures view shows each equation cut out, drawn from its MathML,
 with its LaTeX beneath ("Read equations" turns it off).
 
 ![The Pictures view on a held-out typeset page: each display equation cut out, then drawn from the MathML the reader wrote, its LaTeX beneath -- equations 2, 3 and 4 read exactly; 1 (long) and 5 (t read as i) not](docs/img/workbench_equations.png)

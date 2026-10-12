@@ -341,7 +341,7 @@ The evaluation sets, and where they stand (neural-table, TEDS / TEDS-S):
 | screenshots (FinTabNet.c and PubTables-1M structures drawn by a browser, six styles) | 80 | – | 0.906 / 0.938 |
 | scientific pages, detection F1 | 40 | – | 0.967 |
 
-The two real crop sets were also read on the 240 held-out tables of the same draws, none of which any decision looked at: PubTables-1M 0.879 / 0.940, FinTabNet.c 0.880 / 0.930 (2026-10-11, v0.18.13, scored from the table records; v0.18.12 0.828 / 0.887, 0.878 / 0.919; v0.18.11 0.816 / 0.885, 0.876 / 0.918; v0.18.10 -- the headings-above rule was shaped on held-out losers, RESEARCH; 0.875 at v0.18.8; 0.759 and 0.810 before the word-relation network) — the 60 flatter PubTables-1M ([MEASUREMENT.md §4](MEASUREMENT.md)).
+The two real crop sets were also read on the 240 held-out tables of the same draws, none of which any decision looked at: PubTables-1M 0.879 / 0.940, FinTabNet.c 0.881 / 0.930 (2026-10-12, v0.18.14, scored from the table records; v0.18.13 0.879 / 0.940, 0.880 / 0.930; v0.18.12 0.828 / 0.887, 0.878 / 0.919; v0.18.11 0.816 / 0.885, 0.876 / 0.918; v0.18.10 -- the headings-above rule was shaped on held-out losers, RESEARCH; 0.875 at v0.18.8; 0.759 and 0.810 before the word-relation network) — the 60 flatter PubTables-1M ([MEASUREMENT.md §4](MEASUREMENT.md)).
 
 † Part of these two sets' gain came from correcting the generated truth
 where it disagreed with its own images (the images are byte-identical);
