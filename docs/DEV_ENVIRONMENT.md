@@ -90,6 +90,8 @@ figures are the makers' published ones.
 | RTX 4070 Ti Super | 16 GB | 44 | 672 | enough; about the same or a little faster |
 | RTX 4070 / 4070 Super | 12 GB | 29 / 36 | 504 | enough; a little slower to about the same |
 | RTX 4080 / 4080 Super | 16 GB | 49 / 52 | 717 / 736 | enough; somewhat faster |
+| RTX 4090 | 24 GB | 83 | 1,008 | enough; faster, though these small networks will not use all of it |
+| RTX 5090 | 32 GB | 105 | 1,792 | enough; the fastest here, with the same caveat; needs a recent PyTorch (§4) |
 | RTX 5070 | 12 GB | 31 | 672 | enough; about the same |
 | RTX 5070 Ti | 16 GB | 44 | 896 | enough; somewhat faster |
 | RTX 4060 Ti 16 GB / 5060 Ti 16 GB | 16 GB | 22 / 24 | 288 / 448 | enough memory; slower, perhaps half the speed |
@@ -141,8 +143,35 @@ and `apt` or `pip` on Linux:
 | Tesseract 5 | a comparison only; the engine does not use it |
 | git and GitHub | the code, the issues, the released model files |
 
-The NVIDIA cards need NVIDIA's Linux driver and a PyTorch build for CUDA.
-Nothing else is special.
+**The NVIDIA driver and CUDA.** The PCs run Ubuntu's NVIDIA packages; the
+engine itself needs none of this, only the trainers do:
+
+| | ai01 (RTX 3080 Ti) | ai02 (RTX 3090) |
+|---|---|---|
+| Linux kernel | 7.0.0 | 7.0.0 |
+| NVIDIA driver | 615.71.09, open kernel modules | 595.99.02, open kernel modules |
+| CUDA the driver supports | 13.4 | 13.2 |
+| PyTorch | 2.14.0, built for CUDA 13.0 (`+cu130`) | 2.14.1, built for CUDA 13.0 (`+cu130`) |
+| cuDNN (comes with PyTorch) | 9.24 | 9.24 |
+
+Different driver versions on the two machines make no difference. What
+matters is that the driver is new enough for the CUDA that PyTorch was
+built with: a `+cu130` build needs a driver from the 580 series or later.
+The CUDA toolkit itself need not be installed; the PyTorch wheel carries
+the CUDA libraries it uses (`pip install torch`, choosing the CUDA
+build on pytorch.org).
+
+These PyTorch builds include code for every NVIDIA generation from the
+RTX 20 series to the RTX 50 series (compute capability 7.5 to 12.0). An
+RTX 50-series card (5070, 5090, ...) needs such a recent build: PyTorch
+built for CUDA 12.8 or later. An older build starts but cannot run on
+the card.
+
+One trap, met once: Ubuntu's automatic updates can install new NVIDIA
+libraries under the driver that is still running. `nvidia-smi` then fails
+with "Driver/library version mismatch" until the machine is rebooted. A
+training run already going may carry on regardless, but plan the reboot
+for just after a checkpoint.
 
 Development is a pair: the owner, and Claude Code (Anthropic's
 coding assistant), which writes code and runs experiments under the
