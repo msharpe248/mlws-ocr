@@ -102,3 +102,29 @@ def test_with_cell_text():
     u = with_cell_text(t, words)
     assert [c["text"] for c in u["cells"]] == ["Net sales", "1,234"]
     assert "text" not in t["cells"][0]                # the table itself left as it was
+
+
+def test_same_line_order():
+    from mlws_ocr.decode.output import _same_line_order
+    lines = [{"words": [{"box": [0, 0, 10, 40]}, {"box": [0, 0, 10, 40]}]}]
+    # 'Long-term' a few pixels lower than 'debt' (its descender), and a second line well below
+    entries = [(0, 0, 380.0, 120.0, "Long-term"), (0, 0, 373.5, 320.0, "debt"), (0, 0, 430.0, 100.0, "net")]
+    assert [e[4] for e in _same_line_order(entries, lines)] == ["Long-term", "debt", "net"]
+
+
+def test_row_drift():
+    """The rows' borders are moved into the gaps between drifting lines, and a
+    header of three lines in one row is left alone."""
+    from mlws_ocr.layout.tableseq import row_drift
+
+    def w(y):
+        return {"box": [0, y - 6, 10, y + 6]}
+    rows = [(100 + 30 * i - 7, 100 + 30 * i + 7) for i in range(20)]
+    a, b = row_drift(rows, [w(100 + 31 * i) for i in range(20)], 12)
+    for i in range(19):                     # each border between line i and line i + 1
+        y = a * (100 + 30 * i + 15) + b
+        assert 100 + 31 * i + 6 < y < 100 + 31 * (i + 1) - 6
+    rows = [(94, 146)] + [(174 + 30 * i, 186 + 30 * i) for i in range(10)]
+    ws = [w(y) for y in (100, 120, 140)] + [w(180 + 30 * i) for i in range(10)]
+    assert row_drift(rows, ws, 12) == (1.0, 0.0)
+    assert row_drift(rows[:5], [w(100 + 31 * i) for i in range(5)], 12) == (1.0, 0.0)

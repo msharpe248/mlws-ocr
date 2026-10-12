@@ -42,12 +42,34 @@ evaluation as a check (neural-table 0.518), not a target.
    financial tables) and a choice refitted with screenshots: held out
    PubTables-1M 0.828 -> 0.879, FinTabNet.c 0.878 -> 0.880, screenshots
    level. Next: FinTabNet.c's held-out tables lost more often than won (21
-   up, 33 down, small each) -- a census of those; long tables (rows a few
-   pixels tall at 448).
+   up, 33 down, small each) -- a census of those (2026-10-12): the
+   reader's rows drift on long tables, an empty header row it adds, words of
+   one line ordered as two, and a check-mark table's rows trimmed as notes.
+   The last two fixed (held out FinTabNet.c 0.8797 -> 0.8810); the first two
+   options (`table_seq_snap_rows`, `table_seq_drop_empty`), mixed held out
+   until the choice is refitted on fills made with them -- next. Then long
+   tables (rows a few pixels tall at 448).
+4a. Case on a cell read alone (found 2026-10-12): on a ruled grid the table
+   profile reads each cell's text as its own line ('Total Due'); the line
+   reader writes a short bold line 'ToTAL DUE', the classic decoder 'Total
+   Due', and the line judge takes the reader's. Over the whole row ('Total
+   Due $19,587.28', the neural profile) the reader is right. A rule for
+   readings that differ only in case touches every text set: to measure
+   across all of them.
 5. Done since the last list: the dash and symbol reader (v0.18.6-7), cell
    confidence (v0.18.8), display equations read (v0.18.9; the v3 reader
    with a beam of eight adopted in v0.18.10); row spans tried (label only
    kept).
+6. Equations (the owner: "I do want to get them working well", 2026-10-12).
+   A census of v3 on 60 fresh typeset pages: one-line displays 83% exact,
+   aligned pairs 24% (scripts and denominators left out at 64 px for two
+   lines), and unnumbered displays found 10 of 48. Two options, no training
+   (RESEARCH): reading line by line (`math_split_lines`, 68 -> 78% exact)
+   and the reader confirming centred lines (`math_display_logp`, found 278
+   -> 322 of 323; finding F1 0.906 -> 0.941). Left: formulas of 26-45
+   tokens (54% exact), notations the grammar does not draw (matrices,
+   cases, accents: a grammar extension and a gentle retrain, to announce
+   first), and real scientific pages (no truth yet).
 
 The owner's direction: tables are the focus -- payroll forms, paystubs,
 timesheets, statements, invoices, receipts; tables inside tables; tables

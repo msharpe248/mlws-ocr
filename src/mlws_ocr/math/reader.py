@@ -154,3 +154,66 @@ class MathReader:
             done = hyps
         best = max(done, key=lambda d: d[1] / max(1, len(d[0])) ** alpha)
         return [self.vocab[t] for t in best[0]]
+
+    def confidence(self, gray: np.ndarray) -> float:
+        """The mean log-probability of the reader's greedy reading, per token
+        (with </s>): near 0 on mathematics it was trained on, lower on
+        anything else.  On the display lines the finder could not call
+        (60 + 40 typeset pages, 45 text pages, 2026-10-12): the true
+        equations' median -0.04, prose lines' -0.43, rules' -0.6 or lower
+        (the confirmation in ``output.math_display_logp``)."""
+        p = self.p
+        mem = self.encode(prepare(gray))
+        keys = mem @ p["att_k"]
+        h = np.tanh(mem.mean(0) @ p["init_w"] + p["init_b"])[None]
+        tok = INDEX["<s>"] if "<s>" in self.index else 1
+        end = self.index.get("</s>", -1)
+        lps = []
+        for _ in range(MAX_LEN):
+            h, lp = self._step(mem, keys, h, np.array([tok]))
+            t = int(np.argmax(lp[0]))
+            lps.append(float(lp[0, t]))
+            if t == end:
+                break
+            tok = t
+        return float(np.mean(lps))
+
+    def read_display(self, gray: np.ndarray, beam: int = 1, depth: int = 3) -> list[str]:
+        """A display read line by line: read whole, and when the reading has
+        two lines ('\\\\', an aligned pair) the image is cut at its widest
+        band of rows without ink (a horizontal projection profile, as in the
+        X-Y cut of G. Nagy & S. Seth, ICPR 1984) and each part read on its
+        own (and cut again, ``depth`` times at most).  Scaled whole to 64 px
+        high, a pair's lines are about 30 px each and their scripts a few
+        pixels; read alone each line has the full height (im2latex readers
+        are trained on single lines, Deng et al. 2017).  On 60 fresh pages'
+        323 true boxes (v3, beam 8): exact 70.3 -> 75.2%, tokens 89.5 ->
+        94.7%; the pairs 23 -> 41 of 69 exact; the whole reading said two
+        lines for 66 of 69 pairs and none of 254 one-line displays
+        (2026-10-12)."""
+        toks = self.read(gray, beam=beam)
+        if depth <= 0 or "\\\\" not in toks:
+            return toks
+        cut = widest_gap(gray)
+        if cut is None:
+            return toks
+        return (self.read_display(gray[:cut], beam, depth - 1) + ["\\\\"]
+                + self.read_display(gray[cut:], beam, depth - 1))
+
+
+def widest_gap(gray: np.ndarray, level: float = 0.5) -> int | None:
+    """The middle row of the widest band of inkless rows between a crop's
+    first and last ink (paper 1), or None when its ink is one band."""
+    ink = (np.asarray(gray) < level).any(1)
+    ys = np.nonzero(ink)[0]
+    if len(ys) < 2:
+        return None
+    best, start = (0, None), None
+    for y in range(int(ys[0]), int(ys[-1]) + 1):
+        if not ink[y] and start is None:
+            start = y
+        elif ink[y] and start is not None:
+            if y - start > best[0]:
+                best = (y - start, (start + y) // 2)
+            start = None
+    return best[1]

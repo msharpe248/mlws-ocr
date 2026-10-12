@@ -948,6 +948,9 @@ def _caption_like(text: str) -> bool:
             and all(ch.isdigit() or ch in "zZsSlIoOiV" for ch in num))
 
 
+_MARKS = re.compile(r"^([xX✓✔✗•*+\-–—](\s+|$))+$")
+
+
 def _note_like(text: str, n_filled: int, n_cols: int) -> bool:
     """A note row split across cells: five words or more, not a full row, few
     figures (a data row holds numbers) -- or a doi or a link.  A dot leader's
@@ -967,7 +970,11 @@ def trim_caption_notes(t: dict, whole_rows: bool = False) -> dict:
     words or more) or opens with 'Table N' are not the table's.  The rows
     left are renumbered; a table left with fewer than two rows is kept whole.
     ``whole_rows``: a caption or a note split across several cells is tested
-    as its row's text (``_caption_like``, ``_note_like``)."""
+    as its row's text (``_caption_like``, ``_note_like``) -- unless a cell
+    of the row holds only marks ('x', 'X', a tick, a dash): a check-mark
+    table's rows are a measure's name and its marks, five words and no
+    figures, and 13 of one table's 15 rows went one by one as notes from the
+    bottom up (PMC5944167, 2026-10-12)."""
     cells = t.get("cells", [])
     if not cells:
         return t
@@ -994,7 +1001,10 @@ def trim_caption_notes(t: dict, whole_rows: bool = False) -> dict:
             return " ".join(c["text"].strip() for c in filled), len(filled)
         while lo < hi and row_text(order[lo])[0] and _caption_like(row_text(order[lo])[0]):
             lo += 1
-        while hi > lo and row_text(order[hi - 1])[0] and _note_like(*row_text(order[hi - 1]), n_cols):
+        def marks(r):
+            return any(_MARKS.match((c.get("text") or "").strip()) for c in rows[r])
+        while (hi > lo and row_text(order[hi - 1])[0] and _note_like(*row_text(order[hi - 1]), n_cols)
+               and not marks(order[hi - 1])):
             hi -= 1
     keep = order[lo:hi]
     if len(keep) < 2 or (lo == 0 and hi == len(order)):

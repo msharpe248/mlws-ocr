@@ -28,7 +28,9 @@ The cues, measured on the line's ink (the binary page):
   flat component as wide as three glyphs, short of the line's width, its
   numerator and denominator just above and below, centred on it) -- or, on a
   page with a numbered equation, a large operator (a component 1.8 glyph
-  heights tall among text-size symbols: a sum, an integral).
+  heights tall among text-size symbols: a sum, an integral).  On such a page
+  every other display line is marked ``display``, a candidate for the
+  equation reader to confirm (``output.math_display_logp``).
 
 A line is an equation when it has a number and is a display, or is a
 display with maths -- and its body is at most three chunks apart by wide
@@ -233,6 +235,12 @@ def find_equations(binary: np.ndarray, lines: list[dict]) -> tuple[list[dict], l
             bx0, by0, bx1, by1 = info[i]["body"]
             if i not in eq and _large_operator(binary[by0:by1, bx0:bx1], glyph):
                 eq.add(i)
+        # the rest are CANDIDATES (``display``): a centred line of mathematics needs no
+        # fraction bar, but its shape alone does not tell it from a centred heading; the
+        # equation reader decides later, when it can (output.math_display_logp)
+        for i in displays:
+            if i not in eq and info[i]["number"] is None:
+                lines[i]["display"] = True
     if not eq:
         return lines, []
     # adjacent equation lines are one equation: a gap under a line height, overlapping columns

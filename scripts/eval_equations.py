@@ -36,9 +36,13 @@ def main():
     ap.add_argument("--pages", type=int, default=0)
     ap.add_argument("--config", default=None)
     ap.add_argument("--set", action="append", default=[])
+    ap.add_argument("--full", action="store_true",
+                    help="run every stage, not only through lines: equations the reader confirms "
+                         "in the output stage (output.math_display_logp) are counted")
     args = ap.parse_args()
     pl = load_pipeline(args.config)
-    pl = pl[: [s[0] for s in pl].index("lines") + 1]
+    if not args.full:
+        pl = pl[: [s[0] for s in pl].index("lines") + 1]
     over = parse_overrides(["lines.equations=true"] + args.set)
     pages = sorted(args.root.glob("*.png"))
     if args.pages:

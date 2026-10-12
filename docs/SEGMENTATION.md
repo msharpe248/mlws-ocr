@@ -294,7 +294,12 @@ output stage writes it as hOCR's `ocr_display` / `ocr_math`
 equations, 0.922 for their numbers (precision 1.000); on 12 pages each of
 letters, legal pages, newspapers, magazines, modern and business pages,
 none found (nor on 12 payroll forms); on 22 fresh typeset pages never
-looked at, F1 0.906 and 0.915.
+looked at, F1 0.906 and 0.915. On such a page the other set-apart lines are marked as
+candidates (`display`): with `output.math_display_logp` (an option, -0.1)
+the equation reader reads each, and keeps it as an equation when its mean
+log-probability per token is above that -- it is sure of mathematics and not
+of a heading. The 22 pages' F1 then 0.941 (recall 0.889 → 0.963), the 33
+pages' 0.920; text pages unchanged.
 
 ## 9. Glyph groups
 

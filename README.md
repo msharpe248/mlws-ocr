@@ -300,7 +300,13 @@ F1 0.906 on fresh typeset pages, none found on business, letter, legal,
 newspaper or magazine pages. Since v0.18.9 each equation is also READ by a
 small self-trained network into LaTeX (in the layout JSON) and MathML (in the
 `ocr_math`): since v0.18.10 (the v3 reader, a beam of eight) 61.1% of
-equations exact, 88.2% of tokens on 30 held-out typeset pages. The Pictures view shows each equation cut out, drawn from its MathML,
+equations exact, 88.2% of tokens on 30 held-out typeset pages. An option
+reads a two-line equation line by line (`output.math_split_lines`, off for
+now): 72.2% exact and 94.3% of tokens on those pages. Another lets the
+reader confirm a centred line the finder could not call (no number, no
+fraction bar) on a page with numbered equations (`output.math_display_logp`,
+off for now): finding F1 0.906 → 0.941 on the fresh pages, text pages
+unchanged. The Pictures view shows each equation cut out, drawn from its MathML,
 with its LaTeX beneath ("Read equations" turns it off).
 
 ![The Pictures view on a held-out typeset page: each display equation cut out, then drawn from the MathML the reader wrote, its LaTeX beneath -- equations 2, 3 and 4 read exactly; 1 (long) and 5 (t read as i) not](docs/img/workbench_equations.png)

@@ -1325,6 +1325,17 @@ must carry a long way, and v3 never saw one. And it reads
 typeset mathematics only: handwriting, and the notations its grammar does
 not draw (matrices, cases, accents), it has never seen.
 
+**The input's height matters.** Every equation is scaled to the same 64
+rows, so an aligned pair of two lines gets about 30 rows a line, and its
+superscripts a few rows: on 60 fresh pages the reader got 83% of one-line
+equations exactly right and only 24% of the pairs, mostly by leaving out a
+script or a denominator. Nothing about the network has to change to fix
+that. When its reading has two lines, the image is cut at the widest
+band of blank rows and each line is read on its own, at the full 64 rows
+(an option, `output.math_split_lines`): the pairs go to 63% exact, all the
+equations from 68% to 78%. A network's input resolution is part of its
+design, and sometimes the cheapest improvement is to give it a better view.
+
 ## J. The table sequence reader — a table read as tokens — `layout/tableseq.py`, `tableseq_v2.npz`
 
 **The job.** A table's crop, as a picture, in; its grid out, as a

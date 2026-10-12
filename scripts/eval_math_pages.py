@@ -6,6 +6,8 @@ tokens -- exact match and token accuracy -- so finding and reading are
 measured together, on equations as the engine cuts them.
 
     scripts/eval_math_pages.py data/equations_math --model data/mathread_v1.npz --config configs/neural.toml
+
+``--dump`` keeps each matched equation's truth and reading (an error census).
 """
 from __future__ import annotations
 
@@ -32,9 +34,13 @@ def main():
     ap.add_argument("--config", default=str(ROOT / "configs/neural.toml"))
     ap.add_argument("--pages", type=int, default=0)
     ap.add_argument("--beam", type=int, default=1, help="the reader's beam width (output.math_beam)")
+    ap.add_argument("--set", action="append", default=[], metavar="SLOT.KEY=VAL",
+                    help="a stage parameter, e.g. output.math_split_lines=true")
+    ap.add_argument("--dump", type=Path, help="write each matched equation (page, box, truth, reading) here, one JSON a line")
     args = ap.parse_args()
+    dump = args.dump.open("w") if args.dump else None
     pl = load_pipeline(args.config)
-    over = parse_overrides(["lines.equations=true", f"output.math_reader_path={args.model}", f"output.math_beam={args.beam}"])
+    over = parse_overrides(["lines.equations=true", f"output.math_reader_path={args.model}", f"output.math_beam={args.beam}"] + args.set)
     pages = sorted(args.root.glob("*.png"))[: args.pages or None]
     n_true = n_found = n_matched = exact = err = tot = bal = 0
     for f in pages:
@@ -55,6 +61,8 @@ def main():
             # the reader's own tokens (the layout's LaTeX wraps a two-line reading in 'aligned')
             pred, true = e.get("tokens", tokenize(e.get("latex", ""))), truth[best[1]]["tokens"]
             exact += pred == true; err += token_edit_distance(pred, true); tot += len(true); bal += balanced(pred)
+            if dump:
+                dump.write(json.dumps({"page": f.stem, "box": truth[best[1]]["box"], "found": [round(v) for v in box], "truth": true, "pred": pred}) + "\n")
         print(f"  {f.stem}: {len(truth)} equations, {len(found)} found, {len(used)} matched", flush=True)
     m = max(1, n_matched)
     print(f"PAGES {len(pages)}: {n_true} equations, {n_found} found, {n_matched} matched; of the matched: "

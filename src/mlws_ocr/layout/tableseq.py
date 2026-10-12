@@ -248,7 +248,79 @@ class TableSeqReader:
         return toks, boxes, probs
 
 
-def fill(tokens: list[str], boxes: list, words: list[dict]) -> dict | None:
+def _line_order(ws: list[dict], unit: float) -> list[dict]:
+    """Words in reading order: grouped into lines by their centres (a word
+    joins the line whose last centre is within half a word height), the
+    lines top to bottom, each left to right.  Cutting the page into bands a
+    word high instead parts a line whose words straddle a band's edge
+    ('debt Long-term')."""
+    lines: list[list] = []
+    for w in sorted(ws, key=lambda w: (w["box"][1] + w["box"][3]) / 2):
+        cy = (w["box"][1] + w["box"][3]) / 2
+        if lines and cy - lines[-1][-1][0] <= unit / 2:
+            lines[-1].append((cy, w))
+        else:
+            lines.append([(cy, w)])
+    return [w for ln in lines for _, w in sorted(ln, key=lambda t: t[1]["box"][0])]
+
+
+def row_drift(rows: list[tuple[float, float]], words: list[dict], unit: float):
+    """A stretch and shift (a, b) that carry the reader's rows onto the text:
+    on a long table squeezed to 448 pixels the predicted boxes drift, a few
+    pixels at the top and more than half a row lower down, and words are put
+    a row off.  ``rows`` are each row's top and bottom (the median of its
+    cells').  The text lines' heights are the words' centres grouped (a
+    row's label and figures share one).  A word goes wrong when a border
+    between two rows (half way from one's bottom to the next one's top), or
+    the table's top or bottom edge, runs through its line, so the cost is
+    each line's nearness to a border: half a word height less its distance
+    to the nearest, nothing when further.  A row of several lines (a header
+    over three) costs nothing as long as no border crosses it, where
+    matching rows' centres to lines would move it.  For each stretch from
+    0.96 to 1.04 every shift that puts some border in some gap between
+    lines is tried; the top edge stays within half a word height of where
+    the reader put it (its top is reliable, and without the anchor a shift
+    of one whole row fits nearly as well).  (1.0, 0.0) unless the best
+    beats no correction by at least a word height, and for a table of
+    fewer than 10 rows: drift is a long table's, and on the dev pool's
+    short tables, and with stretches of 7-10 per cent, the fit only found
+    another arrangement of wrapped lines that looked as good (2026-10-12)."""
+    import numpy as np
+    ys = sorted((w["box"][1] + w["box"][3]) / 2 for w in words)
+    lines: list[list] = []
+    for y in ys:
+        if lines and y - lines[-1][-1] <= unit / 2:
+            lines[-1].append(y)
+        else:
+            lines.append([y])
+    L = np.array([float(np.mean(v)) for v in lines])
+    if len(L) < 3 or len(rows) < 10:
+        return 1.0, 0.0
+    cap = unit / 2
+    B = np.array([rows[0][0] - cap]
+                 + [(rows[i][1] + rows[i + 1][0]) / 2 for i in range(len(rows) - 1)]
+                 + [rows[-1][1] + cap])
+    G = (L[:-1] + L[1:]) / 2                        # the gaps between lines
+
+    def cost(a, bs):
+        d = np.abs((a * B)[None, :, None] + bs[:, None, None] - L[None, None, :]).min(1)
+        return np.maximum(cap - d, 0).sum(1)
+    base = float(cost(1.0, np.array([0.0]))[0])
+    best = (base, 1.0, 0.0)
+    for a in np.linspace(0.96, 1.04, 17):
+        bs = (G[:, None] - a * B[None, :]).ravel()
+        bs = bs[np.abs((a - 1) * B[0] + bs) <= cap]        # the top edge anchored
+        if not len(bs):
+            continue
+        c = cost(a, bs)
+        k = int(np.argmin(c))
+        if c[k] < best[0]:
+            best = (float(c[k]), float(a), float(bs[k]))
+    return (best[1], best[2]) if best[0] < base - unit else (1.0, 0.0)
+
+
+def fill(tokens: list[str], boxes: list, words: list[dict], snap_rows: bool = False,
+         drop_empty_rows: bool = False) -> dict | None:
     """The engine's table (cells with row, col, rowspan, colspan, text, box)
     from a reading: the grid from the tokens (``decode``), each word put in
     the cell whose predicted box holds most of it -- or, when none holds a
@@ -269,7 +341,12 @@ def fill(tokens: list[str], boxes: list, words: list[dict]) -> dict | None:
     (full TEDS of the placed text, before the output steps that follow):
     cell boxes alone 0.8196, rows and columns as bands instead 0.8065-0.8086,
     with the wrapped-line rule 0.8251, and the split 0.8279 (2026-10-10).
-    A cell's words are in line order, then left to right."""
+    A cell's words are in line order, then left to right (``_line_order``).
+
+    Options: ``snap_rows`` corrects the boxes' vertical drift first
+    (``row_drift``); ``drop_empty_rows`` removes a row in which no cell
+    receives a word (an empty header row the reader adds), a cell spanning
+    it one row shorter."""
     from ..decode.tableio import split_at_cells
     g = decode(tokens)
     if not g["cells"] or g["n_cols"] < 1:
@@ -281,6 +358,17 @@ def fill(tokens: list[str], boxes: list, words: list[dict]) -> dict | None:
     words = [w for w in words if (w.get("text") or "").strip()]
     hs = sorted(w["box"][3] - w["box"][1] for w in words)
     unit = max(1.0, hs[len(hs) // 2]) if hs else 1.0
+    if snap_rows and words:
+        by_row: dict[int, list] = {}
+        for k in have:
+            c = g["cells"][k]
+            if c["rowspan"] == 1:
+                by_row.setdefault(c["row"], []).append((cb[k][1], cb[k][3]))
+        med = lambda v: sorted(v)[len(v) // 2]
+        a, b0 = row_drift([(med([t for t, _ in v]), med([u for _, u in v]))
+                           for _, v in sorted(by_row.items())], words, unit)
+        if (a, b0) != (1.0, 0.0):
+            cb = [[b[0], a * b[1] + b0, b[2], a * b[3] + b0] if b is not None else None for b in cb]
     m = unit / 2
     ext = [min(cb[k][0] for k in have) - m, min(cb[k][1] for k in have) - m,
            max(cb[k][2] for k in have) + m, max(cb[k][3] for k in have) + m]
@@ -314,9 +402,12 @@ def fill(tokens: list[str], boxes: list, words: list[dict]) -> dict | None:
             if move and (len(move) < len(put[k]) or put.get(up)):
                 put[k] = [w for w in put[k] if w not in move]
                 put.setdefault(up, []).extend(move)
+    n_rows, gcells = g["n_rows"], g["cells"]
+    if drop_empty_rows:
+        n_rows, gcells, put = _drop_empty_rows(n_rows, gcells, put)
     cells = []
-    for k, c in enumerate(g["cells"]):
-        ws = sorted(put.get(k, []), key=lambda w: ((w["box"][1] + w["box"][3]) / 2 // unit, w["box"][0]))
+    for k, c in enumerate(gcells):
+        ws = _line_order(put.get(k, []), unit)
         box = ([min(w["box"][0] for w in ws), min(w["box"][1] for w in ws), max(w["box"][2] for w in ws),
                 max(w["box"][3] for w in ws)] if ws else cb[k] if cb[k] else [0, 0, 0, 0])
         cells.append({"row": c["row"], "col": c["col"], "rowspan": c["rowspan"], "colspan": c["colspan"],
@@ -324,4 +415,32 @@ def fill(tokens: list[str], boxes: list, words: list[dict]) -> dict | None:
     allb = [cb[k] for k in have]
     return {"box": [int(min(b[0] for b in allb)), int(min(b[1] for b in allb)), int(max(b[2] for b in allb)),
                     int(max(b[3] for b in allb))],
-            "n_rows": g["n_rows"], "n_cols": g["n_cols"], "cells": cells, "source": "tableseq"}
+            "n_rows": n_rows, "n_cols": g["n_cols"], "cells": cells, "source": "tableseq"}
+
+
+def _drop_empty_rows(n_rows: int, cells: list[dict], put: dict):
+    """The grid without its rows in which no cell receives a word: a cell
+    starting in such a row and spanning on starts one row lower, a cell
+    spanning across it is one row shorter, the rows below move up.  The
+    cells keep their indices' words (``put`` re-keyed)."""
+    used = {c["row"] for k, c in enumerate(cells) if put.get(k)}
+    for k, c in enumerate(cells):                      # a word in a spanning cell keeps its rows
+        if put.get(k):
+            used.update(range(c["row"], c["row"] + c["rowspan"]))
+    empty = [r for r in range(n_rows) if r not in used]
+    if not empty or len(empty) == n_rows:
+        return n_rows, cells, put
+    new_index = {}
+    r2 = 0
+    for r in range(n_rows):
+        if r not in empty:
+            new_index[r] = r2
+            r2 += 1
+    out, put2 = [], {}
+    for k, c in enumerate(cells):
+        kept = [r for r in range(c["row"], c["row"] + c["rowspan"]) if r in new_index]
+        if not kept:
+            continue
+        put2[len(out)] = put.get(k, [])
+        out.append(dict(c, row=new_index[kept[0]], rowspan=len(kept)))
+    return r2, out, put2

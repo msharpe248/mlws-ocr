@@ -24,7 +24,7 @@ judged before it went live. The measurements themselves are in
 | Symbol reader for table crops (same CRNN, 139 classes) | `seq_line_gray17b_en.npz`, `_2`, `_3` | 3 × 291k | neural-table, on a table's crop, its symbols only (`decode.line_model_path_symbols`) | `train_seq.py` | the gray16 members 2 more epochs with the table-symbol lines `seq_synth_tsym1`, lr 3e-4, L2-SP 1e-3 |
 | Symbol classifier | `symbols_v2.npz` | 270 → 64 → 16 | neural-table, on a table's crop (`decode.line_symbol_net`) | `train_symbols.py` | 116,156 real glyphs from PubTables-1M training crops, the PDF words as truth (`harvest_symbols.py`), ×2, plus rendered glyphs of the confusion sets in table contexts; held-out real crops: dashes 77%, ° 99%, ± 92%, × 95-100%, ≤ ≥ 95-99% |
 | Table cell confidence | `cellconf_v1.npz` | 20 weights | neural-table (`output.table_cell_conf_path`) | `train_cellconf.py` | 41,333 cells of 799 selection tables (PubTables-1M training outside every draw, FinTabNet.c validation), each right when its text is the truth's at its row and column after the grids are lined up |
-| Equation reader | `mathread_v3.npz` | 848k params | neural, neural-table (`output.math_reader_path`, `output.math_beam` 8; v2 since v0.18.9, v3 since v0.18.10) | `train_mathread.py` | v3: v2's recipe on 60,000 formulas with lines of at most 50 tokens (`make_math_set.py --out data/math3 --train 60000 --max-line-tokens 50`), 30 epochs on ai02's RTX 3090 (86 min); 30 held-out pages exact 61.1%, tokens 88.2% at beam 8. v2: 60,000 formulas of the v2 grammar (aligned pairs, applied functions, newtx) typeset by tectonic in four families at 150-300 dpi (`make_math_set.py --out data/math2 --train 60000`), 30 epochs on the Mac's GPU (4.4 h); 30 held-out typeset pages: exact 54.9%, token accuracy 85.9% (v1: 45.8 / 65.9). v1 (`mathread_v1.npz`: 20,000 formulas of the first grammar, 25 epochs): test exact 50.8%, token accuracy 82.9% |
+| Equation reader | `mathread_v3.npz` | 848k params | neural, neural-table (`output.math_reader_path`, `output.math_beam` 8; v2 since v0.18.9, v3 since v0.18.10) | `train_mathread.py` | v3: v2's recipe on 60,000 formulas with lines of at most 50 tokens (`make_math_set.py --out data/math3 --train 60000 --max-line-tokens 50`), 30 epochs on ai02's RTX 3090 (86 min); 30 held-out pages exact 61.1%, tokens 88.2% at beam 8. Read LINE BY LINE (`output.math_split_lines`, an option, 2026-10-12: a reading of two lines cut at its widest gap and each line read at full height; no training): those pages 72.2% / 94.3%, 60 fresh pages 68.2 → 78.1% / 89.1 → 94.9%. Its confidence (`MathReader.confidence`, the mean log-probability of its greedy reading) also CONFIRMS unnumbered display lines as equations (`output.math_display_logp` -0.1, an option): finding F1 0.906 → 0.941. v2: 60,000 formulas of the v2 grammar (aligned pairs, applied functions, newtx) typeset by tectonic in four families at 150-300 dpi (`make_math_set.py --out data/math2 --train 60000`), 30 epochs on the Mac's GPU (4.4 h); 30 held-out typeset pages: exact 54.9%, token accuracy 85.9% (v1: 45.8 / 65.9). v1 (`mathread_v1.npz`: 20,000 formulas of the first grammar, 25 epochs): test exact 50.8%, token accuracy 82.9% |
 | Line model, grey strips (same CRNN) | `seq_line_gray9_en.npz`, `_2`, `_3` | 3 × 287k | neural (`decode.line_model_path`, `decode.line_source = "gray"`) | `train_seq.py` | v0.14.0's reader (the v0.13.0 grey reader fine-tuned with SROIE and FUNSD box-cut training lines and more Legal Reports lines, held to its predecessor by L2-SP and distillation; EMA) with 8 more classes and a symbol-bearing synthetic set |
 | Line model, grey strips (v0.14.0) | `seq_line_gray7_en.npz`, `_2`, `_3` | 3 × 285k | none since v0.15.0 (gray9's start and teacher) | `train_seq.py` | the v0.13.0 grey reader fine-tuned 4 epochs with grey SROIE and FUNSD box-cut training lines and Legal Reports lines from 600 pages, L2-SP 1e-4 and learning without forgetting towards it; EMA weights |
 | Line model, grey strips (v0.13.0) | `seq_line_gray_en.npz`, `_2`, `_3` | 3 × 285k | none since v0.14.0 (gray7's start and teacher) | `train_seq.py` | the binary line model fine-tuned on grey line strips (grey twins of harvested lines) plus binary real lines |
@@ -1213,6 +1213,23 @@ down); the 60 scored 0.839 → 0.886 and 0.859 → 0.857; screenshots 0.907 →
 0.906; the business sets identical.  Without the screenshots and the
 ruled-crop words (`tableseq_select` fitted on sel3 alone) the screenshots
 read 0.894.
+
+**Placing the words** (2026-10-12; RESEARCH).  A census of the FinTabNet.c
+dev tables v0.18.13 made worse found three faults in `fill`'s placement:
+the reader's rows DRIFT down a long table squeezed to 448 px (40 px over
+27 rows, more than half a line), it sometimes adds an EMPTY header row, and
+a cell's words came out of order when the lines stage made two text lines
+of one ('debt Long-term').  The last is fixed in neural-table (cell text in
+line order, lines under half a word height apart one: `_same_line_order`
+under `cell_order_by_line`), and with it a fault in the note trim that took
+a check-mark table's rows for notes: held out PubTables-1M 0.8785 → 0.8789,
+FinTabNet.c 0.8797 → 0.8810.  The other two are options, off:
+`output.table_seq_snap_rows` (`row_drift`: on tables of 10 rows or more, a
+stretch of at most 4% and a shift that keep the borders between rows out
+of the text lines) and `output.table_seq_drop_empty`.  Dev pool +0.002 /
++0.0014; held out +0.0010 / -0.0006 -- the choice, fitted on fills without
+them, takes the reader's table more often once it is filled better; they
+are to be judged with a choice refitted on fills made with them.
 
 ## Rebuilding everything from scratch
 

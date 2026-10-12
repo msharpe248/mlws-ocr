@@ -100,6 +100,29 @@ def tableseq_choice_inputs(t: dict | None, st: dict, seq_x: list[float], ruled: 
     return [float(v) for v in seq_x] + [float(ruled)] + [float(v) for v in select_inputs(a, b)]
 
 
+def _same_line_order(entries: list[tuple], lines: list[dict]) -> list[tuple]:
+    """A cell's words in reading order: (row, col, y, x, text) entries sorted
+    by cell, then line, then x -- where two text lines whose heights differ
+    by less than half the page's median word height count as one line.  The
+    lines stage can make two lines of what is one ('Long-term' with its
+    descender a few pixels lower than 'debt'), and sorting by each line's
+    own height read the cell 'debt Long-term'."""
+    hs = sorted(w["box"][3] - w["box"][1] for ln in lines for w in ln.get("words", []))
+    half = (hs[len(hs) // 2] if hs else 0) / 2
+    out, cell = [], {}
+    for e in entries:
+        cell.setdefault((e[0], e[1]), []).append(e)
+    for key in sorted(cell):
+        es = sorted(cell[key], key=lambda e: e[2])
+        group, start = [], None
+        for e in es:
+            if start is None or e[2] - start > half:
+                start = e[2]
+            group.append((start, e))
+        out += [e for _, e in sorted(group, key=lambda t: (t[0], t[1][3]))]
+    return out
+
+
 def with_cell_text(t: dict, words: list[dict]) -> dict:
     """A copy of a table whose cells hold no text yet (a ruled grid, filled
     only when the text is placed) with each word in the cell holding its
@@ -292,6 +315,8 @@ class TextOutput(Stage):
                                          # only kept beside it (2026-10-10, in trial); "select": the one a
                                          # learned choice (table_seq_select, train_tableseq_select.py) prefers
         "table_seq_select": "",
+        "table_seq_snap_rows": False,   # the reader's boxes stretched and shifted onto the text lines first (tableseq.row_drift)
+        "table_seq_drop_empty": False,  # rows of the reader's grid that receive no word removed
         "table_rebuild_centred": False,  # ...the rebuild sees headings centred across both header lines, and
                                          # short spanners between two columns (headers.rebuild_header)
         "table_heading_rows": False,     # a table's crop: headings above its cells over the figure columns
@@ -300,6 +325,10 @@ class TextOutput(Stage):
                                          # (math/reader.py): LaTeX tokens into layout["equations"], MathML
                                          # into the hOCR's ocr_math beside the image; "" = cut out only
         "math_beam": 1,                  # ...greedy (1) or a beam search of this width (math/reader.py)
+        "math_split_lines": False,       # ...a reading of two lines read again line by line (MathReader.read_display)
+        "math_display_logp": 0.0,        # ...a centred display line the finder could not call (``display``, on a page
+                                         # with a numbered equation) kept as an equation when the reader's mean
+                                         # log-probability on it is above this (-0.1); 0 off
         "pictures": False,               # each picture zone named as a file (picture_N.png) in the hOCR's
                                          # ocr_photo and meta["pictures"], with its box in the original image's
                                          # frame, for the writers to cut it out and a consumer to put it back
@@ -332,7 +361,9 @@ class TextOutput(Stage):
         "cell_order_by_line": False,     # a cell's words in the order of their LINES, then left to
                                          # right: sorted by each word's own centre, two words on a
                                          # line a pixel apart came out reversed ('Pay Date' ->
-                                         # 'Date Pay': a descender lowers a word's centre)
+                                         # 'Date Pay': a descender lowers a word's centre); two LINES
+                                         # under half a word height apart are one (_same_line_order,
+                                         # 2026-10-12: 'debt Long-term')
         "table_det_path": "",            # a trained table detector (layout/tabledet.py): the page's
                                          # tables where it finds them -- a ruled grid kept when a
                                          # detected table covers it, each other detection a table
@@ -633,7 +664,8 @@ class TextOutput(Stage):
         toks, bxs, prs = rd.read(page.gray)
         # a reading that runs to the limit is a decoder repeating itself (one row written over and
         # over), not a table
-        st = fill(toks, bxs, words) if toks and len(toks) < MAX_TOKENS else None
+        st = (fill(toks, bxs, words, snap_rows=self.params["table_seq_snap_rows"],
+                   drop_empty_rows=self.params["table_seq_drop_empty"]) if toks and len(toks) < MAX_TOKENS else None)
         if st is None:
             return None, None
         lens = [len(r.split()) for r in " ".join(toks).split("nl") if r.strip()]
@@ -752,10 +784,61 @@ class TextOutput(Stage):
         nt = grid_table(box, xs, ys, inw, self.params["table_cell_lines"])
         return nt if nt is not None else t
 
+    def _math_reader(self):
+        from ..math.reader import MathReader
+        key = ("math", self.params["math_reader_path"])
+        if key not in self._nets:
+            self._nets[key] = MathReader(self.params["math_reader_path"])
+        return self._nets[key]
+
+    def _confirm_displays(self, layout: dict, page: Page) -> dict:
+        """Display lines the equation finder marked as candidates (``display``:
+        set apart on a page with a numbered equation, but no number, fraction
+        bar or large operator) kept as equations when the equation reader reads
+        them confidently -- its mean log-probability per token above
+        ``math_display_logp`` (``MathReader.confidence``).  Its shape alone
+        does not tell a centred line of mathematics from a centred heading; a
+        reader trained only on mathematics is sure of the one and not the
+        other.  Adjacent confirmed lines (under 1.5 line heights apart,
+        overlapping across) are one equation, as in the finder."""
+        th = float(self.params["math_display_logp"])
+        rd = self._math_reader()
+        hs = sorted(ln["box"][3] - ln["box"][1] for ln in layout["lines"])
+        line_h = float(hs[len(hs) // 2]) if hs else 0.0
+        took = []
+        for k, ln in enumerate(layout["lines"]):
+            if not ln.get("display"):
+                continue
+            x0, y0, x1, y1 = (int(v) for v in ln["box"])
+            if x1 - x0 < 4 or y1 - y0 < 4:
+                continue
+            if rd.confidence(page.gray[max(0, y0):y1, max(0, x0):x1]) > th:
+                took.append(k)
+        if not took:
+            return layout
+        groups: list[list] = []
+        for k in sorted(took, key=lambda k: layout["lines"][k]["box"][1]):
+            b = layout["lines"][k]["box"]
+            for g in groups:
+                gb = g[-1]
+                if b[1] - gb[3] < 1.5 * line_h and b[0] < gb[2] and gb[0] < b[2]:
+                    g.append(b)
+                    break
+            else:
+                groups.append([b])
+        new = [{"box": [min(b[0] for b in g), min(b[1] for b in g), max(b[2] for b in g), max(b[3] for b in g)],
+                "number_boxes": [], "n_lines": len(g), "confirmed": True} for g in groups]
+        drop = set(took)
+        return dict(layout, lines=[ln for k, ln in enumerate(layout["lines"]) if k not in drop],
+                    equations=list(layout.get("equations", [])) + new)
+
     def run(self, page: Page) -> tuple[Page, DebugBundle]:
         layout = page.meta.get("layout", {})
         if "lines" not in layout:
             raise ValueError("output requires decoded lines")
+        if (self.params["math_display_logp"] and self.params["math_reader_path"] and page.gray is not None
+                and any(ln.get("display") for ln in layout["lines"])):
+            layout = self._confirm_displays(layout, page)
         doc_type = page.meta.get("doc_type") or ""
         allowed = [t for t in self.params["line_number_doc_types"].split(",") if t]
         numbering = (self._line_number_column(layout)
@@ -911,7 +994,10 @@ class TextOutput(Stage):
                             entries.append((cell["row"], cell["col"],
                                             ly if ly is not None else cy, cx, w["text"]))
                             break
-            entries.sort()
+            if by_line:
+                entries = _same_line_order(entries, layout["lines"])
+            else:
+                entries.sort()
             diag = {(c["row"], c["col"]): c for c in t["cells"] if c.get("diagonal")}
             parts: dict = {}
             for r, c, cy, cx, text in entries:
@@ -1056,14 +1142,13 @@ class TextOutput(Stage):
         out.meta["text"] = full
         if self.params["math_reader_path"] and layout.get("equations") and page.gray is not None:
             from ..math.latex import display_latex, to_mathml
-            from ..math.reader import MathReader
-            key = ("math", self.params["math_reader_path"])
-            if key not in self._nets:
-                self._nets[key] = MathReader(self.params["math_reader_path"])
+            rd = self._math_reader()
             eqs = []
             for e in layout["equations"]:
                 x0, y0, x1, y1 = (int(v) for v in e["box"])
-                toks = self._nets[key].read(page.gray[max(0, y0):y1, max(0, x0):x1], beam=int(self.params["math_beam"]))
+                crop = page.gray[max(0, y0):y1, max(0, x0):x1]
+                bm = int(self.params["math_beam"])
+                toks = rd.read_display(crop, beam=bm) if self.params["math_split_lines"] else rd.read(crop, beam=bm)
                 # the tokens as read; the LaTeX to set them (two lines: an aligned pair); the MathML
                 eqs.append(dict(e, tokens=toks, latex=display_latex(toks), mathml=to_mathml(toks)))
             layout = dict(layout, equations=eqs)

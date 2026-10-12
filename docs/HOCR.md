@@ -218,8 +218,10 @@ ground, so that a bold logo stays a logo. The inversion itself
 **Display equations** (in the neural profiles since v0.18.5; `lines.equations`): hOCR 1.2 puts a display
 formula in an `ocr_display` holding an `ocr_math`, which must contain an
 image or MathML. The engine finds display equations before reading
-([SEGMENTATION.md §8](SEGMENTATION.md)) and, with `output.pictures`, cuts
-each from the original as `equation_N.png`:
+([SEGMENTATION.md §8](SEGMENTATION.md); with `output.math_display_logp`, an
+option, the equation reader also confirms centred lines the finder could not
+call) and, with `output.pictures`, cuts each from the original as
+`equation_N.png`:
 
 ```html
 <div class="ocr_display" id="display_1_1" title="bbox 602 840 1078 977">
@@ -239,8 +241,9 @@ here both. The LaTeX goes into the layout JSON (`layout.equations[].latex`;
 a two-line equation as an `aligned` pair; the reader's own tokens beside it
 in `tokens`). On 30 held-out typeset pages (v0.18.10: the v3 reader, a beam
 of eight), 61.1% of the equations are read exactly and 88.2% of their
-tokens are right ([RESEARCH.md](RESEARCH.md)); long formulas (over about 45 tokens)
-are read poorly. A consumer that needs certainty keeps the image.
+tokens are right ([RESEARCH.md](RESEARCH.md)), and 72.2% and 94.3% with
+`output.math_split_lines` (an option: a two-line equation read line by
+line); long formulas (over about 45 tokens) are read poorly. A consumer that needs certainty keeps the image.
 
 ## 7. hOCR and its relatives
 

@@ -330,6 +330,7 @@ pipeline) and name the profile with any figure you report.
 | real receipts | `data/tables/cord` | `eval_tables.py data/tables/cord --pages 30 --config configs/neural-table.toml` |
 | annual-report tables, scientific tables | `data/tables/fintabnet`, `data/tables/pubtables` | §4 |
 | display equations | `data/equations` | `eval_equations.py data/equations --config configs/neural.toml` (finding only: P / R / F1 at IoU 0.5, and of the numbers) |
+| equations read | `data/equations_math` (30 pages, behind the reader's decisions); `data/equations_math_heldout` (60 fresh pages, `make_equation_set.py --math --n 60 --seed 97`, 2026-10-12) | `eval_math_pages.py <dir> --model data/mathread_v3.npz --beam 8 --config configs/neural.toml` (`--set output.math_split_lines=true` line by line; `--dump` each equation's truth and reading) |
 
 ## 11. Keeping evaluation data out of training
 

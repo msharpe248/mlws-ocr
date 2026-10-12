@@ -251,7 +251,11 @@ Five self-trained networks join the rules (their shapes and training:
   screenshots level, 0.907 → 0.906). Its first model had learned that a
   table sits in a white margin, as PubTables-1M's crops do, and misread
   tight crops; it was trained again with half its tables set in random
-  margins, beside 60,000 drawn financial tables.
+  margins, beside 60,000 drawn financial tables. Placing the words is its own
+  problem: on a long table squeezed to 448 pixels its row boxes drift down
+  the page by more than half a line, and it sometimes adds an empty header
+  row. Two options correct these (`table_seq_snap_rows`,
+  `table_seq_drop_empty`; off until measured with a refitted choice).
 
 The pattern is the engine's usual one: the network is a candidate or a
 witness beside an explicit rule, never an unexamined replacement.

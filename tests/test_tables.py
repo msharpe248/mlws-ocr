@@ -291,6 +291,15 @@ def test_trim_whole_rows_takes_a_split_caption_and_note_off_a_crop():
     assert trim_caption_notes(_table(misread), whole_rows=True)["n_rows"] == 3
 
 
+def test_a_check_mark_row_is_not_a_note():
+    from mlws_ocr.layout.wstables import trim_caption_notes
+    rows = [["Construct", "Measure", "BL", "Post"],
+            ["Fidelity", "Fidelity of the practice", "x", "x"],
+            ["Attitudes", "Evidence-Based Practice Attitudes Scale", "X", ""],
+            ["Org. structure", "Program/District Structure Questionnaire", "x x", ""]]
+    assert trim_caption_notes(_table(rows), whole_rows=True)["n_rows"] == 4
+
+
 def test_row_labels_span_the_rows_beneath_them_but_headings_do_not():
     from mlws_ocr.layout.wstables import span_row_labels
     t = span_row_labels(_table([["Sex, n (%)", "Men", "216"],

@@ -46,3 +46,25 @@ def test_mathml_scripts_on_delimiters_and_aligned_latex():
     assert "<msup><mo>)</mo><mrow><mo>−</mo><mn>1</mn></mrow></msup>" in to_mathml(tokenize(r"h(y)^{-1}"))
     # a two-line reading is written as an aligned pair a TeX consumer can set
     assert display_latex(tokenize(r"a=b\\c=d")) == r"\begin{aligned}a &=b \\ c &=d\end{aligned}"
+
+
+def test_widest_gap_and_read_display():
+    """The cut falls in the widest inkless band; a one-line reading is not cut,
+    a two-line one is read again line by line."""
+    from mlws_ocr.math.reader import MathReader, widest_gap
+    g = np.ones((60, 40))
+    g[5:15, 5:30] = 0          # a line
+    g[18:20, 5:30] = 0         # a fraction bar 3 rows below it (a narrow gap)
+    g[40:50, 5:30] = 0         # a second line, 20 rows below
+    assert widest_gap(g) == 30
+    assert widest_gap(np.ones((10, 10))) is None
+    r = MathReader.__new__(MathReader)
+    calls = []
+
+    def read(gray, beam=1):
+        calls.append(gray.shape[0])
+        return ["a", "\\\\", "b"] if len(calls) == 1 else ["x"]
+    r.read = read
+    assert r.read_display(g) == ["x", "\\\\", "x"] and calls == [60, 30, 30]
+    calls.clear(); r.read = lambda gray, beam=1: calls.append(1) or ["a"]
+    assert r.read_display(g) == ["a"] and calls == [1]
