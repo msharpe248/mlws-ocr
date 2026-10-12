@@ -146,7 +146,7 @@ has to be right everywhere.
 ## Where we differ on purpose
 
 - **Every model is trained here.** No pre-trained weights, no foundation
-  model; the networks are small enough to read and train on a laptop
+  model; the networks are small enough to read and to train on a home computer
   from public data (`docs/NETWORKS.md`). Tesseract's models are Google's,
   trained once on private infrastructure.
 - **Real scans in training.** Tesseract's public models never saw a
@@ -184,7 +184,7 @@ has to be right everywhere.
 - **Speed.** Tesseract reads a letter in about two seconds; the neural
   profile takes about eleven in numpy on one core (RESEARCH 2026-09-24),
   less with torch on a GPU, and `mlws-ocr batch` reads a page per core
-  (33 letters a minute on a 14-core laptop).
+  (33 letters a minute on a 14-core Mac mini).
 - **Maturity.** Tesseract has decades of use on millions of documents in
   many languages; this engine has been measured on the sets above and
   little else. See the caveat on the README.

@@ -1,7 +1,7 @@
 # mlws-ocr — the networks
 
 Every learned model in mlws-ocr is trained by this repository, on public
-data, on home hardware (a laptop CPU, or its GPU through the optional
+data, on home hardware (a Mac mini's CPU, or its GPU through the optional
 `torch` extra), and runs locally from one exported `.npz`. Nothing is
 downloaded pre-trained; no vision or language foundation model is used.
 This page lists every network and every small learned model, what it is
@@ -56,7 +56,7 @@ in [DEV_ENVIRONMENT.md](DEV_ENVIRONMENT.md).
 The trainer runs anywhere torch runs; the pipeline and the evaluations
 stay where the evaluation sets and Tesseract are. A Linux box with an
 RTX 3080 Ti (2026-09-21) steps the line recipe at 0.018 s a batch of 64
-against 0.117 s a batch of 32 on the laptop's MPS backend — an
+against 0.117 s a batch of 32 on the Mac's MPS backend — an
 eight-epoch run in about an hour instead of eleven. Set-up, once:
 
 ```sh
@@ -296,7 +296,7 @@ hidden 256, vocabulary of the character set.
 perplexity against the trigram is the go/no-go.
 
 **Training.** Pure numpy, truncated back-propagation through time
-(documented in the module), under a minute an epoch on a laptop.
+(documented in the module), under a minute an epoch on the Mac.
 
 ```sh
 .venv/bin/python scripts/train_charlm.py --corpus data/corpus_en_plus --out data/gru_en.npz --epochs 24
@@ -377,7 +377,7 @@ strips and 1,993 whole lines from the Library of Congress Legal Reports
 had the receipts and forms, `seq_line_v7a` the UNLV lines only.
 
 **Training.** As the word scorer, initialized from the long-window model
-and run eight epochs (614 minutes on the laptop's GPU, 60–100 on the CUDA
+and run eight epochs (614 minutes on the Mac's GPU, 60–100 on the CUDA
 box), two seeds. Judged first on
 the block metric (`eval_blocks.py`, `--set decode.line_mode=pure`) — the
 reader alone on a paragraph — then on every set with the judge. Adding

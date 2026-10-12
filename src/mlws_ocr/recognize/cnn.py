@@ -10,7 +10,7 @@ costs a few filter responses at a few positions and leaves the rest of
 the map intact, without ever tracing an outline.
 
 Constraints this respects: it is trained here, from our own renders and
-our own truth-labeled scans (`scripts/train_cnn.py`), on a laptop CPU in
+our own truth-labeled scans (`scripts/train_cnn.py`), on a Mac mini's CPU in
 minutes; it is ~30k parameters of numpy, no framework, no pre-trained
 weights; and it is an OPINION, re-costing the candidate list the
 prototype channel produces, not a replacement for it.

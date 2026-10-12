@@ -334,7 +334,7 @@ scattered single-page quirks. Eight rules that fixed a template class or
 a single page measured negative on the general sets and are recorded.
 
 **2026-09-09, the neural profile's first term.** The word-strip sequence
-scorer of item 3 is built, trained (97 min on the laptop's GPU) and
+scorer of item 3 is built, trained (97 min on the Mac's GPU) and
 adopted in `configs/neural.toml`: broad-30 81.4 → 85.0 word, modern
 72.3 → 76.3, legal-8 79.6 → 81.0, dev-8 88.8 → 90.6, up on every figure
 of every set (RESEARCH). Its own greedy read of a real word window is

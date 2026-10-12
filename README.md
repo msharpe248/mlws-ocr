@@ -217,7 +217,7 @@ the same as JSON, one page per worker process, so a machine with N cores
 reads about N pages at once (`scripts/service_load.py` is its load test).
 `mlws-ocr batch` does the same for files, directories and whole PDFs: 16
 UNLV letters take 185 s on one worker and 29 s on thirteen (33 pages a
-minute on a 14-core laptop), with text, hOCR and a `batch.json` summary
+minute on a 14-core Mac mini), with text, hOCR and a `batch.json` summary
 per run.
 
 **Tables.** A page's tables come out as structure, not only as text:
