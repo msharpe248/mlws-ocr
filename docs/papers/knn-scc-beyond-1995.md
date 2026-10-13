@@ -208,7 +208,10 @@ the wrong way round).
 pages per document kind that no evaluation uses; the link model was
 trained on 40 further pages; and the results are reported on the
 standard evaluation sets — then **confirmed on 20 held-out pages per
-kind** that no tuning, training or evaluation had touched. The held-out
+kind** that no tuning, evaluation or link-model training had touched
+(the OCR's readers, the same for every segmenter compared, had been
+trained on lines from them: corrected 2026-10-13, see the system paper,
+*Readable and Self-Trained*, §6.1). The held-out
 check matters: variants were designed while looking at evaluation
 results, and two apparent wins did not survive it (§4.3).
 

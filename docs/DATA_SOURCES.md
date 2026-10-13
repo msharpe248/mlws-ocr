@@ -55,7 +55,7 @@ match the manifest.
 ```
 data/
 ├── *.npz, *.json              the released models (§1)
-├── unlv/<set>/                UNLV/ISRI scans with truth: bus.3B, legal.3B, mag.3B, news.3B, bus.3A, news.4B
+├── unlv/<set>/                UNLV/ISRI scans with truth: bus.3B, legal.3B, mag.3B, news.3B, bus.3A, news.4B; doe3.3B, rep.3B (clean: never harvest)
 ├── raw/                       downloads, as they came
 │   ├── sroie/                 git clone of the corrected SROIE mirror
 │   ├── funsd/dataset/         FUNSD, unzipped
@@ -83,11 +83,11 @@ the places the documentation's command lines use.
 
 | | |
 |---|---|
-| what | 1990s bitonal scans with verified ground-truth text and zone files: business letters (`bus`), legal pleadings (`legal`), magazines (`mag`), newspapers (`news`) — the collection behind the ISRI annual OCR tests |
-| used for | the headline evaluation rows (dev-8, broad-30, legal-8, news-8, mag-8, the held-out rows, blocks); and, from pages **no evaluation uses**, glyph harvests (prototypes, MLP), word and line strips (the readers), and the fitted judges |
+| what | 1990s bitonal scans with verified ground-truth text and zone files: business letters (`bus`), legal pleadings (`legal`), magazines (`mag`), newspapers (`news`), and, as the clean test, DOE technical reports (`doe3`) and annual reports (`rep`) — the collection behind the ISRI annual OCR tests |
+| used for | the headline evaluation rows (dev-8, broad-30, legal-8, news-8, mag-8, the held-out rows, blocks); and, from pages **no evaluation draw uses** (the held-out pools included: §11), glyph harvests (prototypes, MLP), word and line strips (the readers), and the fitted judges. `doe3.3B` and `rep.3B` (fetched 2026-10-13) are the clean rows: never harvested, never tuned on |
 | licence | © 1996 Regents of the University of Nevada; research use (see each set's `README`); not redistributed here |
 | where from | the ISRI OCR evaluation tools' data on SourceForge: <https://sourceforge.net/projects/isri-ocr-evaluation-tools-alt/files/> (tooling: <https://github.com/eddieantonio/ocreval>) |
-| get it | `sh scripts/fetch_unlv_testdata.sh` fetches `bus.3B`, `mag.3B`, `news.3B`. `legal.3B`, `bus.3A` and `news.4B`, which the engine also uses, come from the same ISRI collection; no script fetches them yet |
+| get it | `sh scripts/fetch_unlv_testdata.sh` fetches `bus.3B`, `mag.3B`, `news.3B`; `sh scripts/fetch_unlv_testdata.sh doe3.3B rep.3B` the clean sets. `legal.3B`, `bus.3A` and `news.4B`, which the engine also uses, come from the same ISRI collection; no script fetches them yet |
 | lands in | `data/unlv/<set>/<n>/<page>.tif` with `<page>.txt` (truth) and `<page>.uzn` (zones); a set's `README`, `pages` and `PAGES_*` index files at its top |
 
 The evaluation harness pairs every `*.tif` with the same-stem `.txt`; the
@@ -321,8 +321,9 @@ pipeline) and name the profile with any figure you report.
 | broad-30 | `data/unlv/bus.3B` | `eval_unlv.py data/unlv/bus.3B --pages 30 --seed 2 --doc-type letter` |
 | legal-8 | `data/unlv/legal.3B` | `eval_unlv.py data/unlv/legal.3B --pages 8 --seed 1 --doc-type legal` |
 | news-8, mag-8 | `data/unlv/news.3B`, `mag.3B` | `--pages 8 --seed 1 --doc-type newspaper` / `magazine` |
+| clean DOE reports, annual reports | `data/unlv/doe3.3B`, `rep.3B` | `eval_unlv.py <set> --pages 30 --seed 5 --dump DIR` with no `--doc-type` (and `eval_tesseract.py <set> --pages 30 --seed 5 --dump DIR`); score pooled over the set from the dumps, since many DOE pages are figures whose truth is only the caption (the system paper §6) |
 | held-out newspapers, magazines, letters, legal pages | `data/unlv/news.3B`, `mag.3B`, `bus.3B`, `legal.3B` | `eval_unlv.py <set> --heldout --pages 30 --seed 5 --doc-type newspaper` / `magazine` / `letter` / `legal` (and `eval_tesseract.py --heldout` for the same pages); without the hint every type reads worse (RESEARCH, 2026-09-26) |
-| development pools (not a README row) | `data/unlv/<set>` | `eval_unlv.py <set> --pool tune --pages 30 --seed 5` and `--pool train --pages 40 --seed 5` with the doc-type hint: the pages a layout fix is developed on, so the held-out 30 stay unseen until it is measured (newspapers, 2026-10-12); `attribute_recall.py` and `eval_tesseract.py` take the same `--pool` (and `eval_tesseract.py --dump` writes the LSTM's text for page-by-page comparison) |
+| development pools (not a README row) | `data/unlv/<set>` | `eval_unlv.py <set> --pool tune --pages 30 --seed 5` and `--pool train --pages 40 --seed 5` with the doc-type hint: the pages a layout fix is developed on, so the held-out 30 stay out of the fix's development until it is measured (newspapers, 2026-10-12); `attribute_recall.py` and `eval_tesseract.py` take the same `--pool` (and `eval_tesseract.py --dump` writes the LSTM's text for page-by-page comparison) |
 | modern | `data/modern/sev0..2` | `eval_unlv.py data/modern/sevN --pages 59 --by-kind` |
 | business | `data/business/sev0` | `eval_unlv.py data/business/sev0 --pages 60 --seed 1 --by-kind` |
 | sroie, funsd, legal reports, cord | `data/ext/sroie/eval` (60), `data/ext/funsd/eval` (50), `data/ext/btp_legal/eval` (40), `data/ext/cord/evalcrop` (100) | `eval_unlv.py <dir> --pages <all of them>` (the default is 10) |
@@ -340,7 +341,13 @@ them apart three ways:
 
 - **UNLV**: the harvest scripts refuse every page any evaluation draws
   (`harvest_glyphs.py: eval_pages_set()` — the seeded draws of every set),
-  and the held-out pools exclude the tuning and training draws.
+  and the held-out pools exclude the tuning and training draws. They do
+  **not** refuse the held-out pools: those were defined later, for layout
+  decisions, and every held-out letter, legal and newspaper page and 24 of
+  the 30 held-out magazine pages lent lines to the readers (audit of
+  2026-10-13; [MEASUREMENT.md §4](MEASUREMENT.md)). The held-out rows are
+  held out from decisions, not from training. `doe3.3B` and `rep.3B` are
+  the clean test: no harvest may open them.
 - **External sets**: each is split once into `eval` and `harvest`
   directories; the line harvest takes `--eval-dir` and refuses those stems;
   the Library of Congress draws take `--exclude-dir`.

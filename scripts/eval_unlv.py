@@ -220,6 +220,7 @@ def main():
 
     cers, wers, recalls, precisions = [], [], [], []
     kinds: list[str] = []
+    pooled = np.zeros(4)   # char errors, truth chars, word errors, truth words
 
     failed = 0
     for img_path, gt_path in pairs:
@@ -241,6 +242,7 @@ def main():
             print(f"  {img_path.name}: PIPELINE ERROR {e}")
             failed += 1
             cers.append(1.0); wers.append(1.0); recalls.append(0.0); precisions.append(0.0)
+            pooled += [len(truth), len(truth), len(truth.split()), len(truth.split())]
             continue
         if args.dump is not None:
             args.dump.mkdir(parents=True, exist_ok=True)
@@ -250,8 +252,10 @@ def main():
             uzn = img_path.with_suffix(".uzn")
             if uzn.exists():
                 got = normalize(zone_ordered_text(page, read_zones(uzn)))
-        cer = edit_distance(got, truth) / max(len(truth), 1)
-        wer = edit_distance_words(got.split(), truth.split()) / max(len(truth.split()), 1)
+        ce, we = edit_distance(got, truth), edit_distance_words(got.split(), truth.split())
+        pooled += [ce, len(truth), we, len(truth.split())]
+        cer = ce / max(len(truth), 1)
+        wer = we / max(len(truth.split()), 1)
         # Order-independent bag-of-words recall: how many ground-truth
         # words were read at all, wherever they landed in the output.
         # Separates recognition failure from reading-order mismatch
@@ -273,6 +277,12 @@ def main():
         print(f"\nMEAN over {len(cers)} pages{f' ({failed} failed)' if failed else ''}: "
               f"char acc {1-np.mean(cers):.1%}  word acc {1-np.mean(wers):.1%}  "
               f"word recall {np.mean(recalls):.1%}  precision {np.mean(precisions):.1%}")
+        # Errors summed over the set over its characters summed: the summary
+        # for sets of figure pages, whose truth is only the caption while
+        # every engine reads the axis labels too (a DOE page scores -860%,
+        # and the per-page mean on doe3.3B is -11% neural, +19% LSTM)
+        print(f"POOLED over {len(cers)} pages: char acc {1-pooled[0]/max(pooled[1], 1):.1%}  "
+              f"word acc {1-pooled[2]/max(pooled[3], 1):.1%}")
         if args.by_kind:
             for kind in sorted(set(kinds)):
                 idx = [i for i, k in enumerate(kinds) if k == kind]

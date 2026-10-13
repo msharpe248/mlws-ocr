@@ -18,6 +18,25 @@ With the tables and equations at v0.18.15, the owner widened the focus beyond ta
    Left: columns joined across a photograph (8225_005), a column running through a
    pull quote (8243_026), white-on-black banners, a headline the XY-cut parts at a gutter.
 2. **The system paper** (item 2 of "Next" below), written with that result.
+   **Drafted (2026-10-13):** `docs/papers/readable-self-trained-ocr.md` and its HTML
+   edition, measured at v0.18.16: every profile and both Tesseract engines on 9 sets, the
+   decoder's three modes, the hint and the segmenter judge. Its audit found the held-out
+   UNLV pages held out from decisions but **not from training** (the harvests exclude only
+   the evaluation draws), so two never-opened UNLV sets were fetched as the clean test:
+   DOE reports level with the LSTM (85.9 / 78.1 against 86.6 / 77.5, pooled), annual
+   reports 14 characters behind (72.2 against 86.1). Awaiting the owner's review.
+
+**What the clean sets point to (for the owner; nothing started):**
+- **Columns found without a hint, on report pages too.** Rep.3B's two-column pages are
+  read across their narrow gutters with no hint, and the magazine hint does not fix
+  them (pooled 72.2 -> 73.7, 13 pages down, 6 up; 9500_034 reads 30% either way, LSTM
+  99.6%); held-out newspapers and magazines lose 18 and 15 characters without their
+  hint. A column finder for narrow gutters, then a document-type guess.
+- **Reverse-video text pipeline**: a white-on-black page reads as nothing (rep 9515_017;
+  the LSTM reads it at 84%). The table profile already inverts light text inside tables.
+- **Harvests that refuse the held-out pools too** (`eval_pages_set` plus
+  `eval_layout.heldout_pairs`), so a future held-out number is held out from training.
+  It changes what the next reader is trained on, so it is the owner's decision.
 
 The table choice refitted with the placement options on (2026-10-12) was not
 adopted: it changed few decisions and did not hold out (RESEARCH).

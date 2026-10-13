@@ -47,9 +47,16 @@ that did not work.
 Character / word accuracy on real scanned pages, September 2026. Legacy
 Tesseract (`--oem 0`) is the reference, measured with the same scripts on
 the same pages; the LSTM column is Tesseract 5.5.3 with its default English
-model; bold marks the row's leader. The held-out rows are pages no tuning,
-training or evaluation decision has used (`eval_unlv.py --heldout`,
-`eval_tesseract.py --heldout`). Receipts are out of scope for now: the
+model; bold marks the row's leader. The held-out rows are pages no tuning or
+layout decision has used (`eval_unlv.py --heldout`,
+`eval_tesseract.py --heldout`), but **not** pages kept from training: the
+readers' line harvests excluded only the evaluation draws, and every
+held-out letter, legal and newspaper page and 24 of the 30 magazine pages
+lent lines to training (audit of 2026-10-13,
+[the system paper](docs/papers/readable-self-trained-ocr.md) §6.1). The two
+*clean* rows are UNLV sets the project had never opened: no decision and no
+training has touched them. They are scored pooled over the set's characters,
+because many DOE pages are figures whose truth is only the caption. Receipts are out of scope for now: the
 engine targets documents from business-quality printers and screenshots,
 and photographed or thermal receipts wait for a profile of their own
 (`docs/ROADMAP.md`); their measurements stay in `docs/RESEARCH.md`. The full
@@ -64,9 +71,11 @@ scoreboard and its history are in `docs/DESIGN.md` §8.
 | business | invoices, payslips, receipts, statements, purchase orders | 95.3 / 86.1 | **98.0 / 96.8** | 70.7 / 68.0 | 70.7 / 68.6 |
 | news-8 | UNLV newspapers (the layout rules were tuned here) | 94.2 / 84.1 | **97.4 / 95.4** | 96.3 / 93.1 | 96.7 / 94.8 |
 | mag-8 | UNLV magazines (the layout rules were tuned here) | 66.8 / 45.5 | 87.2 / 81.3 | 87.3 / **84.7** | **87.8** / 84.4 |
-| newspapers, held out | 30 UNLV newspaper pages no decision has used | 76.5 / 63.4 | **89.1 / 85.6** | 87.1 / 82.4 | 87.7 / 84.2 |
-| magazines, held out | 30 UNLV magazine pages no decision has used | 68.3 / 50.7 | **83.8 / 75.7** | 77.9 / 71.3 | 78.5 / 73.6 |
-| letters, held out | 30 UNLV business letters no decision has used | 90.7 / 83.1 | **93.9 / 91.1** | 92.4 / 88.8 | 93.1 / 90.6 |
+| newspapers, held out | 30 UNLV newspaper pages held out from decisions (not from training) | 76.5 / 63.4 | **89.1 / 85.6** | 87.1 / 82.4 | 87.7 / 84.2 |
+| magazines, held out | 30 UNLV magazine pages held out from decisions (not from training) | 68.3 / 50.7 | **83.8 / 75.7** | 77.9 / 71.3 | 78.5 / 73.6 |
+| letters, held out | 30 UNLV business letters held out from decisions (not from training) | 90.7 / 83.1 | **93.9 / 91.1** | 92.4 / 88.8 | 93.1 / 90.6 |
+| DOE reports, clean | 30 UNLV DOE technical reports never opened before (no hint, pooled) | 83.5 / 68.9 | 85.9 / **78.1** | 86.0 / 76.2 | **86.6** / 77.5 |
+| annual reports, clean | 30 UNLV annual reports never opened before (no hint, pooled) | 66.5 / 53.1 | 72.2 / 68.4 | 84.3 / 83.3 | **86.1 / 84.6** |
 | funsd | real scanned forms, FUNSD, at 2x | 37.4 / 12.7 | **66.9** / 45.0 | 54.8 / 32.0 | 66.4 / **47.2** |
 | legal reports | real typescript and printed office pages, Library of Congress | 70.5 / 47.3 | **87.5 / 73.7** | 57.5 / 42.8 | 78.8 / 66.3 |
 | blocks | a paragraph handed in alone, no layout (broad-30's text zones) | 94.4 / 85.8 | **98.6 / 97.2** | 98.2 / 96.6 | 98.5 / 96.5 |
@@ -100,7 +109,8 @@ between 0.00 and 0.03.
 Neural-table as of v0.18.14 (2026-10-12: nil dashes read, a receipt's paper edge dropped, receipt item rows kept apart, a frame round a table's crop not taken for the table, light-grey rules found in the grey page, captions and notes trimmed by whole rows, wrapped cells read line by line, row labels spanning their sub-rows, a word read across a column gap split, a table reader that writes ± and the tables' other symbols, a small transformer over a table crop's words whose table a fitted choice keeps when it is the better, a reader for table crops trained harder on table lines, light text on a dark ground inverted, row labels with dot leaders kept, photographs found on the grey page and kept out of that inversion, pictures cut out for the hOCR, wrapped cells read line by line within their column, lone '-' dashes kept, a row's label spanning its continuation rows, a second reader lending its dashes and signs to a table's text, dashes named by measure and a symbol classifier trained on real glyphs, a two-level header rebuilt from its text lines, a calibrated confidence for every cell, a heading above a table's figures put back, centred headings and short spanners seen in two-level headers, a table-crop reader trained on 781k more table lines with the per-table choice refitted on 1,615 unseen tables, a table sequence reader that reads a crop's grid from its pixels, its table kept where a fitted choice prefers it, a cell's words kept in reading order where a descender splits a line, a row of check marks not taken for a note; scored from the output's table records since 2026-10-07 -- docs/RESEARCH.md); the generated sets' truth was corrected where it disagreed with its own images (timesheets, payroll forms). \* measured before the open-sides and short-rule options and before the payroll truth held both amounts of each diagonal gross cell (the set was regenerated, 2026-09-28); – not measured.
 
 **Held-out pages.** The eight-page sets flatter newspapers and magazines:
-on 30 fresh pages of each type, never used for any decision, the neural
+on 30 fresh pages of each type, never used for any decision (though their
+lines were among the readers' training harvests), the neural
 profile reads newspapers at 89.1 / 85.6 and magazines at 83.8 / 75.7 (v0.18.16; with
 the per-page segmenter judge on those two types since 26 September 2026,
 and since v0.18.16 lines re-split on columns set solid, a column read through where
@@ -111,7 +121,13 @@ rotated three straight photo-heavy pages by 5 degrees). Letters (93.9), legal pa
 (94.3) and a freshly rendered business set (97.5) hold up. Tesseract LSTM
 on the same held-out pages: newspapers 87.7 / 84.2, magazines 78.5 / 73.6,
 letters 93.1 / 90.6 (neural 93.9 / 91.1).
-`scripts/eval_unlv.py --heldout` draws them.
+`scripts/eval_unlv.py --heldout` draws them. On two UNLV sets no decision
+and no training has touched (30 pages each, no hint, pooled), the neural
+profile is level with the LSTM on DOE technical reports (85.9 / 78.1 against
+86.6 / 77.5) and well behind it on annual reports (72.2 / 68.4 against
+86.1 / 84.6): two-column report pages read across their narrow gutters (no
+document-type hint the engine knows fixes them), and a reverse-video page reads as nothing
+([the system paper](docs/papers/readable-self-trained-ocr.md) §7).
 
 **Photographs and the facing page (27 September 2026).** Photographs no
 longer cost text (0.3% of the text's ink falls in picture zones), but a
@@ -184,8 +200,11 @@ of the numbers, the shared ideas and the differences. The short form:
   LSTM's 87.7 / 84.2), after a fix found on other newspaper pages: columns
   set solid whose lines fused, columns the XY-cut parted, headlines cut into
   letters. Held-out magazines lead (83.8 against 78.5).
-- **Behind** only on forms in words (FUNSD: 66.9 / 45.0 against 66.4 / 47.2,
-  ahead in characters).
+- **Behind** on forms in words (FUNSD: 66.9 / 45.0 against 66.4 / 47.2,
+  ahead in characters), and on the one clean set with multi-column pages:
+  UNLV annual reports, never opened before, 72.2 against 86.1 characters
+  (two-column pages read across their narrow gutters). Level on clean DOE reports (85.9 against 86.6). The
+  held-out rows above were held out from decisions, not from training.
 - **A tenth of the training data**: readers of 287k parameters trained on
   this machine from open fonts and public scans, against Tesseract's 4,500
   fonts and Google's training run. Real scanned strips in training are
@@ -501,6 +520,12 @@ way?" by looking.
   tuned, trained and held-out measurements
   ([rendered](https://msharpe248.github.io/mlws-ocr/docs/papers/knn-scc-beyond-1995.html),
   [markdown](docs/papers/knn-scc-beyond-1995.md)).
+- The system paper: the whole engine, how its self-trained networks enter as
+  measured terms, the comparison with both Tesseract engines, and an audit of
+  which pages were really held out
+  ([rendered](https://msharpe248.github.io/mlws-ocr/docs/papers/readable-self-trained-ocr.html),
+  [markdown](docs/papers/readable-self-trained-ocr.md)). The other papers are
+  listed in [docs/papers](docs/papers/README.md).
 
 ## Licence
 
@@ -515,9 +540,11 @@ keep their own licences; `docs/NETWORKS.md` names each source.
 The neural profile leads both Tesseract engines on letters (in words),
 typewriter pleadings, modern documents, business pages, the Library of
 Congress typescripts, a paragraph read alone and, since v0.18.16, the
-held-out newspapers; it trails the LSTM only on forms in words, where form
-structure is the open problem. The current focus is a paper on the system as
-a whole. Tables were the focus
+held-out newspapers; it trails the LSTM on forms in words, where form
+structure is the open problem, and on UNLV annual reports, a set no decision
+or training had touched, where the layout reads two-column pages across their
+narrow gutters, with or without a hint. On the other clean set, DOE reports, it is level. The current focus is a paper on the system as
+a whole, now drafted ([docs/papers/readable-self-trained-ocr.md](docs/papers/readable-self-trained-ocr.md)). Tables were the focus
 before ([docs/TABLES.md](docs/TABLES.md)): the generated business
 sets read at 0.91-0.97 TEDS, real financial tables at 0.88 and scientific
 tables at 0.88 (on tables no decision looked at). Receipts are parked for a

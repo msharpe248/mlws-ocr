@@ -79,7 +79,8 @@ run".
 | **broad-30** | 30 UNLV business letters (seed 2) | the headline |
 | **legal-8** | 8 UNLV legal pleadings | typewriter pages |
 | **news-8, mag-8** | 8 UNLV newspaper and magazine pages | layout; measured against Tesseract |
-| **held-out** letters, newspapers, magazines | 30 pages each no decision has used | whether the tuned sets flatter the engine |
+| **held-out** letters, newspapers, magazines | 30 pages each no decision has used (but lines from them were in the readers' training harvests, §4) | whether the tuned sets flatter the engine |
+| **clean** DOE reports, annual reports | 30 pages each of doe3.3B and rep.3B, two UNLV sets no decision and no training has touched (no hint; scored pooled) | whether the engine holds up on pages it has never seen |
 | **modern** | 59 pages: US government PDFs and templated letters, three severities | today's documents |
 | **business** | 60 generated invoices, payslips, statements, receipts | tabular business pages |
 | **SROIE** | 60 scanned receipts | real thermal print |
@@ -110,6 +111,35 @@ you tuned to it. So the UNLV collection is split, per document type
   parameters and fitting small models;
 - the **held-out** remainder — used only to confirm, never to decide.
 
+Held out from *decisions*, that is, not from *training*. An audit for the
+system paper (2026-10-13, [§6.1](papers/readable-self-trained-ocr.md)) found
+that the recognition harvests (`harvest_lines.py`, `harvest_truth.py`,
+`harvest_glyphs.py`, `harvest_word_conf.py`, `harvest_line_choice.py`, the
+grey-strip harvests on the training boxes) exclude only the evaluation
+draws: they predate the pools and were never told about them. All 30
+held-out letters, legal pages and newspaper pages and 24 of the 30 magazine
+pages lent lines to the readers. Call these pages "held out from
+decisions", never "unseen".
+
+The six held-out magazine pages no harvest used are not a clean sample
+either: the harvests processed them and kept no line because no line of the
+engine's reading matched the truth, so they were selected by the engine's
+own failure (neural 79.8, LSTM 90.7 characters on them). The clean test is a
+set the harvests never opened: **doe3.3B** (785 pages of Department of
+Energy reports) and **rep.3B** (300 pages of annual reports), fetched from
+the ISRI collection on 2026-10-13 and measured once with the engine frozen
+at v0.18.16, `--pages 30 --seed 5`, no document-type hint. Neural against
+the LSTM, pooled: DOE 85.9 / 78.1 against 86.6 / 77.5 (level), annual
+reports 72.2 / 68.4 against 86.1 / 84.6 (two-column pages read across
+their narrow gutters, with or without a hint). Never harvest from them.
+
+**Pooled, not per page, on figure pages.** Many DOE pages are a figure with
+a caption: the truth holds a dozen words, both engines read the axis labels,
+and the page scores −860%. The per-page mean on DOE is −11% for the neural
+profile and +19% for the LSTM. For the clean sets the figure is pooled:
+errors summed over the set, divided by the truth's characters summed over
+the set.
+
 It mattered. On held-out pages the neural profile read newspapers at
 79.7 against news-8's 95.8, and magazines at 65.8 against 77.4: "the 8-page
 sets flatter newspapers and magazines". Letters, legal pages and business
@@ -118,7 +148,8 @@ eight points from one sample of pages to another — page-to-page variance,
 not tuning, dominated.
 
 **Training never sees an evaluation page.** Every harvest script reproduces
-the evaluation draws and refuses those pages; external sets are split once
+the evaluation draws and refuses those pages (the evaluation draws only: see
+above for the held-out pool); external sets are split once
 into evaluation and harvest folders; the table networks train on the
 datasets' training splits and are tested on their test splits
 ([DATA_SOURCES.md §11](DATA_SOURCES.md)).
@@ -187,6 +218,12 @@ measurement. Each became a rule:
 - **The wrong resolution.** The Library of Congress pages were built with a
   wrong dpi tag and read 76.7 / 57.2; rebuilt at their measured resolution,
   81.0 / 60.9.
+- **Held out from one thing, not another.** For two weeks the README called
+  the held-out pages ones "no tuning, training or evaluation decision has
+  used". The pools had been defined for layout decisions; the recognition
+  harvests, older than the pools, excluded only the evaluation draws (§4).
+  "A held-out claim names what the pages were held out from", and the clean
+  test is a set no harvest has opened.
 
 ## 8. Diagnose, don't tune
 

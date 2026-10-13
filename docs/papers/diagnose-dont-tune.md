@@ -58,8 +58,9 @@ stages; classification of output words lying outside every truth zone
 (facing page, real but unzoned print, junk); and aligned error typing
 against Tesseract 5.5 on text blocks read alone — located eight defects
 in a mature pipeline, none of them a parameter setting. Each fix is
-guarded and measured on held-out pages that no tuning, training or
-evaluation decision has used. On 30 held-out magazine pages the neural
+guarded and measured on held-out pages that no tuning or evaluation
+decision has used (though, as the system paper later found, their text
+lines were among the readers' training harvests). On 30 held-out magazine pages the neural
 profile went from 68.1% / 60.3% (character / word accuracy) to 83.7% /
 75.6% (Tesseract's LSTM engine: 78.5% / 73.6%); on photographed receipts
 from 46.4% / 21.7% to 53.5% / 31.1% (46.7% / 21.1%); on the text blocks
@@ -99,8 +100,10 @@ used. Only the configuration being measured changes between runs.
 
 **Pages.** UNLV/ISRI business letters, legal pages, newspapers and
 magazines (Rice, Jenkins & Nartker 1996) — fixed evaluation sets of 8 or
-30 pages, and **held-out pools** of 30 pages per kind that no tuning,
-training or evaluation decision has used; SROIE scanned receipts (60),
+30 pages, and **held-out pools** of 30 pages per kind that no tuning
+or evaluation decision has used (corrected 2026-10-13: the readers' line
+harvests did use them; see the system paper, *Readable and Self-Trained*,
+§6.1); SROIE scanned receipts (60),
 FUNSD forms (50), CORD photographed receipts cropped to the receipt
 (100); the text zones of 30 letters, each read alone ("blocks").
 

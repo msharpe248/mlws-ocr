@@ -52,6 +52,7 @@ def main():
         args.dump.mkdir(parents=True, exist_ok=True)
     random.Random(args.seed).shuffle(pairs)
     cers, wers, recalls, precisions, kinds = [], [], [], [], []
+    pooled = np.zeros(4)   # char errors, truth chars, word errors, truth words
     for tif, gt in pairs[: args.pages]:
         truth = normalize(gt.read_text(errors="ignore"))
         kinds.append(tif.stem.split("-")[0])
@@ -61,8 +62,10 @@ def main():
         got = normalize(r.stdout)
         if args.dump:
             (args.dump / f"{tif.stem}.txt").write_text(r.stdout)
-        cer = edit_distance(got, truth) / max(len(truth), 1)
-        wer = edit_distance_words(got.split(), truth.split()) / max(len(truth.split()), 1)
+        ce, we = edit_distance(got, truth), edit_distance_words(got.split(), truth.split())
+        pooled += [ce, len(truth), we, len(truth.split())]
+        cer = ce / max(len(truth), 1)
+        wer = we / max(len(truth.split()), 1)
         tw, gw = Counter(truth.lower().split()), Counter(got.lower().split())
         ov = sum((tw & gw).values())
         cers.append(cer); wers.append(wer)
@@ -74,6 +77,9 @@ def main():
     print(f"TESSERACT oem={args.oem} MEAN over {len(cers)} pages: "
           f"char acc {1-np.mean(cers):.1%}  word acc {1-np.mean(wers):.1%}  "
           f"word recall {np.mean(recalls):.1%}  precision {np.mean(precisions):.1%}")
+    # as eval_unlv.py: errors over the set's characters, for sets of figure pages
+    print(f"TESSERACT oem={args.oem} POOLED over {len(cers)} pages: char acc {1-pooled[0]/max(pooled[1], 1):.1%}  "
+          f"word acc {1-pooled[2]/max(pooled[3], 1):.1%}")
     if args.by_kind:
         for kind in sorted(set(kinds)):
             idx = [i for i, k in enumerate(kinds) if k == kind]

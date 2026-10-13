@@ -13,7 +13,7 @@ in `docs/RESEARCH.md`.
 
 Character / word accuracy by edit distance on the same pages with the
 same scripts (`scripts/eval_tesseract.py`, `scripts/eval_blocks.py`),
-September 2026. Legacy is Tesseract 5.5.3 with a legacy-capable
+September and October 2026. Legacy is Tesseract 5.5.3 with a legacy-capable
 `eng.traineddata`; the LSTM column is the English model a default
 install carries (`tessdata_fast`).
 
@@ -21,22 +21,37 @@ install carries (`tessdata_fast`).
 |---|---|---|---|---|---|
 | dev-8 | UNLV business letters, our tuning set | **97.7 / 95.4** | 95.0 / 91.7 | 95.5 / 93.1 | ahead of both |
 | broad-30 | UNLV business letters, the headline set | 95.8 / **93.0** | 95.5 / 91.7 | **96.0** / 92.7 | ahead of both in words; 0.2 characters behind the LSTM |
-| letters, held out | 30 UNLV letters no decision has used | **93.9 / 91.1** | 92.4 / 88.8 | 93.1 / 90.6 | ahead of both |
+| letters, held out | 30 UNLV letters held out from decisions (not from training) | **93.9 / 91.1** | 92.4 / 88.8 | 93.1 / 90.6 | ahead of both |
 | legal-8 | UNLV legal pleadings, typewriter | **93.9 / 90.3** | 90.4 / 88.7 | 90.3 / 86.9 | ahead of both by 3.5 characters |
 | modern | born-digital PDFs, templated letters | **94.2 / 90.7** | 75.4 / 70.8 | 74.2 / 66.6 | ahead of both by 19 characters |
 | business | invoices, payslips, receipts, statements, orders | **98.0 / 96.8** | 70.7 / 68.0 | 70.7 / 68.6 | ahead by 27 characters |
 | news-8 | UNLV newspapers (the layout rules were tuned here) | **97.4 / 95.4** | 96.3 / 93.1 | 96.7 / 94.8 | ahead (v0.18.16) |
-| newspapers, held out | 30 UNLV newspaper pages | **89.1 / 85.6** | 87.1 / 82.4 | 87.7 / 84.2 | ahead of the LSTM by 1.4 characters, 1.4 words since v0.18.16 (86.7 / 81.6 before: columns set solid, columns the XY-cut parted, headlines cut into letters) |
+| newspapers, held out | 30 UNLV newspaper pages held out from decisions | **89.1 / 85.6** | 87.1 / 82.4 | 87.7 / 84.2 | ahead of the LSTM by 1.4 characters, 1.4 words since v0.18.16 (86.7 / 81.6 before: columns set solid, columns the XY-cut parted, headlines cut into letters) |
 | mag-8 | UNLV magazines (the layout rules were tuned here) | 87.2 / 81.3 | 87.3 / **84.7** | **87.8** / 84.4 | behind in words |
-| magazines, held out | 30 UNLV magazine pages | **83.8 / 75.7** | 77.9 / 71.3 | 78.5 / 73.6 | ahead of both |
+| magazines, held out | 30 UNLV magazine pages held out from decisions | **83.8 / 75.7** | 77.9 / 71.3 | 78.5 / 73.6 | ahead of both |
 | funsd | real scanned forms, FUNSD (50, at 2x) | **66.9** / 45.0 | 54.8 / 32.0 | 66.4 / **47.2** | ahead of the LSTM by 0.5 characters, behind by 2.2 words (65.9 / 44.3 before v0.18.16) |
 | legal reports | Library of Congress typescript and print (40) | **87.5 / 73.7** | 57.5 / 42.8 | 78.8 / 66.3 | ahead of both |
 | blocks | broad-30's text zones read alone, no layout | **98.6 / 97.2** | 98.2 / 96.6 | 98.5 / 96.5 | ahead of both |
+| DOE reports, clean | 30 UNLV DOE technical reports never opened before (no hint; pooled) | 85.9 / **78.1** | 86.0 / 76.2 | **86.6** / 77.5 | level: 0.7 characters behind the LSTM, 0.6 words ahead |
+| annual reports, clean | 30 UNLV annual reports never opened before (no hint; pooled) | 72.2 / 68.4 | 84.3 / 83.3 | **86.1 / 84.6** | behind both by 12 to 14 characters: two-column pages read across their narrow gutters (the magazine hint does not fix them), a reverse-video page read as nothing |
 
-These are the README's figures (the neural profile, v0.18.6). Every
-row is the mean over its pages; small sets move by a point or more with the
+These are the README's figures (the neural profile, v0.18.16). Every
+row is the mean over its pages, except the two clean rows: many DOE pages
+are figures whose truth is only the caption, so the per-page mean is
+meaningless there (−11% neural, +19% LSTM) and those rows pool the errors
+over the set. Small sets move by a point or more with the
 choice of pages (see [MEASUREMENT.md](MEASUREMENT.md)), which is why the
 held-out rows are shown beside the tuned ones.
+
+**What "held out" means here (audit of 2026-10-13).** The held-out UNLV
+pages were kept from every layout and tuning decision, but not from
+training: the harvests that cut real lines for the readers excluded only
+the evaluation draws, and all 30 held-out letters, legal and newspaper
+pages and 24 of the 30 magazine pages lent lines to training. Tesseract
+was trained on none of them. The two *clean* rows are UNLV sets the
+project had never opened, measured once with the engine frozen; they are
+the only rows on pages no decision and no training has touched
+([the system paper](papers/readable-self-trained-ocr.md) §6.1 and §7).
 
 Reading the table honestly:
 
@@ -53,9 +68,12 @@ Reading the table honestly:
   headline set and on held-out letters; 0.2 characters behind the LSTM on
   the headline set. Tesseract's decades of tuning on exactly this kind of
   page show here more than anywhere.
-- **Where we trail, it is layout and forms.** Held-out newspapers trail the
-  LSTM by a character and 2.6 words (column layout; the magazines' held-out
-  row leads), and FUNSD forms trail it by 2.9 words.
+- **Where we trail, it is layout and forms.** On clean annual reports,
+  which the project had never opened, the neural profile is 14 characters
+  behind the LSTM: the layout reads two-column report pages across their
+  narrow gutters, with no hint or with the magazine hint. FUNSD forms trail the LSTM by 2.2 words. With
+  their hint the held-out newspapers and magazines lead; without it they
+  trail too (70.8 and 68.7 characters, against the LSTM's 87.6 and 78.5).
 - **The LSTM is not a different engine on layout.** It shares Tesseract's
   page analysis, so it lands within a point of legacy wherever the layout
   decides, and it is a better recognizer on clean type than legacy. On the
