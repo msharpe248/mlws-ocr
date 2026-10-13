@@ -222,3 +222,32 @@ def test_order_columns_leaves_a_headline_cut_into_words():
     _text_block(b, body, 20, 36)
     order = [w1, w2, w3, byline, body]
     assert order_columns(order, binary=b) == order
+
+
+def _text_line(b, y, width=600, reach=15):
+    """One line at x-height row y: 20 px letters, every third an ascender and
+    every fifth a descender reaching `reach` px -- with 15, a line 2.5 letters
+    tall, as in print."""
+    for n, x in enumerate(range(20, width, 14)):
+        top = y - reach if n % 3 == 0 else y
+        bot = y + 20 + reach if n % 5 == 0 else y + 20
+        b[top:bot, x:x + 9] = True
+
+
+def test_resplit_glyph_ref_leaves_a_page_whose_lines_do_not_fuse():
+    """On an ordinary page the letters' cap does not apply: its median line is
+    one line (2.5 letters tall here), and a two-row strip taller than the cap
+    allows but short of the page's own re-split -- a matrix's rows, which the
+    equation finder takes whole -- is left as the line finder found it.  Without
+    the condition the cap (1.8 x 1.7 x 20 px: a re-split above 61 px) cuts the
+    70 px strip, where the page's rule (1.8 x 50 px) does not (2026-10-13)."""
+    b = np.zeros((1000, 640), bool)
+    for k in range(12):
+        _text_line(b, 40 + 70 * k)
+    _text_line(b, 900, reach=0)                         # the strip: two rows of 20 px letters,
+    _text_line(b, 950, reach=0)                         # 30 px apart, joined by one stroke
+    b[920:950, 30:33] = True
+    found = _lines_on(b, resplit_glyph_ref=1.7)
+    assert [l["box"] for l in found] == [l["box"] for l in _lines_on(b)]
+    assert len(found) == 13
+    assert len(_lines_on(b, resplit_glyph_ref=1.7, resplit_glyph_fuse=0)) == 14   # the unconditional cap

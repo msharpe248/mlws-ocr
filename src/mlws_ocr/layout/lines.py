@@ -22,7 +22,10 @@ next line's ascenders, the median first-pass "line" is two lines (UNLV
 never reaches the re-split and a four-line strip is cut in pairs.  With
 ``resplit_glyph_ref`` the reference is capped by the glyphs themselves:
 k x the median connected-component height (letters, from the binary
-page), which no fusing of lines changes.  A connected-component size
+page), which no fusing of lines changes -- on a page whose median line is more
+than ``resplit_glyph_fuse`` x that height, where most lines fused; on any
+other page the cap would re-split what is meant to be tall (a matrix's rows,
+which the equation finder takes whole).  A connected-component size
 estimate as in O'Gorman's Docstrum (PAMI 1993), which takes the text size
 from the components' nearest-neighbour statistics, not from the lines.
 """
@@ -256,6 +259,10 @@ class ProfileLines(Stage):
         "resplit_glyph_ref": 0.0,  # > 0: the re-split's reference height is at most this x the median
                                  # glyph (connected-component) height, so a page whose lines mostly
                                  # fuse (a newspaper column set solid) is still re-split (2026-10-12)
+        "resplit_glyph_fuse": 2.5,  # ...only on a page whose median line is more than this x the median
+                                 # glyph tall -- most of its lines fused (newspapers set solid 3.3-3.5,
+                                 # a FUNSD form 10; ordinary pages 1.7-1.95): unconditional, it cut a
+                                 # matrix's rows apart on equation pages (2026-10-13)
         "stacked_doc_types": "table",  # ... on these doc types only ('*' = every page): on whole
                                  # payroll forms a large hand-lettered row was cut into ascender and
                                  # descender fragments that look like lines; on table crops it helps
@@ -276,9 +283,11 @@ class ProfileLines(Stage):
         heights = [l["box"][3] - l["box"][1] for l in all_lines]
         if heights:
             med_h = float(np.median(heights))
-            if p["resplit_glyph_ref"] > 0:
+            # not on a table's crop (the 'table' hint), where rows that fuse have their own
+            # cut (stacked_chunks) and the cap moved one table a set, 0.877 -> 0.765 (2026-10-13)
+            if p["resplit_glyph_ref"] > 0 and page.meta.get("doc_type") != "table":
                 g = glyph_height(page.binary, layout["blocks"])
-                if g > 0:
+                if g > 0 and med_h > p["resplit_glyph_fuse"] * g:
                     med_h = min(med_h, float(p["resplit_glyph_ref"]) * g)
             resplit = []
             for ln in all_lines:

@@ -11,9 +11,10 @@ With the tables and equations at v0.18.15, the owner widened the focus beyond ta
    (neural 86.7 / 81.6, legacy 87.1 / 82.4, LSTM 87.7 / 84.2; item 4 of "Next" below).
    Developed on the tune and train pools (`eval_unlv.py --pool tune|train`, 70 pages,
    `attribute_recall.py --pool`), the held-out 30 measured only at the end.
-   **Done as options (2026-10-13), for the owner:** `lines.resplit_glyph_ref`,
-   `blocks.order_columns`, `blocks.join_display` (newspapers): held out 86.7 / 81.6 →
-   **89.2 / 85.7**, 15 pages up, none down -- past both Tesseract engines (RESEARCH).
+   **Done, ADOPTED in v0.18.16 (2026-10-13, the owner's decision):** `lines.resplit_glyph_ref`,
+   `blocks.order_columns`, `blocks.join_display` (newspapers): held out through the profile
+   86.7 / 81.6 → **89.1 / 85.6** -- past both Tesseract engines (RESEARCH); news-8 97.4 / 95.4,
+   FUNSD 66.9 / 45.0, every other text, table and equation set identical.
    Left: columns joined across a photograph (8225_005), a column running through a
    pull quote (8243_026), white-on-black banners, a headline the XY-cut parts at a gutter.
 2. **The system paper** (item 2 of "Next" below), written with that result.

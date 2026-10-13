@@ -25,11 +25,11 @@ install carries (`tessdata_fast`).
 | legal-8 | UNLV legal pleadings, typewriter | **93.9 / 90.3** | 90.4 / 88.7 | 90.3 / 86.9 | ahead of both by 3.5 characters |
 | modern | born-digital PDFs, templated letters | **94.2 / 90.7** | 75.4 / 70.8 | 74.2 / 66.6 | ahead of both by 19 characters |
 | business | invoices, payslips, receipts, statements, orders | **98.0 / 96.8** | 70.7 / 68.0 | 70.7 / 68.6 | ahead by 27 characters |
-| news-8 | UNLV newspapers (the layout rules were tuned here) | **96.9** / 94.2 | 96.3 / 93.1 | 96.7 / **94.8** | level |
-| newspapers, held out | 30 UNLV newspaper pages | 86.7 / 81.6 | 87.1 / 82.4 | **87.7 / 84.2** | behind the LSTM by 1 character, 2.6 words: column layout |
+| news-8 | UNLV newspapers (the layout rules were tuned here) | **97.4 / 95.4** | 96.3 / 93.1 | 96.7 / 94.8 | ahead (v0.18.16) |
+| newspapers, held out | 30 UNLV newspaper pages | **89.1 / 85.6** | 87.1 / 82.4 | 87.7 / 84.2 | ahead of the LSTM by 1.4 characters, 1.4 words since v0.18.16 (86.7 / 81.6 before: columns set solid, columns the XY-cut parted, headlines cut into letters) |
 | mag-8 | UNLV magazines (the layout rules were tuned here) | 87.2 / 81.3 | 87.3 / **84.7** | **87.8** / 84.4 | behind in words |
 | magazines, held out | 30 UNLV magazine pages | **83.8 / 75.7** | 77.9 / 71.3 | 78.5 / 73.6 | ahead of both |
-| funsd | real scanned forms, FUNSD (50, at 2x) | 65.9 / 44.3 | 54.8 / 32.0 | **66.4 / 47.2** | behind the LSTM by 0.5 characters, 2.9 words |
+| funsd | real scanned forms, FUNSD (50, at 2x) | **66.9** / 45.0 | 54.8 / 32.0 | 66.4 / **47.2** | ahead of the LSTM by 0.5 characters, behind by 2.2 words (65.9 / 44.3 before v0.18.16) |
 | legal reports | Library of Congress typescript and print (40) | **87.5 / 73.7** | 57.5 / 42.8 | 78.8 / 66.3 | ahead of both |
 | blocks | broad-30's text zones read alone, no layout | **98.6 / 97.2** | 98.2 / 96.6 | 98.5 / 96.5 | ahead of both |
 

@@ -70,9 +70,10 @@ def test_neural_shares_the_stage_list_with_classic():
     # reports may differ; nothing that changes what the reader sees
     # display equations kept from the reader and pictures cut out (owner's decision 2026-10-04,
     # v0.18.5), and read (2026-10-06; line by line and confirming unnumbered displays, 2026-10-12):
-    # the neural profiles only; the classic reference reads as before
+    # the neural profiles only; the classic reference reads as before; and the newspaper line re-split
+    # (owner's decision 2026-10-13, v0.18.16)
     table_only = {"tables": {"spans", "open_sides", "nested"},
-                  "lines": {"equations", "equations_beside"},
+                  "lines": {"equations", "equations_beside", "resplit_glyph_ref"},
                   "output": {"split_words_at_cells", "fix_figure_columns", "check_arithmetic", "ws_detect",
                              "pictures", "math_reader_path", "math_beam", "math_split_lines", "math_display_logp", "math_split_at_numbers"}}
     for key, spec in neural.items():

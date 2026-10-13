@@ -33,14 +33,17 @@ def main():
     ap.add_argument("--model", required=True)
     ap.add_argument("--config", default=str(ROOT / "configs/neural.toml"))
     ap.add_argument("--pages", type=int, default=0)
-    ap.add_argument("--beam", type=int, default=1, help="the reader's beam width (output.math_beam)")
+    ap.add_argument("--beam", type=int, default=None,
+                    help="the reader's beam width (output.math_beam); default: the profile's own (it was 1, which "
+                         "overrode the profile's 8 and read greedily -- a verification run measured that, 2026-10-13)")
     ap.add_argument("--set", action="append", default=[], metavar="SLOT.KEY=VAL",
                     help="a stage parameter, e.g. output.math_split_lines=true")
     ap.add_argument("--dump", type=Path, help="write each matched equation (page, box, truth, reading) here, one JSON a line")
     args = ap.parse_args()
     dump = args.dump.open("w") if args.dump else None
     pl = load_pipeline(args.config)
-    over = parse_overrides(["lines.equations=true", f"output.math_reader_path={args.model}", f"output.math_beam={args.beam}"] + args.set)
+    over = parse_overrides(["lines.equations=true", f"output.math_reader_path={args.model}"]
+                           + ([f"output.math_beam={args.beam}"] if args.beam is not None else []) + args.set)
     pages = sorted(args.root.glob("*.png"))[: args.pages or None]
     n_true = n_found = n_matched = exact = err = tot = bal = 0
     for f in pages:

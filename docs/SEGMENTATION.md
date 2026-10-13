@@ -163,8 +163,8 @@ current region, so an L-shaped layout — a photo with text wrapping around
 it, a column that ends partway down — can only be cut in pieces. Where one
 column ends and its neighbour runs on, the cut under the short column parts
 the long one, and depth-first order then reads the long column's lower part
-after everything to its right. `blocks.order_columns` (an option, by
-document type) moves such a part back under its column — only when the
+after everything to its right. `blocks.order_columns` (by document type;
+newspapers in the neural profiles since v0.18.16) moves such a part back under its column — only when the
 blocks between lie wholly to its right, both parts share a type size, and a
 column of that type stands between them; a general topological reading
 order (Breuel 2003) was tried first and read headlines cut into word blocks
@@ -255,11 +255,12 @@ training pool). Other pages go straight to XY-cut, which cross-validation
 showed the judge could not beat there.
 
 The k-NN candidates can leave a headline cut into letter and word blocks,
-which the reader cannot read as words. `blocks.join_display` (an option)
-runs them with the headline join of §6 — display-size blocks on one row
+which the reader cannot read as words. `blocks.join_display` (newspapers,
+in the neural profiles since v0.18.16) runs them with the headline join of §6 — display-size blocks on one row
 joined into a line block — and the judge scores them with its own weights.
 
-Held-out, 30 pages of each: newspapers **86.7** against XY-cut's 83.1,
+Held-out, 30 pages of each: newspapers **86.7** against XY-cut's 83.1 (89.1
+with the line, column and headline fixes of v0.18.16),
 magazines **83.7** against 78.0 (character accuracy; the best possible
 per-page choice would be 90.3 and 84.8).
 
@@ -277,7 +278,8 @@ decoder to tell 'p' from 'P' and ',' from ''' by position. Two refinements:
   descender reaching the ascender below); it is re-profiled with smoothing
   and split (one page's deletions 193 → 0). On a newspaper column set solid
   most lines fuse, the median "line" is itself two lines, and the rule never
-  fires; `lines.resplit_glyph_ref` (an option) caps the reference at 1.7 ×
+  fires; `lines.resplit_glyph_ref` (in the neural profiles since v0.18.16)
+  caps the reference at 1.7 ×
   the median letter height, which fusing cannot change (one page 42 → 98%
   of its characters);
 - in the table profile, inside a ruled grid, lines are found **cell by
@@ -372,9 +374,9 @@ read with that segmenter, on the evaluation sets (`eval_unlv.py --blocks
 | imagezones | `density` | `density_thresh` 0.45, `protect_text_rows` on, `keep_grids` (neural-table) | every profile |
 | rulings | `morphological` | `min_len_300dpi` 150, `tolerant` on, `dash_gap_300dpi` 12, `short_in_grid_300dpi` 40, `edge_bars` and `faint_depth` 0.06 (neural-table) | every profile |
 | blocks | `xycut` | `min_gap_x_300dpi` 36, `min_gap_y_300dpi` 30, document-type priors | classic, pure |
-| | `judged` | `model_path` `data/segjudge.npz`, newspapers and magazines judged; `keep_dashes` (neural-table); `join_display`, `order_columns` (options) | neural, neural-table |
+| | `judged` | `model_path` `data/segjudge.npz`, newspapers and magazines judged; `keep_dashes` (neural-table); `join_display`, `order_columns` (newspapers, neural profiles) | neural, neural-table |
 | | `whitespace`, `knn_scc` | see the code and the papers | layout profiles for comparison |
-| lines | `profile` | tall-line re-split (`resplit_glyph_ref`, an option); `in_cells` (neural-table); `stacked_chunks` (table crops, neural-table); `equations` (display equations, neural and neural-table) | every profile |
+| lines | `profile` | tall-line re-split (`resplit_glyph_ref` 1.7 in the neural profiles); `in_cells` (neural-table); `stacked_chunks` (table crops, neural-table); `equations` (display equations, neural and neural-table) | every profile |
 | components | `overlap` | cut candidates for wide groups | every profile |
 
 ## References

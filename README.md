@@ -62,12 +62,12 @@ scoreboard and its history are in `docs/DESIGN.md` §8.
 | legal-8 | UNLV legal pleadings (typewriter) | 91.7 / 81.3 | **93.9 / 90.3** | 90.4 / 88.7 | 90.3 / 86.9 |
 | modern | born-digital PDFs and templated business letters | 91.6 / 83.5 | **94.2 / 90.7** | 75.4 / 70.8 | 74.2 / 66.6 |
 | business | invoices, payslips, receipts, statements, purchase orders | 95.3 / 86.1 | **98.0 / 96.8** | 70.7 / 68.0 | 70.7 / 68.6 |
-| news-8 | UNLV newspapers (the layout rules were tuned here) | 94.2 / 84.1 | **96.9** / 94.2 | 96.3 / 93.1 | 96.7 / **94.8** |
+| news-8 | UNLV newspapers (the layout rules were tuned here) | 94.2 / 84.1 | **97.4 / 95.4** | 96.3 / 93.1 | 96.7 / 94.8 |
 | mag-8 | UNLV magazines (the layout rules were tuned here) | 66.8 / 45.5 | 87.2 / 81.3 | 87.3 / **84.7** | **87.8** / 84.4 |
-| newspapers, held out | 30 UNLV newspaper pages no decision has used | 76.5 / 63.4 | 86.7 / 81.6 | 87.1 / 82.4 | **87.7 / 84.2** |
+| newspapers, held out | 30 UNLV newspaper pages no decision has used | 76.5 / 63.4 | **89.1 / 85.6** | 87.1 / 82.4 | 87.7 / 84.2 |
 | magazines, held out | 30 UNLV magazine pages no decision has used | 68.3 / 50.7 | **83.8 / 75.7** | 77.9 / 71.3 | 78.5 / 73.6 |
 | letters, held out | 30 UNLV business letters no decision has used | 90.7 / 83.1 | **93.9 / 91.1** | 92.4 / 88.8 | 93.1 / 90.6 |
-| funsd | real scanned forms, FUNSD, at 2x | 37.4 / 12.7 | 65.9 / 44.3 | 54.8 / 32.0 | **66.4 / 47.2** |
+| funsd | real scanned forms, FUNSD, at 2x | 37.4 / 12.7 | **66.9** / 45.0 | 54.8 / 32.0 | 66.4 / **47.2** |
 | legal reports | real typescript and printed office pages, Library of Congress | 70.5 / 47.3 | **87.5 / 73.7** | 57.5 / 42.8 | 78.8 / 66.3 |
 | blocks | a paragraph handed in alone, no layout (broad-30's text zones) | 94.4 / 85.8 | **98.6 / 97.2** | 98.2 / 96.6 | 98.5 / 96.5 |
 
@@ -101,8 +101,10 @@ Neural-table as of v0.18.14 (2026-10-12: nil dashes read, a receipt's paper edge
 
 **Held-out pages.** The eight-page sets flatter newspapers and magazines:
 on 30 fresh pages of each type, never used for any decision, the neural
-profile reads newspapers at 86.7 / 81.6 and magazines at 83.8 / 75.7 (v0.18.13; with
-the per-page segmenter judge on those two types since 26 September 2026;
+profile reads newspapers at 89.1 / 85.6 and magazines at 83.8 / 75.7 (v0.18.16; with
+the per-page segmenter judge on those two types since 26 September 2026,
+and since v0.18.16 lines re-split on columns set solid, a column read through where
+the XY-cut parts it, and headlines joined (newspapers 86.7 / 81.6 before);
 XY-cut alone read them at 79.7 and 65.9; magazines 68.1 before text-row protection
 and 77.1 before deskew stopped trusting an estimate at its search limit, which had
 rotated three straight photo-heavy pages by 5 degrees). Letters (93.9), legal pages
@@ -178,10 +180,12 @@ of the numbers, the shared ideas and the differences. The short form:
   and a paragraph read alone. Tesseract's page analysis is much of the
   reason on the documents: margins and hole punches read as text,
   templated letters broken, tables read by column.
-- **Behind** on newspapers (held out: 86.7 / 81.6 against the LSTM's
-  87.7 / 84.2) and on forms (FUNSD: 0.5 characters and 2.9 words behind
-  the LSTM). Newspapers are measured, not tuned; the loss is column layout.
-  Held-out magazines lead (83.7 against 78.5).
+- **Ahead on held-out newspapers since v0.18.16** (89.1 / 85.6 against the
+  LSTM's 87.7 / 84.2), after a fix found on other newspaper pages: columns
+  set solid whose lines fused, columns the XY-cut parted, headlines cut into
+  letters. Held-out magazines lead (83.8 against 78.5).
+- **Behind** only on forms in words (FUNSD: 66.9 / 45.0 against 66.4 / 47.2,
+  ahead in characters).
 - **A tenth of the training data**: readers of 287k parameters trained on
   this machine from open fonts and public scans, against Tesseract's 4,500
   fonts and Google's training run. Real scanned strips in training are
@@ -510,10 +514,10 @@ keep their own licences; `docs/NETWORKS.md` names each source.
 
 The neural profile leads both Tesseract engines on letters (in words),
 typewriter pleadings, modern documents, business pages, the Library of
-Congress typescripts and a paragraph read alone; it trails the LSTM on held-out newspapers and on forms, where
-column layout and form structure are the open problems. The current focus
-is the held-out newspapers, the one held-out set where both Tesseract engines
-still lead, and then a paper on the system as a whole. Tables were the focus
+Congress typescripts, a paragraph read alone and, since v0.18.16, the
+held-out newspapers; it trails the LSTM only on forms in words, where form
+structure is the open problem. The current focus is a paper on the system as
+a whole. Tables were the focus
 before ([docs/TABLES.md](docs/TABLES.md)): the generated business
 sets read at 0.91-0.97 TEDS, real financial tables at 0.88 and scientific
 tables at 0.88 (on tables no decision looked at). Receipts are parked for a

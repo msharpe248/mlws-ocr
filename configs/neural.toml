@@ -72,9 +72,15 @@ nested = true                  # a ruled table inside a ruled frame's cell is ne
 impl = "judged"                # newspapers and magazines: XY-cut or knn_scc chosen per page by a judge
                                # (layout/segjudge.py; held-out news 79.7 -> 84.3, magazines 65.9 -> 67.8,
                                # 2026-09-26); every other page XY-cut exactly as before
+join_display = "newspaper"     # newspapers: the k-NN candidates join a headline cut into letters back into lines
+order_columns = "newspaper"    # newspapers: a column the XY-cut parts where its neighbour ends is read through
+                               # (both with lines.resplit_glyph_ref, v0.18.16: held-out newspapers 86.7 / 81.6 ->
+                               # 89.2 / 85.7, 15 pages up, none down; RESEARCH 2026-10-12)
 
 [stage.lines]
 impl = "profile"
+resplit_glyph_ref = 1.7        # a line re-split when taller than its letters allow, even where most of a page's
+                               # lines fuse (a column set solid): the newspaper fix of v0.18.16; FUNSD +1.0 / +0.7
 equations = true               # display equations found before reading (layout/equations.py): cut out with the
                                # pictures, hOCR ocr_display / ocr_math, numbers read; 22 fresh typeset pages F1 0.906,
                                # none found on business, letter, legal, news, magazine pages (2026-10-04)

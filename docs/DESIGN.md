@@ -580,8 +580,8 @@ fairer measure
 | profile | news-8 | mag-8 |
 |---|---|---|
 | classic | 94.2 / 84.1 (facing page left out; 92.6 / 82.3 before) | 66.8 / 45.5 (facing page left out; 64.6 / 43.8 with text-row protection; 65.3 / 41.5 before) |
-| neural | 96.9 / 94.2 (facing page left out; 95.4 / 92.4 before it; v0.14.0 reader 95.5 / 92.2; text-row protection and form fixes 95.3 / 91.9; grey reader + segmenter judge 95.4 / 92.0; v17a + judge 95.3 / 91.7; XY-cut alone 95.8 / 93.2) | 87.2 / 81.3 (facing page left out; 81.4 / 74.8 before it; 81.4 / 75.2 before the v0.14.0 reader; grey reader + judge 80.6 / 73.1; v17a + judge 80.6 / 72.2; XY-cut alone 77.4 / 68.7) |
-| neural, 30 held-out pages | 86.7 / 81.6 (facing page left out; 84.6 / 79.2 with the v0.14.0 reader; 84.7 / 79.4 before it; 84.8 / 79.5 before protection; v17a + judge 84.3 / 78.2; XY-cut alone 79.7 / 73.5) | 83.7 / 75.6 (facing page left out; 82.1 / 73.4 with the deskew limit mode; 77.1 / 65.3 before it with the v0.14.0 reader; 77.1 / 65.2 with text-row protection; 68.1 / 60.3 before; 67.8 / 60.7; 65.9 / 58.4) |
+| neural | 97.4 / 95.4 (v0.18.16: lines re-split on columns set solid, columns read through, headlines joined; 96.9 / 94.2 with the facing page left out; 95.4 / 92.4 before it; v0.14.0 reader 95.5 / 92.2; text-row protection and form fixes 95.3 / 91.9; grey reader + segmenter judge 95.4 / 92.0; v17a + judge 95.3 / 91.7; XY-cut alone 95.8 / 93.2) | 87.2 / 81.3 (facing page left out; 81.4 / 74.8 before it; 81.4 / 75.2 before the v0.14.0 reader; grey reader + judge 80.6 / 73.1; v17a + judge 80.6 / 72.2; XY-cut alone 77.4 / 68.7) |
+| neural, 30 held-out pages | 89.1 / 85.6 (v0.18.16, as above; 86.7 / 81.6 with the facing page left out; 84.6 / 79.2 with the v0.14.0 reader; 84.7 / 79.4 before it; 84.8 / 79.5 before protection; v17a + judge 84.3 / 78.2; XY-cut alone 79.7 / 73.5) | 83.7 / 75.6 (facing page left out; 82.1 / 73.4 with the deskew limit mode; 77.1 / 65.3 before it with the v0.14.0 reader; 77.1 / 65.2 with text-row protection; 68.1 / 60.3 before; 67.8 / 60.7; 65.9 / 58.4) |
 | legacy Tesseract | 96.3 / 93.1 (97.5 / 94.4) | 87.3 / 84.7 (95.9 / 90.5) |
 | Tesseract LSTM | 96.7 / 94.8 (98.6 / 95.7) | 87.8 / 84.4 (97.4 / 90.5) |
 
@@ -618,7 +618,7 @@ receipt profile that preceded it is retired.
 
 | profile | sroie | funsd |
 |---|---|---|
-| neural (current, README) | – | 65.9 / 44.3 |
+| neural (current, README) | – | 66.9 / 45.0 (v0.18.16: one form's fused lines re-split; 65.9 / 44.3 before) |
 | classic | 48.0 / 13.6 (47.3 / 10.1 before the form fixes) | 37.4 / 12.7 (36.0 / 12.3) |
 | neural (v0.14.0 reader, case repair) | **78.6 / 60.2** | 66.0 / 43.9 |
 | neural (grey-strip reader, form fixes) | 68.2 / 47.6 | 66.1 / 44.0 |

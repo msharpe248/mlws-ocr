@@ -147,6 +147,7 @@ were trained on the public sources named below and on nothing else.
 | v0.18.13 (2026-10-11) | forty-five files: v0.18.12's forty-three plus the table sequence reader `tableseq_v2.npz` and its choice `tableseq_select_v2.npz` |
 | v0.18.14 (2026-10-12) | the same forty-five files as v0.18.13: this release is profile and code (equations read line by line and unnumbered ones confirmed by the reader; a cell's words kept in order across a descender, a check-mark row not taken for a note) |
 | v0.18.15 (2026-10-12) | forty-six files: v0.18.14's forty-five plus the equation reader `mathread_v4.npz` (v3 stays: the previous reader and v4's start) |
+| v0.18.16 (2026-10-13) | the same forty-six files as v0.18.15: this release is profile and code (the newspaper layout fixes: lines re-split by the letters' size, a column read through where the XY-cut parts it, headlines joined in the segmenter judge's k-NN candidates; no model or judge refitted) |
 
 ## Where the training data comes from
 
