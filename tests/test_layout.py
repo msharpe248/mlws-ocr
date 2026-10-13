@@ -153,3 +153,72 @@ def test_dark_ground_leaves_a_logos_huge_bold_letters():
         g[100:180, x0 + 40:x0 + 80] = 1.0         # a counter
         g[40:140, x0 + 60:x0 + 120] = 1.0         # a notch: the shape is not a rectangle
     assert not dark_ground(g, 300.0).any()
+
+
+def _fused_column(n_groups=4, per=3, pitch=36, xh=20, width=600):
+    """A column of text lines `pitch` apart whose lines are bridged, `per` at a
+    time, by one thin stroke (a descender touching the next ascender), so the
+    projection profile never empties inside a group."""
+    h = n_groups * (per * pitch + 30) + 40
+    b = np.zeros((h, width + 40), bool)
+    y = 20
+    for _ in range(n_groups):
+        for k in range(per):
+            for x in range(20, width, 14):           # letters
+                b[y:y + xh, x:x + 9] = True
+            if k < per - 1:
+                b[y + xh:y + pitch, 200:203] = True   # the bridge to the next line
+            y += pitch
+        y += 30
+    return b
+
+
+def _lines_on(binary, **params):
+    blocks = [[0, 0, binary.shape[1], binary.shape[0]]]
+    page = Page(gray=np.where(binary, 0.0, 1.0), binary=binary, dpi=300.0, meta={"layout": {"blocks": blocks}})
+    stage = registry.get("lines", "profile")(**params)
+    return stage.run(page)[0].meta["layout"]["lines"]
+
+
+def test_resplit_glyph_ref_splits_a_column_whose_lines_all_fuse():
+    b = _fused_column()
+    assert len(_lines_on(b)) == 4                         # each group of three read as one line
+    lines = _lines_on(b, resplit_glyph_ref=1.7)
+    assert len(lines) == 12
+    assert all(l["box"][3] - l["box"][1] < 36 for l in lines)
+
+
+def test_glyph_height_is_the_letters_not_the_lines():
+    from mlws_ocr.layout.lines import glyph_height
+    b = _fused_column()
+    assert 18 <= glyph_height(b, [[0, 0, b.shape[1], b.shape[0]]]) <= 22
+
+
+def _text_block(b, box, xh, pitch):
+    x0, y0, x1, y1 = box
+    for y in range(y0, y1 - xh + 1, pitch):
+        for x in range(x0, x1 - 9, 14):
+            b[y:y + xh, x:x + 9] = True
+
+
+def test_order_columns_keeps_a_column_with_its_continuation():
+    from mlws_ocr.layout.blocks import order_columns
+    b = np.zeros((1200, 1400), bool)
+    a, right, low = [100, 100, 600, 700], [700, 100, 1200, 600], [100, 730, 600, 1100]
+    for box in (a, right, low):
+        _text_block(b, box, 20, 36)
+    # the XY-cut's order: a horizontal cut under the short right column parts the left one
+    assert order_columns([a, right, low], binary=b) == [a, low, right]
+
+
+def test_order_columns_leaves_a_headline_cut_into_words():
+    from mlws_ocr.layout.blocks import order_columns
+    b = np.zeros((900, 1400), bool)
+    w1, w2, w3 = [100, 100, 400, 190], [450, 100, 800, 190], [850, 100, 1200, 190]
+    byline, body = [100, 220, 400, 260], [100, 300, 600, 800]
+    for box in (w1, w2, w3):
+        _text_block(b, box, 80, 100)                   # display type
+    _text_block(b, byline, 20, 36)
+    _text_block(b, body, 20, 36)
+    order = [w1, w2, w3, byline, body]
+    assert order_columns(order, binary=b) == order

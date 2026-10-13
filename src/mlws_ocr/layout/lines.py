@@ -14,6 +14,17 @@ as garbage (UNLV 8718: a three-line paragraph vanished this way).  Any
 segment much taller than the page's median line height is re-profiled
 with a threshold adaptive to its own peak; a genuinely tall single line
 (display type) has no deep interior valley and passes through unchanged.
+
+The page's median line height is a poor reference when most of a page's
+lines fuse: on a newspaper column set solid, where descenders touch the
+next line's ascenders, the median first-pass "line" is two lines (UNLV
+8205_003: median 76 px, single lines 36-39), so a two- or three-line strip
+never reaches the re-split and a four-line strip is cut in pairs.  With
+``resplit_glyph_ref`` the reference is capped by the glyphs themselves:
+k x the median connected-component height (letters, from the binary
+page), which no fusing of lines changes.  A connected-component size
+estimate as in O'Gorman's Docstrum (PAMI 1993), which takes the text size
+from the components' nearest-neighbour statistics, not from the lines.
 """
 from __future__ import annotations
 
@@ -50,6 +61,21 @@ def _lines_in(binary: np.ndarray, box: list[int], noise: float) -> list[dict]:
                         "baseline": y0 + start + base})
             start = None
     return out
+
+
+def glyph_height(binary: np.ndarray, blocks: list[list[int]]) -> float:
+    """The median height of the letter-sized connected components inside the
+    blocks (specks under 6 px and anything over 200 px left out); 0 if none."""
+    from scipy import ndimage
+    hs = []
+    for x0, y0, x1, y1 in blocks:
+        lab, n = ndimage.label(binary[y0:y1, x0:x1])
+        if not n:
+            continue
+        h = np.array([s[0].stop - s[0].start for s in ndimage.find_objects(lab)])
+        hs.append(h[(h >= 6) & (h <= 200)])
+    hs = np.concatenate(hs) if hs else np.zeros(0)
+    return float(np.median(hs)) if len(hs) else 0.0
 
 
 def stacked_lines(binary: np.ndarray, lines: list[dict], k: float = 2.6) -> tuple[list[dict], int]:
@@ -227,6 +253,9 @@ class ProfileLines(Stage):
                                  # as lines of their own (2026-10-03)
         "equations_beside": False,  # ...with the pieces the line finder parted beside an equation (a
                                  # matrix's columns, a case's conditions) grouped with it (2026-10-12)
+        "resplit_glyph_ref": 0.0,  # > 0: the re-split's reference height is at most this x the median
+                                 # glyph (connected-component) height, so a page whose lines mostly
+                                 # fuse (a newspaper column set solid) is still re-split (2026-10-12)
         "stacked_doc_types": "table",  # ... on these doc types only ('*' = every page): on whole
                                  # payroll forms a large hand-lettered row was cut into ascender and
                                  # descender fragments that look like lines; on table crops it helps
@@ -247,6 +276,10 @@ class ProfileLines(Stage):
         heights = [l["box"][3] - l["box"][1] for l in all_lines]
         if heights:
             med_h = float(np.median(heights))
+            if p["resplit_glyph_ref"] > 0:
+                g = glyph_height(page.binary, layout["blocks"])
+                if g > 0:
+                    med_h = min(med_h, float(p["resplit_glyph_ref"]) * g)
             resplit = []
             for ln in all_lines:
                 b = ln["box"]

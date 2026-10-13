@@ -578,9 +578,11 @@ const PICTURE_SWITCHES = [
   { slot: "imagezones", key: "display_height", on: 4, off: 0, label: "Display type is a picture",
     title: "solid letters four times the body glyph's height (a logo's lettering) named as a picture zone; their text is still read" },
 ];
-function pictureSwitches() {
+function pictureSwitches() { return switchBox(PICTURE_SWITCHES); }
+// a row of checkboxes, each one stage parameter between two values; a change re-runs the page
+function switchBox(list) {
   const box = el("div", { class: "tswitches" });
-  for (const sw of PICTURE_SWITCHES) {
+  for (const sw of list) {
     const st = S.st.stages.find((t) => t.slot === sw.slot);
     const v = st ? (sw.key in st.params ? st.params[sw.key] : st.defaults[sw.key]) : null;
     const on = sw.is ? sw.is(v) : typeof sw.on === "number" ? Number(v) === sw.on || (sw.off === 0 && Number(v) > 0) : !!v;
@@ -738,6 +740,18 @@ async function pushEdits(k, edits) {
   try { await api(`/api/edits/${k}`, { edits }); await poll(true); } catch (e) { status(e.message, true); }
 }
 
+// --- layout options shown with the block and line editors (2026-10-12): the newspaper fixes
+const LAYOUT_SWITCHES = [
+  { slot: "lines", key: "resplit_glyph_ref", on: 1.7, off: 0, label: "Lines by letter size",
+    title: "a line taller than its letters allow is re-split even when most of the page's lines fuse (a column set solid, descenders touching the next line): the re-split's reference is 1.7 x the median letter height" },
+  { slot: "blocks", key: "join_display", on: "newspaper", off: "", label: "Join headline letters",
+    is: (v) => !!v,
+    title: "on newspapers, the judged segmenter's k-NN candidates join a headline cut into letter and word blocks back into line blocks" },
+  { slot: "blocks", key: "order_columns", on: "newspaper", off: "", label: "Columns read through",
+    is: (v) => !!v,
+    title: "on newspapers, a column parted by the XY-cut where its neighbour ends is read through before the neighbour" },
+];
+
 // --- block / line box editor
 function currentItems(kind) {
   if (!S.layout) return [];
@@ -749,6 +763,7 @@ function boxTools(t, s, k, kind) {
   if (!S.layout) { t.append(el("div", { class: "box" }, "The stage has not run yet.")); S.draft = null; return; }
   if (!S.draft || S.draft.kind !== kind || S.draft.k !== k) S.draft = { kind, k, items: currentItems(kind), sel: new Set(), order: [], dirty: false };
   const D = S.draft;
+  t.append(el("div", { class: "box" }, el("div", {}, "Layout options"), switchBox(LAYOUT_SWITCHES)));
   t.append(el("div", { class: "box" },
     el("div", {}, `${D.items.length} ${kind}${D.dirty ? " — unsaved changes" : ""}. Select to move or resize; the numbers are the reading order.`),
     el("div", { class: "row" },

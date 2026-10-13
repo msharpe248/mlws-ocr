@@ -322,6 +322,7 @@ pipeline) and name the profile with any figure you report.
 | legal-8 | `data/unlv/legal.3B` | `eval_unlv.py data/unlv/legal.3B --pages 8 --seed 1 --doc-type legal` |
 | news-8, mag-8 | `data/unlv/news.3B`, `mag.3B` | `--pages 8 --seed 1 --doc-type newspaper` / `magazine` |
 | held-out newspapers, magazines, letters, legal pages | `data/unlv/news.3B`, `mag.3B`, `bus.3B`, `legal.3B` | `eval_unlv.py <set> --heldout --pages 30 --seed 5 --doc-type newspaper` / `magazine` / `letter` / `legal` (and `eval_tesseract.py --heldout` for the same pages); without the hint every type reads worse (RESEARCH, 2026-09-26) |
+| development pools (not a README row) | `data/unlv/<set>` | `eval_unlv.py <set> --pool tune --pages 30 --seed 5` and `--pool train --pages 40 --seed 5` with the doc-type hint: the pages a layout fix is developed on, so the held-out 30 stay unseen until it is measured (newspapers, 2026-10-12); `attribute_recall.py` and `eval_tesseract.py` take the same `--pool` (and `eval_tesseract.py --dump` writes the LSTM's text for page-by-page comparison) |
 | modern | `data/modern/sev0..2` | `eval_unlv.py data/modern/sevN --pages 59 --by-kind` |
 | business | `data/business/sev0` | `eval_unlv.py data/business/sev0 --pages 60 --seed 1 --by-kind` |
 | sroie, funsd, legal reports, cord | `data/ext/sroie/eval` (60), `data/ext/funsd/eval` (50), `data/ext/btp_legal/eval` (40), `data/ext/cord/evalcrop` (100) | `eval_unlv.py <dir> --pages <all of them>` (the default is 10) |

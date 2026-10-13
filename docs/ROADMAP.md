@@ -4,7 +4,33 @@ Ranked by measured evidence, not enthusiasm. Every item names the
 observation that motivates it, so a future session can re-check whether
 the motivation still holds before spending the effort.
 
-## Now: tables (from 2026-09-28, the current focus)
+## Now: newspapers, then the system paper (the owner's choice, 2026-10-12)
+
+With the tables and equations at v0.18.15, the owner widened the focus beyond tables:
+1. **Newspapers held out**, the one held-out set where both Tesseract engines lead
+   (neural 86.7 / 81.6, legacy 87.1 / 82.4, LSTM 87.7 / 84.2; item 4 of "Next" below).
+   Developed on the tune and train pools (`eval_unlv.py --pool tune|train`, 70 pages,
+   `attribute_recall.py --pool`), the held-out 30 measured only at the end.
+   **Done as options (2026-10-13), for the owner:** `lines.resplit_glyph_ref`,
+   `blocks.order_columns`, `blocks.join_display` (newspapers): held out 86.7 / 81.6 →
+   **89.2 / 85.7**, 15 pages up, none down -- past both Tesseract engines (RESEARCH).
+   Left: columns joined across a photograph (8225_005), a column running through a
+   pull quote (8243_026), white-on-black banners, a headline the XY-cut parts at a gutter.
+2. **The system paper** (item 2 of "Next" below), written with that result.
+
+The table choice refitted with the placement options on (2026-10-12) was not
+adopted: it changed few decisions and did not hold out (RESEARCH).
+
+**Backlog (the owner's decision, 2026-10-12: kept for later)**
+- A searchable PDF written by the engine itself (the image with an invisible
+  text layer from the hOCR geometry, no new dependency) from `mlws-ocr batch`
+  and the workbench; today it needs an outside `hocr-pdf`.
+- A harvest of the Library of Congress Legal Reports (9,807 typescript pages with
+  human transcriptions) for the line reader -- a long training run, announced first.
+- Other languages (de / fr / es / it): the synthetic recipe, and evaluation
+  pages with truth to find.
+
+## Tables (from 2026-09-28; the focus until 2026-10-12)
 
 **Scope (the owner's decision, 2026-10-03): photographed receipts are parked.**
 The general engine works on documents from business-quality printers on good
@@ -159,7 +185,7 @@ Where the work stood at v0.15.1 (2026-09-28). Against Tesseract 5.5's LSTM engin
 3. **Paper: adding a domain to a line reader without forgetting.** The receipts study v4 → v9: a plain fine-tune (+12.7 SROIE, up to −1.7 elsewhere); weight averaging (a linear trade), the six-reader ensemble (diluted), contrast routing (the wrong signal), L2-SP, data shares, Learning without Forgetting with EMA (every other set within 0.4 word), distillation across a widened alphabet, the receipts' case bias measured on unseen faces. All measured; RESEARCH 2026-09-26/27.
 4. **Newspapers: short columns under a full-width headline.** The worst held-out newspaper page (8203_014, 40% of words missing): its columns are shorter than the gutter finder's 28% of the text height, so every segmenter joins them. The largest remaining newspaper loss found by attribution.
 5. **Photo junk on magazines.** About 800 words on 30 held-out magazine pages are fragments of photographs and graphics read as text ('MiAx', '--w 40'); a stricter gate for short unendorsed lines beside picture zones (RESEARCH 2026-09-27).
-6. **Tables: structure beyond the first measurements** (2026-09-28; superseded by "Now: tables" above, except (e)'s PubTabNet and SciTSR samples and (f), which are still open). Ruled grids with spans (payroll forms 0.668 TEDS) and whitespace tables (FinTabNet 0.738) are in as options, with JSON / HTML / hOCR output. Next: (a) measure the grid test's effect on text where it changes the picture zones (magazines 17/30, FUNSD 10/30, playbills 11/30) and propose defaults; (b) find whitespace tables on a page, not only when the image is the table (the output stage's aligned-column groups are the candidates); (c) more templates with nested truth -- paystubs (earnings, deductions and year-to-date tables inside the stub), timesheets, statements, invoices, receipts -- each ruled, partly ruled and whitespace; CORD's line items as receipt-table truth; (d) the short sub-row rules the payroll grid loses; (e) samples of PubTables-1M, PubTabNet and SciTSR for scientific tables; (f) orientation for tables scanned sideways.
+6. **Tables: structure beyond the first measurements** (2026-09-28; superseded by "Tables" above, except (e)'s PubTabNet and SciTSR samples and (f), which are still open). Ruled grids with spans (payroll forms 0.668 TEDS) and whitespace tables (FinTabNet 0.738) are in as options, with JSON / HTML / hOCR output. Next: (a) measure the grid test's effect on text where it changes the picture zones (magazines 17/30, FUNSD 10/30, playbills 11/30) and propose defaults; (b) find whitespace tables on a page, not only when the image is the table (the output stage's aligned-column groups are the candidates); (c) more templates with nested truth -- paystubs (earnings, deductions and year-to-date tables inside the stub), timesheets, statements, invoices, receipts -- each ruled, partly ruled and whitespace; CORD's line items as receipt-table truth; (d) the short sub-row rules the payroll grid loses; (e) samples of PubTables-1M, PubTabNet and SciTSR for scientific tables; (f) orientation for tables scanned sideways.
    The segmenter judge refit on v0.15.1 (formerly this item) was a wash on held-out pages (news 86.9 vs 86.7, mag 83.5 vs 83.7); the live judge stays.
 7. **Typewriter blocks and FUNSD words.** The two recognition sets still behind Tesseract's LSTM (legal-8 blocks 96.9 / 95.9 against 97.1 / 96.0; FUNSD 66.0 / 43.9 against 66.4 / 47.2 at v0.15.1, 65.9 / 44.3 now, about half of FUNSD's gap being its field-order convention).
 

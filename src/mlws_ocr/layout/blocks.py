@@ -229,3 +229,70 @@ class XYCutBlocks(Stage):
             scalars={"n_blocks": len(boxes), "river_retry": river_retry},
         )
         return out, debug
+
+
+
+def order_columns(blocks: list[list[int]], gap: float = 2.5, narrow: float = 0.9,
+                  wide: float = 0.6, binary=None, size: float = 1.3,
+                  lines: float = 2.5) -> list[list[int]]:
+    """A column's continuation kept with it.  Recursive XY-cut cuts across the
+    page wherever a horizontal gap spans the region, so where one column ends
+    and its neighbour runs on, the cut under the short column parts the long
+    one: its lower part is read after everything to its right (UNLV 8223_029:
+    the third column's last 400 words after the fourth column).  A block B is
+    moved to follow block A when B continues A's column -- x-overlap at least
+    ``narrow`` of the narrower block's width and ``wide`` of the wider's (an
+    indented byline or the column's last short block), B below A within ``gap`` x the column's line
+    pitch (A's height over its line count is not known here; the smaller of
+    the two blocks' heights stands in, capped at 150 px) -- and every block
+    the order puts between them lies wholly to the right of A and starts
+    above B (blocks under 1% of A's area -- a speck, a bullet -- aside): the
+    signature of the cut, and nothing else.  Given the page's ``binary``, A
+    and B must also be set in one type size (median letter heights within
+    ``size`` of each other): a headline cut into word blocks has the same
+    shape -- its first word above the byline, the other words to its right
+    -- and its byline was pulled up after the first word (8245_016); A must
+    be at least ``lines`` letter heights tall; and among the blocks between
+    there must be a neighbouring COLUMN, a block in A's type size at least
+    ``lines`` letters tall -- a kicker over a byline with the headline's
+    words between them has the shape too (8253_015).
+
+    Topological reading order (Breuel, SDIUT 2003, rules over text lines)
+    was tried first and reordered headlines the segmenter had cut into word
+    blocks, reading them down instead of across (8242_003); this repair is
+    the narrow part of it that the XY-cut needs."""
+    order = list(blocks)
+    for _ in range(len(order)):
+        moved = False
+        for ia, a in enumerate(order):
+            wa = a[2] - a[0]
+            for ib in range(ia + 2, len(order)):
+                b = order[ib]
+                wb = b[2] - b[0]
+                ov = min(a[2], b[2]) - max(a[0], b[0])
+                if ov < narrow * min(wa, wb) or ov < wide * max(wa, wb) or b[1] < a[3]:
+                    continue
+                step = min(a[3] - a[1], b[3] - b[1], 150)
+                if b[1] - a[3] > gap * step:
+                    continue
+                mid = order[ia + 1:ib]
+                if binary is not None:
+                    from .lines import glyph_height
+                    ga, gb = glyph_height(binary, [a]), glyph_height(binary, [b])
+                    if (not ga or not gb or max(ga, gb) > size * min(ga, gb)
+                            or a[3] - a[1] < lines * ga):
+                        continue
+                    if not any(c[3] - c[1] >= lines * ga and (gc := glyph_height(binary, [c]))
+                               and max(gc, ga) <= size * min(gc, ga) for c in mid):
+                        continue
+                small = 0.01 * wa * (a[3] - a[1])
+                if all(c[0] >= a[2] - 2 and c[1] < b[1] for c in mid
+                       if (c[2] - c[0]) * (c[3] - c[1]) >= small):
+                    order.insert(ia + 1, order.pop(ib))
+                    moved = True
+                    break
+            if moved:
+                break
+        if not moved:
+            break
+    return order

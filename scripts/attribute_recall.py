@@ -147,6 +147,8 @@ def main():
     ap.add_argument("--pages", type=int, default=30)
     ap.add_argument("--seed", type=int, default=5)
     ap.add_argument("--heldout", action="store_true")
+    ap.add_argument("--pool", choices=["tune", "train", "heldout"], default=None,
+                    help="draw from one of the three disjoint non-evaluation pools (eval_layout.pool_pairs)")
     ap.add_argument("--doc-type", default=None)
     ap.add_argument("--config", default="configs/neural.toml")
     ap.add_argument("--set", action="append", default=[])
@@ -158,6 +160,9 @@ def main():
     if args.heldout:
         from eval_layout import heldout_pairs
         pairs = heldout_pairs(args.root)
+    if args.pool:
+        from eval_layout import pool_pairs
+        pairs = pool_pairs(args.root, args.pool)
     random.Random(args.seed).shuffle(pairs)
     pairs = pairs[:args.pages]
     tot_c, tot_ink, tot_words, rows = Counter(), Counter(), 0, []

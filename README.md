@@ -511,8 +511,10 @@ keep their own licences; `docs/NETWORKS.md` names each source.
 The neural profile leads both Tesseract engines on letters (in words),
 typewriter pleadings, modern documents, business pages, the Library of
 Congress typescripts and a paragraph read alone; it trails the LSTM on held-out newspapers and on forms, where
-column layout and form structure are the open problems. Tables are the
-current focus ([docs/TABLES.md](docs/TABLES.md)): the generated business
+column layout and form structure are the open problems. The current focus
+is the held-out newspapers, the one held-out set where both Tesseract engines
+still lead, and then a paper on the system as a whole. Tables were the focus
+before ([docs/TABLES.md](docs/TABLES.md)): the generated business
 sets read at 0.91-0.97 TEDS, real financial tables at 0.88 and scientific
 tables at 0.88 (on tables no decision looked at). Receipts are parked for a
 receipt profile of their own.

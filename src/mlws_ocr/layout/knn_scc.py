@@ -344,15 +344,21 @@ def level_groups(masks, scc, boxes, gutters, gutter_frac=0.3,
 
 
 def join_display_rows(blocks: list[list[int]], boxes: np.ndarray, sizes: np.ndarray,
-                      ref: float, big: float = 2.0, gap: float = 3.0) -> list[list[int]]:
+                      ref: float, big: float = 1.7, gap: float = 3.0, tall: float = 2.0) -> list[list[int]]:
     """Headline-aware blocks (2026-09-26 option): a tight cut breaks a display
     headline into letter and word blocks, and an XY-cut order can then read a
     two-line headline down its letter columns.  A block is DISPLAY when its
-    components' median size is at least `big` x the page's glyph size and it
-    is one line tall (no taller than 1.6 x that median); display blocks that
+    components' median size is at least `big` x the page's glyph size (1.7:
+    at 2.0, the first value, a headline's lowercase letters cut one to a block,
+    44 px over 23 px body type, fell short) and it
+    is one line tall (no taller than `tall` x that median: 2.0, for a word with
+    both ascenders and descenders -- 'stymie', 1.8 -- was refused at 1.6, the
+    first value, and kept its headline in letters; two lines are 2.2 or more);
+    display blocks that
     share a row (vertical overlap >= half the lower one) and sit within
     `gap` x the row's type size of each other join into one line block --
-    unless the joined box would overlap any other block."""
+    taking in a small block wholly inside it (under half the row's type: an
+    i-dot), unless the joined box would overlap any other block."""
     if len(blocks) < 2:
         return blocks
     cx = (boxes[:, 0] + boxes[:, 2]) / 2
@@ -361,7 +367,7 @@ def join_display_rows(blocks: list[list[int]], boxes: np.ndarray, sizes: np.ndar
     for b in blocks:
         m = (cx >= b[0]) & (cx <= b[2]) & (cy >= b[1]) & (cy <= b[3]) & (sizes >= 0.5 * ref)
         med = float(np.median(sizes[m])) if m.any() else 0.0   # specks and dots excluded
-        disp.append(med >= big * ref and (b[3] - b[1]) <= 1.6 * med)
+        disp.append(med >= big * ref and (b[3] - b[1]) <= tall * med)
         typ.append(med)
     idx = [i for i, d in enumerate(disp) if d]
     parent = {i: i for i in idx}
@@ -391,12 +397,21 @@ def join_display_rows(blocks: list[list[int]], boxes: np.ndarray, sizes: np.ndar
             continue
         u = [min(blocks[i][0] for i in members), min(blocks[i][1] for i in members),
              max(blocks[i][2] for i in members), max(blocks[i][3] for i in members)]
-        clash = any(j not in members and u[0] < blocks[j][2] and blocks[j][0] < u[2]
+        # a small block wholly inside the joined row (under half its type: an i-dot,
+        # a quote mark cut off on its own) joins it; any other overlap is a clash (2026-10-12: the
+        # dot of an 'i' had kept 'Indictments could stymie' in letters)
+        size = max(typ[i] for i in members)
+        inside = [j for j in range(len(blocks)) if j not in members
+                  and u[0] <= blocks[j][0] and blocks[j][2] <= u[2]
+                  and u[1] <= blocks[j][1] and blocks[j][3] <= u[3]
+                  and blocks[j][3] - blocks[j][1] < 0.5 * size]
+        clash = any(j not in members and j not in inside and u[0] < blocks[j][2] and blocks[j][0] < u[2]
                     and u[1] < blocks[j][3] and blocks[j][1] < u[3] for j in range(len(blocks)))
         if clash:
             continue
         out.append(u)
         used.update(members)
+        used.update(inside)
     return out + [b for i, b in enumerate(blocks) if i not in used]
 
 

@@ -117,6 +117,16 @@ class JudgedBlocks(Stage):
                                                # trained or measured a loss
         "keep_dashes": False,                  # the XY-cut's dash slivers kept as blocks
                                                # (blocks.dash_blocks; 2026-10-03)
+        "join_display": "",                    # these doc types ('*' = every judged page): the
+                                               # knn_scc candidates run with join_display (a headline
+                                               # cut into letter and word blocks joined into line
+                                               # blocks), judged with their own weights: the judge was
+                                               # fitted before the joining existed (2026-10-12). Not
+                                               # magazines: one joined headline changed the XY order
+                                               # of a magazine page's other blocks (8006_030 98 -> 65)
+        "order_columns": "",                   # these doc types ('*' = every page): the chosen blocks
+                                               # reordered by blocks.order_columns, a column's lower
+                                               # part before the column to its right (2026-10-12)
     }
 
     def run(self, page: Page) -> tuple[Page, DebugBundle]:
@@ -127,6 +137,13 @@ class JudgedBlocks(Stage):
             extra = dash_blocks(page.binary, blocks, int(XYCutBlocks.defaults["min_block_px"]))
             out.meta["layout"]["blocks"] = blocks + extra
             dbg.scalars["dash_blocks"] = len(extra)
+        types = [t for t in str(self.params["order_columns"]).split(",") if t]
+        if types and ("*" in types or page.meta.get("doc_type") in types):
+            from .blocks import order_columns
+            blocks = out.meta["layout"]["blocks"]
+            new = order_columns(blocks, binary=page.binary)
+            dbg.scalars["reordered"] = sum(a != b for a, b in zip(blocks, new))
+            out.meta["layout"]["blocks"] = new
         return out, dbg
 
     def _choose(self, page: Page) -> tuple[Page, DebugBundle]:
@@ -155,8 +172,10 @@ class JudgedBlocks(Stage):
         ctx = page_context(page.binary, gut, doc_type)
         best = None
         scores = {}
+        jt = [t for t in str(self.params["join_display"]).split(",") if t]
+        join = bool(jt) and ("*" in jt or doc_type in jt)
         for c in cands:
-            out, dbg = run_candidate(page, c)
+            out, dbg = run_candidate(page, c + "J" if join and c + "J" in CANDS else c)
             s = float(design_row(cands, c, ctx, layout_features(
                 page.binary, out.meta["layout"]["blocks"], gut)) @ w)
             scores[c] = round(s, 3)

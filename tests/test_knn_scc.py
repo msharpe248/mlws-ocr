@@ -157,3 +157,14 @@ def test_judged_stage_is_xycut_on_pages_it_does_not_judge():
         judged = get("blocks", "judged")(model_path="/nonexistent").run(page)[0].meta["layout"]["blocks"]
         page2 = Page(gray=(~binary).astype(np.float32), binary=binary, dpi=300.0, meta=dict(meta, layout={}))
         assert judged == get("blocks", "xycut")().run(page2)[0].meta["layout"]["blocks"]
+
+
+def test_join_display_rows_takes_in_an_i_dot_cut_off_on_its_own():
+    ref = 20.0
+    # an 'l', an 'i' whose dot the cut left on its own, a 'd': the tall letters reach above the dot
+    letters = [[0, 0, 60, 100], [70, 30, 90, 100], [140, 0, 200, 100]]
+    dot = [72, 8, 88, 22]
+    boxes = np.array(letters + [dot], float)
+    sizes = np.maximum(boxes[:, 2] - boxes[:, 0], boxes[:, 3] - boxes[:, 1])
+    out = K.join_display_rows(letters + [dot], boxes, sizes, ref)
+    assert out == [[0, 0, 200, 100]]
