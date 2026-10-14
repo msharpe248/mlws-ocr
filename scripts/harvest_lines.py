@@ -142,7 +142,8 @@ def main():
     ap.add_argument("--offset", type=int, default=0,
                     help="skip this many of the shuffled pages first (split one folder across processes)")
     ap.add_argument("--out", default="data/lines_en.npz")
-    ap.add_argument("--doc-type", default="letter")
+    ap.add_argument("--doc-type", default="letter",
+                    help='the layout hint; "" = none (the hint-free columns of v0.18.17: magazines and pamphlets)')
     ap.add_argument("--line-out", default="",
                     help="also save every matched line WHOLE (its strip and its truth "
                          "line, when every truth word of the line aligned) to this npz: "
@@ -185,7 +186,7 @@ def main():
         truth_lines = [normalize(l) for l in gt.read_text(errors="ignore").splitlines()]
         truth_lines = [l for l in truth_lines if l]
         gray, dpi = load_gray(tif)
-        page = Page(gray=gray, dpi=dpi or 300.0, meta={"doc_type": args.doc_type})
+        page = Page(gray=gray, dpi=dpi or 300.0, meta={"doc_type": args.doc_type} if args.doc_type else {})
         try:
             page = run_stages(page, pipeline, overrides)
         except Exception as e:

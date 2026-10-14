@@ -38,18 +38,24 @@ from PIL import Image
 csv.field_size_limit(1 << 30)
 
 
-def rows_for(csv_path: Path, campaign: str):
+def rows_for(csv_path: Path, campaign: str, fmt: str = ""):
     pat = re.compile(re.escape(campaign), re.I)
+    fpat = re.compile(re.escape(fmt), re.I) if fmt else None
     with open(csv_path, newline="", encoding="utf-8-sig", errors="ignore") as fh:
         for r in csv.DictReader(fh):
             if r["AssetStatus"] == "completed" and pat.search(r["Campaign"]) and r["DownloadUrl"] and len(r["Transcription"]) >= 80:
-                yield r
+                if fpat is None or fpat.search(r.get("OriginalFormat") or ""):
+                    yield r
 
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     ap.add_argument("--csv", type=Path, required=True)
     ap.add_argument("--campaign", required=True, help="substring of the campaign name")
+    ap.add_argument("--format", default="",
+                    help="substring of the Library's OriginalFormat (e.g. book): a campaign that mixes printed "
+                         "items with manuscripts (African American Perspectives in Print: 6,097 'book' pages, "
+                         "2,147 manuscript) is drawn from its printed part only")
     ap.add_argument("--n", type=int, default=40)
     ap.add_argument("--seed", type=int, default=7)
     ap.add_argument("--out", type=Path, required=True)
@@ -63,7 +69,7 @@ def main():
                     help="write the pages into numbered subdirectories of this many pages each (0 = one directory), "
                          "so several harvest processes can run at once")
     args = ap.parse_args()
-    rows = list(rows_for(args.csv, args.campaign))
+    rows = list(rows_for(args.csv, args.campaign, args.format))
     taken = set()
     for d in args.exclude_dir:
         taken |= {p.stem for p in d.rglob("*.tif")}

@@ -134,11 +134,11 @@ zone files are needed for the held-out pools and the block evaluation.
 | | |
 |---|---|
 | what | the Library of Congress crowdsourced transcription package: a CSV of 434,006 completed pages (2026-08-28), each with its image URL and a reviewed transcription |
-| used for | the `legal reports` evaluation row (40 pages of the "Historical Legal Reports" campaign; a disjoint 100-page draw too); training lines from other pages of that campaign and of two others (NAWSA, the Rumor project); probe sets (Early Copyright, Federal Theatre playbills) |
+| used for | the `legal reports` evaluation row (40 pages of the "Historical Legal Reports" campaign; a disjoint 100-page draw too); training lines from other pages of that campaign and of two others (NAWSA, the Rumor project); probe sets (Early Copyright, Federal Theatre playbills); the printed part of "African American Perspectives in Print" (pamphlets and magazines, 6,138 'book' pages): a 40-page probe set and a line harvest (2026-10-14) |
 | licence | public domain |
-| where from | the Library's item page, <https://www.loc.gov/item/2026395156/> (download the comprehensive CSV) |
-| prepare | `.venv/bin/python scripts/make_btp_set.py --csv <the CSV> --campaign "Historical Legal Reports" --n 40 --out data/ext/btp_legal/eval` (the page images are fetched from the CSV's URLs, politely; `--exclude-dir` keeps a draw disjoint from earlier ones) |
-| lands in | `data/ext/btp_legal/{eval,eval100,harvest,harvest2/shard0N}/<AssetId>.tif + .txt`; `data/ext/btp_{nawsa,rumor}/harvest/`; `data/ext/btp_{copyright,playbills}/eval/` |
+| where from | the Library's item page, <https://www.loc.gov/item/2026395156/> (the comprehensive CSV: `2026395156_csv.zip`, 239 MB, unzips to `btp_comprehensive_2026-08-28.csv`, 1.2 GB) |
+| prepare | `.venv/bin/python scripts/make_btp_set.py --csv <the CSV> --campaign "Historical Legal Reports" --n 40 --out data/ext/btp_legal/eval` (the page images are fetched from the CSV's URLs, politely; `--exclude-dir` keeps a draw disjoint from earlier ones). A campaign that mixes print with manuscripts is drawn from its print with `--format book` (the Library's OriginalFormat). Pamphlets and magazines come in every page size, so the page-width dpi guess is wrong for them (it would enlarge the small ones 2.3×); their text is already at the size of a 300-dpi page, so they are drawn with `--dpi 300 --max-dpi 0`: `make_btp_set.py --csv <the CSV> --campaign "African American Perspectives" --format book --n 40 --dpi 300 --max-dpi 0 --out data/ext/btp_aap/eval` |
+| lands in | `data/ext/btp_legal/{eval,eval100,harvest,harvest2/shard0N}/<AssetId>.tif + .txt`; `data/ext/btp_{nawsa,rumor}/harvest/`; `data/ext/btp_{copyright,playbills}/eval/`; `data/ext/btp_aap/{eval,harvest/shard0N}/`; the rest of the Legal Reports (5,994 pages) in `data/ext/btp_legal/harvest3/shard0N/` |
 
 ## 4. Tables
 
