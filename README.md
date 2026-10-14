@@ -74,10 +74,10 @@ scoreboard and its history are in `docs/DESIGN.md` §8.
 | newspapers, held out | 30 UNLV newspaper pages held out from decisions (not from training) | 76.5 / 63.4 | **89.1 / 85.6** | 87.1 / 82.4 | 87.7 / 84.2 |
 | magazines, held out | 30 UNLV magazine pages held out from decisions (not from training) | 68.3 / 50.7 | **83.8 / 75.7** | 77.9 / 71.3 | 78.5 / 73.6 |
 | letters, held out | 30 UNLV business letters held out from decisions (not from training) | 90.7 / 83.1 | **93.9 / 91.1** | 92.4 / 88.8 | 93.1 / 90.6 |
-| DOE reports, clean | 30 UNLV DOE technical reports never opened before (no hint, pooled) | 83.5 / 68.9 | 85.9 / **78.1** | 86.0 / 76.2 | **86.6** / 77.5 |
-| annual reports, clean | 30 UNLV annual reports never opened before (no hint, pooled) | 66.5 / 53.1 | 72.2 / 68.4 | 84.3 / 83.3 | **86.1 / 84.6** |
-| funsd | real scanned forms, FUNSD, at 2x | 37.4 / 12.7 | **66.9** / 45.0 | 54.8 / 32.0 | 66.4 / **47.2** |
-| legal reports | real typescript and printed office pages, Library of Congress | 70.5 / 47.3 | **87.5 / 73.7** | 57.5 / 42.8 | 78.8 / 66.3 |
+| DOE reports, clean | 30 UNLV DOE technical reports never opened before (no hint, pooled) | 83.5 / 68.9 | 85.5 / **77.8** | 86.0 / 76.2 | **86.6** / 77.5 |
+| annual reports, clean | 30 UNLV annual reports never opened before (no hint, pooled) | 66.5 / 53.1 | 74.8 / 72.7 | 84.3 / 83.3 | **86.1 / 84.6** |
+| funsd | real scanned forms, FUNSD, at 2x | 37.4 / 12.7 | 66.3 / 44.7 | 54.8 / 32.0 | **66.4 / 47.2** |
+| legal reports | real typescript and printed office pages, Library of Congress | 70.5 / 47.3 | **87.0 / 72.7** | 57.5 / 42.8 | 78.8 / 66.3 |
 | blocks | a paragraph handed in alone, no layout (broad-30's text zones) | 94.4 / 85.8 | **98.6 / 97.2** | 98.2 / 96.6 | 98.5 / 96.5 |
 
 
@@ -123,11 +123,15 @@ on the same held-out pages: newspapers 87.7 / 84.2, magazines 78.5 / 73.6,
 letters 93.1 / 90.6 (neural 93.9 / 91.1).
 `scripts/eval_unlv.py --heldout` draws them. On two UNLV sets no decision
 and no training has touched (30 pages each, no hint, pooled), the neural
-profile is level with the LSTM on DOE technical reports (85.9 / 78.1 against
-86.6 / 77.5) and well behind it on annual reports (72.2 / 68.4 against
-86.1 / 84.6): two-column report pages read across their narrow gutters (no
-document-type hint the engine knows fixes them), and a reverse-video page reads as nothing
-([the system paper](docs/papers/readable-self-trained-ocr.md) §7).
+profile is level with the LSTM on DOE technical reports (85.5 / 77.8 against
+86.6 / 77.5) and behind it on annual reports (74.8 / 72.7 against
+86.1 / 84.6). The paper measured 72.2 / 68.4 there at v0.18.16, with two-column
+report pages read line by line across their gutter
+([the system paper](docs/papers/readable-self-trained-ocr.md) §7); since v0.18.17
+a page with no hint has its columns found from the whitespace gutters and, with
+two or more, is segmented as a newspaper (held-out newspapers read with no hint
+70.8 → 82.4). A reverse-video page still reads as nothing: the inversion that
+reads it is an option, off, since it cost a held-out magazine page 36 points.
 
 **Photographs and the facing page (27 September 2026).** Photographs no
 longer cost text (0.3% of the text's ink falls in picture zones), but a
@@ -200,10 +204,11 @@ of the numbers, the shared ideas and the differences. The short form:
   LSTM's 87.7 / 84.2), after a fix found on other newspaper pages: columns
   set solid whose lines fused, columns the XY-cut parted, headlines cut into
   letters. Held-out magazines lead (83.8 against 78.5).
-- **Behind** on forms in words (FUNSD: 66.9 / 45.0 against 66.4 / 47.2,
-  ahead in characters), and on the one clean set with multi-column pages:
-  UNLV annual reports, never opened before, 72.2 against 86.1 characters
-  (two-column pages read across their narrow gutters). Level on clean DOE reports (85.9 against 86.6). The
+- **Behind** on forms (FUNSD: 66.3 / 44.7 against 66.4 / 47.2), and on the
+  one clean set with multi-column pages: UNLV annual reports, never opened
+  before, 74.8 against 86.1 characters (72.2 before v0.18.17 found columns
+  without a hint; what is left is mostly financial statements and pages whose
+  sections run across both columns). Level on clean DOE reports (85.5 against 86.6). The
   held-out rows above were held out from decisions, not from training.
 - **A tenth of the training data**: readers of 287k parameters trained on
   this machine from open fonts and public scans, against Tesseract's 4,500
@@ -542,8 +547,8 @@ typewriter pleadings, modern documents, business pages, the Library of
 Congress typescripts, a paragraph read alone and, since v0.18.16, the
 held-out newspapers; it trails the LSTM on forms in words, where form
 structure is the open problem, and on UNLV annual reports, a set no decision
-or training had touched, where the layout reads two-column pages across their
-narrow gutters, with or without a hint. On the other clean set, DOE reports, it is level. The current focus is a paper on the system as
+or training had touched (74.8 against 86.1; since v0.18.17 columns are found
+without a hint, 72.2 before). On the other clean set, DOE reports, it is level. The current focus is a paper on the system as
 a whole, now drafted ([docs/papers/readable-self-trained-ocr.md](docs/papers/readable-self-trained-ocr.md)). Tables were the focus
 before ([docs/TABLES.md](docs/TABLES.md)): the generated business
 sets read at 0.91-0.97 TEDS, real financial tables at 0.88 and scientific

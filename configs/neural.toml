@@ -76,6 +76,14 @@ join_display = "newspaper"     # newspapers: the k-NN candidates join a headline
 order_columns = "newspaper"    # newspapers: a column the XY-cut parts where its neighbour ends is read through
                                # (both with lines.resplit_glyph_ref, v0.18.16: held-out newspapers 86.7 / 81.6 ->
                                # 89.2 / 85.7, 15 pages up, none down; RESEARCH 2026-10-12)
+gutter_first = true            # a page with NO hint: the whitespace search's column gutters steer the XY-cut --
+gutter_narrow_300dpi = 8       # columns cut before rows where a gutter runs, narrower gaps cut on a gutter, a cut
+gutter_rows_300dpi = 6         # under a headline spanning its columns; a gutter only between columns an inch wide
+gutter_min_col_300dpi = 300    # whose lines have word spaces (not a table's field gaps) -- and a page with two such
+gutter_text_gap = 3            # gutters segmented as a newspaper (v0.18.17, the owner's decision): held-out newspapers
+unhinted_as = "newspaper"      # with no hint 70.8 / 63.4 -> 82.4 / 77.7, the clean annual reports 72.2 -> 75.8 pooled,
+                               # magazines with no hint level, DOE 85.9 -> 85.5, letters with no hint 92.2 -> 91.6,
+                               # FUNSD 66.9 -> 66.3; hinted pages untouched (RESEARCH 2026-10-13)
 
 [stage.lines]
 impl = "profile"

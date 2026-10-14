@@ -126,7 +126,12 @@ negative on legal pages.
 - `judged` (the neural profiles): on newspapers and magazines a ridge
   judge over seven page features picks one of four candidates per page
   (XY-cut with and without its hint, the tight k-NN, the SCC tree;
-  `layout/segjudge.py`); every other page keeps XY-cut.
+  `layout/segjudge.py`); every other page keeps XY-cut. A page with no
+  document-type hint (since v0.18.17) has the whitespace search's column
+  gutters steer its XY-cut (columns before rows, narrow gutters, a cut
+  under a spanning headline; not a table's field gaps), and with two such
+  gutters is judged as a newspaper (`blocks.gutter_*`, `unhinted_as`;
+  SEGMENTATION.md §7).
 
 **tables (`grid`).** Ruling intersections become a cell grid; decoded
 words are later placed into cells by centre. Unruled tables are handled
@@ -452,7 +457,7 @@ help on UNLV, whose TIFFs are already bitonal — recorded).
 | sroie | ICDAR 2019 SROIE receipts (corrected mirror), 60 evaluation receipts by seeded draw, 566 for harvest; `data/ext/sroie` | REAL thermal-roll receipts with line-level truth (`make_external_sets.py`); public, research use |
 | funsd | FUNSD forms, the official 50 test forms at 2x, 149 for harvest; `data/ext/funsd` | REAL scanned forms with entity-level truth; reading order is a convention there, so recall / precision are the honest columns; non-commercial research |
 | cord | CORD v2 photographed receipts (Park et al. 2019, CC-BY-4.0), the official 100 test receipts; `data/ext/cord/eval` (full photos) and `evalcrop` (each cut to its annotated rows + 8%), 900 for harvest; `fetch_cord.py`, `make_external_sets.py --cord` | REAL camera photos of shop receipts with human word quads; only the receipt body is annotated (the header is blurred), so recall is the honest column; the cropped set measures reading, the full photos finding the document; neural 53.2 / 30.3 cropped with the deskew limit mode, 51.8 / 29.3 (recall 57.0) with the v0.14.0 reader, 52.4 / 30.6 (recall 56.4) with the form fixes (the page anchor and dashed rules, 2026-09-26), 46.4 / 21.7 (recall 45.8) with the grey-strip reader alone (v17a 37.7 / 8.0, recall 31.6), Tesseract LSTM 46.7 / 21.1 (44.1) |
-| btp_legal | Library of Congress "By the People", Historical Legal Reports campaign, 40 pages by seeded draw; `data/ext/btp_legal` (`make_btp_set.py`) | REAL typescript and printed office pages with HUMAN transcriptions, public domain; per-page truth in the volunteers' order, so recall / precision are the honest columns; the Library's TIFFs are tagged 300 dpi but are ~365-dpi scans of letter paper, so the set is built with the dpi inferred from the page width and resampled to 300 (`make_btp_set.py`, 2026-09-22; under the wrong tag the set read 76.7 / 57.2 and the LSTM 76.8 / 64.5); neural now 87.5 / 73.7 (README); earlier 85.5 / 69.9 (73.7 / 75.6; the 100-page draw 85.7 / 72.7) since the live reader became an ensemble of three seeds carrying the 600 harvested pages and one corrected 500-page shard (v15e 2026-09-23, v17a with CORD 2026-09-24), LSTM 78.8 / 66.3 (100-page draw 81.6 / 70.8) |
+| btp_legal | Library of Congress "By the People", Historical Legal Reports campaign, 40 pages by seeded draw; `data/ext/btp_legal` (`make_btp_set.py`) | REAL typescript and printed office pages with HUMAN transcriptions, public domain; per-page truth in the volunteers' order, so recall / precision are the honest columns; the Library's TIFFs are tagged 300 dpi but are ~365-dpi scans of letter paper, so the set is built with the dpi inferred from the page width and resampled to 300 (`make_btp_set.py`, 2026-09-22; under the wrong tag the set read 76.7 / 57.2 and the LSTM 76.8 / 64.5); neural now 87.0 / 72.7 (README; 87.5 / 73.7 at v0.18.16, before a gutter found on one page cut it first); earlier 85.5 / 69.9 (73.7 / 75.6; the 100-page draw 85.7 / 72.7) since the live reader became an ensemble of three seeds carrying the 600 harvested pages and one corrected 500-page shard (v15e 2026-09-23, v17a with CORD 2026-09-24), LSTM 78.8 / 66.3 (100-page draw 81.6 / 70.8) |
 | blocks | the Text zones of dev-8, legal-8 and broad-30, cut from the page and read alone | recognition with no layout question (`eval_blocks.py`; legacy reads the same crops with `--psm 6`) |
 
 Metrics: character and word accuracy by edit distance, plus order-
@@ -618,7 +623,7 @@ receipt profile that preceded it is retired.
 
 | profile | sroie | funsd |
 |---|---|---|
-| neural (current, README) | – | 66.9 / 45.0 (v0.18.16: one form's fused lines re-split; 65.9 / 44.3 before) |
+| neural (current, README) | – | 66.3 / 44.7 (v0.18.17: columns found without a hint cut two forms at a gutter; 66.9 / 45.0 at v0.18.16, one form's fused lines re-split; 65.9 / 44.3 before) |
 | classic | 48.0 / 13.6 (47.3 / 10.1 before the form fixes) | 37.4 / 12.7 (36.0 / 12.3) |
 | neural (v0.14.0 reader, case repair) | **78.6 / 60.2** | 66.0 / 43.9 |
 | neural (grey-strip reader, form fixes) | 68.2 / 47.6 | 66.1 / 44.0 |

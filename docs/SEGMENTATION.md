@@ -264,7 +264,7 @@ with the line, column and headline fixes of v0.18.16),
 magazines **83.7** against 78.0 (character accuracy; the best possible
 per-page choice would be 90.3 and 84.8).
 
-### With no hint: columns from the gutters, and a guess (2026-10-13; options, off)
+### With no hint: columns from the gutters, and a guess (in the neural profiles since v0.18.17)
 
 Everything above leans on the document type. A page that arrives with
 none — an annual report, a scanned newspaper page dropped into the
@@ -321,8 +321,12 @@ two-column sections (a gutter running the full page through them,
 9538_018), an advertisement read cleanly that the page's truth leaves out,
 a spread whose other gutters the search misses, and a letter, form or DOE
 page where one found gutter, or the guess, fires on a page that was not in
-columns. The options stay off; adopting them is the owner's decision
-(ROADMAP).
+columns. Adopted in neural and neural-table (v0.18.17, the owner's decision;
+reverse video stays off). Through the profile, without reverse video: the
+clean annual reports 74.8 / 72.7 pooled, DOE 85.5 / 77.8, held-out
+newspapers with no hint 82.4 / 77.7, magazines with no hint 69.2 / 58.8,
+FUNSD 66.3 / 44.7, Legal Reports 87.0 / 72.7; every scored table set,
+business, modern and every hinted set identical.
 
 ## 8. Lines inside a block
 
@@ -434,7 +438,7 @@ read with that segmenter, on the evaluation sets (`eval_unlv.py --blocks
 | imagezones | `density` | `density_thresh` 0.45, `protect_text_rows` on, `keep_grids` (neural-table) | every profile |
 | rulings | `morphological` | `min_len_300dpi` 150, `tolerant` on, `dash_gap_300dpi` 12, `short_in_grid_300dpi` 40, `edge_bars` and `faint_depth` 0.06 (neural-table) | every profile |
 | blocks | `xycut` | `min_gap_x_300dpi` 36, `min_gap_y_300dpi` 30, document-type priors | classic, pure |
-| | `judged` | `model_path` `data/segjudge.npz`, newspapers and magazines judged; `keep_dashes` (neural-table); `join_display`, `order_columns` (newspapers, neural profiles); `unhinted_as` and the XY-cut's `gutter_*` (pages with no hint; options, off) | neural, neural-table |
+| | `judged` | `model_path` `data/segjudge.npz`, newspapers and magazines judged; `keep_dashes` (neural-table); `join_display`, `order_columns` (newspapers, neural profiles); `unhinted_as` "newspaper" and the XY-cut's `gutter_*` (pages with no hint; neural profiles since v0.18.17) | neural, neural-table |
 | | `whitespace`, `knn_scc` | see the code and the papers | layout profiles for comparison |
 | lines | `profile` | tall-line re-split (`resplit_glyph_ref` 1.7 in the neural profiles); `in_cells` (neural-table); `stacked_chunks` (table crops, neural-table); `equations` (display equations, neural and neural-table) | every profile |
 | components | `overlap` | cut candidates for wide groups | every profile |

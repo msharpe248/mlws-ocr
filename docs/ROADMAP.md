@@ -26,13 +26,14 @@ With the tables and equations at v0.18.15, the owner widened the focus beyond ta
    DOE reports level with the LSTM (85.9 / 78.1 against 86.6 / 77.5, pooled), annual
    reports 14 characters behind (72.2 against 86.1). Awaiting the owner's review.
 
-**What the clean sets point to (2026-10-13: the owner said go; done as options, off, awaiting the owner):**
+**What the clean sets point to (2026-10-13: the owner said go; the column options ADOPTED in v0.18.17, reverse video left off):**
 Measured once at the end (RESEARCH, 2026-10-13): held-out newspapers with no hint 70.8 -> 82.4,
 the clean annual reports 72.2 -> 75.8 pooled, magazines with no hint level, the clean DOE reports
 85.9 -> 85.5, letters with no hint 92.2 -> 91.6, FUNSD 66.9 -> 66.3; reverse video restores the
 white-on-black report page (0 -> 96) but cost a held-out magazine page 36 points. The harvest
-guard is in (no model retrained). Decide: the column options (`blocks.gutter_*`,
-`unhinted_as`) and reverse video (`illumination.invert_text`) in the neural profiles, or not.
+guard is in (no model retrained). The owner took the recommendation: the column options in
+neural and neural-table (v0.18.17: clean annual reports 74.8 / 72.7 through the profile), reverse
+video off until pictures can be kept out of its gate on binary scans.
 - **Columns found without a hint, on report pages too.** Rep.3B's two-column pages are
   read across their narrow gutters with no hint, and the magazine hint does not fix
   them (pooled 72.2 -> 73.7, 13 pages down, 6 up; 9500_034 reads 30% either way, LSTM

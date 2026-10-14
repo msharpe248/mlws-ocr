@@ -29,13 +29,13 @@ install carries (`tessdata_fast`).
 | newspapers, held out | 30 UNLV newspaper pages held out from decisions | **89.1 / 85.6** | 87.1 / 82.4 | 87.7 / 84.2 | ahead of the LSTM by 1.4 characters, 1.4 words since v0.18.16 (86.7 / 81.6 before: columns set solid, columns the XY-cut parted, headlines cut into letters) |
 | mag-8 | UNLV magazines (the layout rules were tuned here) | 87.2 / 81.3 | 87.3 / **84.7** | **87.8** / 84.4 | behind in words |
 | magazines, held out | 30 UNLV magazine pages held out from decisions | **83.8 / 75.7** | 77.9 / 71.3 | 78.5 / 73.6 | ahead of both |
-| funsd | real scanned forms, FUNSD (50, at 2x) | **66.9** / 45.0 | 54.8 / 32.0 | 66.4 / **47.2** | ahead of the LSTM by 0.5 characters, behind by 2.2 words (65.9 / 44.3 before v0.18.16) |
-| legal reports | Library of Congress typescript and print (40) | **87.5 / 73.7** | 57.5 / 42.8 | 78.8 / 66.3 | ahead of both |
+| funsd | real scanned forms, FUNSD (50, at 2x) | 66.3 / 44.7 | 54.8 / 32.0 | **66.4 / 47.2** | level in characters, behind the LSTM by 2.5 words (66.9 / 45.0 at v0.18.16: a gutter found on two forms since v0.18.17) |
+| legal reports | Library of Congress typescript and print (40) | **87.0 / 72.7** | 57.5 / 42.8 | 78.8 / 66.3 | ahead of both (87.5 / 73.7 at v0.18.16) |
 | blocks | broad-30's text zones read alone, no layout | **98.6 / 97.2** | 98.2 / 96.6 | 98.5 / 96.5 | ahead of both |
-| DOE reports, clean | 30 UNLV DOE technical reports never opened before (no hint; pooled) | 85.9 / **78.1** | 86.0 / 76.2 | **86.6** / 77.5 | level: 0.7 characters behind the LSTM, 0.6 words ahead |
-| annual reports, clean | 30 UNLV annual reports never opened before (no hint; pooled) | 72.2 / 68.4 | 84.3 / 83.3 | **86.1 / 84.6** | behind both by 12 to 14 characters: two-column pages read across their narrow gutters (the magazine hint does not fix them), a reverse-video page read as nothing |
+| DOE reports, clean | 30 UNLV DOE technical reports never opened before (no hint; pooled) | 85.5 / **77.8** | 86.0 / 76.2 | **86.6** / 77.5 | level: 1.1 characters behind the LSTM, 0.3 words ahead (85.9 / 78.1 at v0.18.16) |
+| annual reports, clean | 30 UNLV annual reports never opened before (no hint; pooled) | 74.8 / 72.7 | 84.3 / 83.3 | **86.1 / 84.6** | behind both by 10 to 11 characters: 72.2 / 68.4 at v0.18.16, when two-column pages were read across their gutter; since v0.18.17 columns are found without a hint. Left: financial statements, sections across both columns, a reverse-video page read as nothing |
 
-These are the README's figures (the neural profile, v0.18.16). Every
+These are the README's figures (the neural profile, v0.18.17). Every
 row is the mean over its pages, except the two clean rows: many DOE pages
 are figures whose truth is only the caption, so the per-page mean is
 meaningless there (−11% neural, +19% LSTM) and those rows pool the errors
@@ -69,11 +69,12 @@ Reading the table honestly:
   the headline set. Tesseract's decades of tuning on exactly this kind of
   page show here more than anywhere.
 - **Where we trail, it is layout and forms.** On clean annual reports,
-  which the project had never opened, the neural profile is 14 characters
-  behind the LSTM: the layout reads two-column report pages across their
-  narrow gutters, with no hint or with the magazine hint. FUNSD forms trail the LSTM by 2.2 words. With
-  their hint the held-out newspapers and magazines lead; without it they
-  trail too (70.8 and 68.7 characters, against the LSTM's 87.6 and 78.5).
+  which the project had never opened, the neural profile is 11 characters
+  behind the LSTM (14 at v0.18.16, when two-column report pages were read
+  across their gutter; v0.18.17 finds columns without a hint). FUNSD forms
+  trail the LSTM by 2.5 words. With their hint the held-out newspapers and
+  magazines lead; without it they trail (82.4 and 69.2 characters since
+  v0.18.17, 70.8 and 68.7 before, against the LSTM's 87.6 and 78.5).
 - **The LSTM is not a different engine on layout.** It shares Tesseract's
   page analysis, so it lands within a point of legacy wherever the layout
   decides, and it is a better recognizer on clean type than legacy. On the

@@ -148,6 +148,7 @@ were trained on the public sources named below and on nothing else.
 | v0.18.14 (2026-10-12) | the same forty-five files as v0.18.13: this release is profile and code (equations read line by line and unnumbered ones confirmed by the reader; a cell's words kept in order across a descender, a check-mark row not taken for a note) |
 | v0.18.15 (2026-10-12) | forty-six files: v0.18.14's forty-five plus the equation reader `mathread_v4.npz` (v3 stays: the previous reader and v4's start) |
 | v0.18.16 (2026-10-13) | the same forty-six files as v0.18.15: this release is profile and code (the newspaper layout fixes: lines re-split by the letters' size, a column read through where the XY-cut parts it, headlines joined in the segmenter judge's k-NN candidates; no model or judge refitted) |
+| v0.18.17 (2026-10-13) | the same forty-six files: profile and code (columns found without a hint from the whitespace gutters, and a page with two such gutters judged as a newspaper, with the segmenter judge as fitted; no model or judge refitted). The training harvests now refuse the held-out pools too: the next reader trained from them will not have seen the held-out pages |
 
 ## Where the training data comes from
 
