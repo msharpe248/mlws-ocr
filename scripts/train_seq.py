@@ -20,7 +20,10 @@ epoch by that number is exported.
 Backends: 'numpy' is the reference implementation (slow: an overnight
 job at 250k+ windows); 'torch' mirrors it layer for layer on the
 machine's own accelerator and exports to the same .npz, so the pipeline
-never needs torch.  Variant-file discipline: write data/seq_en_v*.npz;
+never needs torch.  ``--channels`` and ``--hidden`` set the reader's size (the
+saved file records both, so a wider reader loads as any other); ``--duty``
+sleeps a share of each step so a training box is not run at full load.
+Variant-file discipline: write data/seq_en_v*.npz;
 the live file changes only on adoption.
 """
 from __future__ import annotations
@@ -124,6 +127,11 @@ def main():
     ap.add_argument("--batch", type=int, default=64)
     ap.add_argument("--lr", type=float, default=2e-3)
     ap.add_argument("--hidden", type=int, default=96)
+    ap.add_argument("--channels", default="16,32,64,64",
+                    help="the four convolution widths (a wider reader: 32,64,128,128 with --hidden 192)")
+    ap.add_argument("--duty", type=float, default=0.0,
+                    help="sleep this share of each step's time after it, so a box is not run at "
+                         "full load (gentle training, the owner's rule of 2026-10-10)")
     ap.add_argument("--hold-pages", type=float, default=0.1)
     ap.add_argument("--real-weight", type=int, default=2, help="repeat real strips N times")
     ap.add_argument("--lines-once", nargs="*", default=[],
@@ -166,7 +174,8 @@ def main():
     rng = np.random.default_rng(args.seed)
 
     classes = default_classes()
-    net = SeqNet(classes, hidden=args.hidden, seed=args.seed)
+    net = SeqNet(classes, channels=tuple(int(c) for c in args.channels.split(",")), hidden=args.hidden,
+                 seed=args.seed)
     if args.init:
         net = SeqNet.load(args.init)
         print(f"initialised from {args.init}")
@@ -322,12 +331,18 @@ def main():
         batches = make_batches(train, args.batch, rng)
         losses, t_ep = [], time.time()
         for k, b in enumerate(batches):
+            t_step = time.time()
             X, lengths, labels = collate(b, net)
             keep = (np.array([not any(sk in ds.path for sk in args.distill_skip)
                               and set(ds.labels[i]) <= teacher_chars for ds, i in b])
                     if args.distill > 0 else None)
             losses.append(train_step(X, lengths, labels, lr, keep))
             ema_update()
+            if args.duty > 0:
+                time.sleep(args.duty * (time.time() - t_step))
+            if not args.smoke and (k + 1) % 2000 == 0:
+                print(f"  step {k + 1}/{len(batches)}  loss {np.mean(losses[-2000:]):.3f}  "
+                      f"{(time.time() - t_ep) / (k + 1):.3f} s/step", flush=True)
             if args.smoke and (k + 1) % 10 == 0:
                 print(f"  step {k + 1}/{len(batches)}  loss {np.mean(losses[-10:]):.3f}  "
                       f"{(time.time() - t_ep) / (k + 1):.3f} s/step", flush=True)
