@@ -53,7 +53,16 @@ UPSTREAM = ("magnify", "deskew", "illumination", "binarize", "despeckle", "image
 def pool_pairs(root: Path, pool: str) -> list:
     """The non-evaluation pages of a UNLV set, in three disjoint pools: 'tune'
     (the 30 pages --tune draws, seed 7), 'train' (the 40 link-model training
-    pages, seed 11 over the rest) and 'heldout' (everything else)."""
+    pages, seed 11 over the rest) and 'heldout' (everything else).
+
+    On a clean test set (doe3.3B, rep.3B) the pool 'dev' is every page but
+    the measured draw (--pages 30 --seed 5, a shuffle of all its pages): a
+    layout fix may be developed there and the 30 measured once at the end
+    (from 2026-10-13, rep.3B only; doe3.3B stays untouched)."""
+    if pool == "dev":
+        pairs = list(find_pairs(root))
+        random.Random(5).shuffle(pairs)
+        return pairs[30:]
     excluded = eval_pages_set(root)
     pool_all = [(t, g) for t, g in find_pairs(root)
                 if t.with_suffix(".uzn").exists() and t.name not in excluded]

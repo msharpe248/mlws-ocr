@@ -147,7 +147,7 @@ def main():
     ap.add_argument("--pages", type=int, default=30)
     ap.add_argument("--seed", type=int, default=5)
     ap.add_argument("--heldout", action="store_true")
-    ap.add_argument("--pool", choices=["tune", "train", "heldout"], default=None,
+    ap.add_argument("--pool", choices=["tune", "train", "heldout", "dev"], default=None,
                     help="draw from one of the three disjoint non-evaluation pools (eval_layout.pool_pairs)")
     ap.add_argument("--doc-type", default=None)
     ap.add_argument("--config", default="configs/neural.toml")

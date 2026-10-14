@@ -148,8 +148,10 @@ eight points from one sample of pages to another — page-to-page variance,
 not tuning, dominated.
 
 **Training never sees an evaluation page.** Every harvest script reproduces
-the evaluation draws and refuses those pages (the evaluation draws only: see
-above for the held-out pool); external sets are split once
+the evaluation draws and refuses those pages, and since 2026-10-13 the
+held-out pools too (`harvest_excluded`; the present readers were harvested
+before that, so their held-out rows are held out from decisions only: see
+above); the clean sets are refused whole; external sets are split once
 into evaluation and harvest folders; the table networks train on the
 datasets' training splits and are tested on their test splits
 ([DATA_SOURCES.md §11](DATA_SOURCES.md)).

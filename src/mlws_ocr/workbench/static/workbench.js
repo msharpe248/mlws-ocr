@@ -558,6 +558,8 @@ const PICTURE_SWITCHES = [
     title: "each picture zone cut from the original image as picture_N.png and named in the hOCR with its box in the original" },
   { slot: "illumination", key: "grey_pictures", on: true, off: false, label: "Photographs on the grey page",
     title: "photographs found on the grey page before binarization (mostly mid-tones, varied) and kept out of the dark-ground inversion" },
+  { slot: "illumination", key: "invert_text", on: true, off: false, label: "White text on black",
+    title: "light text lines on any dark ground (a reverse-video page, a white caption on a photograph) found line by line and inverted before anything else; a photograph's specks and heavy black type are left alone" },
   { slot: "illumination", key: "invert_rect", on: 0.95, off: 0.85, label: "Strict dark grounds",
     title: "a dark region is inverted only if it fills 95% of its box (bands and dark pages do; a bold logo does not)" },
   { slot: "lines", key: "equations", on: true, off: false, label: "Display equations",
@@ -750,6 +752,14 @@ const LAYOUT_SWITCHES = [
   { slot: "blocks", key: "order_columns", on: "newspaper", off: "", label: "Columns read through",
     is: (v) => !!v,
     title: "on newspapers, a column parted by the XY-cut where its neighbour ends is read through before the neighbour" },
+  { slot: "blocks", key: "gutter_first", on: true, off: false, label: "Columns from gutters",
+    title: "a page with no document type: where the whitespace search finds a column gutter (tall, text on both sides), the XY-cut cuts the columns before the rows, so lines facing each other are not read alternately" },
+  { slot: "blocks", key: "gutter_narrow_300dpi", on: 8, off: 0, label: "Narrow gutters",
+    title: "...and a column gap narrower than a letter's block gap is cut where it lies on a found gutter (newspaper and magazine gutters, with no hint)" },
+  { slot: "blocks", key: "gutter_rows_300dpi", on: 6, off: 0, label: "Cut under spanning headlines",
+    title: "...and where a found gutter starts under a headline spanning the columns, the region is cut across at the small gap there" },
+  { slot: "blocks", key: "gutter_min_col_300dpi", on: 300, off: 0, label: "Gutters between columns only",
+    title: "...counting only a gutter with a column at least an inch wide on each side: a table's figure columns are not column gutters" },
 ];
 
 // --- block / line box editor

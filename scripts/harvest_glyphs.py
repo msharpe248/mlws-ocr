@@ -7,9 +7,11 @@ pipeline over real pages and keeps (feature vector, label, family) for
 every glyph that passes strict confidence gates -- per-document
 adaptation's self-labeling idea, persisted across the corpus.
 
-CONTAMINATION GUARD: pages used by the evaluation samples (the seed-1
-dev-8 and seed-2 broad-30 draws) are excluded by reproducing those exact
-shuffles.  Harvested data must never include an evaluated page.
+CONTAMINATION GUARD (harvest_excluded): the evaluation draws (seed-1 dev-8,
+seed-2 broad-30, by reproducing those exact shuffles) and the held-out pool
+(eval_layout.heldout_pairs), in every scan of the same documents; the clean
+test sets (doe3.3B, rep.3B) are refused whole.  Harvested data must never
+include an evaluated or held-out page.
 
 Gates for a glyph to qualify:
   * its word is lexicon-endorsed, >= 4 chars, confidence >= min_conf;
@@ -53,6 +55,38 @@ def eval_pages_set(root: Path) -> set:
     return excluded
 
 
+CLEAN_SETS = ("doe3.3B", "rep.3B")
+
+
+def page_id(name: str) -> str:
+    """A UNLV page's document id: '8239_008' for 8239_008.3B.tif and for
+    its rescan 8239_008.4B.tif."""
+    return name.split(".")[0]
+
+
+def harvest_excluded(root: Path, guard: bool = True) -> set:
+    """Page ids a training harvest refuses: the evaluation draws and the
+    held-out pool, of this root and of every rescan of the same documents
+    beside it (bus.3A / bus.3B, news.3B / news.4B share their 200 pages).
+
+    Until 2026-10-13 the harvests refused the evaluation draws only, so the
+    held-out pools were held out from decisions but not from training
+    (docs/MEASUREMENT.md §4). A clean test set is refused whole, guard or
+    not; guard=False (a root with no evaluation draws) excludes nothing else."""
+    root = Path(root)
+    if root.name in CLEAN_SETS:
+        sys.exit(f"{root} is a clean test set: no decision and no training touches it")
+    if not guard:
+        return set()
+    from eval_layout import heldout_pairs   # eval_layout imports this module
+    ids = set()
+    kind = root.name.split(".")[0]
+    for sib in {root, *(d for d in root.parent.glob(kind + ".*") if d.is_dir())}:
+        ids |= {page_id(n) for n in eval_pages_set(sib)}
+        ids |= {page_id(t.name) for t, _ in heldout_pairs(sib)}
+    return ids
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("root", type=Path)
@@ -71,11 +105,11 @@ def main():
     overrides = parse_overrides(args.set)
     pipeline = load_pipeline(args.config)
 
-    excluded = eval_pages_set(args.root)
+    excluded = harvest_excluded(args.root)
     pairs = [(t, g) for t, g in find_pairs(args.root)
-             if t.name not in excluded]
+             if page_id(t.name) not in excluded]
     random.Random(7).shuffle(pairs)
-    print(f"{len(pairs)} candidate pages ({len(excluded)} eval pages excluded)")
+    print(f"{len(pairs)} candidate pages ({len(excluded)} evaluation and held-out pages excluded)")
 
     X, labels, families = [], [], []
     for n, (tif, _) in enumerate(pairs[: args.pages], 1):

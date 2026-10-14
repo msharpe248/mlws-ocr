@@ -324,6 +324,7 @@ pipeline) and name the profile with any figure you report.
 | clean DOE reports, annual reports | `data/unlv/doe3.3B`, `rep.3B` | `eval_unlv.py <set> --pages 30 --seed 5 --dump DIR` with no `--doc-type` (and `eval_tesseract.py <set> --pages 30 --seed 5 --dump DIR`); score pooled over the set from the dumps, since many DOE pages are figures whose truth is only the caption (the system paper §6) |
 | held-out newspapers, magazines, letters, legal pages | `data/unlv/news.3B`, `mag.3B`, `bus.3B`, `legal.3B` | `eval_unlv.py <set> --heldout --pages 30 --seed 5 --doc-type newspaper` / `magazine` / `letter` / `legal` (and `eval_tesseract.py --heldout` for the same pages); without the hint every type reads worse (RESEARCH, 2026-09-26) |
 | development pools (not a README row) | `data/unlv/<set>` | `eval_unlv.py <set> --pool tune --pages 30 --seed 5` and `--pool train --pages 40 --seed 5` with the doc-type hint: the pages a layout fix is developed on, so the held-out 30 stay out of the fix's development until it is measured (newspapers, 2026-10-12); `attribute_recall.py` and `eval_tesseract.py` take the same `--pool` (and `eval_tesseract.py --dump` writes the LSTM's text for page-by-page comparison) |
+| report development pool (not a README row) | `data/unlv/rep.3B` | `eval_unlv.py data/unlv/rep.3B --pool dev --pages 60 --seed 21` with no `--doc-type`: 60 of the 270 report pages outside the measured 30, for the hint-free column work (2026-10-13); the measured 30 are read once at the end, and `doe3.3B` has no development pool. `--shard K/N` splits any draw over N processes; each page line carries its error counts, so the shards' pooled figure is their sum |
 | modern | `data/modern/sev0..2` | `eval_unlv.py data/modern/sevN --pages 59 --by-kind` |
 | business | `data/business/sev0` | `eval_unlv.py data/business/sev0 --pages 60 --seed 1 --by-kind` |
 | sroie, funsd, legal reports, cord | `data/ext/sroie/eval` (60), `data/ext/funsd/eval` (50), `data/ext/btp_legal/eval` (40), `data/ext/cord/evalcrop` (100) | `eval_unlv.py <dir> --pages <all of them>` (the default is 10) |
@@ -340,14 +341,18 @@ A model that has seen an evaluation page scores itself. The project keeps
 them apart three ways:
 
 - **UNLV**: the harvest scripts refuse every page any evaluation draws
-  (`harvest_glyphs.py: eval_pages_set()` — the seeded draws of every set),
-  and the held-out pools exclude the tuning and training draws. They do
-  **not** refuse the held-out pools: those were defined later, for layout
-  decisions, and every held-out letter, legal and newspaper page and 24 of
-  the 30 held-out magazine pages lent lines to the readers (audit of
-  2026-10-13; [MEASUREMENT.md §4](MEASUREMENT.md)). The held-out rows are
-  held out from decisions, not from training. `doe3.3B` and `rep.3B` are
-  the clean test: no harvest may open them.
+  and, from 2026-10-13, every page of the held-out pools
+  (`harvest_glyphs.py: harvest_excluded()` — the seeded draws and
+  `eval_layout.heldout_pairs`, by document id, so in every scan of the same
+  document: bus.3A / bus.3B, news.3B / news.4B); the held-out pools exclude
+  the tuning and training draws. That leaves the 70 tuning and training
+  pages of each set to harvest. Before that date the harvests refused the
+  evaluation draws only, and every held-out letter, legal and newspaper
+  page and 24 of the 30 held-out magazine pages lent lines to the present
+  readers (audit of 2026-10-13; [MEASUREMENT.md §4](MEASUREMENT.md)): the
+  held-out rows are held out from decisions, not from training, until the
+  readers are retrained. `doe3.3B` and `rep.3B` are the clean test: the
+  harvests refuse them whole, with or without `--no-guard`.
 - **External sets**: each is split once into `eval` and `harvest`
   directories; the line harvest takes `--eval-dir` and refuses those stems;
   the Library of Congress draws take `--exclude-dir`.

@@ -39,13 +39,15 @@ CANDS = {"xyH": ("xycut", {}, True), "xyN": ("xycut", {}, False),
 DOCTYPES = ["letter", "legal", "newspaper", "magazine"]
 
 
-def run_candidate(page: Page, cand: str):
+def run_candidate(page: Page, cand: str, xy: dict | None = None):
     """One candidate's segmentation of the page.  Each candidate gets its own
     copy of the layout dict: a stage's page.evolve() copies meta shallowly,
     so candidates run on the same page would all write one layout["blocks"]
     and the last would win whichever was chosen (found 2026-09-26: the
     stage returned the tree's blocks on every page)."""
     impl, params, hint = CANDS[cand]
+    if xy and impl == "xycut":
+        params = dict(params, **xy)
     pg = copy.copy(page)
     pg.meta = {k: v for k, v in page.meta.items() if hint or k != "doc_type"}
     pg.meta["layout"] = dict(page.meta.get("layout", {}))
@@ -101,6 +103,7 @@ def page_gutters_for(page: Page) -> np.ndarray:
 
 
 _MODELS: dict = {}
+XY_SIDE_BAND = 200   # blocks.XYCutBlocks gutter_side_band_300dpi
 
 
 @register
@@ -124,6 +127,22 @@ class JudgedBlocks(Stage):
                                                # fitted before the joining existed (2026-10-12). Not
                                                # magazines: one joined headline changed the XY order
                                                # of a magazine page's other blocks (8006_030 98 -> 65)
+        "unhinted_as": "",                     # a page with NO hint and at least unhinted_gutters text
+                                               # gutters (blocks.text_gutters over whitespace.find_gutters,
+                                               # with the gutter_* settings below) is segmented as this type
+                                               # -- judged, its XY-cut with that type's gaps -- inside this
+                                               # stage only (later stages still see no hint); "" = off
+        "unhinted_gutters": 2,
+        "gutter_first": False,                 # the XY-cut's gutter options (blocks.XYCutBlocks), passed to
+                                               # it on a page no judge decides: with no hint, columns cut
+                                               # first where a found gutter runs (gutter_first), narrower
+                                               # gaps cut on one (gutter_narrow_300dpi), a region cut across
+                                               # where one starts under a spanning headline (gutter_rows_300dpi)
+        "gutter_narrow_300dpi": 0,
+        "gutter_rows_300dpi": 0,
+        "gutter_h_frac": 0.28,
+        "gutter_min_col_300dpi": 0,
+        "gutter_text_gap": 0,
         "order_columns": "",                   # these doc types ('*' = every page): the chosen blocks
                                                # reordered by blocks.order_columns, a column's lower
                                                # part before the column to its right (2026-10-12)
@@ -138,7 +157,8 @@ class JudgedBlocks(Stage):
             out.meta["layout"]["blocks"] = blocks + extra
             dbg.scalars["dash_blocks"] = len(extra)
         types = [t for t in str(self.params["order_columns"]).split(",") if t]
-        if types and ("*" in types or page.meta.get("doc_type") in types):
+        kind = page.meta.get("doc_type") or dbg.scalars.get("segmented_as")
+        if types and ("*" in types or kind in types):
             from .blocks import order_columns
             blocks = out.meta["layout"]["blocks"]
             new = order_columns(blocks, binary=page.binary)
@@ -146,12 +166,42 @@ class JudgedBlocks(Stage):
             out.meta["layout"]["blocks"] = new
         return out, dbg
 
+    def _guess(self, page: Page):
+        """The type an unhinted column page is segmented as, or None."""
+        p = self.params
+        if page.meta.get("doc_type") or not p["unhinted_as"]:
+            return None
+        from .blocks import row_gaps_text, text_gutters
+        from .whitespace import find_gutters
+        s = float(page.dpi or 300.0) / 300.0
+        g, _, margin = find_gutters(page.binary, s, min_gutter_h_frac=p["gutter_h_frac"], trim=True,
+                                    side_band_300dpi=XY_SIDE_BAND)
+        if margin is None:
+            return None
+        found = g
+        if p["gutter_min_col_300dpi"] > 0:
+            g = text_gutters(found, margin, p["gutter_min_col_300dpi"] * s)
+        if p["gutter_text_gap"] > 0:
+            g = [x for x in g if row_gaps_text(page.binary, x, margin, found, p["gutter_text_gap"])]
+        return p["unhinted_as"] if len(g) >= int(p["unhinted_gutters"]) else None
+
     def _choose(self, page: Page) -> tuple[Page, DebugBundle]:
         if page.binary is None:
             raise ValueError("blocks requires a binarized page")
+        guess = self._guess(page)
+        if guess:
+            hinted = copy.copy(page)
+            hinted.meta = dict(page.meta, doc_type=guess)
+            out, dbg = self._choose(hinted)
+            out.meta = {k: v for k, v in out.meta.items() if k != "doc_type"}
+            if "doc_type" in page.meta:
+                out.meta["doc_type"] = page.meta["doc_type"]
+            dbg.scalars["segmented_as"] = guess
+            return out, dbg
         doc_type = page.meta.get("doc_type")
         if doc_type not in [t for t in self.params["judge_types"].split(",") if t]:
-            out, dbg = run_candidate(page, "xyH")
+            out, dbg = run_candidate(page, "xyH", {k: v for k, v in self.params.items()
+                                                   if k.startswith("gutter_")})
             dbg.scalars["chosen"] = "xyH (not a judged type)"
             return out, dbg
         path = self.params["model_path"]

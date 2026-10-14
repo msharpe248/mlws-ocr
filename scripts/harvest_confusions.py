@@ -15,7 +15,7 @@ OCR error correction in context", WVLC 1996, who learned OCR confusion
 probabilities from aligned output exactly like this).
 
 Procedure: the engine reads pages that have truth and are never evaluated
-on (the harvest guard ``eval_pages_set`` of every UNLV root, and any
+on (the harvest guard ``harvest_excluded`` of every UNLV root, and any
 ``--no-guard`` roots such as the SROIE harvest split); the output and
 truth token sequences are aligned with difflib, one-for-one replacements
 become (truth word, output word) pairs, each pair is aligned character by
@@ -41,7 +41,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 sys.path.insert(0, str(Path(__file__).parent))
 from eval_unlv import find_pairs  # noqa: E402
-from harvest_glyphs import eval_pages_set  # noqa: E402
+from harvest_glyphs import harvest_excluded, page_id  # noqa: E402
 
 MAX_SIDE = 2
 
@@ -119,8 +119,8 @@ def main():
     from mlws_ocr.batch import run_batch
     jobs = []
     for root, guard in [(r, True) for r in args.roots] + [(r, False) for r in args.no_guard_roots]:
-        excluded = eval_pages_set(Path(root)) if guard else set()
-        pairs = [(t, g) for t, g in find_pairs(Path(root)) if t.name not in excluded]
+        excluded = harvest_excluded(Path(root), guard)
+        pairs = [(t, g) for t, g in find_pairs(Path(root)) if page_id(t.name) not in excluded]
         random.Random(args.seed).shuffle(pairs)
         jobs += pairs[:args.pages]
     truth_of = {str(t): g for t, g in jobs}

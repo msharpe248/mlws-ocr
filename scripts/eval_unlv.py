@@ -191,9 +191,13 @@ def main():
                     help="draw only from pages no knn_scc decision has seen "
                          "(eval_layout.heldout_pairs: not an evaluation, tuning "
                          "or link-training page)")
-    ap.add_argument("--pool", choices=["tune", "train", "heldout"], default=None,
+    ap.add_argument("--pool", choices=["tune", "train", "heldout", "dev"], default=None,
                     help="draw from one of the three disjoint non-evaluation pools "
                          "(eval_layout.pool_pairs)")
+    ap.add_argument("--shard", default=None, metavar="K/N",
+                    help="read only every N-th page of the draw, from the K-th (0-based): "
+                         "N processes cover the draw once; each page line carries its "
+                         "error counts, so the shards' POOLED figure is their sum")
     ap.add_argument("--zone-order", action="store_true",
                     help="reorder output words by the ground truth's .uzn "
                          "zones before scoring (ISRI practice: measures "
@@ -216,6 +220,9 @@ def main():
         sys.exit(f"no image/ground-truth pairs under {args.root}")
     random.Random(args.seed).shuffle(pairs)
     pairs = pairs[: args.pages]
+    if args.shard:
+        k, n = (int(x) for x in args.shard.split("/"))
+        pairs = pairs[k::n]
     print(f"{len(pairs)} pages sampled from {args.root}")
 
     cers, wers, recalls, precisions = [], [], [], []
@@ -270,7 +277,8 @@ def main():
         recalls.append(recall); precisions.append(precision)
         print(f"  {img_path.name}: char acc {1-cer:.1%}  word acc {1-wer:.1%}  "
               f"recall {recall:.1%}  precision {precision:.1%}  "
-              f"({len(truth.split())} words)")
+              f"({len(truth.split())} words; errors {ce}/{len(truth)} chars, "
+              f"{we}/{len(truth.split())} words)")
     if cers:
         if failed:
             print(f"\nWARNING: {failed} of {len(cers)} pages FAILED and count as fully wrong")

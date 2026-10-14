@@ -10,8 +10,8 @@ its binary crop -- so the classifier channels can be measured and trained
 on the pipeline's real mistakes, and outline configurations can be built
 from real glyphs.
 
-CONTAMINATION GUARD: the seed-1 and seed-2 evaluation draws are excluded,
-exactly as in harvest_glyphs.py.
+CONTAMINATION GUARD: the evaluation draws and the held-out pool are excluded
+(harvest_glyphs.harvest_excluded).
 
     .venv/bin/python scripts/harvest_truth.py data/unlv/bus.3B \\
         [--pages 120] [--out data/truth_en.npz]
@@ -35,7 +35,7 @@ from mlws_ocr.glyph.features import extract_features
 sys.path.insert(0, str(Path(__file__).parent))
 from eval_pages import add_pipeline_args, load_pipeline, run_stages, parse_overrides  # noqa: E402
 from eval_unlv import find_pairs, normalize  # noqa: E402
-from harvest_glyphs import eval_pages_set  # noqa: E402
+from harvest_glyphs import harvest_excluded, page_id  # noqa: E402
 
 
 def line_records(ln) -> tuple[str, list]:
@@ -65,8 +65,8 @@ def main():
     overrides = parse_overrides(args.set)
     pipeline = load_pipeline(args.config)
 
-    excluded = eval_pages_set(args.root)
-    pairs = [(t, g) for t, g in find_pairs(args.root) if t.name not in excluded]
+    excluded = harvest_excluded(args.root)
+    pairs = [(t, g) for t, g in find_pairs(args.root) if page_id(t.name) not in excluded]
     random.Random(11).shuffle(pairs)
     X, truth_l, dec_l, kinds, crops, shapes, pages = [], [], [], [], [], [], []
     pinned, cands, in_lex, conf = [], [], [], []      # attribution fields

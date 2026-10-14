@@ -34,7 +34,7 @@ from mlws_ocr.eval.align import match_lines
 sys.path.insert(0, str(Path(__file__).parent))
 from eval_pages import add_pipeline_args, load_pipeline, run_stages, parse_overrides  # noqa: E402
 from eval_unlv import find_pairs, normalize  # noqa: E402
-from harvest_glyphs import eval_pages_set  # noqa: E402
+from harvest_glyphs import harvest_excluded, page_id  # noqa: E402
 from harvest_lines import word_spans  # noqa: E402
 from harvest_truth import line_records  # noqa: E402
 
@@ -70,8 +70,8 @@ def main():
     args = ap.parse_args()
     overrides = parse_overrides(args.set)
     pipeline = load_pipeline(args.config)
-    excluded = eval_pages_set(args.root)
-    pairs = [(t, g) for t, g in find_pairs(args.root) if t.name not in excluded]
+    excluded = harvest_excluded(args.root)
+    pairs = [(t, g) for t, g in find_pairs(args.root) if page_id(t.name) not in excluded]
     random.Random(11).shuffle(pairs)
     X, y, pages, texts, truths = [], [], [], [], []
     for n, (tif, gt) in enumerate(pairs[args.offset: args.offset + args.pages], 1):

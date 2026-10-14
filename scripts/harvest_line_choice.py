@@ -30,7 +30,7 @@ from mlws_ocr.eval.align import match_lines
 sys.path.insert(0, str(Path(__file__).parent))
 from eval_pages import add_pipeline_args, edit_distance, load_pipeline, parse_overrides, run_stages  # noqa: E402
 from eval_unlv import find_pairs, normalize  # noqa: E402
-from harvest_glyphs import eval_pages_set  # noqa: E402
+from harvest_glyphs import harvest_excluded, page_id  # noqa: E402
 
 
 def main():
@@ -54,8 +54,8 @@ def main():
     overrides.setdefault("decode", {})["line_keep_alt"] = True
     pipeline = load_pipeline(args.config)
     assert any(impl == "hybrid" for _, impl, _ in pipeline), "needs a profile with the hybrid decoder"
-    excluded = set() if args.no_guard else eval_pages_set(args.root)
-    pairs = [(t, g) for t, g in find_pairs(args.root) if t.name not in excluded]
+    excluded = harvest_excluded(args.root, not args.no_guard)
+    pairs = [(t, g) for t, g in find_pairs(args.root) if page_id(t.name) not in excluded]
     if args.pool:
         from eval_layout import pool_pairs
         allowed = {t.name for t, _ in pool_pairs(args.root, args.pool)}

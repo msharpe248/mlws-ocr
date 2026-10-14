@@ -164,6 +164,37 @@ from the original and put back ([HOCR.md §6](HOCR.md)). It is not used on a
 page magnified 2x or more: on a 72-dpi crop the type itself is mid-grey
 blur, and a whole small table had been taken for a photograph.
 
+**Reverse video, line by line (2026-10-13; an option, off).** Printed
+pages carry reverse video too: an annual report's page set white on black,
+a white caption over a dark photograph. Neither is a rectangle filling its
+box, and the dark-ground test would invert the photograph along with the
+caption. `illumination.invert_text` (`light_text_lines`) looks for the
+LETTERS instead. Every dark region is a candidate ground; inside it a light
+component is a glyph when it has a letter's proportions and lies wholly on
+the ground with dark round it, and glyphs make a line when at least four
+follow each other within 1.2 letter heights on a shared baseline or top
+line. Three polarity tests keep false lines out: the glyphs must sit in
+one connected dark ground (the white counters of a heavy black headline
+each sit in a letter of their own); the strips just above and below the
+line must be solid dark (black body text has white paper over its
+letters); and most of the light in the line's box must be its letters (a
+dithered photograph's light specks chain too, among many smaller ones).
+The lines' boxes, closed into blocks with a margin of a line round them,
+are inverted. Only a page at least 45% dark ground counts
+(`invert_text_page`): inverted mid-page, a white box no longer separated
+the columns either side of it, which as a dark picture zone it had, and an
+advertisement's reverse panel is often outside a page's truth.
+
+On 60 annual-report development pages: 77.24 → 78.34 pooled characters,
+two pages up (a black page with white captions 6.5 → 98.7; a page white on
+a dark photograph 33.5 → 64.1) and none down; 70 magazine and 70 newspaper
+pages level (two magazine pages a point down). Measured once at the end:
+the clean test's white-on-black report page reads (0 → 96.2; the LSTM 84),
+but a held-out fashion page whose captions lie on photographs passed the
+gate on its pictures' darkness, and inverted it read 'a' as 'o' throughout
+(−36 points; held-out magazines with their hint 83.8 → 82.5). On binary
+scans nothing yet keeps the pictures out of the gate; the option stays off.
+
 ## 4. One threshold per neighbourhood: Sauvola
 
 Flattening removes slow changes in the light; it cannot remove everything —
@@ -288,6 +319,7 @@ it helped fax-resolution forms and hurt receipts and tables (RESEARCH,
 | | `invert_dark` (light text on a dark ground) | off | on in neural-table |
 | | `grey_pictures` (photographs found on the grey page) | off | on in neural-table |
 | | `invert_rect` (how much of its box a ground fills) | 0.85 | 0.95 in neural-table |
+| | `invert_text` (reverse video, line by line), `invert_text_page` | off, 0.45 | an option for the owner (2026-10-13) |
 | binarize | `impl` | `sauvola` | every profile (`otsu` selectable) |
 | | `window`, `k` | 41, 0.2 | every profile |
 | despeckle | `min_area_300dpi` | 5 | every profile |

@@ -264,6 +264,66 @@ with the line, column and headline fixes of v0.18.16),
 magazines **83.7** against 78.0 (character accuracy; the best possible
 per-page choice would be 90.3 and 84.8).
 
+### With no hint: columns from the gutters, and a guess (2026-10-13; options, off)
+
+Everything above leans on the document type. A page that arrives with
+none — an annual report, a scanned newspaper page dropped into the
+workbench — gets the letter's XY-cut, and the clean test's annual reports
+showed what that costs: with generous leading every line gap passes for a
+block break (30 px), the widest-gap rule cuts all the rows first, and two
+columns that face each other are read line by line across the gutter.
+Newspapers and magazines read without their hint lose 18 and 15 points.
+
+Five options of the XY-cut (`blocks.gutter_*`, passed through by the judged
+stage) use the whitespace search's gutters (§5) on a page with no hint:
+
+- `gutter_first`: where a found gutter runs through at least half of a
+  region, cut its columns before its rows;
+- `gutter_narrow_300dpi`: a column gap narrower than the letter's 36 px may
+  be cut where it lies on a found gutter in a region at least 150 px tall
+  (newspaper gutters are 17–35 px);
+- `gutter_rows_300dpi`: where a found gutter starts under a headline that
+  spans its columns, cut across at the small row gap there (a newspaper
+  sets the byline hard under the headline) — only with ink across the
+  gutter beyond the cut, never across another gutter, and never where the
+  band beyond is a tall stretch empty over the gutter (the same gutter,
+  interrupted by one long line);
+- `gutter_min_col_300dpi` and `gutter_text_gap`: a gutter counts only
+  between columns at least an inch wide whose lines have word spaces, not
+  field gaps — a financial statement's figure columns are not gutters.
+
+And `blocks.unhinted_as = "newspaper"` segments an unhinted page with at
+least two such gutters as a newspaper: judged among the candidates, with
+the newspaper's gaps (inside the blocks stage only; later stages still see
+no hint). Guessing "magazine" instead measured worse on every set.
+
+Developed on 60 annual-report pages outside the measured 30 and the 140
+newspaper and magazine tuning and training pages, read without their
+hint (pooled character / word accuracy):
+
+| | no hint | gutter options | with the guess |
+|---|---|---|---|
+| annual reports (60) | 77.24 / 72.41 | 79.55 / 75.60 | 79.78 / 75.79 |
+| magazines (70) | 68.00 / 60.52 | 69.04 / 62.57 | 70.56 / 64.16 |
+| newspapers (70) | 71.49 / 63.86 | 84.46 / 80.27 | 86.99 / 83.40 |
+
+(The guess column was measured one revision of the row cut earlier.)
+Measured once at the end, with reverse video (BINARIZATION.md) on too:
+held-out newspapers with no hint 70.8 → **82.4** characters (mean of 30
+pages; 89.1 with the hint), the clean annual reports 72.2 → **75.8** pooled
+(the LSTM 86.1), held-out magazines with no hint level (68.7 → 68.1, large
+moves both ways), the clean DOE reports 85.9 → 85.5, letters with no hint
+92.2 → 91.6, FUNSD 66.9 → 66.3, legal pages and business identical. Two-column report pages read across
+their gutter come back whole (9519_005 34.7 → 95.2, 9504_017 52.2 → 93.4);
+newspaper pages whose columns had fused under a headline read at 97–99.
+What still loses: a page whose sections read across both columns between
+two-column sections (a gutter running the full page through them,
+9538_018), an advertisement read cleanly that the page's truth leaves out,
+a spread whose other gutters the search misses, and a letter, form or DOE
+page where one found gutter, or the guess, fires on a page that was not in
+columns. The options stay off; adopting them is the owner's decision
+(ROADMAP).
+
 ## 8. Lines inside a block
 
 ![Lines in a block](img/segment/lines.png)
@@ -374,7 +434,7 @@ read with that segmenter, on the evaluation sets (`eval_unlv.py --blocks
 | imagezones | `density` | `density_thresh` 0.45, `protect_text_rows` on, `keep_grids` (neural-table) | every profile |
 | rulings | `morphological` | `min_len_300dpi` 150, `tolerant` on, `dash_gap_300dpi` 12, `short_in_grid_300dpi` 40, `edge_bars` and `faint_depth` 0.06 (neural-table) | every profile |
 | blocks | `xycut` | `min_gap_x_300dpi` 36, `min_gap_y_300dpi` 30, document-type priors | classic, pure |
-| | `judged` | `model_path` `data/segjudge.npz`, newspapers and magazines judged; `keep_dashes` (neural-table); `join_display`, `order_columns` (newspapers, neural profiles) | neural, neural-table |
+| | `judged` | `model_path` `data/segjudge.npz`, newspapers and magazines judged; `keep_dashes` (neural-table); `join_display`, `order_columns` (newspapers, neural profiles); `unhinted_as` and the XY-cut's `gutter_*` (pages with no hint; options, off) | neural, neural-table |
 | | `whitespace`, `knn_scc` | see the code and the papers | layout profiles for comparison |
 | lines | `profile` | tall-line re-split (`resplit_glyph_ref` 1.7 in the neural profiles); `in_cells` (neural-table); `stacked_chunks` (table crops, neural-table); `equations` (display equations, neural and neural-table) | every profile |
 | components | `overlap` | cut candidates for wide groups | every profile |

@@ -17,8 +17,8 @@ pipeline fails on touching pairs -- which the self-labeled harvest, by
 construction, can never contain.  The decoded text is kept alongside for
 the touching-pair proxy (decoded length != truth length).
 
-CONTAMINATION GUARD: the seed-1 and seed-2 evaluation draws are excluded,
-exactly as in harvest_glyphs.py / harvest_truth.py; a page-disjoint
+CONTAMINATION GUARD: the evaluation draws and the held-out pool are excluded
+(harvest_glyphs.harvest_excluded); a page-disjoint
 holdout is the training script's job (pages are stored per window).
 
     .venv/bin/python scripts/harvest_lines.py data/unlv/bus.3B \\
@@ -44,7 +44,7 @@ from mlws_ocr.glyph.strip import line_strip
 sys.path.insert(0, str(Path(__file__).parent))
 from eval_pages import add_pipeline_args, load_pipeline, run_stages, parse_overrides  # noqa: E402
 from eval_unlv import find_pairs, normalize  # noqa: E402
-from harvest_glyphs import eval_pages_set  # noqa: E402
+from harvest_glyphs import harvest_excluded, page_id  # noqa: E402
 from harvest_truth import line_records  # noqa: E402
 
 MAX_WIDTH = 512     # strip columns per window, as in make_seq_data.py
@@ -173,8 +173,8 @@ def main():
     overrides = parse_overrides(args.set)
     pipeline = load_pipeline(args.config)
 
-    excluded = set() if args.no_guard else eval_pages_set(args.root)
-    pairs = [(t, g) for t, g in find_pairs(args.root) if t.name not in excluded]
+    excluded = harvest_excluded(args.root, not args.no_guard)
+    pairs = [(t, g) for t, g in find_pairs(args.root) if page_id(t.name) not in excluded]
     random.Random(11).shuffle(pairs)
     strips, widths, labels, decoded, pages, xhs = [], [], [], [], [], []
     L = {"strips": [], "widths": [], "labels": [], "decoded": [], "pages": [], "xhs": []}

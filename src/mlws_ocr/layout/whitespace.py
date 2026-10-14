@@ -73,12 +73,15 @@ def _overlap_frac(a, b) -> float:
 
 def find_gutters(b: np.ndarray, s: float, min_gutter_w_300dpi: float = 16,
                  min_gutter_h_frac: float = 0.28, limit: int = 30,
-                 trim: bool = False):
+                 trim: bool = False, side_band_300dpi: float = 0):
     """The page's column gutters: tall maximal empty rectangles among the
     RLSA-smeared line segments, with ink hugging both sides, near-coincident
     ones merged.  Returns (gutters, obstacles, margin); margin is None on a
     blank page.  s = dpi / 300.  Shared by this segmenter and knn_scc's
-    gutter fences."""
+    gutter fences.  Ink 'hugs' a side when it ends within 4 x the minimum
+    gutter width of it, or within ``side_band_300dpi`` when that is larger: a
+    column set ragged right ends its lines up to a few words short of the
+    gutter (UNLV rep.3B 9519_005, 2026-10-13)."""
     H, W = b.shape
     # RLSA-style horizontal smearing first (Wong, Casey & Wahl 1982):
     # obstacles must be LINE SEGMENTS, not glyphs -- a headline's
@@ -104,7 +107,7 @@ def find_gutters(b: np.ndarray, s: float, min_gutter_w_300dpi: float = 16,
 
     def side_rows(g, side) -> np.ndarray:
         """The rows of the gutter with ink hugging one side."""
-        band = 4 * min_gutter_w_300dpi * s
+        band = max(4 * min_gutter_w_300dpi, side_band_300dpi) * s
         if side == "left":
             near = obstacles[(obstacles[:, 2] > g[0] - band)
                              & (obstacles[:, 2] <= g[0] + 2)]

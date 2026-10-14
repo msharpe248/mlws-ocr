@@ -32,7 +32,7 @@ def main():
                     "eng.traineddata -- Homebrew's is LSTM-only)")
     ap.add_argument("--heldout", action="store_true",
                     help="draw from eval_layout's held-out pages, as eval_unlv.py --heldout")
-    ap.add_argument("--pool", choices=["tune", "train", "heldout"], default=None,
+    ap.add_argument("--pool", choices=["tune", "train", "heldout", "dev"], default=None,
                     help="draw from one of eval_layout's three pools, as eval_unlv.py --pool")
     ap.add_argument("--dump", type=Path, default=None,
                     help="write each page's output text to DIR/<page>.txt, as eval_unlv.py --dump")

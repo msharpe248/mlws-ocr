@@ -174,7 +174,7 @@ words for them are used precisely throughout the documents:
 | **held back** (the **validation** set) | the trainer's own check after each epoch: is it still improving, which epoch to keep | the trainer, scoring only, never learning from it |
 | **fitting set** (e.g. `sel3`) | the examples the small **choices** are fitted on (§K): when to trust a network's answer over the rules' | the choice's fitter; no network trained on it |
 | **dev pool** | the pages we look at while improving the engine: errors are studied, settings are tuned | people and tuning; no network trains on it |
-| **held out** (the **test** or **evaluation** sets) | the final judgement of the whole engine, the numbers in the README | nothing that learns, ever; the harvest scripts refuse their pages |
+| **held out** (the **test** or **evaluation** sets) | the final judgement of the whole engine, the numbers in the README | nothing that learns; the harvest scripts refuse their pages (the UNLV held-out pools only since 2026-10-13: the present readers saw lines of them, MEASUREMENT.md §4) |
 
 Whole pages or whole documents are kept apart, not single lines or
 tables: two lines of one page share a printer and a font, so a line from a
@@ -327,7 +327,8 @@ the same page — and keeps the epoch that scores best on them. **Weight
 decay** (a small pull of every weight towards zero) discourages the
 extreme weights memorisation needs. The final judgement is not the
 trainer's number but the engine's own evaluation sets, which no training
-ever sees (a guard in the harvest scripts refuses their pages).
+ever sees (a guard in the harvest scripts refuses their pages; for the
+UNLV held-out pools, only since 2026-10-13 — MEASUREMENT.md §4).
 
 ## 3. Convolutions: networks for images
 
