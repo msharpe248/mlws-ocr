@@ -105,3 +105,19 @@ def test_unendorsed_line_is_words_without_any_vouched_word():
     assert u([{"text": "jjc)", "in_lexicon": False}, {"text": "ssi", "in_lexicon": False}])
     assert not u([{"text": "jjc)", "in_lexicon": False}, {"text": "total", "in_lexicon": True}])
     assert not u([{"text": "12.50", "in_lexicon": False, "numeric_format": True}])
+
+
+def test_words_run_together_are_respaced_from_the_reader():
+    from mlws_ocr.decode.lineread import _segments, _unjoin
+    classic = [{"text": "theplaversdon'tstandtllenough,", "box": [129, 882, 821, 913], "in_lexicon": False},
+               {"text": "Board", "box": [900, 882, 980, 913], "in_lexicon": True}]
+    reader = [{"text": t, "box": [x, 879, x + 60, 913], "in_lexicon": True}
+              for t, x in [("the", 134), ("players", 197), ("don't", 325), ("stand", 421), ("tall", 519), ("enough", 585)]]
+    reader.append({"text": "Board", "box": [900, 879, 980, 913], "in_lexicon": True})
+    words, n = _unjoin(classic, reader)
+    assert n == 1 and [w["text"] for w in words] == ["the", "players", "don't", "stand", "tall", "enough", "Board"]
+    # a long word the reader reads otherwise (different letters) stays
+    other = [{"text": t, "box": [x, 879, x + 60, 913], "in_lexicon": True} for t, x in [("a", 134), ("cat", 400)]]
+    assert _unjoin(classic[:1], other)[1] == 0
+    assert len(_segments(classic + reader, 3 * 18)) == 2          # 821 -> 900: a 79 px gap
+    assert len(_segments([{"box": [0, 0, 100, 10]}, {"box": [400, 0, 500, 10]}], 54)) == 2

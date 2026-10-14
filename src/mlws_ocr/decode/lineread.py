@@ -167,6 +167,62 @@ def _chunk_columns(ink_cols: np.ndarray, max_cols: int, min_cols: int = 64) -> l
     return spans
 
 
+def _lev(a: str, b: str) -> int:
+    prev = list(range(len(b) + 1))
+    for i, ca in enumerate(a, 1):
+        cur = [i]
+        for j, cb in enumerate(b, 1):
+            cur.append(min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + (ca != cb)))
+        prev = cur
+    return prev[-1]
+
+
+def _unjoin(classic: list, reader: list, min_len: int = 8, tol: float = 0.3) -> tuple[list, int]:
+    """Words the classic decoder ran together, re-spaced from the reader: an
+    unendorsed classic word of ``min_len`` letters or more that the reader,
+    over the same stretch of the line, reads as two or more words, most of
+    them endorsed, with the same letters (edit distance within ``tol`` of
+    its length, case and punctuation aside) -- 'theplaversdon'tstandtllenough,'
+    against 'the players don't stand tall enough' (UNLV 8225_005).  The line
+    choice keeps or takes whole lines; this repairs a kept line word by word.
+    Returns (words, how many classic words were replaced)."""
+    def core(t):
+        return "".join(ch for ch in t.lower() if ch.isalnum())
+    out, n = [], 0
+    for c in classic:
+        cc = core(c["text"])
+        if c.get("in_lexicon") or c.get("numeric_format") or len(cc) < min_len:
+            out.append(c); continue
+        x0, x1 = c["box"][0], c["box"][2]
+        under = [r for r in reader if x0 - 2 <= (r["box"][0] + r["box"][2]) / 2.0 <= x1 + 2]
+        if len(under) < 2 or sum(1 for r in under if r.get("in_lexicon") or r.get("numeric_format")) < 0.5 * len(under):
+            out.append(c); continue
+        rc = "".join(core(r["text"]) for r in under)
+        if _lev(rc, cc) > tol * len(cc):
+            out.append(c); continue
+        out.extend(under); n += 1
+    out.sort(key=lambda w: w["box"][0])
+    return out, n
+
+
+def _segments(words: list, min_gap: float) -> list[tuple[float, float]]:
+    """A line's segments: the x-intervals of its words (both readings' boxes
+    together) parted where an empty stretch of at least ``min_gap`` px runs
+    between them; each boundary at the middle of its gap."""
+    spans = sorted((w["box"][0], w["box"][2]) for w in words)
+    if not spans:
+        return []
+    groups = [[spans[0][0], spans[0][1]]]
+    for x0, x1 in spans[1:]:
+        if x0 - groups[-1][1] >= min_gap:
+            groups.append([x0, x1])
+        else:
+            groups[-1][1] = max(groups[-1][1], x1)
+    cuts = [(g[1] + h[0]) / 2.0 for g, h in zip(groups, groups[1:])]
+    edges = [-np.inf] + cuts + [np.inf]
+    return list(zip(edges[:-1], edges[1:]))
+
+
 def _split_at_gaps(emitted: list, ink: np.ndarray, min_gap: float) -> list:
     """A space put between two consecutive characters (no space between them
     already) when the strip is empty for ``min_gap`` columns or more somewhere
@@ -267,6 +323,12 @@ class HybridDecode(BeamDecode):
         "line_choice_thresh": 0.5,
         "line_keep_alt": False,    # keep both readings and their evidence on the line
                                    # (ln["line_alt"]) for scripts/harvest_line_choice.py
+        "line_unjoin": False,      # where the classic line is kept, an unendorsed classic word the reader
+                                   # reads as several mostly endorsed words with the same letters is
+                                   # replaced by them (_unjoin: words run together; 2026-10-14)
+        "line_choose_segments": 0.0,  # > 0: the line choice made per segment, a line parted where both
+                                   # readings' words leave an empty stretch this many x-heights wide (a line
+                                   # spanning a column gap: one part read well, another junk); 0 = off
         "line_gap_split": 0.0,     # > 0: a word the reader ran across an empty stretch of the strip this
                                    # many x-heights wide is two words (a column gap is several x-heights,
                                    # a word space about half of one); 0 = off (2026-10-01)
@@ -335,7 +397,7 @@ class HybridDecode(BeamDecode):
             gray = _rules_out(gray, page.binary, layout.get("rules_h", []) + layout.get("rules_v", []),
                               max(2, int(3 * (page.dpi or 300.0) / 300.0)))
         n_read = n_taken = 0
-        n_graphic = n_superset = n_dropped = 0
+        n_graphic = n_superset = n_dropped = n_unjoined = 0
         _xh = [ln["x_height"] for ln in layout["lines"] if ln.get("x_height") and ln.get("words")]
         xh_floor = p["line_drop_declined"] * float(np.median(_xh)) if _xh and p["line_drop_declined"] else 0.0
         for ln in layout["lines"]:
@@ -395,6 +457,16 @@ class HybridDecode(BeamDecode):
             new_text, old_text = " ".join(w["text"] for w in words), " ".join(w["text"] for w in old)
             if new_text == old_text:
                 continue
+            if p["line_choose_segments"] > 0 and not p["line_keep_alt"]:
+                segs = _segments(old + words, p["line_choose_segments"] * ln["x_height"])
+                if len(segs) > 1:
+                    chosen, took = self._choose_segments(old, words, segs, logp, ln, model, p, page_unend)
+                    if p["line_unjoin"]:
+                        chosen, k = _unjoin(chosen, words)
+                        n_unjoined += k
+                    ln["words"] = chosen
+                    n_taken += took
+                    continue
             new_end = sum(1 for w in words if w["in_lexicon"] or w.get("numeric_format"))
             old_end = sum(1 for w in old if w.get("in_lexicon") or w.get("numeric_format"))
             if p["line_keep_superset"] and old_end == len(old) and self._is_subsequence(new_text, old_text):
@@ -414,6 +486,9 @@ class HybridDecode(BeamDecode):
                                      nll_old, nll_new, p, page_unend)
             if take:
                 ln["words"] = words; n_taken += 1
+            elif p["line_unjoin"]:
+                ln["words"], k = _unjoin(old, words)
+                n_unjoined += k
         if p["line_join_spaced"]:
             for ln in layout["lines"]:
                 if ln.get("words"):
@@ -430,6 +505,7 @@ class HybridDecode(BeamDecode):
         debug.scalars["graphic_lines_read"] = n_graphic
         debug.scalars["superset_kept"] = n_superset
         debug.scalars["lines_dropped"] = n_dropped
+        debug.scalars["words_unjoined"] = n_unjoined
         if p["line_dash_measure"] and page.meta.get("doc_type") == "table":
             n_dash = 0
             for ln in layout["lines"]:
@@ -466,6 +542,50 @@ class HybridDecode(BeamDecode):
         if p["figure_cells"] and layout.get("tables"):
             debug.scalars["figure_cells_reread"] = self._reread_figure_cells(layout, page.binary, model, gray)
         return out, debug
+
+    def _choose_segments(self, old, words, segs, logp, ln, model, p, page_unend):
+        """The line choice made segment by segment: a line that spans a column
+        gap (a headline deck, two columns the layout left joined) carries a
+        good reading in one part and junk in another, and one choice for the
+        whole line kept the classic decoder's words run together where the
+        reader had read 'the players don't stand tall enough' (UNLV 8225_005).
+        Each segment is judged with the line's evidence restricted to it; its
+        reader likelihood is taken over the posterior's frames under it (the
+        frames span the line box evenly)."""
+        from ..recognize.ctc import ctc_nll_batch
+        T = logp.shape[0]
+        lx0, lx1 = ln["box"][0], max(ln["box"][2], ln["box"][0] + 1)
+        cx = lambda w: (w["box"][0] + w["box"][2]) / 2.0                      # noqa: E731
+        chosen, took = [], 0
+        for a, b in segs:
+            o = [w for w in old if a <= cx(w) < b]
+            n = [w for w in words if a <= cx(w) < b]
+            if not n or not o:
+                chosen += o or n
+                took += bool(n and not o)
+                continue
+            ot, nt = " ".join(w["text"] for w in o), " ".join(w["text"] for w in n)
+            if ot == nt:
+                chosen += o
+                continue
+            oe = sum(1 for w in o if w.get("in_lexicon") or w.get("numeric_format"))
+            ne = sum(1 for w in n if w["in_lexicon"] or w.get("numeric_format"))
+            if p["line_keep_superset"] and oe == len(o) and self._is_subsequence(nt, ot):
+                chosen += o
+                continue
+            nll_o = nll_n = None
+            if p["line_choose_rule"] in ("likelihood", "calibrated"):
+                fa, fb = min(max(a, lx0), lx1), min(max(b, lx0), lx1)
+                f0 = max(0, int((fa - lx0) / (lx1 - lx0) * T))
+                f1 = min(T, max(f0 + 1, int(np.ceil((fb - lx0) / (lx1 - lx0) * T))))
+                if all(all(ch in model.index for ch in t) for t in (ot, nt)) and f1 - f0 >= 2:
+                    nll = ctc_nll_batch(logp[f0:f1], [model.encode(ot), model.encode(nt)])
+                    nll_o, nll_n = float(nll[0]), float(nll[1])
+            take = self._choose_line(o, n, ot, nt, oe, ne, nll_o, nll_n, p, page_unend)
+            chosen += n if take else o
+            took += bool(take)
+        chosen.sort(key=lambda w: w["box"][0])
+        return chosen, took
 
     def _classify_symbols(self, layout, page, path: str) -> int:
         """Each word's characters of a confusion set decided again by the
