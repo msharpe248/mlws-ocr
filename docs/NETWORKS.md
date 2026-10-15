@@ -712,6 +712,40 @@ the choice, their text better); the business sets unchanged.
 .venv/bin/python scripts/train_wordrel_select.py --eng 'eng_*.txt' --net 'net_*.txt' --dump D2 --out data/wordrel_select_v2.npz
 ```
 
+**A candidate, 2026-10-15: larger readers on real printed lines** (`seq_line_ens`,
+neural only; NOT adopted, put to the owner). The capacity pilot (RESEARCH
+2026-10-13/14) found the reader limited more by its real data than by its
+size. So the Library of Congress printed campaigns were harvested in grey with
+the live profile (`harvest_lines.py`, 12 processes on the Mac): the 3,000
+Legal Reports pages of `harvest2` never harvested in grey (btp8), 3,266 newly
+drawn (btp9), and 3,121 printed pages of African American Perspectives in
+Print (aap1, `make_btp_set.py --format book --dpi 300 --max-dpi 0`,
+`--doc-type ""`): 28,767 whole grey lines, beside the live mix's ~65,000. Three
+readers at the pilot's large size (conv 32/64/128/128, GRU 192; 1.10M
+parameters) were trained FROM SCRATCH on gray9's mix plus these at weight 1
+(463k windows an epoch), 30 epochs, EMA 0.999, seeds 1-3, gently (nice 19,
+duty 0.5; ~185 min each, GPUs 61-64 C). Held-out real lines 84.8 / 84.4 /
+85.4%. The judge refitted on the ensemble's own pairs (`linechoice_ens3s`:
+bus.3B, legal.3B, bus.3A, news.3B and the SROIE harvest, 80 pages each under
+the harvest guard; 3,991 pairs, 84.9% decision accuracy at P 0.5). Results in
+RESEARCH (2026-10-15). A second round of harvest (aap2, btp10: 18,695 more
+lines from the pages the Library throttled on the first day) waits on the
+owner.
+
+```sh
+# harvest (each 500-page shard in two jobs of 250; Perspectives with --doc-type "")
+.venv/bin/python scripts/harvest_lines.py data/ext/btp_legal/harvest2/shard00 --pages 250 --offset 0 --no-guard --config configs/neural.toml \
+    --out w_btp8_shard00_0.npz --line-out bin_btp8_shard00_0.npz --line-out-gray gray_btp8_shard00_0.npz
+# train (on each box; ens.sh in the session scratchpad: gray9's lines and weights as cap.sh, plus keep/gray_btp8/gray_*.npz)
+MLWS_EXTRA_CLASSES='*=+@[]_`' .venv/bin/python scripts/train_seq.py --backend torch --device cuda --channels 32,64,128,128 --hidden 192 \
+    --synth data/seq_synth_long2.npz data/seq_synth_sym1.npz --real-weight 3 --epochs 30 --batch 32 --seed 1 --ema 0.999 --duty 0.5 \
+    --lines <gray9's line files> <gray_btp8/gray_*.npz> --weight <gray9's weights> --out seq_line_ens_s1.npz   # seeds 2, 3 likewise
+# the judge
+.venv/bin/python scripts/harvest_line_choice.py data/unlv/bus.3B --pages 40 --offset 0 --doc-type letter --config configs/neural.toml \
+    --set decode.line_model_path=<the three _ema files> --out linechoice_ens3_en_0.npz      # and offset 40; legal.3B, bus.3A, news.3B, ext/sroie/harvest
+.venv/bin/python scripts/train_line_choice.py linechoice_ens3_*.npz --out data/linechoice_ens3s.npz
+```
+
 ### Word-confidence calibrator — `decode/wordconf.py`
 
 **Purpose.** A probability that an output word is right, from the
