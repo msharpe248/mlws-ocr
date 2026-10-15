@@ -137,7 +137,9 @@ work (developed on 60 OTHER annual-report pages, the `--pool dev` of
 rep.3B): v0.18.17 reads them at 85.5 / 77.8 and 74.8 / 72.7. That reading
 decided an adoption, so the 30 annual-report pages are now held out from
 the development, not from the decision; a later column revision measured
-on them is no longer a clean result.
+on them is no longer a clean result. v0.18.18 (the larger line readers,
+adopted on the other sets' evidence) reads them at 86.0 / 78.8 and
+74.8 / 72.7, measured after the decision was taken, so they decided nothing.
 
 **Pooled, not per page, on figure pages.** Many DOE pages are a figure with
 a caption: the truth holds a dozen words, both engines read the axis labels,

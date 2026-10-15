@@ -697,7 +697,7 @@ and ships the EMA of its weights. The recipe as one command
 flowchart LR
     v17a["seq_line_v17a<br/>binary strips<br/>v0.9.0"] -->|grey strips, 8 epochs| g2["gray2<br/>v0.13.0"]
     g2 -->|"receipts, forms<br/>rehearsal + L2-SP + distillation + EMA"| g7["gray7<br/>v0.14.0"]
-    g7 -->|"8 new classes<br/>(widened), 3 epochs"| g9["gray9<br/>v0.15.0<br/>neural profile"]
+    g7 -->|"8 new classes<br/>(widened), 3 epochs"| g9["gray9<br/>v0.15.0<br/>neural profile to v0.18.17"]
     g9 -->|"table lines x0.5,<br/>receipts up, 3 epochs"| g12["gray12<br/>v0.17.0<br/>neural-table profile"]
     g9 -.->|"table lines x0.5,<br/>no receipt weighting"| g11["gray11<br/>not adopted"]
     g12 -.->|"3 more epochs,<br/>table lines x1.0"| g13["gray13<br/>not adopted"]
@@ -705,9 +705,11 @@ flowchart LR
     g15 -->|"all table lines,<br/>full weight, 3 epochs"| g16["gray16<br/>v0.18.1<br/>table crops only"]
     g16 -->|"781k fresh table lines,<br/>3 epochs"| g18["gray18<br/>v0.18.12<br/>table crops only"]
     g16 -->|"table-symbol lines,<br/>2 epochs"| g17b["gray17b<br/>v0.18.6<br/>symbols on table crops"]
+    g9 ==>|"its DATA, not its weights:<br/>+ 31,170 printed lines, 4x wider,<br/>from scratch, 30 epochs"| ens["seq_line_ens<br/>v0.18.18<br/>neural profile"]
 ```
 
-Every arrow is a fine-tune with the remedies above; every box was measured
+Every thin arrow is a fine-tune with the remedies above (the thick one is
+not: `seq_line_ens` shares gray9's training data, not its weights); every box was measured
 on every evaluation set before it was adopted, and the dashed ones lost
 somewhere and were not (RESEARCH.md has each one's numbers). That is the
 final safeguard against forgetting: not a technique, a measurement.
@@ -935,7 +937,7 @@ One architecture, trained twice for two jobs:
 
 - the **word-strip scorer** (`seq_en.npz`) reads a word's window and says
   how likely each of the decoder's candidate spellings is;
-- the **line reader** (`seq_line_gray9_en*.npz` in the neural profile,
+- the **line reader** (`seq_line_ens_en*.npz` in the neural profile,
   `seq_line_gray15_en*.npz` in neural-table, `seq_line_gray18_en*.npz` on its table crops; three members each) reads a
   whole line end to end, as a second reading beside the classic decoder's;
   in neural-table a **symbol reader** (`seq_line_gray17b_en*.npz`, three
@@ -959,7 +961,24 @@ Parameters: convolutions 60,224, BiGRU 203,904, output 23,160 (C = 120 for
 the neural profile's reader, gray9: blank, a–z, A–Z, 0–9, punctuation, 32
 accented letters, `* = + @ [ ] _ `` ` and space) — **287,288** per member.
 The neural-table readers (gray15, gray17b, gray18) add the tables' 19
-symbols, 139 classes: 290,955 per member. The word scorer has the 112
+symbols, 139 classes: 290,955 per member.
+
+**The same shape, wider** (the neural profile's reader since v0.18.18,
+`seq_line_ens`). Twice the channels in every convolution (32, 64, 128, 128;
+each column flattens to 4 × 128 = 512) and a GRU of 192 each way:
+convolutions 240,256, BiGRU 813,312, output 46,200 — **1,099,768** per
+member, nearly four times as many. Width costs little time, because the
+reader's hours go into the decoder around it, not the network (page time +0
+to +14%). It was trained from scratch, not grown from gray9: a capacity
+pilot (RESEARCH 2026-10-13/14) trained the two sizes on the same data and
+found the wider one better everywhere, but by less than real data adds, so
+it was trained again with 31,170 more real printed lines. Training from
+scratch has a cost the pilot showed too. gray9's line began from a scorer
+that had seen 3,179 Google Fonts faces, and these readers had not. On a face
+no training set draws (Verdana, the synthetic regression page) they read
+whole lowercase lines in capitals: Verdana's tall x-height looks like small
+capitals to a reader that has not seen enough faces. Seeing many faces is
+what generalises over type, and the second round puts those lines back. The word scorer has the 112
 classes without the eight symbols: 285,744.
 
 **Why this shape.**
@@ -1007,7 +1026,7 @@ fresh table lines (gray18, the table-crop reader, v0.18.12).
 **Where it runs.** The word scorer in `decode.seq_path` (neural,
 neural-table; classic uses it only to veto a correction the pixels
 contradict, `correct.seq_path`). The line reader in `decode.line_model_path`
-(gray9 in neural, gray15 in neural-table), with the line-choice judge (§K)
+(`seq_line_ens` in neural, gray15 in neural-table), with the line-choice judge (§K)
 deciding per line between its reading and the classic decoder's. In
 neural-table, on a table's crop, `decode.line_model_path_table` (gray18)
 reads in its place, and `decode.line_model_path_symbols` (gray17b) reads
@@ -1476,7 +1495,7 @@ cells of 799 selection tables → `train_cellconf.py`.
 | MLP second opinion | fully connected, 1 hidden layer | 95 glyph features | 110 characters | 52,846 | classic, neural, neural-table |
 | character language model | embedding + GRU | previous characters | next character (78) | 258,030 | classic, neural, neural-table |
 | word-strip scorer | CRNN + CTC | 32-row word strip | per-frame 112 classes | 285,744 | neural, neural-table; classic (the word corrector's image check) |
-| line reader (×3) | CRNN + CTC | 32-row grey line strip | per-frame 120 classes (neural), 139 (neural-table: the tables' symbols) | 287,288 / 290,955 each | neural (gray9), neural-table (gray15; gray18 on table crops; gray17b for their symbols) |
+| line reader (×3) | CRNN + CTC (wider in neural) | 32-row grey line strip | per-frame 120 classes (neural), 139 (neural-table: the tables' symbols) | 1,099,768 (neural) / 290,955 each | neural (`seq_line_ens`), neural-table (gray15; gray18 on table crops; gray17b for their symbols) |
 | glyph CNN | CNN | 32×32 glyph | 110 characters | 30,446 | off |
 | symbol classifier | fully connected, 1 hidden layer (270 → 64 → 16) | a glyph's 16×16 patch + 14 measures against the line and its neighbours | 16 classes (the confusion sets' plain characters and symbols), chosen within the family the reader wrote | 18,384 (`symbols_v2.npz`, `decode.line_symbol_net`) | neural-table |
 | table separator network | dilated CNN + axis heads | table crop, 75 dpi | P(separator) per x, per y | 44,162 | neural-table |

@@ -4,7 +4,22 @@ Ranked by measured evidence, not enthusiasm. Every item names the
 observation that motivates it, so a future session can re-check whether
 the motivation still holds before spending the effort.
 
-## Now: newspapers, then the system paper (the owner's choice, 2026-10-12)
+## Now: the line reader's real data (2026-10-13 to 15, the owner's go-ahead)
+
+The error budget against the LSTM put the remaining gap in word recall inside
+lines that were read, and a capacity pilot found the reader limited more by its
+real data than by its size (RESEARCH 2026-10-13/14). So the Library of Congress
+printed campaigns were harvested (the backlog's Legal Reports harvest, and African
+American Perspectives in Print): 31,170 grey lines in the first round. Three
+readers four times the size trained from scratch on them and gray9's data, with
+their own judge, were **ADOPTED in neural, v0.18.18** (RESEARCH 2026-10-14/15:
+Legal Reports +4.5 words, dev-8 +1.1, CORD +3.7, FUNSD +1.7, held-out rows +0.2
+to +0.6; news-8 down by one clipped page). The regression page found the fault
+the real sets missed: a face no set draws (Verdana) read in capitals. **Running:**
+the second round, all 49,865 lines plus the Google Fonts long lines, three seeds
+on ai01 and ai02 (about 9 h), then a judge refit and the full measurement.
+
+## Earlier: newspapers, then the system paper (the owner's choice, 2026-10-12)
 
 With the tables and equations at v0.18.15, the owner widened the focus beyond tables:
 1. **Newspapers held out**, the one held-out set where both Tesseract engines lead
@@ -53,8 +68,8 @@ adopted: it changed few decisions and did not hold out (RESEARCH).
 - A searchable PDF written by the engine itself (the image with an invisible
   text layer from the hOCR geometry, no new dependency) from `mlws-ocr batch`
   and the workbench; today it needs an outside `hocr-pdf`.
-- A harvest of the Library of Congress Legal Reports (9,807 typescript pages with
-  human transcriptions) for the line reader -- a long training run, announced first.
+- ~~A harvest of the Library of Congress Legal Reports~~ -- done 2026-10-14/15 with
+  the African American Perspectives in Print (the "Now" section above).
 - Other languages (de / fr / es / it): the synthetic recipe, and evaluation
   pages with truth to find.
 

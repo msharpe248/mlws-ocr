@@ -25,12 +25,14 @@ judged before it went live. The measurements themselves are in
 | Symbol classifier | `symbols_v2.npz` | 270 → 64 → 16 | neural-table, on a table's crop (`decode.line_symbol_net`) | `train_symbols.py` | 116,156 real glyphs from PubTables-1M training crops, the PDF words as truth (`harvest_symbols.py`), ×2, plus rendered glyphs of the confusion sets in table contexts; held-out real crops: dashes 77%, ° 99%, ± 92%, × 95-100%, ≤ ≥ 95-99% |
 | Table cell confidence | `cellconf_v1.npz` | 20 weights | neural-table (`output.table_cell_conf_path`) | `train_cellconf.py` | 41,333 cells of 799 selection tables (PubTables-1M training outside every draw, FinTabNet.c validation), each right when its text is the truth's at its row and column after the grids are lined up |
 | Equation reader | `mathread_v4.npz` | 855k params | neural, neural-table (`output.math_reader_path`, `output.math_beam` 8, `lines.equations_beside`, `output.math_split_at_numbers`; v2 since v0.18.9, v3 since v0.18.10, v4 since v0.18.15) | `train_mathread.py` | **v4** (`mathread_v4.npz`, live since v0.18.15): v3 FINE-TUNED (`--init`: every weight copied, the 13 new tokens' rows fresh) 12 epochs at lr 3e-4 on 60,000 formulas of the EXTENDED grammar (`make_math_set.py --out data/math4 --train 60000 --max-line-tokens 50 --ext`: accents, a superscript over a primed subscript, absolute values, matrices, cases), gently on ai02 (half duty, nice 19; 50 min; CPU at most 66 C, GPU 56 C); 146 tokens. With the finder's side-by-side pieces (`lines.equations_beside`) and pairs cut at their numbers (`output.math_split_at_numbers`), against the profile (v3): 60 fresh pages exact 78.8 → **86.1%**, tokens 95.0 → **97.3%**; 30 earlier pages 72.9 → 85.4%, 94.6 → 97.4%; 60 pages of the extended grammar 53.7 → 72.6%, 81.8 → 95.7%; finding F1 0.941 → 0.967 (held out), 0.920 → 0.983 (dev); text pages identical (RESEARCH). Alone, v4 names fewer aligned pairs than v3 (58 of 68) and reads one line of the rest: the cut at the numbers is what makes it safe. v3: v2's recipe on 60,000 formulas with lines of at most 50 tokens (`make_math_set.py --out data/math3 --train 60000 --max-line-tokens 50`), 30 epochs on ai02's RTX 3090 (86 min); 30 held-out pages exact 61.1%, tokens 88.2% at beam 8. Read LINE BY LINE (`output.math_split_lines`, since v0.18.14: a reading of two lines cut at its widest gap and each line read at full height; no training): those pages 72.2% / 94.3%, 60 fresh pages 68.2 → 78.1% / 89.1 → 94.9%. Its confidence (`MathReader.confidence`, the mean log-probability of its greedy reading) also CONFIRMS unnumbered display lines as equations (`output.math_display_logp` -0.1, since v0.18.14): finding F1 0.906 → 0.941. v2: 60,000 formulas of the v2 grammar (aligned pairs, applied functions, newtx) typeset by tectonic in four families at 150-300 dpi (`make_math_set.py --out data/math2 --train 60000`), 30 epochs on the Mac's GPU (4.4 h); 30 held-out typeset pages: exact 54.9%, token accuracy 85.9% (v1: 45.8 / 65.9). v1 (`mathread_v1.npz`: 20,000 formulas of the first grammar, 25 epochs): test exact 50.8%, token accuracy 82.9% |
-| Line model, grey strips (same CRNN) | `seq_line_gray9_en.npz`, `_2`, `_3` | 3 × 287k | neural (`decode.line_model_path`, `decode.line_source = "gray"`) | `train_seq.py` | v0.14.0's reader (the v0.13.0 grey reader fine-tuned with SROIE and FUNSD box-cut training lines and more Legal Reports lines, held to its predecessor by L2-SP and distillation; EMA) with 8 more classes and a symbol-bearing synthetic set |
+| Line model, grey strips, larger (same CRNN, wider) | `seq_line_ens_en.npz`, `_2`, `_3` | 3 × 1.10M | neural since v0.18.18 (`decode.line_model_path`, `decode.line_source = "gray"`) | `train_seq.py --channels 32,64,128,128 --hidden 192` | FROM SCRATCH, 30 epochs: gray9's data mix plus 31,170 grey lines harvested from the Library of Congress Legal Reports and African American Perspectives in Print (below, "Larger readers on real printed lines"); EMA |
+| Line model, grey strips (v0.15.0-v0.18.17) | `seq_line_gray9_en.npz`, `_2`, `_3` | 3 × 287k | none since v0.18.18 | `train_seq.py` | v0.14.0's reader (the v0.13.0 grey reader fine-tuned with SROIE and FUNSD box-cut training lines and more Legal Reports lines, held to its predecessor by L2-SP and distillation; EMA) with 8 more classes and a symbol-bearing synthetic set |
 | Line model, grey strips (v0.14.0) | `seq_line_gray7_en.npz`, `_2`, `_3` | 3 × 285k | none since v0.15.0 (gray9's start and teacher) | `train_seq.py` | the v0.13.0 grey reader fine-tuned 4 epochs with grey SROIE and FUNSD box-cut training lines and Legal Reports lines from 600 pages, L2-SP 1e-4 and learning without forgetting towards it; EMA weights |
 | Line model, grey strips (v0.13.0) | `seq_line_gray_en.npz`, `_2`, `_3` | 3 × 285k | none since v0.14.0 (gray7's start and teacher) | `train_seq.py` | the binary line model fine-tuned on grey line strips (grey twins of harvested lines) plus binary real lines |
 | Line model, binary strips (previous) | `seq_line_en.npz`, `_2`, `_3` | 3 × 285k | none since 2026-09-26 (v17a) | `train_seq.py` | the above plus long windows and real whole lines |
 | Word-confidence calibrator | `wordconf.npz` | 17 weights | neural, neural-table (`decode.conf_path`) | `train_wordconf.py` | truth-labelled words with the decoder's evidence |
-| Line-choice judge | `linechoice.npz` | 16 weights | neural, neural-table (`decode.line_choice_path`) | `train_line_choice.py` | truth-labelled line pairs (classic reading vs line reading) |
+| Line-choice judge | `linechoice_ens.npz` | 16 weights | neural since v0.18.18 (`decode.line_choice_path`) | `train_line_choice.py` | truth-labelled line pairs of `seq_line_ens` (classic reading vs line reading) |
+| Line-choice judge (v0.9.0-v0.18.17 in neural) | `linechoice.npz` | 16 weights | neural-table (`decode.line_choice_path`) | `train_line_choice.py` | truth-labelled line pairs (classic reading vs line reading) |
 | knn_scc link rule (experimental) | `linkkeep_v1.npz` | 15 weights | none (option `blocks.link_model_path`) | `train_links.py` | knn_scc graph links labelled by UNLV zone truth |
 | Segmenter judge | `segjudge.npz` | 32 weights | neural, neural-table (`blocks.impl = "judged"`, newspapers and magazines) | `segmenter_judge.py` | per-page accuracy of four segmenters read end to end on UNLV training-pool pages |
 | Glyph CNN | `cnn.npz` | 30k | none (kept off; `recognize.cnn_path`) | `train_cnn.py` | synthetic renders + truth-labelled real crops |
@@ -52,8 +54,8 @@ corrector adds each engine's learned confusions (`harvest_confusions.py`:
 neural and neural-table when the corrector is switched on). The
 **pure** profile runs with no network at all; **classic** uses the MLP and
 the character GRU, and the word scorer only in its word corrector;
-**neural** adds the word scorer, the grey line reader (gray9) with its
-judge, the word-confidence calibrator, the segmenter judge and the equation
+**neural** adds the word scorer, the grey line reader (`seq_line_ens`, since
+v0.18.18; gray9 before) with its judge, the word-confidence calibrator, the segmenter judge and the equation
 reader; **neural-table** is neural with its own line readers (gray15,
 gray18 and gray17b on table crops), the symbol classifier and the table
 models (separator, structure, detector, word-relation and sequence
@@ -149,6 +151,7 @@ were trained on the public sources named below and on nothing else.
 | v0.18.15 (2026-10-12) | forty-six files: v0.18.14's forty-five plus the equation reader `mathread_v4.npz` (v3 stays: the previous reader and v4's start) |
 | v0.18.16 (2026-10-13) | the same forty-six files as v0.18.15: this release is profile and code (the newspaper layout fixes: lines re-split by the letters' size, a column read through where the XY-cut parts it, headlines joined in the segmenter judge's k-NN candidates; no model or judge refitted) |
 | v0.18.17 (2026-10-13) | the same forty-six files: profile and code (columns found without a hint from the whitespace gutters, and a page with two such gutters judged as a newspaper, with the segmenter judge as fitted; no model or judge refitted). The training harvests now refuse the held-out pools too: the next reader trained from them will not have seen the held-out pages |
+| v0.18.18 (2026-10-15) | fifty files: the forty-six plus neural's larger line reader `seq_line_ens_en.npz`, `_2`, `_3` (= `seq_line_ens` seeds 1, 2, 3, EMA; 1.10M parameters each, from scratch on gray9's data and 31,170 Library of Congress printed lines) and its judge `linechoice_ens.npz` (= `linechoice_ens3s`); gray9 and `linechoice.npz` stay in the bundle (neural-table uses `linechoice.npz`) |
 
 ## Where the training data comes from
 
@@ -388,8 +391,9 @@ words, up to 1,700 columns; `make_seq_data.py --words 3 8 --take 2 6
 15,549 from the five UNLV sets (`harvest_lines.py --line-out`), 30,325
 from the SROIE receipts and 6,598 from the FUNSD forms cut straight from
 their truth boxes (`harvest_boxes.py`); real strips repeated three times
-an epoch. The live readers are grey-strip fine-tunes of this line (below): `seq_line_gray9` in neural; `seq_line_gray15`,
-`seq_line_gray18` on table crops and `seq_line_gray17b` for their symbols in neural-table. The last binary-strip
+an epoch. The table profile's readers are grey-strip fine-tunes of this line (below): `seq_line_gray15`,
+`seq_line_gray18` on table crops and `seq_line_gray17b` for their symbols in neural-table; neural's reader since v0.18.18,
+`seq_line_ens`, is trained from scratch on gray9's data and more (below). The last binary-strip
 reader was a three-seed ensemble of `seq_line_v17a` (2026-09-24 until v0.13.0; Status below); `seq_line_v13b` (2026-09-21) added 37,960 word
 strips and 1,993 whole lines from the Library of Congress Legal Reports
 (`make_btp_set.py`, `harvest_lines.py`); `seq_line_v11s2` (2026-09-19)
@@ -712,15 +716,15 @@ the choice, their text better); the business sets unchanged.
 .venv/bin/python scripts/train_wordrel_select.py --eng 'eng_*.txt' --net 'net_*.txt' --dump D2 --out data/wordrel_select_v2.npz
 ```
 
-**A candidate, 2026-10-15: larger readers on real printed lines** (`seq_line_ens`,
-neural only; NOT adopted, put to the owner). The capacity pilot (RESEARCH
+**Larger readers on real printed lines** (`seq_line_ens`, neural since
+v0.18.18, the owner's decision of 2026-10-15; neural-table keeps its own readers). The capacity pilot (RESEARCH
 2026-10-13/14) found the reader limited more by its real data than by its
 size. So the Library of Congress printed campaigns were harvested in grey with
 the live profile (`harvest_lines.py`, 12 processes on the Mac): the 3,000
 Legal Reports pages of `harvest2` never harvested in grey (btp8), 3,266 newly
 drawn (btp9), and 3,121 printed pages of African American Perspectives in
 Print (aap1, `make_btp_set.py --format book --dpi 300 --max-dpi 0`,
-`--doc-type ""`): 28,767 whole grey lines, beside the live mix's ~65,000. Three
+`--doc-type ""`): 31,170 whole grey lines (Legal Reports 9,265 and 10,768, Perspectives 11,137; 2,902 of them held out by page), beside the live mix's ~65,000. Three
 readers at the pilot's large size (conv 32/64/128/128, GRU 192; 1.10M
 parameters) were trained FROM SCRATCH on gray9's mix plus these at weight 1
 (463k windows an epoch), 30 epochs, EMA 0.999, seeds 1-3, gently (nice 19,
@@ -728,9 +732,18 @@ duty 0.5; ~185 min each, GPUs 61-64 C). Held-out real lines 84.8 / 84.4 /
 85.4%. The judge refitted on the ensemble's own pairs (`linechoice_ens3s`:
 bus.3B, legal.3B, bus.3A, news.3B and the SROIE harvest, 80 pages each under
 the harvest guard; 3,991 pairs, 84.9% decision accuracy at P 0.5). Results in
-RESEARCH (2026-10-15). A second round of harvest (aap2, btp10: 18,695 more
-lines from the pages the Library throttled on the first day) waits on the
-owner.
+RESEARCH (2026-10-15). Shipped as `seq_line_ens_en.npz`, `_2`, `_3` (seeds 1,
+2, 3) and `linechoice_ens.npz`. One fault the real sets did not show: the
+readers read whole lines of the degraded synthetic Verdana page in capitals
+(the regression page: 100.0 -> 94.2 characters at severity 1). Verdana and
+Tahoma are drawn by no synthetic set, and gray9's line, which never did this,
+began from a scorer trained on 3,179 Google Fonts faces; the capacity pilot's
+readers (gray9's data, from scratch) do it as well, so the recipe's narrow
+synthetic set is the cause, not the new lines. The second round (the
+owner's go-ahead, 2026-10-15) trains on all 49,865 harvested lines (aap2 and
+btp10 add 18,695 from the pages the Library throttled on the first day) WITH
+the Google Fonts long lines `seq_synth_gfonts_long` (662k windows an epoch,
+about 4.4 h a seed).
 
 ```sh
 # harvest (each 500-page shard in two jobs of 250; Perspectives with --doc-type "")
@@ -806,8 +819,10 @@ the fixed rules.
 .venv/bin/python scripts/train_line_choice.py data/linechoice_*.npz --out data/linechoice.npz
 ```
 
-**The live judge** is `linechoice_v17as` (2026-09-24; `linechoice.npz` in
-neural and neural-table): fitted on the `seq_line_v17a` ensemble's own line
+**The live judges.** Neural's, since v0.18.18, is `linechoice_ens3s`
+(`linechoice_ens.npz`): refitted on the `seq_line_ens` ensemble's own pairs
+(below), without which the larger readers trailed gray9 on dev-8.
+Neural-table's is `linechoice_v17as` (2026-09-24; `linechoice.npz`, neural's until v0.18.17): fitted on the `seq_line_v17a` ensemble's own line
 pairs (the four UNLV harvests plus receipt pairs, the page-level feature),
 80.3% decision accuracy, and kept for the grey ensemble because a judge
 refitted on its own pairs cost mag-8 4 points (2026-09-26). Before it,

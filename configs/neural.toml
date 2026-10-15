@@ -117,7 +117,16 @@ impl = "hybrid"                # the line reader beside the classic decoder (dec
                                # judge says so (2026-09-13: dev-8 91.9 -> 93.2 word, broad-30 87.5 -> 89.8,
                                # legal-8 84.4 -> 88.5, news-8 88.2 -> 90.2, blocks broad-30 91.1 -> 95.1).
                                # "beam" is the classic decoder alone.
-line_model_path = "data/seq_line_gray9_en.npz+data/seq_line_gray9_en_2.npz+data/seq_line_gray9_en_3.npz"
+line_model_path = "data/seq_line_ens_en.npz+data/seq_line_ens_en_2.npz+data/seq_line_ens_en_3.npz"
+                               # = seq_line_ens seeds 1, 2, 3, EMA (2026-10-15, v0.18.18): three larger readers (conv
+                               # 32/64/128/128, GRU 192; 1.10M parameters each against gray9's 287k) trained FROM SCRATCH
+                               # on gray9's data mix plus 31,170 grey lines harvested from the Library of Congress Legal
+                               # Reports and African American Perspectives in Print, read with linechoice_ens below. Against
+                               # gray9, pooled word: dev-8 95.58 -> 96.40, legal-8 92.05 -> 92.73, Legal Reports 73.71 ->
+                               # 77.76, Perspectives 64.99 -> 68.31, CORD 33.03 -> 37.70, FUNSD 43.57 -> 45.35, SROIE 61.56
+                               # -> 62.70, held-out rows +0.2 to +0.5; news-8 95.09 -> 92.92 from one page whose clipped
+                               # column lies outside the truth zones (without it 95.36 -> 95.48); page time +0 to +14%.
+                               # Previous: data/seq_line_gray9_en.npz+data/seq_line_gray9_en_2.npz+data/seq_line_gray9_en_3.npz
                                # = seq_line_gray9 (2026-09-27, v0.15.0): each v0.14.0 member below with the alphabet
                                # widened by * = + @ [ ] _ ` (output rows kept by name), 3 more epochs on its data plus a
                                # symbol-bearing synthetic set, distilled from itself (lines needing a new class not
@@ -144,7 +153,11 @@ line_choose_rule = "calibrated"  # the fitted judge (decode/linechoice.py). Unti
                                # choice chain overwrote its decision with the endorsed count; with the judge
                                # deciding: dev-8 93.4 -> 94.5 word, broad-30 90.2 -> 91.0, legal-8 89.1 -> 90.2,
                                # modern 88.8 -> 90.5, business 93.6 -> 95.1; mag-8 -3, blocks -1 char
-line_choice_path = "data/linechoice.npz"  # = linechoice_v17as (2026-09-24), kept for the grey ensemble: a judge refitted
+line_choice_path = "data/linechoice_ens.npz"  # = linechoice_ens3s (2026-10-15, v0.18.18): refitted on seq_line_ens's own
+                               # line pairs (bus.3B, legal.3B, bus.3A, news.3B and the SROIE harvest, 80 pages each under the
+                               # harvest guard; 3,991 pairs, 84.9% decision accuracy at P 0.5). With the old judge the larger
+                               # readers trailed gray9 on dev-8 (95.39 against 95.58 word); with their own, 96.40.
+                               # Previous: data/linechoice.npz = linechoice_v17as (2026-09-24), kept for the grey ensemble: a judge refitted
                                # on its own pairs cost mag-8 4 points (2026-09-26); fitted on the v17a ensemble's own line pairs
                                # (the four UNLV harvests + receipt pairs, page-level feature); 80.3% decision accuracy.
                                # Previous: linechoice_e15s

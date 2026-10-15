@@ -102,7 +102,7 @@ def test_neural_profile_keeps_its_decoder_identity():
     rewrite lost line_mode and line_choose_rule and six rows were measured wrong)."""
     p = {s.slot: s for s in load_config(CONFIGS / "neural.toml").stages}["decode"].params
     assert p["line_mode"] == "choose" and p["line_choose_rule"] == "calibrated"
-    assert p["line_model_path"] == "data/seq_line_gray9_en.npz+data/seq_line_gray9_en_2.npz+data/seq_line_gray9_en_3.npz" and p["line_choice_path"] == "data/linechoice.npz"
+    assert p["line_model_path"] == "data/seq_line_ens_en.npz+data/seq_line_ens_en_2.npz+data/seq_line_ens_en_3.npz" and p["line_choice_path"] == "data/linechoice_ens.npz"
     # the grey ensemble must be read from grey strips: read from binary ones it silently loses
     assert p["line_source"] == "gray"
     assert p["seq_path"] == "data/seq_en.npz"
@@ -121,9 +121,9 @@ def test_command_line_sets_reach_the_stage():
 
 def test_neural_table_is_neural_plus_the_table_options():
     """The table profile may differ from neural ONLY in the table options that
-    change what the reader sees; everything else stays neural's."""
+    change what the reader sees (and its own reader with that reader's judge); everything else stays neural's."""
     allowed = {"magnify": {"max_scale"}, "deskew": {"edge_nearest", "ink_fallback"}, "illumination": {"stretch_low", "invert_dark", "grey_pictures", "invert_rect"}, "imagezones": {"keep_grids"}, "components": {"dotted_rule_text"}, "rulings": {"short_in_grid_300dpi", "edge_bars", "faint_depth"},
-               "tables": {"diagonals", "min_row_ink", "broken_rules"}, "decode": {"line_gray_rules_out", "figure_cells", "rotated_cells", "line_model_path", "line_gap_split", "line_model_path_table", "line_model_path_symbols", "line_dash_measure", "line_symbol_net"}, "lines": {"in_cells", "stacked_chunks"}, "blocks": {"keep_dashes"},
+               "tables": {"diagonals", "min_row_ink", "broken_rules"}, "decode": {"line_gray_rules_out", "figure_cells", "rotated_cells", "line_model_path", "line_choice_path", "line_gap_split", "line_model_path_table", "line_model_path_symbols", "line_dash_measure", "line_symbol_net"}, "lines": {"in_cells", "stacked_chunks"}, "blocks": {"keep_dashes"},
                "output": {"table_net_path", "table_net_row_join", "table_net_figure_rows", "ws_detector", "ws_mesh_min_spines", "cell_order_by_line",
                           "table_det_path", "table_det_mode", "table_split_path", "table_split_select", "table_split_keep_rows", "table_dashes", "ws_table_thin_grids", "span_labels",
                           "nest_side_by_side", "pictures", "table_dash_aspect", "table_group_rowspans", "table_rebuild_header", "table_heading_rows", "table_rebuild_centred", "table_cell_conf_path", "join_digit_groups", "dollar_s", "trim_notes", "cell_marks", "trim_notes_rows", "table_cell_lines", "table_label_rowspans", "table_wordrel_path", "table_wordrel_mode", "table_wordrel_select", "table_seq_path", "table_seq_mode", "table_seq_select", "table_item_rows", "table_paren_columns"}}

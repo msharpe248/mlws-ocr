@@ -64,21 +64,27 @@ scoreboard and its history are in `docs/DESIGN.md` §8.
 
 | set | what it is | classic | neural | legacy Tesseract | Tesseract LSTM |
 |---|---|---|---|---|---|
-| dev-8 | UNLV business letters, tuning set | 95.2 / 89.4 | **97.7 / 95.4** | 95.0 / 91.7 | 95.5 / 93.1 |
-| broad-30 | UNLV business letters, the headline set | 91.9 / 82.3 | 95.8 / **93.0** | 95.5 / 91.7 | **96.0** / 92.7 |
-| legal-8 | UNLV legal pleadings (typewriter) | 91.7 / 81.3 | **93.9 / 90.3** | 90.4 / 88.7 | 90.3 / 86.9 |
-| modern | born-digital PDFs and templated business letters | 91.6 / 83.5 | **94.2 / 90.7** | 75.4 / 70.8 | 74.2 / 66.6 |
-| business | invoices, payslips, receipts, statements, purchase orders | 95.3 / 86.1 | **98.0 / 96.8** | 70.7 / 68.0 | 70.7 / 68.6 |
-| news-8 | UNLV newspapers (the layout rules were tuned here) | 94.2 / 84.1 | **97.4 / 95.4** | 96.3 / 93.1 | 96.7 / 94.8 |
-| mag-8 | UNLV magazines (the layout rules were tuned here) | 66.8 / 45.5 | 87.2 / 81.3 | 87.3 / **84.7** | **87.8** / 84.4 |
-| newspapers, held out | 30 UNLV newspaper pages held out from decisions (not from training) | 76.5 / 63.4 | **89.1 / 85.6** | 87.1 / 82.4 | 87.7 / 84.2 |
-| magazines, held out | 30 UNLV magazine pages held out from decisions (not from training) | 68.3 / 50.7 | **83.8 / 75.7** | 77.9 / 71.3 | 78.5 / 73.6 |
-| letters, held out | 30 UNLV business letters held out from decisions (not from training) | 90.7 / 83.1 | **93.9 / 91.1** | 92.4 / 88.8 | 93.1 / 90.6 |
-| DOE reports, clean | 30 UNLV DOE technical reports never opened before (no hint, pooled) | 83.5 / 68.9 | 85.5 / **77.8** | 86.0 / 76.2 | **86.6** / 77.5 |
+| dev-8 | UNLV business letters, tuning set | 95.2 / 89.4 | **97.9 / 96.5** | 95.0 / 91.7 | 95.5 / 93.1 |
+| broad-30 | UNLV business letters, the headline set | 91.9 / 82.3 | 95.8 / **92.9** | 95.5 / 91.7 | **96.0** / 92.7 |
+| legal-8 | UNLV legal pleadings (typewriter) | 91.7 / 81.3 | **95.1 / 91.4** | 90.4 / 88.7 | 90.3 / 86.9 |
+| modern | born-digital PDFs and templated business letters | 91.6 / 83.5 | **94.3 / 91.1** | 75.4 / 70.8 | 74.2 / 66.6 |
+| business | invoices, payslips, receipts, statements, purchase orders | 95.3 / 86.1 | **98.1 / 96.7** | 70.7 / 68.0 | 70.7 / 68.6 |
+| news-8 | UNLV newspapers (the layout rules were tuned here) | 94.2 / 84.1 | 96.0 / 93.9 † | 96.3 / 93.1 | **96.7 / 94.8** |
+| mag-8 | UNLV magazines (the layout rules were tuned here) | 66.8 / 45.5 | 87.2 / 81.2 | 87.3 / **84.7** | **87.8** / 84.4 |
+| newspapers, held out | 30 UNLV newspaper pages held out from decisions (not from training) | 76.5 / 63.4 | **89.3 / 86.0** | 87.1 / 82.4 | 87.7 / 84.2 |
+| magazines, held out | 30 UNLV magazine pages held out from decisions (not from training) | 68.3 / 50.7 | **83.9 / 75.9** | 77.9 / 71.3 | 78.5 / 73.6 |
+| letters, held out | 30 UNLV business letters held out from decisions (not from training) | 90.7 / 83.1 | **94.1 / 91.7** | 92.4 / 88.8 | 93.1 / 90.6 |
+| DOE reports, clean | 30 UNLV DOE technical reports never opened before (no hint, pooled) | 83.5 / 68.9 | 86.0 / **78.8** | 86.0 / 76.2 | **86.6** / 77.5 |
 | annual reports, clean | 30 UNLV annual reports never opened before (no hint, pooled) | 66.5 / 53.1 | 74.8 / 72.7 | 84.3 / 83.3 | **86.1 / 84.6** |
-| funsd | real scanned forms, FUNSD, at 2x | 37.4 / 12.7 | 66.3 / 44.7 | 54.8 / 32.0 | **66.4 / 47.2** |
-| legal reports | real typescript and printed office pages, Library of Congress | 70.5 / 47.3 | **87.0 / 72.7** | 57.5 / 42.8 | 78.8 / 66.3 |
-| blocks | a paragraph handed in alone, no layout (broad-30's text zones) | 94.4 / 85.8 | **98.6 / 97.2** | 98.2 / 96.6 | 98.5 / 96.5 |
+| funsd | real scanned forms, FUNSD, at 2x | 37.4 / 12.7 | **67.0** / 46.4 | 54.8 / 32.0 | 66.4 / **47.2** |
+| legal reports | real typescript and printed office pages, Library of Congress | 70.5 / 47.3 | **88.9 / 77.2** | 57.5 / 42.8 | 78.8 / 66.3 |
+| blocks | a paragraph handed in alone, no layout (broad-30's text zones) | 94.4 / 85.8 | **98.5 / 96.9** | 98.2 / 96.6 | **98.5** / 96.5 |
+
+The neural column is v0.18.18 (the larger line readers, 15 October 2026).
+† One page of the eight (8229_028) has its right-hand column clipped by the
+scanner and left out of UNLV's truth zones; the new readers read it and every
+word is scored as an insertion. Without that page news-8 is level (pooled
+97.4 / 95.4 before, 97.7 / 95.5 after).
 
 
 **Tables.** Table structure is scored by TEDS (tree-edit similarity of the
@@ -111,20 +117,20 @@ Neural-table as of v0.18.14 (2026-10-12: nil dashes read, a receipt's paper edge
 **Held-out pages.** The eight-page sets flatter newspapers and magazines:
 on 30 fresh pages of each type, never used for any decision (though their
 lines were among the readers' training harvests), the neural
-profile reads newspapers at 89.1 / 85.6 and magazines at 83.8 / 75.7 (v0.18.16; with
+profile reads newspapers at 89.3 / 86.0 and magazines at 83.9 / 75.9 (v0.18.18; 89.1 / 85.6 and 83.8 / 75.7 at v0.18.16; with
 the per-page segmenter judge on those two types since 26 September 2026,
 and since v0.18.16 lines re-split on columns set solid, a column read through where
 the XY-cut parts it, and headlines joined (newspapers 86.7 / 81.6 before);
 XY-cut alone read them at 79.7 and 65.9; magazines 68.1 before text-row protection
 and 77.1 before deskew stopped trusting an estimate at its search limit, which had
-rotated three straight photo-heavy pages by 5 degrees). Letters (93.9), legal pages
-(94.3) and a freshly rendered business set (97.5) hold up. Tesseract LSTM
+rotated three straight photo-heavy pages by 5 degrees). Letters (94.1), legal pages
+(94.4) and a freshly rendered business set (97.5) hold up. Tesseract LSTM
 on the same held-out pages: newspapers 87.7 / 84.2, magazines 78.5 / 73.6,
-letters 93.1 / 90.6 (neural 93.9 / 91.1).
+letters 93.1 / 90.6 (neural 94.1 / 91.7).
 `scripts/eval_unlv.py --heldout` draws them. On two UNLV sets no decision
 and no training has touched (30 pages each, no hint, pooled), the neural
-profile is level with the LSTM on DOE technical reports (85.5 / 77.8 against
-86.6 / 77.5) and behind it on annual reports (74.8 / 72.7 against
+profile is level with the LSTM on DOE technical reports (86.0 / 78.8 against
+86.6 / 77.5; 85.5 / 77.8 before the larger readers) and behind it on annual reports (74.8 / 72.7 against
 86.1 / 84.6). The paper measured 72.2 / 68.4 there at v0.18.16, with two-column
 report pages read line by line across their gutter
 ([the system paper](docs/papers/readable-self-trained-ocr.md) §7); since v0.18.17
@@ -132,6 +138,24 @@ a page with no hint has its columns found from the whitespace gutters and, with
 two or more, is segmented as a newspaper (held-out newspapers read with no hint
 70.8 → 82.4). A reverse-video page still reads as nothing: the inversion that
 reads it is an option, off, since it cost a held-out magazine page 36 points.
+
+**Larger readers on real printed lines (15 October 2026).** A capacity
+pilot found the line reader limited more by its real data than by its size,
+so the Library of Congress printed campaigns were read with the engine and
+their human transcriptions kept the lines it got right: 31,170 grey lines
+from the Legal Reports and from African American Perspectives in Print,
+a collection of printed pamphlets. Three readers
+four times the old size (1.10M parameters) were trained from scratch on the
+old mix and these lines, with the line-choice judge refitted on their own
+readings. Legal Reports went 87.0 / 72.7 -> 88.9 / 77.2, dev-8 95.4 -> 96.5
+words, photographed receipts 3.7 words, forms 1.7, the held-out rows
+0.2 to 0.6. Two costs. One news-8 page whose right-hand column the scanner
+clipped now has that column read, and the truth leaves it out (news-8
+95.4 -> 93.9 words; level or better without that page). The synthetic regression page
+also fell 100 -> 94 characters: set in Verdana, a face no training set draws, its
+lowercase lines are read in capitals. The old readers began from a network
+that had seen 3,179 Google Fonts faces, and these did not, so a second round
+trains with those faces' lines and 18,695 more printed ones.
 
 **Photographs and the facing page (27 September 2026).** Photographs no
 longer cost text (0.3% of the text's ink falls in picture zones), but a
@@ -194,23 +218,26 @@ of the numbers, the shared ideas and the differences. The short form:
 
 - **Ahead of both engines** on the headline letter set in words (93.0
   against 91.7 legacy and 92.7 LSTM; 0.2 characters behind the LSTM), on
-  held-out letters (93.9 / 91.1), typewriter pleadings (+3.5 characters),
+  held-out letters (94.1 / 91.7), typewriter pleadings (+4.7 characters),
   modern documents (+19), tabular business pages (+27), the Library of
-  Congress typescript archive (+8.7 characters / +7.4 words over the LSTM)
+  Congress typescript archive (+10.1 characters / +10.9 words over the LSTM)
   and a paragraph read alone. Tesseract's page analysis is much of the
   reason on the documents: margins and hole punches read as text,
   templated letters broken, tables read by column.
-- **Ahead on held-out newspapers since v0.18.16** (89.1 / 85.6 against the
+- **Ahead on held-out newspapers since v0.18.16** (89.3 / 86.0 against the
   LSTM's 87.7 / 84.2), after a fix found on other newspaper pages: columns
   set solid whose lines fused, columns the XY-cut parted, headlines cut into
   letters. Held-out magazines lead (83.8 against 78.5).
-- **Behind** on forms (FUNSD: 66.3 / 44.7 against 66.4 / 47.2), and on the
+- **Behind** on forms in words (FUNSD: 67.0 / 46.4 against 66.4 / 47.2; ahead in
+  characters since v0.18.18), on news-8 by one clipped page (†), and on the
   one clean set with multi-column pages: UNLV annual reports, never opened
   before, 74.8 against 86.1 characters (72.2 before v0.18.17 found columns
   without a hint; what is left is mostly financial statements and pages whose
-  sections run across both columns). Level on clean DOE reports (85.5 against 86.6). The
+  sections run across both columns). Level on clean DOE reports (86.0 against 86.6
+  characters, ahead in words). The
   held-out rows above were held out from decisions, not from training.
-- **A tenth of the training data**: readers of 287k parameters trained on
+- **A tenth of the training data**: readers of 1.1M parameters (287k in the
+  table profile) trained on
   this machine from open fonts and public scans, against Tesseract's 4,500
   fonts and Google's training run. Real scanned strips in training are
   what buy the lead on degraded pages.
@@ -548,8 +575,13 @@ Congress typescripts, a paragraph read alone and, since v0.18.16, the
 held-out newspapers; it trails the LSTM on forms in words, where form
 structure is the open problem, and on UNLV annual reports, a set no decision
 or training had touched (74.8 against 86.1; since v0.18.17 columns are found
-without a hint, 72.2 before). On the other clean set, DOE reports, it is level. The current focus is a paper on the system as
-a whole, now drafted ([docs/papers/readable-self-trained-ocr.md](docs/papers/readable-self-trained-ocr.md)). Tables were the focus
+without a hint, 72.2 before). On the other clean set, DOE reports, it is level. The current focus is
+the line reader's data: since v0.18.18 neural reads with three readers four
+times the old size trained on 31,170 real printed lines from the Library of
+Congress, and a second round with Google Fonts lines (for faces no set draws,
+such as Verdana, whose lowercase the new readers can take for capitals) and
+18,695 more printed lines is training. The system paper is drafted
+([docs/papers/readable-self-trained-ocr.md](docs/papers/readable-self-trained-ocr.md), measured at v0.18.16). Tables were the focus
 before ([docs/TABLES.md](docs/TABLES.md)): the generated business
 sets read at 0.91-0.97 TEDS, real financial tables at 0.88 and scientific
 tables at 0.88 (on tables no decision looked at). Receipts are parked for a

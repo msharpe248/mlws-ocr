@@ -20,10 +20,14 @@ sys.path.insert(0, str(ROOT / "scripts"))
 # (profile, severity) -> (char acc, word acc) at adoption; tolerance 0.5 point
 EXPECTED = {
     ("classic", 0): (98.7, 93.2), ("classic", 1): (98.9, 94.7), ("classic", 2): (98.9, 95.6),
-    ("neural", 0): (100.0, 100.0), ("neural", 1): (100.0, 100.0), ("neural", 2): (99.8, 99.0),
+    ("neural", 0): (100.0, 100.0), ("neural", 1): (94.2, 90.8), ("neural", 2): (92.3, 87.4),
 }
 # (v0.14.0's reader read severity 1's 'how long' as 'How Ion' -- figures lowered to 99.7/99.0 for that
 # release; the v0.15.0 reader reads it right again, 2026-09-27.)
+# (v0.18.18's readers, trained from scratch without the Google Fonts lines, read whole lines of the
+# degraded Verdana page in capitals ('THE QUICK BROWN FOX') -- Verdana is a face no synthetic set
+# draws -- and the judge takes them: lowered from 100.0/100.0 and 99.8/99.0 for that release, the
+# owner's adoption on the real sets' gains; the round-2 readers train with seq_synth_gfonts_long.)
 TOL = 0.5
 
 

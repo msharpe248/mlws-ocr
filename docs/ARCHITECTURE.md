@@ -341,8 +341,8 @@ flowchart LR
     lang[(lang_en.npz<br/>lexicon + trigrams)] --> decS
     gru[(gru_en.npz<br/>character GRU)] --> decS
     seq[(seq_en.npz<br/>word-strip CRNN)] --> decS
-    line[(seq_line_gray*_en*.npz<br/>line reader CRNN x3)] --> decS
-    lchoice[(linechoice.npz<br/>logistic judge)] --> decS
+    line[(seq_line_ens_en*.npz / seq_line_gray*_en*.npz<br/>line reader CRNN x3)] --> decS
+    lchoice[(linechoice_ens.npz / linechoice.npz<br/>logistic judge)] --> decS
     wconf[(wordconf.npz<br/>logistic calibrator)] --> decS
     sym[(symbols_v2.npz<br/>symbol classifier)] --> decS
     symr[(seq_line_gray17b_en*.npz<br/>symbol reader CRNN x3)] --> decS
@@ -364,8 +364,8 @@ flowchart LR
 | MLP second opinion | `recognize.mlp_path` | classic, neural, neural-table |
 | character GRU | `decode.char_lm` | classic, neural, neural-table |
 | word-strip CRNN scorer | `decode.seq_path` (and `correct.seq_path`) | neural, neural-table (classic: the corrector's pixel check) |
-| line reader (3-member ensemble) | `decode.line_model_path` | neural (`seq_line_gray9`), neural-table (`seq_line_gray15`; on a table's crop `seq_line_gray18`, `decode.line_model_path_table`) |
-| line-choice judge | `decode.line_choice_path` | neural, neural-table |
+| line reader (3-member ensemble) | `decode.line_model_path` | neural (`seq_line_ens`, 1.10M parameters a member, since v0.18.18), neural-table (`seq_line_gray15`; on a table's crop `seq_line_gray18`, `decode.line_model_path_table`) |
+| line-choice judge | `decode.line_choice_path` | neural (`linechoice_ens`, fitted on its reader's pairs), neural-table (`linechoice`) |
 | word-confidence calibrator | `decode.conf_path` | neural, neural-table |
 | symbol classifier | `decode.line_symbol_net` | neural-table, on a table's crop |
 | symbol reader (3-member ensemble, `seq_line_gray17b`) | `decode.line_model_path_symbols` | neural-table, on a table's crop, its symbols only |
