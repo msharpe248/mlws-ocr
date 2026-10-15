@@ -48,6 +48,32 @@ def rows_for(csv_path: Path, campaign: str, fmt: str = ""):
                     yield r
 
 
+def fetch(url: str, tries: int = 6) -> bytes:
+    """GET with patience: on 429 (Too Many Requests), 503, a timeout or a short read, wait and retry --
+    the server's Retry-After when it gives one, else 30 s doubling -- instead of skipping the page.
+    Two streams at once were throttled after about 1,600 pages each (2026-10-14: 5,300 pages skipped)."""
+    import urllib.error
+    wait = 30.0
+    for k in range(tries):
+        try:
+            req = urllib.request.Request(url, headers={"User-Agent": "mlws-ocr research (evaluation set)"})
+            with urllib.request.urlopen(req, timeout=60) as resp:
+                return resp.read()
+        except urllib.error.HTTPError as e:
+            if e.code not in (429, 500, 502, 503, 504) or k == tries - 1:
+                raise
+            ra = e.headers.get("Retry-After") if e.headers else None
+            delay = float(ra) if ra and ra.isdigit() else wait
+        except Exception:  # noqa: BLE001  (timeouts, IncompleteRead, connection resets)
+            if k == tries - 1:
+                raise
+            delay = wait
+        print(f"  waiting {delay:.0f} s", file=sys.stderr, flush=True)
+        time.sleep(delay)
+        wait = min(wait * 2, 600.0)
+    raise RuntimeError("unreachable")
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     ap.add_argument("--csv", type=Path, required=True)
@@ -65,6 +91,7 @@ def main():
     ap.add_argument("--exclude-dir", type=Path, nargs="*", default=[],
                     help="sets already written (evaluation and earlier harvest splits): their stems are "
                          "never drawn -- the contamination guard between splits")
+    ap.add_argument("--sleep", type=float, default=0.5, help="seconds between pages (politeness)")
     ap.add_argument("--shard", type=int, default=0,
                     help="write the pages into numbered subdirectories of this many pages each (0 = one directory), "
                          "so several harvest processes can run at once")
@@ -85,9 +112,7 @@ def main():
             break
         stem = re.sub(r"[^A-Za-z0-9_.-]", "_", r["AssetId"] or r["Asset"])[:80]
         try:
-            req = urllib.request.Request(r["DownloadUrl"], headers={"User-Agent": "mlws-ocr research (evaluation set)"})
-            with urllib.request.urlopen(req, timeout=60) as resp:
-                data = resp.read()
+            data = fetch(r["DownloadUrl"])
             im = Image.open(io.BytesIO(data)).convert("L")
         except Exception as e:  # noqa: BLE001
             print(f"  skip {stem}: {e}", file=sys.stderr)
@@ -109,7 +134,7 @@ def main():
         (out_dir / f"{stem}.txt").write_text(text.strip() + "\n")
         n += 1
         print(f"  [{n}/{args.n}] {stem} {im.size} {len(text)} chars", flush=True)
-        time.sleep(0.5)
+        time.sleep(args.sleep)
     print(f"wrote {n} pages -> {args.out}")
 
 
