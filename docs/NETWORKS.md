@@ -754,8 +754,15 @@ receipt in capitals, and many are printed in mixed case, so its 30,323 box
 lines and its harvested lines teach the reader to read small letters as
 capitals. `train_seq.py --caseless sroie` trains those lines without case
 (each small letter's probability is added to its capital's before the CTC
-loss, the targets mapped likewise); a pilot on round 2's recipe is
-training. Round 2's readers with a judge refitted on their own pairs
+loss, the targets mapped likewise). Three readers on round 2's recipe with
+it (`seq_line_ens_r6c1`-`3`, seeds 1-3, about 261 min each) read the
+Verdana page clean after every epoch (the three with their judge 99.9 /
+99.9 / 99.9, no capitals); their held-out real lines score 79.3 / 78.9 /
+80.7% as scored -- the drop is all SROIE's box lines, now read in the
+print's case (seed 1: 58.3% as scored, 85.7% case-folded, round 2 82.6 /
+84.4; all held lines case-folded 87.6 against 86.8). With a judge refitted
+on their own pairs (`linechoice_r6s`) they are a candidate put to the owner
+(RESEARCH 2026-10-17). Round 2's readers with a judge refitted on their own pairs
 (`linechoice_r2s`) were measured and are not proposed: Legal Reports +0.7
 word, held-out magazines +0.8, but dev-8 -0.5, SROIE -1.6, CORD -1.3.
 
