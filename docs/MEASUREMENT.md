@@ -141,7 +141,9 @@ on them is no longer a clean result. v0.18.18 (the larger line readers,
 adopted on the other sets' evidence) reads them at 86.0 / 78.8 and
 74.8 / 72.7, measured after the decision was taken, so they decided nothing. v0.18.19 (the readers that learn SROIE
 without case) reads them at 86.3 / 79.6 and 75.0 / 73.3, likewise measured
-after the decision.
+after the decision. v0.18.20 (report sections and financial statements read
+in their order, developed on the 60 dev-pool pages) reads them at 86.2 / 79.5
+and 77.9 / 76.9, measured once, after the decision.
 
 **Pooled, not per page, on figure pages.** Many DOE pages are a figure with
 a caption: the truth holds a dozen words, both engines read the axis labels,

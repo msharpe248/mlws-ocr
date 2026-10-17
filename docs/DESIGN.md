@@ -131,7 +131,11 @@ negative on legal pages.
   gutters steer its XY-cut (columns before rows, narrow gutters, a cut
   under a spanning headline; not a table's field gaps), and with two such
   gutters is judged as a newspaper (`blocks.gutter_*`, `unhinted_as`;
-  SEGMENTATION.md §7).
+  SEGMENTATION.md §7). Since v0.18.20 (neural) a gutter's foot over a
+  table or figure spanning the page is cut across first, beside prose
+  columns only (`blocks.gutter_sections`), and the output reads a financial
+  statement row by row, a block of figures with the label block sharing its
+  baselines (`output.align_figures`, `layout/rows.py` `figure_groups`).
 
 **tables (`grid`).** Ruling intersections become a cell grid; decoded
 words are later placed into cells by centre. Unruled tables are handled
@@ -625,7 +629,7 @@ receipt profile that preceded it is retired.
 
 | profile | sroie | funsd |
 |---|---|---|
-| neural (current, README) | 67.0 / 48.5 as scored, **87.0 / 72.6 case-folded** (v0.18.19: SROIE's truth is in capitals on mixed-case print, and these readers keep the print's case; v0.18.18 79.6 / 63.4, case-folded 87.0 / 72.5) | 67.7 / 47.0 (v0.18.19; 67.0 / 46.4 at v0.18.18, the larger readers; 79.0 / 61.9 and 66.3 / 44.7 at v0.18.17: columns found without a hint cut two forms at a gutter; 66.9 / 45.0 at v0.18.16, one form's fused lines re-split; 65.9 / 44.3 before) |
+| neural (current, README) | 67.6 / 49.2 as scored, **87.8 / 73.4 case-folded** (v0.18.20: each price read on its item's line; v0.18.19 67.0 / 48.5, case-folded 87.0 / 72.6: SROIE's truth is in capitals on mixed-case print, and these readers keep the print's case; v0.18.18 79.6 / 63.4, case-folded 87.0 / 72.5) | 67.8 / 47.0 (v0.18.20; 67.7 / 47.0 at v0.18.19; 67.0 / 46.4 at v0.18.18, the larger readers; 79.0 / 61.9 and 66.3 / 44.7 at v0.18.17: columns found without a hint cut two forms at a gutter; 66.9 / 45.0 at v0.18.16, one form's fused lines re-split; 65.9 / 44.3 before) |
 | classic | 48.0 / 13.6 (47.3 / 10.1 before the form fixes) | 37.4 / 12.7 (36.0 / 12.3) |
 | neural (v0.14.0 reader, case repair) | **78.6 / 60.2** | 66.0 / 43.9 |
 | neural (grey-strip reader, form fixes) | 68.2 / 47.6 | 66.1 / 44.0 |

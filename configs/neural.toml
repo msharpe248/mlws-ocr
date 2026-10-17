@@ -84,6 +84,10 @@ gutter_text_gap = 3            # gutters segmented as a newspaper (v0.18.17, the
 unhinted_as = "newspaper"      # with no hint 70.8 / 63.4 -> 82.4 / 77.7, the clean annual reports 72.2 -> 75.8 pooled,
                                # magazines with no hint level, DOE 85.9 -> 85.5, letters with no hint 92.2 -> 91.6,
                                # FUNSD 66.9 -> 66.3; hinted pages untouched (RESEARCH 2026-10-13)
+gutter_sections = true         # ...and two-column sections read before the table or figure spanning the page below
+                               # them, beside prose columns only (v0.18.20, the owner's decision; with
+                               # output.align_figures: annual-report dev pages 79.94 / 76.53 -> 83.79 / 80.76 pooled,
+                               # 17 up, none down; every other text set identical but receipts; RESEARCH 2026-10-17)
 
 [stage.lines]
 impl = "profile"
@@ -257,6 +261,9 @@ ws_detect = true               # ...tables set by whitespace or ruled only betwe
 align_two_col_max_gap = 0.25   # two TEXT columns of one-line cells more than a quarter page apart are a pair
                                # of blocks read column by column, not a table (2026-09-17: business invoices
                                # 87.7 -> 95.5 word neural, modern +1.0 word; a numeric column keeps a table)
+align_figures = true           # a financial statement read row by row: a block of figures and the label block on its
+                               # left sharing its baselines (v0.18.20, the owner's decision; receipts too, each price on
+                               # its item's line: CORD 59.08 -> 61.55, SROIE 66.88 -> 67.57 pooled; RESEARCH 2026-10-17)
 
 [stage.adapt]
 impl = "cluster_refit"

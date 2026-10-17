@@ -328,7 +328,7 @@ newspapers with no hint 82.4 / 77.7, magazines with no hint 69.2 / 58.8,
 FUNSD 66.3 / 44.7, Legal Reports 87.0 / 72.7; every scored table set,
 business, modern and every hinted set identical.
 
-**Two options for report pages (2026-10-17; off, put to the owner).** On
+**Two options for report pages (in the neural profile since v0.18.20).** On
 the 60 report development pages the engine still read 79.9 / 76.5 pooled
 against the LSTM's 84.7 / 82.5, most of the gap on five pages, of two kinds.
 

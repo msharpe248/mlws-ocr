@@ -8,14 +8,16 @@ the motivation still holds before spending the effort.
 
 The clean test left the annual reports furthest behind the LSTM. On the 60
 development pages (never the measured 30) v0.18.19 read 79.94 / 76.53 pooled
-against 84.69 / 82.50. Two options, off and put to the owner (RESEARCH
-2026-10-17), read two-column sections before what spans them
-(`blocks.gutter_sections`) and financial statements row by row by their
-figures (`output.align_figures`): 83.79 / 80.76 together, 17 pages up and
-none down. Every other text set is unchanged, and receipts gain (CORD
-+2.1 words). Left: one reverse-video page, statements with wrapped labels,
-and word recall inside lines. Then the system paper's refresh (frozen at
-v0.18.16), its numbers written once, after this decision.
+against 84.69 / 82.50. Two options read two-column sections before what
+spans them (`blocks.gutter_sections`) and financial statements row by row by
+their figures (`output.align_figures`): 83.79 / 80.76 together, 17 pages up
+and none down; every other text set unchanged, receipts up (CORD +2.1
+words). **ADOPTED in neural, v0.18.20** (the owner's decision, 2026-10-17;
+RESEARCH 2026-10-17). The clean annual reports, measured once after the
+decision: 75.0 / 73.3 -> 77.9 / 76.9 pooled (the LSTM 86.1 / 84.6); clean DOE
+86.3 / 79.6 -> 86.2 / 79.5. Left: one reverse-video page, statements with
+wrapped labels, and word recall inside lines. NEXT: the system paper's
+refresh (frozen at v0.18.16).
 
 ## Earlier: the line reader's real data (2026-10-13 to 15, the owner's go-ahead)
 

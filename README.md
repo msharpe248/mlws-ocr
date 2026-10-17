@@ -74,14 +74,15 @@ scoreboard and its history are in `docs/DESIGN.md` §8.
 | newspapers, held out | 30 UNLV newspaper pages held out from decisions (not from training) | 76.5 / 63.4 | **89.4 / 86.3** | 87.1 / 82.4 | 87.7 / 84.2 |
 | magazines, held out | 30 UNLV magazine pages held out from decisions (not from training) | 68.3 / 50.7 | **84.5 / 77.8** | 77.9 / 71.3 | 78.5 / 73.6 |
 | letters, held out | 30 UNLV business letters held out from decisions (not from training) | 90.7 / 83.1 | **94.3 / 92.1** | 92.4 / 88.8 | 93.1 / 90.6 |
-| DOE reports, clean | 30 UNLV DOE technical reports never opened before (no hint, pooled) | 83.5 / 68.9 | 86.3 / **79.6** | 86.0 / 76.2 | **86.6** / 77.5 |
-| annual reports, clean | 30 UNLV annual reports never opened before (no hint, pooled) | 66.5 / 53.1 | 75.0 / 73.3 | 84.3 / 83.3 | **86.1 / 84.6** |
-| funsd | real scanned forms, FUNSD, at 2x | 37.4 / 12.7 | **67.7** / 47.0 | 54.8 / 32.0 | 66.4 / **47.2** |
+| DOE reports, clean | 30 UNLV DOE technical reports never opened before (no hint, pooled) | 83.5 / 68.9 | 86.2 / **79.5** | 86.0 / 76.2 | **86.6** / 77.5 |
+| annual reports, clean | 30 UNLV annual reports never opened before (no hint, pooled) | 66.5 / 53.1 | 77.9 / 76.9 | 84.3 / 83.3 | **86.1 / 84.6** |
+| funsd | real scanned forms, FUNSD, at 2x | 37.4 / 12.7 | **67.8** / 47.0 | 54.8 / 32.0 | 66.4 / **47.2** |
 | legal reports | real typescript and printed office pages, Library of Congress | 70.5 / 47.3 | **89.2 / 77.7** | 57.5 / 42.8 | 78.8 / 66.3 |
 | blocks | a paragraph handed in alone, no layout (broad-30's text zones) | 94.4 / 85.8 | **98.7 / 97.4** | 98.2 / 96.6 | 98.5 / 96.5 |
 
-The neural column is v0.18.19 (line readers that learned the receipts'
-letters without their case, 17 October 2026).
+The neural column is v0.18.20 (17 October 2026): v0.18.19's line readers,
+which learned the receipts' letters without their case, and report pages read
+in their sections and statements read row by row by their figures.
 † One page of the eight (8011_012) has its right-hand column clipped by the
 scanner and left out of UNLV's truth zones; the new readers read it and every
 word is scored as an insertion. Without that page mag-8 is level (86.0 / 79.4
@@ -119,7 +120,7 @@ Neural-table as of v0.18.14 (2026-10-12: nil dashes read, a receipt's paper edge
 **Held-out pages.** The eight-page sets flatter newspapers and magazines:
 on 30 fresh pages of each type, never used for any decision (though their
 lines were among the readers' training harvests), the neural
-profile reads newspapers at 89.4 / 86.3 and magazines at 84.5 / 77.8 (v0.18.19; 89.3 / 86.0 and 83.9 / 75.9 at v0.18.18, 89.1 / 85.6 and 83.8 / 75.7 at v0.18.16; with
+profile reads newspapers at 89.4 / 86.3 and magazines at 84.5 / 77.8 (v0.18.19 and v0.18.20; 89.3 / 86.0 and 83.9 / 75.9 at v0.18.18, 89.1 / 85.6 and 83.8 / 75.7 at v0.18.16; with
 the per-page segmenter judge on those two types since 26 September 2026,
 and since v0.18.16 lines re-split on columns set solid, a column read through where
 the XY-cut parts it, and headlines joined (newspapers 86.7 / 81.6 before);
@@ -131,9 +132,10 @@ on the same held-out pages: newspapers 87.7 / 84.2, magazines 78.5 / 73.6,
 letters 93.1 / 90.6 (neural 94.3 / 92.1).
 `scripts/eval_unlv.py --heldout` draws them. On two UNLV sets no decision
 and no training has touched (30 pages each, no hint, pooled), the neural
-profile is level with the LSTM on DOE technical reports (86.3 / 79.6 against
-86.6 / 77.5; 85.5 / 77.8 before the larger readers) and behind it on annual reports (75.0 / 73.3 against
-86.1 / 84.6). The paper measured 72.2 / 68.4 there at v0.18.16, with two-column
+profile is level with the LSTM on DOE technical reports (86.2 / 79.5 against
+86.6 / 77.5; 85.5 / 77.8 before the larger readers) and behind it on annual reports (77.9 / 76.9 against
+86.1 / 84.6; 75.0 / 73.3 at v0.18.19, before sections and statements were read
+in their order). The paper measured 72.2 / 68.4 there at v0.18.16, with two-column
 report pages read line by line across their gutter
 ([the system paper](docs/papers/readable-self-trained-ocr.md) §7); since v0.18.17
 a page with no hint has its columns found from the whitespace gutters and, with
@@ -176,6 +178,24 @@ with it: legal-8 91.4 -> 91.8 words, business 96.7 -> 97.5, held-out magazines
 (93.9 -> 95.3). dev-8 gave back 0.2 words and mag-8 has a clipped page of its own
 (†). SROIE's own score now counts the print's case as wrong: 63.4 -> 48.5
 words as scored, 72.5 -> 72.6 with case folded (`eval_unlv.py` prints both).
+
+**Report pages in their order (17 October 2026).** On annual reports the
+engine read the words well and the pages in the wrong order. Two kinds of
+page lost most of it. On one, two-column sections are separated by a table
+or figure across the page, and the gutter runs on through it, so each column
+was read down through the table. On the other, a financial statement's
+label column was read whole before the figures. v0.18.20 cuts across a
+gutter's foot first, beside prose columns only: a form's labels and values
+or a receipt's items and prices stand beside a gap as wide as themselves,
+and are read row by row (`blocks.gutter_sections`). It also joins a column
+of figures to the label column whose lines share its baselines, read row by
+row (`output.align_figures`, T-Recs' row step keyed on the figures). On 60
+development report pages: 79.9 / 76.5 -> 83.8 / 80.8 pooled, 17 pages up and
+none down (the LSTM 84.7 / 82.5). Receipts now read each price on its
+item's line (CORD 59.1 -> 61.6 pooled characters); every other text set reads
+byte for byte as before. On the 30 clean annual reports, measured after the
+decision: 75.0 / 73.3 -> 77.9 / 76.9 (nine pages up by 2 to 33 points, one
+down 1.1).
 
 **Photographs and the facing page (27 September 2026).** Photographs no
 longer cost text (0.3% of the text's ink falls in picture zones), but a
@@ -250,12 +270,12 @@ of the numbers, the shared ideas and the differences. The short form:
   set solid whose lines fused, columns the XY-cut parted, headlines cut into
   letters. Held-out magazines lead (84.5 against 78.5), and news-8 since
   v0.18.19 (97.5 / 95.3 against 96.7 / 94.8).
-- **Behind** on forms in words (FUNSD: 67.7 / 47.0 against 66.4 / 47.2; ahead in
+- **Behind** on forms in words (FUNSD: 67.8 / 47.0 against 66.4 / 47.2; ahead in
   characters since v0.18.18), on mag-8 in words (one clipped page, †), and on the
   one clean set with multi-column pages: UNLV annual reports, never opened
-  before, 75.0 against 86.1 characters (72.2 before v0.18.17 found columns
-  without a hint; what is left is mostly financial statements and pages whose
-  sections run across both columns). Level on clean DOE reports (86.3 against 86.6
+  before, 77.9 against 86.1 characters (72.2 before v0.18.17 found columns
+  without a hint, 75.0 before v0.18.20 read sections and statements in their
+  order). Level on clean DOE reports (86.2 against 86.6
   characters, ahead in words). The
   held-out rows above were held out from decisions, not from training.
 - **A tenth of the training data**: readers of 1.1M parameters (287k in the
@@ -596,13 +616,17 @@ typewriter pleadings, modern documents, business pages, the Library of
 Congress typescripts, a paragraph read alone and, since v0.18.16, the
 held-out newspapers; it trails the LSTM on forms in words, where form
 structure is the open problem, and on UNLV annual reports, a set no decision
-or training had touched (75.0 against 86.1; since v0.18.17 columns are found
-without a hint, 72.2 before). On the other clean set, DOE reports, it is level. The current focus is
-the line reader's data: since v0.18.18 neural reads with three readers four
+or training had touched (77.9 against 86.1; 72.2 before v0.18.17 found columns
+without a hint, 75.0 before v0.18.20 read report sections and financial
+statements in their order). On the other clean set, DOE reports, it is level. The
+line reader's data was the focus until v0.18.19: since v0.18.18 neural reads with three readers four
 times the old size trained on real printed lines from the Library of
 Congress (49,865 since v0.18.19), and since v0.18.19 they learn the SROIE
 receipts' lines without case, whose all-capitals truth had taught the readers
-to read small letters as capitals. The system paper is drafted
+to read small letters as capitals. v0.18.20 took up the annual reports' gap:
+two-column sections read before the table spanning the page beneath them, and
+financial statements read row by row by their figures (60 development pages
+79.9 -> 83.8 characters, the LSTM 84.7). Next is the system paper's refresh
 ([docs/papers/readable-self-trained-ocr.md](docs/papers/readable-self-trained-ocr.md), measured at v0.18.16). Tables were the focus
 before ([docs/TABLES.md](docs/TABLES.md)): the generated business
 sets read at 0.91-0.97 TEDS, real financial tables at 0.88 and scientific
