@@ -705,11 +705,12 @@ flowchart LR
     g15 -->|"all table lines,<br/>full weight, 3 epochs"| g16["gray16<br/>v0.18.1<br/>table crops only"]
     g16 -->|"781k fresh table lines,<br/>3 epochs"| g18["gray18<br/>v0.18.12<br/>table crops only"]
     g16 -->|"table-symbol lines,<br/>2 epochs"| g17b["gray17b<br/>v0.18.6<br/>symbols on table crops"]
-    g9 ==>|"its DATA, not its weights:<br/>+ 31,170 printed lines, 4x wider,<br/>from scratch, 30 epochs"| ens["seq_line_ens<br/>v0.18.18<br/>neural profile"]
+    g9 ==>|"its DATA, not its weights:<br/>+ 31,170 printed lines, 4x wider,<br/>from scratch, 30 epochs"| ens["seq_line_ens<br/>v0.18.18"]
+    ens ==>|"same size, from scratch:<br/>+ 18,695 lines, Google Fonts lines,<br/>SROIE's lines without case"| csl["seq_line_csl<br/>v0.18.19<br/>neural profile"]
 ```
 
-Every thin arrow is a fine-tune with the remedies above (the thick one is
-not: `seq_line_ens` shares gray9's training data, not its weights); every box was measured
+Every thin arrow is a fine-tune with the remedies above (the thick ones
+are not: `seq_line_ens` and `seq_line_csl` share gray9's training data, not its weights); every box was measured
 on every evaluation set before it was adopted, and the dashed ones lost
 somewhere and were not (RESEARCH.md has each one's numbers). That is the
 final safeguard against forgetting: not a technique, a measurement.
@@ -937,7 +938,7 @@ One architecture, trained twice for two jobs:
 
 - the **word-strip scorer** (`seq_en.npz`) reads a word's window and says
   how likely each of the decoder's candidate spellings is;
-- the **line reader** (`seq_line_ens_en*.npz` in the neural profile,
+- the **line reader** (`seq_line_csl_en*.npz` in the neural profile,
   `seq_line_gray15_en*.npz` in neural-table, `seq_line_gray18_en*.npz` on its table crops; three members each) reads a
   whole line end to end, as a second reading beside the classic decoder's;
   in neural-table a **symbol reader** (`seq_line_gray17b_en*.npz`, three
@@ -963,8 +964,8 @@ accented letters, `* = + @ [ ] _ `` ` and space) — **287,288** per member.
 The neural-table readers (gray15, gray17b, gray18) add the tables' 19
 symbols, 139 classes: 290,955 per member.
 
-**The same shape, wider** (the neural profile's reader since v0.18.18,
-`seq_line_ens`). Twice the channels in every convolution (32, 64, 128, 128;
+**The same shape, wider** (the neural profile's readers since v0.18.18,
+`seq_line_ens` and, since v0.18.19, `seq_line_csl`). Twice the channels in every convolution (32, 64, 128, 128;
 each column flattens to 4 × 128 = 512) and a GRU of 192 each way:
 convolutions 240,256, BiGRU 813,312, output 46,200 — **1,099,768** per
 member, nearly four times as many. Width costs little time, because the
@@ -972,13 +973,21 @@ reader's hours go into the decoder around it, not the network (page time +0
 to +14%). It was trained from scratch, not grown from gray9: a capacity
 pilot (RESEARCH 2026-10-13/14) trained the two sizes on the same data and
 found the wider one better everywhere, but by less than real data adds, so
-it was trained again with 31,170 more real printed lines. Training from
-scratch has a cost the pilot showed too. gray9's line began from a scorer
-that had seen 3,179 Google Fonts faces, and these readers had not. On a face
-no training set draws (Verdana, the synthetic regression page) they read
-whole lowercase lines in capitals: Verdana's tall x-height looks like small
-capitals to a reader that has not seen enough faces. Seeing many faces is
-what generalises over type, and the second round puts those lines back. The word scorer has the 112
+it was trained again with 31,170 more real printed lines. On a face no
+training set draws (Verdana, the synthetic regression page) the first of
+them read whole lowercase lines in capitals. The obvious suspect was type:
+gray9's line began from a scorer that had seen 3,179 Google Fonts faces,
+and these readers had not. Putting those faces back did not cure it. The
+cause was a LABEL: SROIE transcribes every receipt in capitals, and many
+receipts are printed in mixed case, so 30,000 of its lines taught the
+reader that a small 'e' is read 'E' -- confidently, since the label is
+consistent. A network learns what its labels say, not what its labeller
+meant. `seq_line_csl` (v0.18.19) trains those lines as PARTIAL labels
+(Cour, Sapp & Taskar 2011): before the CTC loss each small letter's
+probability is added to its capital's, so on a SROIE line 'e' and 'E' both
+count as right and the reader learns the receipts' letters while taking its
+case only from data whose truth records it (`train_seq.py --caseless`). It
+reads Verdana clean again. The word scorer has the 112
 classes without the eight symbols: 285,744.
 
 **Why this shape.**
@@ -1026,7 +1035,7 @@ fresh table lines (gray18, the table-crop reader, v0.18.12).
 **Where it runs.** The word scorer in `decode.seq_path` (neural,
 neural-table; classic uses it only to veto a correction the pixels
 contradict, `correct.seq_path`). The line reader in `decode.line_model_path`
-(`seq_line_ens` in neural, gray15 in neural-table), with the line-choice judge (§K)
+(`seq_line_csl` in neural, gray15 in neural-table), with the line-choice judge (§K)
 deciding per line between its reading and the classic decoder's. In
 neural-table, on a table's crop, `decode.line_model_path_table` (gray18)
 reads in its place, and `decode.line_model_path_symbols` (gray17b) reads

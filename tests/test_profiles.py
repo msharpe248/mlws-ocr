@@ -102,7 +102,7 @@ def test_neural_profile_keeps_its_decoder_identity():
     rewrite lost line_mode and line_choose_rule and six rows were measured wrong)."""
     p = {s.slot: s for s in load_config(CONFIGS / "neural.toml").stages}["decode"].params
     assert p["line_mode"] == "choose" and p["line_choose_rule"] == "calibrated"
-    assert p["line_model_path"] == "data/seq_line_ens_en.npz+data/seq_line_ens_en_2.npz+data/seq_line_ens_en_3.npz" and p["line_choice_path"] == "data/linechoice_ens.npz"
+    assert p["line_model_path"] == "data/seq_line_csl_en.npz+data/seq_line_csl_en_2.npz+data/seq_line_csl_en_3.npz" and p["line_choice_path"] == "data/linechoice_csl.npz"
     # the grey ensemble must be read from grey strips: read from binary ones it silently loses
     assert p["line_source"] == "gray"
     assert p["seq_path"] == "data/seq_en.npz"

@@ -15,9 +15,16 @@ readers four times the size trained from scratch on them and gray9's data, with
 their own judge, were **ADOPTED in neural, v0.18.18** (RESEARCH 2026-10-14/15:
 Legal Reports +4.5 words, dev-8 +1.1, CORD +3.7, FUNSD +1.7, held-out rows +0.2
 to +0.6; news-8 down by one clipped page). The regression page found the fault
-the real sets missed: a face no set draws (Verdana) read in capitals. **Running:**
-the second round, all 49,865 lines plus the Google Fonts long lines, three seeds
-on ai01 and ai02 (about 9 h), then a judge refit and the full measurement.
+the real sets missed: a face no set draws (Verdana) read in capitals. The second
+round (all 49,865 lines plus the Google Fonts long lines) did not cure it; the
+cause was SROIE's truth, in capitals on receipts printed in mixed case. Three
+readers trained with SROIE's lines without case (`train_seq.py --caseless`), with
+their own judge, were **ADOPTED in neural, v0.18.19** (the owner's decision,
+2026-10-17; RESEARCH 2026-10-15/16): the Verdana page clean again, legal-8 +0.4
+words, business +0.7, CORD +2.5, FUNSD +1.0, held-out rows +0.0 to +0.7; SROIE
+as scored down 14 words by the truth's convention (case-folded level), mag-8 down
+by one clipped page. Possible next on this line: the x-height estimate on lines
+of capitals (the cap height today), a secondary grid effect found on the way.
 
 ## Earlier: newspapers, then the system paper (the owner's choice, 2026-10-12)
 

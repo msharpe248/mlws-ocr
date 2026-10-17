@@ -19,23 +19,23 @@ install carries (`tessdata_fast`).
 
 | set | what it is | mlws-ocr neural | Tesseract legacy | Tesseract LSTM | verdict |
 |---|---|---|---|---|---|
-| dev-8 | UNLV business letters, our tuning set | **97.9 / 96.5** | 95.0 / 91.7 | 95.5 / 93.1 | ahead of both |
-| broad-30 | UNLV business letters, the headline set | 95.8 / **92.9** | 95.5 / 91.7 | **96.0** / 92.7 | ahead of both in words; 0.2 characters behind the LSTM |
-| letters, held out | 30 UNLV letters held out from decisions (not from training) | **94.1 / 91.7** | 92.4 / 88.8 | 93.1 / 90.6 | ahead of both |
-| legal-8 | UNLV legal pleadings, typewriter | **95.1 / 91.4** | 90.4 / 88.7 | 90.3 / 86.9 | ahead of both by 4.7 characters |
-| modern | born-digital PDFs, templated letters | **94.3 / 91.1** | 75.4 / 70.8 | 74.2 / 66.6 | ahead of both by 19 characters |
-| business | invoices, payslips, receipts, statements, orders | **98.1 / 96.7** | 70.7 / 68.0 | 70.7 / 68.6 | ahead by 27 characters |
-| news-8 | UNLV newspapers (the layout rules were tuned here) | 96.0 / 93.9 | 96.3 / 93.1 | **96.7 / 94.8** | behind by one page since v0.18.18 (97.4 / 95.4 at v0.18.16): 8229_028's right-hand column is clipped by the scanner and outside the truth zones, and the larger readers read it; level without that page |
-| newspapers, held out | 30 UNLV newspaper pages held out from decisions | **89.3 / 86.0** | 87.1 / 82.4 | 87.7 / 84.2 | ahead of the LSTM by 1.6 characters, 1.8 words (89.1 / 85.6 at v0.18.16 (86.7 / 81.6 before: columns set solid, columns the XY-cut parted, headlines cut into letters) |
-| mag-8 | UNLV magazines (the layout rules were tuned here) | 87.2 / 81.2 | 87.3 / **84.7** | **87.8** / 84.4 | behind in words |
-| magazines, held out | 30 UNLV magazine pages held out from decisions | **83.9 / 75.9** | 77.9 / 71.3 | 78.5 / 73.6 | ahead of both |
-| funsd | real scanned forms, FUNSD (50, at 2x) | **67.0** / 46.4 | 54.8 / 32.0 | 66.4 / **47.2** | ahead in characters, behind the LSTM by 0.8 words (66.3 / 44.7 at v0.18.17; 66.9 / 45.0 at v0.18.16: a gutter found on two forms since v0.18.17) |
-| legal reports | Library of Congress typescript and print (40) | **88.9 / 77.2** | 57.5 / 42.8 | 78.8 / 66.3 | ahead of both (87.0 / 72.7 at v0.18.17, 87.5 / 73.7 at v0.18.16) |
-| blocks | broad-30's text zones read alone, no layout | **98.5 / 96.9** | 98.2 / 96.6 | **98.5** / 96.5 | ahead of both in words, level with the LSTM in characters (98.6 / 97.2 at v0.15.0) |
-| DOE reports, clean | 30 UNLV DOE technical reports never opened before (no hint; pooled) | 86.0 / **78.8** | 86.0 / 76.2 | **86.6** / 77.5 | level: 0.6 characters behind the LSTM, 1.3 words ahead (85.5 / 77.8 at v0.18.17, 85.9 / 78.1 at v0.18.16) |
-| annual reports, clean | 30 UNLV annual reports never opened before (no hint; pooled) | 74.8 / 72.7 | 84.3 / 83.3 | **86.1 / 84.6** | behind both by 10 to 11 characters (the same at v0.18.18 to the decimal): 72.2 / 68.4 at v0.18.16, when two-column pages were read across their gutter; since v0.18.17 columns are found without a hint. Left: financial statements, sections across both columns, a reverse-video page read as nothing |
+| dev-8 | UNLV business letters, our tuning set | **97.9 / 96.3** | 95.0 / 91.7 | 95.5 / 93.1 | ahead of both |
+| broad-30 | UNLV business letters, the headline set | 95.8 / **93.1** | 95.5 / 91.7 | **96.0** / 92.7 | ahead of both in words; 0.2 characters behind the LSTM |
+| letters, held out | 30 UNLV letters held out from decisions (not from training) | **94.3 / 92.1** | 92.4 / 88.8 | 93.1 / 90.6 | ahead of both |
+| legal-8 | UNLV legal pleadings, typewriter | **95.0 / 91.8** | 90.4 / 88.7 | 90.3 / 86.9 | ahead of both by 4.6 characters |
+| modern | born-digital PDFs, templated letters | **94.4 / 91.4** | 75.4 / 70.8 | 74.2 / 66.6 | ahead of both by 19 characters |
+| business | invoices, payslips, receipts, statements, orders | **98.3 / 97.5** | 70.7 / 68.0 | 70.7 / 68.6 | ahead by 27 characters |
+| news-8 | UNLV newspapers (the layout rules were tuned here) | **97.5 / 95.3** | 96.3 / 93.1 | 96.7 / 94.8 | ahead of both since v0.18.19 (96.0 / 93.9 at v0.18.18, when the readers read 8229_028's scanner-clipped column, outside the truth zones; 97.4 / 95.4 at v0.18.16) |
+| newspapers, held out | 30 UNLV newspaper pages held out from decisions | **89.4 / 86.3** | 87.1 / 82.4 | 87.7 / 84.2 | ahead of the LSTM by 1.7 characters, 2.1 words (89.3 / 86.0 at v0.18.18, 89.1 / 85.6 at v0.18.16 (86.7 / 81.6 before: columns set solid, columns the XY-cut parted, headlines cut into letters) |
+| mag-8 | UNLV magazines (the layout rules were tuned here) | 85.0 / 78.8 | 87.3 / **84.7** | **87.8** / 84.4 | behind; since v0.18.19 by one more page: 8011_012's right-hand column is clipped by the scanner and outside the truth zones, and the readers read it (87.2 / 81.2 at v0.18.18; without that page 86.0 / 79.4 -> 86.2 / 79.7) |
+| magazines, held out | 30 UNLV magazine pages held out from decisions | **84.5 / 77.8** | 77.9 / 71.3 | 78.5 / 73.6 | ahead of both |
+| funsd | real scanned forms, FUNSD (50, at 2x) | **67.7** / 47.0 | 54.8 / 32.0 | 66.4 / **47.2** | ahead in characters, behind the LSTM by 0.2 words (67.0 / 46.4 at v0.18.18, 66.3 / 44.7 at v0.18.17; 66.9 / 45.0 at v0.18.16: a gutter found on two forms since v0.18.17) |
+| legal reports | Library of Congress typescript and print (40) | **89.2 / 77.7** | 57.5 / 42.8 | 78.8 / 66.3 | ahead of both (88.9 / 77.2 at v0.18.18, 87.0 / 72.7 at v0.18.17, 87.5 / 73.7 at v0.18.16) |
+| blocks | broad-30's text zones read alone, no layout | **98.7 / 97.4** | 98.2 / 96.6 | 98.5 / 96.5 | ahead of both (98.5 / 96.9 at v0.18.18, 98.6 / 97.2 at v0.15.0) |
+| DOE reports, clean | 30 UNLV DOE technical reports never opened before (no hint; pooled) | 86.3 / **79.6** | 86.0 / 76.2 | **86.6** / 77.5 | level: 0.3 characters behind the LSTM, 2.1 words ahead (86.0 / 78.8 at v0.18.18, 85.5 / 77.8 at v0.18.17, 85.9 / 78.1 at v0.18.16) |
+| annual reports, clean | 30 UNLV annual reports never opened before (no hint; pooled) | 75.0 / 73.3 | 84.3 / 83.3 | **86.1 / 84.6** | behind both by 9 to 11 characters (74.8 / 72.7 at v0.18.17 and v0.18.18): 72.2 / 68.4 at v0.18.16, when two-column pages were read across their gutter; since v0.18.17 columns are found without a hint. Left: financial statements, sections across both columns, a reverse-video page read as nothing |
 
-These are the README's figures (the neural profile, v0.18.18). Every
+These are the README's figures (the neural profile, v0.18.19). Every
 row is the mean over its pages, except the two clean rows: many DOE pages
 are figures whose truth is only the caption, so the per-page mean is
 meaningless there (−11% neural, +19% LSTM) and those rows pool the errors
@@ -151,7 +151,7 @@ does not have:
 | relation to the old engine | replaces it; legacy kept only as `--oem 0` | **runs beside it**: the classic decoder reads every line, the reader reads every line, and a fitted judge chooses per line from both readings' evidence |
 | word-level scorer | none | the same CRNN family as a scorer of the classic decoder's split/merge variants |
 | training data | synthetic only: about 400k lines in about 4,500 fonts, text2image degradation | synthetic word windows and long lines (615 to 3,179 open fonts, our degradation model) **plus real scanned strips labelled from UNLV truth**, weighted up |
-| parameters | roughly 500k | 3 × 1.10M (3 × 291k for the table readers; 3 × 287k until v0.18.18) |
+| parameters | roughly 500k | 3 × 1.10M (3 × 291k for the table readers; 3 × 287k until v0.18.17) |
 | dictionary at decode | DAWG beam | lexicon prior inside the CTC beam; unendorsed words penalised |
 | document adaptation | none in the LSTM path | the classic side's per-document refit and word list still feed the judge |
 | light text on a dark ground | a line read with low confidence is inverted and read again (`tessedit_do_invert`) | dark grounds (dark mode, a coloured header band) found by local polarity and inverted before binarization; photographs kept out of it |

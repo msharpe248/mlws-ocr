@@ -394,7 +394,7 @@ strip longer than `line_max_cols` is read in chunks cut at its emptiest
 columns and the posteriors are joined end to end. Each line is then
 decided between the classic words and the reading by a fitted judge
 (`line_mode = "choose"`, `line_choose_rule = "calibrated"`,
-`linechoice_ens.npz` in neural, `linechoice.npz` in neural-table; §6.5 and DECODING.md): the reader's own likelihood
+`linechoice_csl.npz` in neural, `linechoice.npz` in neural-table; §6.5 and DECODING.md): the reader's own likelihood
 prefers its own reading by construction, so the judge weighs it against
 independent evidence -- lexicon endorsement, agreement, the classic
 reading's confidence. (The first rule, a likelihood margin of
@@ -510,7 +510,8 @@ with the MLP and the GRU off:
 |---|---|---|---|---|
 | classic | 95.2 / 89.4 | 91.9 / 82.3 (86.8 / 89.8) | 91.7 / 81.3 | 91.6 / 83.5 (87.2 / 91.5) |
 | pure | 94.8 / 88.0 | 91.0 / 79.3 (83.0 / 86.2) | 90.9 / 78.0 | 88.2 / 77.1 (82.4 / 86.7) |
-| neural (`seq_line_ens`, v0.18.18, current) | 97.9 / 96.5 | 95.8 / 92.9 | 95.1 / 91.4 | 94.3 / 91.1 |
+| neural (`seq_line_csl`, v0.18.19, current) | 97.9 / 96.3 | 95.8 / 93.1 | 95.0 / 91.8 | 94.4 / 91.4 |
+| neural (`seq_line_ens`, v0.18.18) | 97.9 / 96.5 | 95.8 / 92.9 | 95.1 / 91.4 | 94.3 / 91.1 |
 | neural (gray9, v0.15.0-v0.18.17) | 97.7 / 95.4 | 95.8 / 93.0 | 93.9 / 90.3 | 94.2 / 90.7 |
 | neural (grey-strip reader, 2026-09-26) | 97.7 / 95.0 | 95.7 / 92.3 | 94.0 / 90.4 | 94.2 / 90.8 |
 | neural (v17a, binary strips) | 97.3 / 94.6 | 95.3 / 91.6 (94.9 / 95.6) | 94.5 / 90.7 | 94.0 / 90.2 (92.5 / 96.8) |
@@ -601,7 +602,7 @@ by column blocks and pays the edit distance for the order:
 | profile | business | blocks dev-8 (pooled) | blocks legal-8 | blocks broad-30 |
 |---|---|---|---|---|
 | classic | 95.3 / 86.1 (89.3 / 90.3) | 98.6 / 94.7 | 94.2 / 87.0 | 94.4 / 85.8 |
-| neural | 98.1 / 96.7 (v0.18.18; v0.15.0 98.0 / 96.8; v17a 97.6 / 95.0) | **99.4 / 98.6** (v0.15.0; v17a 99.2 / 97.6) | 96.9 / 95.9 (v0.15.0; v17a 96.9 / 95.8) | 98.5 / **96.9** (v0.18.18; per block 96.0 against 95.5; v0.17.x re-measured 98.6 / 97.1; v0.15.0 98.6 / 97.2; 98.5 / 96.0 before) |
+| neural | 98.3 / 97.5 (v0.18.19; v0.18.18 98.1 / 96.7; v0.15.0 98.0 / 96.8; v17a 97.6 / 95.0) | **99.4 / 98.6** (v0.15.0; v17a 99.2 / 97.6) | 96.9 / 95.9 (v0.15.0; v17a 96.9 / 95.8) | 98.7 / **97.4** (v0.18.19; per block 96.7; v0.18.18 98.5 / 96.9, per block 96.0 against 95.5; v0.17.x re-measured 98.6 / 97.1; v0.15.0 98.6 / 97.2; 98.5 / 96.0 before) |
 | legacy Tesseract | 70.7 / 68.0 (97.5 / 97.8) | 98.9 / 97.2 | 96.7 / 95.3 | 98.2 / 96.6 |
 | Tesseract LSTM | 70.7 / 68.6 (98.0 / 98.6) | 99.4 / 98.5 | 97.1 / 96.0 | 98.5 / 96.5 |
 
@@ -624,7 +625,7 @@ receipt profile that preceded it is retired.
 
 | profile | sroie | funsd |
 |---|---|---|
-| neural (current, README) | 79.6 / 63.4 | 67.0 / 46.4 (v0.18.18, the larger readers; 79.0 / 61.9 and 66.3 / 44.7 at v0.18.17: columns found without a hint cut two forms at a gutter; 66.9 / 45.0 at v0.18.16, one form's fused lines re-split; 65.9 / 44.3 before) |
+| neural (current, README) | 67.0 / 48.5 as scored, **87.0 / 72.6 case-folded** (v0.18.19: SROIE's truth is in capitals on mixed-case print, and these readers keep the print's case; v0.18.18 79.6 / 63.4, case-folded 87.0 / 72.5) | 67.7 / 47.0 (v0.18.19; 67.0 / 46.4 at v0.18.18, the larger readers; 79.0 / 61.9 and 66.3 / 44.7 at v0.18.17: columns found without a hint cut two forms at a gutter; 66.9 / 45.0 at v0.18.16, one form's fused lines re-split; 65.9 / 44.3 before) |
 | classic | 48.0 / 13.6 (47.3 / 10.1 before the form fixes) | 37.4 / 12.7 (36.0 / 12.3) |
 | neural (v0.14.0 reader, case repair) | **78.6 / 60.2** | 66.0 / 43.9 |
 | neural (grey-strip reader, form fixes) | 68.2 / 47.6 | 66.1 / 44.0 |

@@ -99,6 +99,7 @@ zone files are needed for the held-out pools and the block evaluation.
 |---|---|
 | what | 626 scanned till receipts with line boxes and transcripts (the corrected mirror) |
 | used for | the `sroie` evaluation row (60 receipts); training lines for the readers (`linesfull_sroie.npz`, grey SROIE lines); line-choice pairs |
+| caution | the transcripts are in CAPITALS even where a receipt is printed in mixed case: train its lines without case (`train_seq.py --caseless sroie`, since v0.18.19) and read its score case-folded too (`eval_unlv.py` prints both) |
 | licence | the images the competition's (research use); the mirror's corrections MIT |
 | where from | <https://github.com/zzzDavid/ICDAR-2019-SROIE> |
 | get it | `git clone https://github.com/zzzDavid/ICDAR-2019-SROIE data/raw/sroie` |

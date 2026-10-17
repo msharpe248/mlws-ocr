@@ -117,7 +117,19 @@ impl = "hybrid"                # the line reader beside the classic decoder (dec
                                # judge says so (2026-09-13: dev-8 91.9 -> 93.2 word, broad-30 87.5 -> 89.8,
                                # legal-8 84.4 -> 88.5, news-8 88.2 -> 90.2, blocks broad-30 91.1 -> 95.1).
                                # "beam" is the classic decoder alone.
-line_model_path = "data/seq_line_ens_en.npz+data/seq_line_ens_en_2.npz+data/seq_line_ens_en_3.npz"
+line_model_path = "data/seq_line_csl_en.npz+data/seq_line_csl_en_2.npz+data/seq_line_csl_en_3.npz"
+                               # = seq_line_ens_r6c seeds 1, 2, 3, EMA (2026-10-17, v0.18.19): the larger readers' recipe
+                               # on all 49,865 harvested lines plus the Google Fonts long lines, with SROIE's lines trained
+                               # WITHOUT case (train_seq.py --caseless sroie: SROIE's truth is in capitals on receipts
+                               # printed in mixed case, which taught seq_line_ens to read small letters as capitals);
+                               # read with linechoice_csl below. The synthetic Verdana page 100.0 / 94.2 / 92.3 -> 99.9 /
+                               # 99.9 / 99.9 characters; against seq_line_ens, pooled word: legal-8 92.73 -> 93.15,
+                               # annual-reports dev 75.88 -> 76.53, Legal Reports 77.76 -> 78.30, Perspectives 68.31 ->
+                               # 68.89, business 97.04 -> 97.74, modern +0.2 to +0.5, CORD 37.70 -> 40.16, FUNSD 45.35 ->
+                               # 46.31, held-out rows +0.0 to +0.7, news-8 92.92 -> 95.06, dev-8 96.40 -> 96.21; mag-8
+                               # 89.78 -> 86.46 from one page whose clipped column lies outside the truth zones (without it
+                               # 88.96 -> 89.05); SROIE 62.70 -> 48.73 as scored, 71.80 -> 71.89 case-folded.
+                               # Previous: data/seq_line_ens_en.npz+data/seq_line_ens_en_2.npz+data/seq_line_ens_en_3.npz
                                # = seq_line_ens seeds 1, 2, 3, EMA (2026-10-15, v0.18.18): three larger readers (conv
                                # 32/64/128/128, GRU 192; 1.10M parameters each against gray9's 287k) trained FROM SCRATCH
                                # on gray9's data mix plus 31,170 grey lines harvested from the Library of Congress Legal
@@ -153,7 +165,9 @@ line_choose_rule = "calibrated"  # the fitted judge (decode/linechoice.py). Unti
                                # choice chain overwrote its decision with the endorsed count; with the judge
                                # deciding: dev-8 93.4 -> 94.5 word, broad-30 90.2 -> 91.0, legal-8 89.1 -> 90.2,
                                # modern 88.8 -> 90.5, business 93.6 -> 95.1; mag-8 -3, blocks -1 char
-line_choice_path = "data/linechoice_ens.npz"  # = linechoice_ens3s (2026-10-15, v0.18.18): refitted on seq_line_ens's own
+line_choice_path = "data/linechoice_csl.npz"  # = linechoice_r6s (2026-10-17, v0.18.19): refitted on the caseless readers'
+                               # own line pairs, the same pages as below (4,000 pairs, 86.6% decision accuracy at P 0.5).
+                               # Previous: data/linechoice_ens.npz = linechoice_ens3s (2026-10-15, v0.18.18): refitted on seq_line_ens's own
                                # line pairs (bus.3B, legal.3B, bus.3A, news.3B and the SROIE harvest, 80 pages each under the
                                # harvest guard; 3,991 pairs, 84.9% decision accuracy at P 0.5). With the old judge the larger
                                # readers trailed gray9 on dev-8 (95.39 against 95.58 word); with their own, 96.40.

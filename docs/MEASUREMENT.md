@@ -139,7 +139,9 @@ decided an adoption, so the 30 annual-report pages are now held out from
 the development, not from the decision; a later column revision measured
 on them is no longer a clean result. v0.18.18 (the larger line readers,
 adopted on the other sets' evidence) reads them at 86.0 / 78.8 and
-74.8 / 72.7, measured after the decision was taken, so they decided nothing.
+74.8 / 72.7, measured after the decision was taken, so they decided nothing. v0.18.19 (the readers that learn SROIE
+without case) reads them at 86.3 / 79.6 and 75.0 / 73.3, likewise measured
+after the decision.
 
 **Pooled, not per page, on figure pages.** Many DOE pages are a figure with
 a caption: the truth holds a dozen words, both engines read the axis labels,
