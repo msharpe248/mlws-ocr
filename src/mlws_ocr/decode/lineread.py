@@ -205,6 +205,70 @@ def _unjoin(classic: list, reader: list, min_len: int = 8, tol: float = 0.3) -> 
     return out, n
 
 
+def _letter_tops(binary: np.ndarray, ln: dict) -> list[tuple[int, int, float]]:
+    """The letter-sized ink components of one line: (x0, x1, top) with top in
+    px above the baseline.  A component that does not come down to the
+    baseline's neighbourhood (a dot, an apostrophe, a rule above) or is under
+    a third of an x-height tall (a comma, a hyphen, a speck) is left out."""
+    from scipy import ndimage
+    x0, y0, x1, y1 = (int(v) for v in ln["box"])
+    xh, base = float(ln["x_height"]), float(ln["baseline"])
+    ya = max(0, int(y0 - 0.6 * xh))
+    yb = min(binary.shape[0], int(base + 0.6 * xh) + 1)
+    lab, _ = ndimage.label(binary[ya:yb, x0:x1] > 0)
+    out = []
+    for sl in ndimage.find_objects(lab):
+        if sl is None:
+            continue
+        top, bottom = base - (sl[0].start + ya), (sl[0].stop + ya) - base
+        if top >= xh / 3 and bottom >= -0.25 * xh:
+            out.append((sl[1].start + x0, sl[1].stop + x0, top))
+    return out
+
+
+def _case_by_height(binary: np.ndarray, ln: dict, reader: list,
+                    short: float = 0.85, line_frac: float = 0.3) -> tuple[list, int]:
+    """Capitals the line reader read into small letters' places, measured off
+    the ink: a word read with a capital beyond its first letter is set in
+    small letters when its own letters are not all of one height.  A line's
+    letters top out at two heights when it is set in small letters -- the
+    mean line (x-height) and the ascender line (R. Smith, 'An Overview of
+    the Tesseract OCR Engine', ICDAR 2007: the four lines of a text line) --
+    and at one, the cap height, when it is set in capitals.  So, on the
+    line's letter-sized components: the tall level is the 90th percentile of
+    their tops; a component is short when its top is under ``short`` of it;
+    a line with fewer than ``line_frac`` of its components short is a line of
+    capitals (or figures) and is left as read -- receipts, headings.  On the
+    others a reader word with a short component under it and a capital after
+    its first letter keeps its first letter as read when its first component
+    is tall (a sentence's or a name's capital is context) and is otherwise
+    lowered; a word whose components are all tall (an acronym in running
+    text) is kept.  Readers trained with the all-capital receipt lines read
+    whole lines of an unseen wide sans face (Verdana) in capitals, and the
+    classic reading's case is no remedy: on lines of capitals it is mixed
+    ('ToTAL', 'CoNseRvATive'; RESEARCH 2026-10-16).  Returns (words, how
+    many reader words were re-cased)."""
+    comps = _letter_tops(binary, ln)
+    if len(comps) < 6:
+        return reader, 0
+    tall = float(np.percentile([t for _, _, t in comps], 90))
+    if sum(1 for _, _, t in comps if t < short * tall) < line_frac * len(comps):
+        return reader, 0
+    out, n = [], 0
+    for r in reader:
+        t = r["text"]
+        if not any(ch.isupper() for ch in t[1:]):
+            out.append(r); continue
+        x0, x1 = r["box"][0], r["box"][2]
+        under = sorted(c for c in comps if x0 <= (c[0] + c[1]) / 2 <= x1)
+        if not any(top < short * tall for _, _, top in under):
+            out.append(r); continue
+        first_short = under[0][2] < short * tall and t[0].isalpha()
+        r = {**r, "text": (t[0].lower() if first_short else t[0]) + t[1:].lower()}
+        out.append(r); n += 1
+    return out, n
+
+
 def _segments(words: list, min_gap: float) -> list[tuple[float, float]]:
     """A line's segments: the x-intervals of its words (both readings' boxes
     together) parted where an empty stretch of at least ``min_gap`` px runs
@@ -326,6 +390,10 @@ class HybridDecode(BeamDecode):
         "line_unjoin": False,      # where the classic line is kept, an unendorsed classic word the reader
                                    # reads as several mostly endorsed words with the same letters is
                                    # replaced by them (_unjoin: words run together; 2026-10-14)
+        "line_case_by_height": False,  # on a line taken from the reader, a word read with capitals
+                                   # beyond its first letter is lowered where the line's ink shows small
+                                   # letters (_case_by_height: two letter heights, not one; whole lines
+                                   # of Verdana read in capitals; 2026-10-16)
         "line_choose_segments": 0.0,  # > 0: the line choice made per segment, a line parted where both
                                    # readings' words leave an empty stretch this many x-heights wide (a line
                                    # spanning a column gap: one part read well, another junk); 0 = off
@@ -397,7 +465,7 @@ class HybridDecode(BeamDecode):
             gray = _rules_out(gray, page.binary, layout.get("rules_h", []) + layout.get("rules_v", []),
                               max(2, int(3 * (page.dpi or 300.0) / 300.0)))
         n_read = n_taken = 0
-        n_graphic = n_superset = n_dropped = n_unjoined = 0
+        n_graphic = n_superset = n_dropped = n_unjoined = n_recased = 0
         _xh = [ln["x_height"] for ln in layout["lines"] if ln.get("x_height") and ln.get("words")]
         xh_floor = p["line_drop_declined"] * float(np.median(_xh)) if _xh and p["line_drop_declined"] else 0.0
         for ln in layout["lines"]:
@@ -485,6 +553,9 @@ class HybridDecode(BeamDecode):
             take = self._choose_line(old, words, old_text, new_text, old_end, new_end,
                                      nll_old, nll_new, p, page_unend)
             if take:
+                if p["line_case_by_height"]:
+                    words, k = _case_by_height(page.binary, ln, words)
+                    n_recased += k
                 ln["words"] = words; n_taken += 1
             elif p["line_unjoin"]:
                 ln["words"], k = _unjoin(old, words)
@@ -506,6 +577,7 @@ class HybridDecode(BeamDecode):
         debug.scalars["superset_kept"] = n_superset
         debug.scalars["lines_dropped"] = n_dropped
         debug.scalars["words_unjoined"] = n_unjoined
+        debug.scalars["words_recased"] = n_recased
         if p["line_dash_measure"] and page.meta.get("doc_type") == "table":
             n_dash = 0
             for ln in layout["lines"]:

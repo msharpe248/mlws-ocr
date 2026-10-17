@@ -121,3 +121,28 @@ def test_words_run_together_are_respaced_from_the_reader():
     assert _unjoin(classic[:1], other)[1] == 0
     assert len(_segments(classic + reader, 3 * 18)) == 2          # 821 -> 900: a 79 px gap
     assert len(_segments([{"box": [0, 0, 100, 10]}, {"box": [400, 0, 500, 10]}], 54)) == 2
+
+
+def test_capitals_read_on_small_letters_are_lowered_by_their_heights():
+    from mlws_ocr.decode.lineread import _case_by_height
+    base, xh = 40, 14
+    def line(heights):            # one 8-px-wide letter every 12 px, standing on the baseline
+        img = np.zeros((70, 12 * len(heights) + 20), np.uint8)
+        for k, h in enumerate(heights):
+            img[base - h:base, 10 + 12 * k:18 + 12 * k] = 1
+        return img
+    ln = {"box": [0, 20, 12 * 9 + 20, 44], "baseline": base, "x_height": xh}
+    # 'the fox ...' set in small letters: t, h, f tall (20 px), the rest at the x-height (14 px)
+    small = line([20, 20, 14, 20, 14, 14, 14, 14, 14])
+    reader = [{"text": "THE", "box": [10, 20, 46, 44]}, {"text": "FOX", "box": [46, 20, 82, 44]},
+              {"text": "USA", "box": [82, 20, 118, 44]}]
+    words, n = _case_by_height(small, ln, reader)
+    # the first letter tall: kept as read; short: lowered
+    assert n == 3 and [w["text"] for w in words] == ["The", "Fox", "usa"]
+    # the same words on a line of capitals (one height): left as read
+    caps = line([20] * 9)
+    assert _case_by_height(caps, ln, reader)[1] == 0
+    # an acronym whose letters are all tall, on a line of small letters: kept
+    acr = line([20, 20, 14, 20, 20, 20, 14, 14, 14])
+    words, _ = _case_by_height(acr, ln, [{"text": "IBM", "box": [46, 20, 82, 44]}])
+    assert words[0]["text"] == "IBM"

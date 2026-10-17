@@ -83,7 +83,7 @@ run".
 | **clean** DOE reports, annual reports | 30 pages each of doe3.3B and rep.3B, two UNLV sets no decision and no training has touched (no hint; scored pooled) | whether the engine holds up on pages it has never seen |
 | **modern** | 59 pages: US government PDFs and templated letters, three severities | today's documents |
 | **business** | 60 generated invoices, payslips, statements, receipts | tabular business pages |
-| **SROIE** | 60 scanned receipts | real thermal print |
+| **SROIE** | 60 scanned receipts | real thermal print; its truth is in capitals even where the receipt is printed in mixed case, so `eval_unlv.py` also prints a case-folded pooled figure (since 2026-10-16) |
 | **FUNSD** | 50 scanned forms | real forms (recall is the honest column) |
 | **Legal Reports** | 40 Library of Congress typescript pages | human transcriptions |
 | **CORD** | 100 photographed receipts | phone photos (recall is the honest column) |

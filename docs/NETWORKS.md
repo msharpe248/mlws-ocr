@@ -745,6 +745,20 @@ btp10 add 18,695 from the pages the Library throttled on the first day) WITH
 the Google Fonts long lines `seq_synth_gfonts_long` (662k windows an epoch,
 about 4.4 h a seed).
 
+The second round trained (about 260 min a seed) but did not remove the
+fault (the three readers: 97.4 / 94.6 / 99.9 characters on the Verdana
+page), and neither did a curriculum as gray9's line began, distillation
+towards a Google Fonts reader, or lowering the receipts' weights (RESEARCH
+2026-10-15/16). The cause is the receipts' truth: SROIE transcribes every
+receipt in capitals, and many are printed in mixed case, so its 30,323 box
+lines and its harvested lines teach the reader to read small letters as
+capitals. `train_seq.py --caseless sroie` trains those lines without case
+(each small letter's probability is added to its capital's before the CTC
+loss, the targets mapped likewise); a pilot on round 2's recipe is
+training. Round 2's readers with a judge refitted on their own pairs
+(`linechoice_r2s`) were measured and are not proposed: Legal Reports +0.7
+word, held-out magazines +0.8, but dev-8 -0.5, SROIE -1.6, CORD -1.3.
+
 ```sh
 # harvest (each 500-page shard in two jobs of 250; Perspectives with --doc-type "")
 .venv/bin/python scripts/harvest_lines.py data/ext/btp_legal/harvest2/shard00 --pages 250 --offset 0 --no-guard --config configs/neural.toml \

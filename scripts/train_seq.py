@@ -170,6 +170,14 @@ def main():
     ap.add_argument("--distill-skip", nargs="*", default=[],
                     help="substrings of line-file paths whose lines are NOT distilled: the domain being "
                          "taught, where the init's readings are what is to change (e.g. sroie_box funsd_box)")
+    ap.add_argument("--caseless", nargs="*", default=[],
+                    help="torch only: substrings of line-file paths whose labels are right up to letter case "
+                         "(SROIE's truth is in capitals on receipts printed in mixed case, RESEARCH "
+                         "2026-10-16): on their lines each small letter's probability is added to its "
+                         "capital's before the CTC loss and the targets are mapped likewise, so the reader "
+                         "learns their letters but takes its case only from the other lines (a partial "
+                         "label: the loss of the set of labellings that agree up to case, cf. Cour, Sapp & "
+                         "Taskar, 'Learning from partial labels', JMLR 2011)")
     args = ap.parse_args()
     rng = np.random.default_rng(args.seed)
 
@@ -258,12 +266,30 @@ def main():
             print(f"distilling from {args.init}: weight {args.distill}, T {args.distill_temp}, "
                   f"skipping {args.distill_skip}")
 
-        def train_step(X, lengths, labels, lr, keep=None):
+        # the case pairs, for --caseless lines: (small letter's class, its capital's class)
+        pairs = [(k, classes.index(ch.upper())) for k, ch in enumerate(classes)
+                 if ch.islower() and len(ch.upper()) == 1 and ch.upper() in classes]
+        lower_idx = torch.tensor([a for a, _ in pairs], dtype=torch.long)
+        upper_idx = torch.tensor([b for _, b in pairs], dtype=torch.long)
+        to_upper = {a: b for a, b in pairs}
+        if args.caseless:
+            print(f"caseless (case pairs merged in the loss) on lines from {args.caseless}: {len(pairs)} pairs")
+
+        def train_step(X, lengths, labels, lr, keep=None, caseless=None):
             module.train()
             for g in opt.param_groups:
                 g["lr"] = lr
             x = torch.from_numpy(X).permute(0, 3, 1, 2).to(device)
             lp = module(x, torch.from_numpy(lengths))          # (N, T, C)
+            if caseless is not None and caseless.any():
+                # a small letter's probability added to its capital's, the small class emptied: still a
+                # distribution, and every labelling that agrees up to case scores as the capitals one
+                merged = lp.clone()
+                merged[:, :, upper_idx.to(lp.device)] = torch.logaddexp(lp[:, :, lower_idx.to(lp.device)],
+                                                                      lp[:, :, upper_idx.to(lp.device)])
+                merged[:, :, lower_idx.to(lp.device)] = -1e4
+                lp = torch.where(torch.from_numpy(caseless).to(lp.device)[:, None, None], merged, lp)
+                labels = [[to_upper.get(c, c) for c in l] if cl else l for l, cl in zip(labels, caseless)]
             targets = torch.tensor([c for l in labels for c in l], dtype=torch.long)
             tlen = torch.tensor([len(l) for l in labels], dtype=torch.long)
             loss = ctc(lp.permute(1, 0, 2).log_softmax(2).cpu() if device.type == "mps"
@@ -317,7 +343,8 @@ def main():
         def scorer(strips):
             return net.log_probs(strips)
 
-        def train_step(X, lengths, labels, lr, keep=None):
+        def train_step(X, lengths, labels, lr, keep=None, caseless=None):
+            assert caseless is None, "--caseless is torch only"
             loss, grads = net.loss_and_grads(X.astype(net.dtype), lengths, labels)
             net.adam_step(grads, lr)
             return loss
@@ -336,7 +363,9 @@ def main():
             keep = (np.array([not any(sk in ds.path for sk in args.distill_skip)
                               and set(ds.labels[i]) <= teacher_chars for ds, i in b])
                     if args.distill > 0 else None)
-            losses.append(train_step(X, lengths, labels, lr, keep))
+            caseless = (np.array([any(sk in ds.path for sk in args.caseless) for ds, _ in b])
+                        if args.caseless else None)
+            losses.append(train_step(X, lengths, labels, lr, keep, caseless))
             ema_update()
             if args.duty > 0:
                 time.sleep(args.duty * (time.time() - t_step))

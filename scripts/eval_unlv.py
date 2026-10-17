@@ -228,6 +228,7 @@ def main():
     cers, wers, recalls, precisions = [], [], [], []
     kinds: list[str] = []
     pooled = np.zeros(4)   # char errors, truth chars, word errors, truth words
+    folded = np.zeros(2)   # the same char and word errors with letter case folded on both sides
 
     failed = 0
     for img_path, gt_path in pairs:
@@ -250,6 +251,7 @@ def main():
             failed += 1
             cers.append(1.0); wers.append(1.0); recalls.append(0.0); precisions.append(0.0)
             pooled += [len(truth), len(truth), len(truth.split()), len(truth.split())]
+            folded += [len(truth), len(truth.split())]
             continue
         if args.dump is not None:
             args.dump.mkdir(parents=True, exist_ok=True)
@@ -261,6 +263,10 @@ def main():
                 got = normalize(zone_ordered_text(page, read_zones(uzn)))
         ce, we = edit_distance(got, truth), edit_distance_words(got.split(), truth.split())
         pooled += [ce, len(truth), we, len(truth.split())]
+        # SROIE's truth is in capitals on receipts printed in mixed case (RESEARCH 2026-10-16), so a
+        # reader that keeps the print's case is scored wrong there: the case-folded figure beside it
+        folded += [edit_distance(got.upper(), truth.upper()),
+                   edit_distance_words(got.upper().split(), truth.upper().split())]
         cer = ce / max(len(truth), 1)
         wer = we / max(len(truth.split()), 1)
         # Order-independent bag-of-words recall: how many ground-truth
@@ -291,6 +297,8 @@ def main():
         # and the per-page mean on doe3.3B is -11% neural, +19% LSTM)
         print(f"POOLED over {len(cers)} pages: char acc {1-pooled[0]/max(pooled[1], 1):.1%}  "
               f"word acc {1-pooled[2]/max(pooled[3], 1):.1%}")
+        print(f"POOLED case-folded: char acc {1-folded[0]/max(pooled[1], 1):.1%}  "
+              f"word acc {1-folded[1]/max(pooled[3], 1):.1%}")
         if args.by_kind:
             for kind in sorted(set(kinds)):
                 idx = [i for i, k in enumerate(kinds) if k == kind]
