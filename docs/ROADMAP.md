@@ -4,7 +4,20 @@ Ranked by measured evidence, not enthusiasm. Every item names the
 observation that motivates it, so a future session can re-check whether
 the motivation still holds before spending the effort.
 
-## Now: the line reader's real data (2026-10-13 to 15, the owner's go-ahead)
+## Now: the annual reports' remaining gap, then the system paper (2026-10-17, the owner's go-ahead)
+
+The clean test left the annual reports furthest behind the LSTM. On the 60
+development pages (never the measured 30) v0.18.19 read 79.94 / 76.53 pooled
+against 84.69 / 82.50. Two options, off and put to the owner (RESEARCH
+2026-10-17), read two-column sections before what spans them
+(`blocks.gutter_sections`) and financial statements row by row by their
+figures (`output.align_figures`): 83.79 / 80.76 together, 17 pages up and
+none down. Every other text set is unchanged, and receipts gain (CORD
++2.1 words). Left: one reverse-video page, statements with wrapped labels,
+and word recall inside lines. Then the system paper's refresh (frozen at
+v0.18.16), its numbers written once, after this decision.
+
+## Earlier: the line reader's real data (2026-10-13 to 15, the owner's go-ahead)
 
 The error budget against the LSTM put the remaining gap in word recall inside
 lines that were read, and a capacity pilot found the reader limited more by its

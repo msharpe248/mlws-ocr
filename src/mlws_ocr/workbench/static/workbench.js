@@ -760,6 +760,10 @@ const LAYOUT_SWITCHES = [
     title: "...and where a found gutter starts under a headline spanning the columns, the region is cut across at the small gap there" },
   { slot: "blocks", key: "gutter_min_col_300dpi", on: 300, off: 0, label: "Gutters between columns only",
     title: "...counting only a gutter with a column at least an inch wide on each side: a table's figure columns are not column gutters" },
+  { slot: "blocks", key: "gutter_sections", on: true, off: false, label: "Sections above what spans them",
+    title: "...and where a found gutter ends at a table or headline across the page, the region is cut across there before any column cut, so a report's two columns are read before the table under them (needs 'Cut under spanning headlines')" },
+  { slot: "output", key: "align_figures", on: true, off: false, label: "Statements by their figures",
+    title: "a block of figures and the label blocks to its left that share its baselines (long labels, headings with no figure) are read row by row with every figure block they touch: a financial statement read label, figures, label, figures" },
 ];
 
 // --- block / line box editor

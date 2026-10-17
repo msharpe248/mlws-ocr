@@ -139,3 +139,40 @@ def test_an_unhinted_column_page_is_segmented_as_the_guess():
         _words(one, 150, 2400, 300 + i * 70)
     _, dbg1 = stage.run(Page(gray=np.where(one, 0.0, 1.0).astype(np.float32), binary=one, dpi=300.0))
     assert "segmented_as" not in dbg1.scalars
+
+
+def _sections(gutter=90):
+    """Two columns, a table across the page whose first row's word space falls on the
+    gutter (a narrow gap through the whole page), then two short columns again."""
+    b = _two_columns(gutter=gutter, lines=14, figure=False)
+    top = 260 + 14 * 70 + 60
+    _words(b, 150, 897, top)                          # the table's first row runs across the gutter,
+    _words(b, 915, 1300, top)                         # ...its word space ON the gutter (18 px)
+    b[top:top + 24, 1500:1580] = True
+    for i in range(1, 4):                              # label | figures rows: nothing over the gutter
+        _words(b, 150, 700, top + i * 60)
+        b[top + i * 60: top + i * 60 + 24, 1300:1380] = True
+        b[top + i * 60: top + i * 60 + 24, 1500:1580] = True
+    y = top + 4 * 60 + 80
+    for i in range(4):                                 # the next section's two columns
+        _words(b, 150, 900, y + i * 70)
+        _words(b, 900 + gutter, 1650 + gutter, y + i * 70)
+    return b, top
+
+
+def test_a_section_is_read_before_the_table_across_its_gutter():
+    b, top = _sections()
+    params = dict(gutter_first=True, gutter_narrow_300dpi=8, gutter_rows_300dpi=6)
+    old, _ = _run(b, **params)
+    new, _ = _run(b, gutter_sections=True, **params)
+
+    def first(blocks, test):
+        return next(i for i, bx in enumerate(blocks) if test(bx))
+    upper_right = lambda bx: bx[0] >= 945 and bx[3] < top                     # noqa: E731
+    lower_left = lambda bx: bx[0] < 945 and bx[1] > top + 200                 # noqa: E731
+    # without it the narrow gap cuts the page in two: the whole left side, table rows and
+    # all, before the upper right column
+    assert first(old, lower_left) < first(old, upper_right)
+    assert first(new, upper_right) < first(new, lower_left)
+    assert first(new, lambda bx: bx[1] >= top - 5 and bx[3] < top + 200) < first(new, lower_left)
+

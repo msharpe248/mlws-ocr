@@ -140,6 +140,8 @@ class JudgedBlocks(Stage):
                                                # where one starts under a spanning headline (gutter_rows_300dpi)
         "gutter_narrow_300dpi": 0,
         "gutter_rows_300dpi": 0,
+        "gutter_sections": False,              # ...and with it, cut across first where a gutter ends at a table or
+                                               # headline spanning the page (blocks.XYCutBlocks gutter_sections)
         "gutter_h_frac": 0.28,
         "gutter_min_col_300dpi": 0,
         "gutter_text_gap": 0,

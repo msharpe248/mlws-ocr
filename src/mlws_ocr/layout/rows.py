@@ -278,3 +278,111 @@ def rows_text(lines: list[dict], baseline_tol: float = 0.5,
         row.sort(key=lambda l: l["box"][0])
         out.append(sep.join(" ".join(w["text"] for w in l["words"]) for l in row))
     return out
+
+
+def figure_groups(lines: list[dict], groups: list[list[int]], pairs: list | None = None,
+                  baseline_tol: float = 0.5, numeric_frac: float = 0.8,
+                  min_matches: int = 3) -> list[list[int]]:
+    """``groups`` (row_groups' output) with FINANCIAL STATEMENTS added: a
+    block of figures and the label blocks to its left whose lines share its
+    baselines, read row by row with every figure block they touch.
+
+    A statement's label column holds long labels ('Net book value of
+    property, plant, and equipment retirements') and headings with no figure
+    ('Operations:'), so row_groups' cell-length and both-ways alignment
+    tests refuse it, and the XY-cut cuts its label and figure columns at
+    different rows: a statement was read label column first, then each year's
+    figures (UNLV rep.3B 9538_022, 57.8% of characters). Here the FIGURES
+    are the evidence: a block whose lines are at least ``numeric_frac``
+    numeric cells, half of them of two digits or more, is a figure column, and a label block links to it when it
+    lies to its left, beside it, with no text block between (the next text
+    column's table: a two-column page whose tables' baselines line up, 9522_041),
+    and at least two of the figure block's lines (one, for a one-line block)
+    share a label line's baseline. Linked blocks form one table, kept when its
+    links share at least ``min_matches`` baselines. Two blocks already in
+    statement groups also join on a single shared baseline (a label block's last
+    row whose figures open the next figure block). A row_groups group of figure
+    blocks alone is absorbed by the statement it touches, and so is a mixed
+    group whose figure block shares a baseline with one of the statement's
+    labels; ``pairs`` are left alone. This is T-Recs' row step
+    (Kieninger & Dengel 1998) keyed on the numeric column, as a statement's
+    reader keys on its figures."""
+    by: dict[int, list[dict]] = {}
+    for ln in lines:
+        if ln.get("words"):
+            by.setdefault(ln.get("block", 0), []).append(ln)
+    if not by:
+        return groups
+    med_h = float(np.median([l["box"][3] - l["box"][1] for ls in by.values() for l in ls]))
+    tol = baseline_tol * med_h
+    ext = {b: (min(l["box"][0] for l in ls), min(l["box"][1] for l in ls),
+               max(l["box"][2] for l in ls), max(l["box"][3] for l in ls)) for b, ls in by.items()}
+
+    def bl(ln):
+        return ln.get("baseline", ln["box"][3])
+
+    def is_fig(b):
+        # ...and at least half its lines figures of two digits or more: a photograph's specks read
+        # '5', '3', '.', 'o' made a 'figure column' that rowed two magazine captions (UNLV 8049_020)
+        ls = by.get(b, [])
+        return (bool(ls) and sum(_numeric_cell(l["words"]) for l in ls) >= numeric_frac * len(ls)
+                and sum(sum(c.isdigit() for w in l["words"] for c in w["text"]) >= 2 for l in ls) >= 0.5 * len(ls))
+
+    def beside(L, f):
+        """L's right edge left of f's left, the two overlapping in height, no text block between."""
+        lx0, ly0, lx1, ly1 = ext[L]
+        fx0, fy0, fx1, fy1 = ext[f]
+        if lx1 > fx0 or min(fy1, ly1) <= max(fy0, ly0):
+            return False
+        return not any(b not in (L, f) and not is_fig(b) and ext[b][0] >= lx1 and ext[b][2] <= fx0
+                       and min(ext[b][3], fy1) > max(ext[b][1], fy0) for b in by)
+
+    def hits(L, f):
+        lbs = np.array([bl(l) for l in by[L]])
+        return sum(float(np.abs(lbs - bl(l)).min()) <= tol for l in by[f])
+
+    figonly = [g for g in groups if all(is_fig(b) for b in g)]
+    mixed = [g for g in groups if g not in figonly]
+    taken = {b for g in mixed for b in g} | {b for g in (pairs or []) for b in g}
+    fig = {b for b in by if b not in taken and is_fig(b)}
+    lab = [b for b in by if b not in fig and b not in taken]
+    parent = {b: b for b in by}
+
+    def find(x):
+        while parent[x] != x:
+            parent[x] = parent[parent[x]]
+            x = parent[x]
+        return x
+
+    matched: dict[int, int] = {}
+    for f in fig:
+        for L in lab:
+            if beside(L, f) and (h := hits(L, f)) >= min(2, len(by[f])):
+                parent[find(f)] = find(L)
+                matched[f] = matched.get(f, 0) + h
+    linked = {b for b in by if any(find(x) == find(b) for x in by if x != b)}
+    for f in fig & linked:
+        for L in lab:
+            if L in linked and find(L) != find(f) and beside(L, f) and hits(L, f) >= 1:
+                parent[find(f)] = find(L)
+    comps: dict[int, set] = {}
+    for b in linked:
+        comps.setdefault(find(b), set()).add(b)
+    stmts = [sorted(c) for c in comps.values()
+             if any(b in fig for b in c) and any(b not in fig for b in c)
+             and sum(matched.get(b, 0) for b in c) >= min_matches]
+    out = []
+    for g in mixed:
+        h = next((h for h in stmts if any(is_fig(f) and not is_fig(L) and beside(L, f) and hits(L, f) >= 1
+                                          for f in g for L in h)), None)
+        if h is not None:
+            h[:] = sorted(set(h) | set(g))
+        else:
+            out.append(g)
+    for g in figonly:
+        h = next((h for h in stmts if set(h) & set(g)), None)
+        if h is not None:
+            h[:] = sorted(set(h) | set(g))
+        else:
+            out.append(g)
+    return out + stmts

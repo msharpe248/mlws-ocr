@@ -83,3 +83,38 @@ def test_a_wide_line_does_not_break_a_text_pair():
     pairs = []
     row_groups(lines, 10, two_col_max_gap=0.25, page_width=2550, pairs=pairs, pair_min_rows=2)
     assert pairs == [[0, 1, 2, 3, 4, 5]]
+
+
+def _statement(gap_block=False):
+    """A cash-flow statement: long labels and a figure-less heading in one block, each
+    year's figures cut into blocks at other rows (as the XY-cut leaves them)."""
+    labels = ["Cash and cash equivalents, beginning of the period", "Operations:",
+              "Net income for the year", "Depreciation and amortization of plant and equipment",
+              "Net book value of property, plant, and equipment retirements"]
+    lines = [_line(0, 100, 100 + 30 * i, t) for i, t in enumerate(labels)]
+    lines += [_line(1, 700, 100, "$ 676,413"), _line(2, 700, 160, "310,178"),
+              _line(2, 700, 190, "167,958"), _line(2, 700, 220, "11,130")]
+    lines += [_line(3, 900, 100, "$ 498,557"), _line(3, 900, 160, "86,589"),
+              _line(4, 900, 190, "166,113"), _line(4, 900, 220, "13,145")]
+    if gap_block:                                     # the next column's text, between labels and figures
+        lines += [_line(5, 610, 100 + 30 * i, "word word") for i in range(5)]
+    return lines
+
+
+def test_a_statement_is_read_row_by_row_by_its_figures():
+    from mlws_ocr.layout.rows import figure_groups
+    lines = _statement()
+    groups = row_groups(lines, 5)
+    assert not any(0 in g for g in groups)            # long labels: no table to row_groups
+    fg = figure_groups(lines, groups)
+    assert [0, 1, 2, 3, 4] in fg
+    rows = rows_text([l for l in lines if l["block"] in (0, 1, 2, 3, 4)])
+    assert rows[0] == "Cash and cash equivalents, beginning of the period  $ 676,413  $ 498,557"
+    assert rows[1] == "Operations:"
+    assert rows[2] == "Net income for the year  310,178  86,589"
+
+
+def test_a_text_column_between_labels_and_figures_breaks_the_link():
+    from mlws_ocr.layout.rows import figure_groups
+    lines = _statement(gap_block=True)
+    assert not any(0 in g for g in figure_groups(lines, row_groups(lines, 6)))

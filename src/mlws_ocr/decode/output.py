@@ -10,7 +10,7 @@ from ..core.artifacts import Page
 from ..core.registry import register
 from ..core.stage import DebugBundle, Stage
 from .formats import numeric_endorsed
-from ..layout.rows import row_groups, rows_text
+from ..layout.rows import figure_groups, row_groups, rows_text
 from ..layout.wstables import page_tables, whitespace_table
 from .arith import check_tables
 from .cellfix import fix_figure_columns
@@ -232,6 +232,11 @@ class TextOutput(Stage):
                                          # share baselines (unruled tables,
                                          # rosters) are emitted as ROWS
         "align_min_lines": 3,
+        "align_figures": False,          # ...and FINANCIAL STATEMENTS too: a block of figures and the
+                                         # label blocks to its left sharing its baselines, with every
+                                         # figure block they touch, read row by row (rows.figure_groups:
+                                         # long labels and figure-less headings, cut by the XY-cut at
+                                         # other rows than the figures; 2026-10-17)
         "align_baseline_tol": 0.5,       # x median line height
         "align_match_frac": 0.6,
         "align_max_words": 4.0,          # median words/line above this is
@@ -935,13 +940,16 @@ class TextOutput(Stage):
             img = page.binary if page.binary is not None else page.gray
             page_w = int(img.shape[1]) if img is not None else 0
             pairs: list[list[int]] = []
-            for group in row_groups(kept_lines, n_blocks,
-                                    self.params["align_min_lines"],
-                                    self.params["align_baseline_tol"],
-                                    self.params["align_match_frac"],
-                                    self.params["align_max_words"],
-                                    self.params["align_two_col_max_gap"],
-                                    page_w, pairs, self.params["align_pair_min_rows"]):
+            groups = row_groups(kept_lines, n_blocks,
+                                self.params["align_min_lines"],
+                                self.params["align_baseline_tol"],
+                                self.params["align_match_frac"],
+                                self.params["align_max_words"],
+                                self.params["align_two_col_max_gap"],
+                                page_w, pairs, self.params["align_pair_min_rows"])
+            if self.params["align_figures"]:
+                groups = figure_groups(kept_lines, groups, pairs, self.params["align_baseline_tol"])
+            for group in groups:
                 members = [l for l in kept_lines if l.get("block", 0) in group]
                 blocks[group[0]] = rows_text(members,
                                              self.params["align_baseline_tol"])

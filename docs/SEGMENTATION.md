@@ -328,6 +328,32 @@ newspapers with no hint 82.4 / 77.7, magazines with no hint 69.2 / 58.8,
 FUNSD 66.3 / 44.7, Legal Reports 87.0 / 72.7; every scored table set,
 business, modern and every hinted set identical.
 
+**Two options for report pages (2026-10-17; off, put to the owner).** On
+the 60 report development pages the engine still read 79.9 / 76.5 pooled
+against the LSTM's 84.7 / 82.5, most of the gap on five pages, of two kinds.
+
+- `blocks.gutter_sections`: two-column sections with something across the
+  page between them — a table, a figure. The gutter runs on through the
+  spanning thing, so the columns were cut first and read through it. The
+  option first cuts across at the gutter's foot, at the gap above the
+  spanning thing, and only where the gutter stands between prose columns,
+  each at least four times its width. A form's labels and values, or a
+  receipt's items and prices, stand beside a gap as wide as themselves and
+  are read row by row; without that test one FUNSD form lost 19 points.
+- `output.align_figures`: a financial statement's label column was read
+  whole, then each year's figures. A block of figures is linked to the
+  label block on its left whose lines share its baselines, and the two are
+  read row by row — the row alignment of column blocks (T-Recs), keyed on
+  the figures.
+
+Development pages, pooled (character / word): reports 79.94 / 76.53 →
+81.64 / 78.26 (sections), 82.00 / 78.72 (figures), **83.79 / 80.76** (both;
+17 pages up, none down, 0.9 characters behind the LSTM); magazines and
+newspapers level. On every other set the text is byte for byte unchanged,
+except receipts, which now read each price on its item's line (CORD
+59.1 → 61.6, SROIE 66.9 → 67.6), and two FUNSD forms, slightly up. Both
+options are in the workbench's layout switches.
+
 ## 8. Lines inside a block
 
 ![Lines in a block](img/segment/lines.png)

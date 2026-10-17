@@ -76,15 +76,24 @@ def _xycut(binary, box, min_gap_x, min_gap_y, noise_frac, out,
     # (a letterhead sidebar beside the body) and must be cut first even
     # when some horizontal gap is wider: cutting rows first interleaves
     # the sidebar's sections with the body's paragraphs.
+    sections = bool(gutters and len(gutters) > 4 and gutters[4])
     if widest_x > 0 and column_first_h and (y1 - y0) >= column_first_h:
         cuts, axis = gx, "x"
+    elif sections and gutters[3] and (fcut := _gutter_rows(binary, row_profile, noise_frac * sub.shape[1], box,
+                                                           gutters[0], gutters[3], sections=True, feet=True)):
+        # gutter_sections: a found gutter that ENDS inside the region at something spanning it (a
+        # table across the page, the next section's headline) cuts the region across there before
+        # any column cut: a narrow gap on the gutter through the region is then a word space of the
+        # spanning thing that falls on it, and cut first it read a report page's left column, table
+        # and all, before its right (UNLV rep.3B 9538_018)
+        cuts, axis = fcut, "y"
     elif gutters and (gcut := _gutter_gaps(gx, x0, y0, y1, gutters[0])):
         # a column gutter the whitespace search found (whitespace.find_gutters) runs
         # through this region: cut the columns first, as above, so lines that face
         # each other across it are not cut into rows first and read alternately
         cuts, axis = gcut, "x"
     elif gutters and gutters[3] and (rcut := _gutter_rows(binary, row_profile, noise_frac * sub.shape[1],
-                                                          box, gutters[0], gutters[3])):
+                                                          box, gutters[0], gutters[3], sections=sections)):
         # a found gutter runs through part of the region but no column gap does (a headline
         # spans it): cut across where the gutter starts or ends, at the small row gap there
         cuts, axis = rcut, "y"
@@ -113,7 +122,28 @@ def _gutter_gaps(gx, x0, y0, y1, gutters, frac: float = 0.5) -> list:
     return out
 
 
-def _gutter_rows(binary, row_profile, noise, box, gutters, min_gap: int, share: float = 0.3) -> list:
+def _prose_gutter(binary, box, g, ratio: float = 4.0) -> bool:
+    """True when the columns either side of gutter ``g`` (inked columns of
+    pixels within ``box``, over the gutter's rows) are each at least ``ratio``
+    times the gutter's width: prose set in columns of a readable measure (45
+    to 75 characters, R. Bringhurst, The Elements of Typographic Style,
+    2.1.2) beside a gutter of a few characters (UNLV 9538_018: 139 px
+    against 1,160; 9504_017: 71 against about 1,100).  A form's labels and
+    values or a receipt's items and prices stand either side of a gap about
+    as wide as themselves (FUNSD 83996357: 150 px against 323)."""
+    x0, y0, x1, y1 = box
+    g0, g1, g2, g3 = (int(v) for v in g)
+    rows = slice(max(y0, g1), min(y1, g3))
+    left = np.flatnonzero(binary[rows, x0:g0].sum(axis=0) >= 3)
+    right = np.flatnonzero(binary[rows, g2:x1].sum(axis=0) >= 3)
+    if not len(left) or not len(right):
+        return False
+    w = ratio * max(g2 - g0, 1)
+    return g0 - (x0 + left[0]) >= w and right[-1] + 1 >= w
+
+
+def _gutter_rows(binary, row_profile, noise, box, gutters, min_gap: int, share: float = 0.3,
+                 sections: bool = False, feet: bool = False) -> list:
     """Row gaps (offsets from the box's top, at least ``min_gap`` tall) where
     a found gutter inside the box, running ``share`` of its height, starts or
     ends: the gap ending nearest the gutter's top and the one starting
@@ -125,24 +155,52 @@ def _gutter_rows(binary, row_profile, noise, box, gutters, min_gap: int, share: 
     break); the gutter's own top is the row where the columns start.  Cuts
     at any gutter's foot, tried first, cut every column of a page where one
     column ended early (UNLV 8224_007 99.5 -> 57.8), and a cut across the
-    neighbouring gutter split a long column (8000_027)."""
+    neighbouring gutter split a long column (8000_027).
+
+    ``sections`` (blocks.gutter_sections) amends two tests for report pages
+    whose two-column sections are separated by something across the page: the
+    foot's gap is the one nearest the foot by either end that does not lie
+    below it (the gap ABOVE the spanning thing, not a line gap inside it); and
+    the band below a foot, of any height, counts as the same gutter going on where a
+    channel a column gap wide still runs through the gutter's span over all of
+    it (the columns go on, narrower or shifted: a list of officers, UNLV
+    9549_035; a found gutter a line short of the columns' feet, 9511_041), not
+    merely where the band is mostly empty over the gutter (a picture cut out of
+    the page leaves it so, UNLV 9504_017).  Both only beside a gutter between
+    prose columns (``_prose_gutter``): a form's labels and values (FUNSD
+    83996357 72.4 -> 53.0) and a receipt's items and prices (CORD test_0031
+    96.2 -> 67.9) sit either side of a gap as wide as themselves, to be read
+    row by row.
+    ``feet``: the cuts at gutters' feet only."""
     x0, y0, x1, y1 = box
     small = _gaps(row_profile, min_gap, noise)
     inside = [g for g in gutters if g[0] > x0 and g[2] < x1 and min(y1, g[3]) > max(y0, g[1])]
     cuts = set()
     for g in inside:
         g0, g1, g2, g3 = g
-        if min(y1, g3) - max(y0, g1) < share * (y1 - y0) or not y0 + min_gap < g1 < y1 - min_gap:
+        if min(y1, g3) - max(y0, g1) < share * (y1 - y0):
             continue
-        for edge, end in ((g1, 1), (g3, 0)):
+        if not y0 + min_gap < g1 < y1 - min_gap:
+            continue
+        sec = sections and _prose_gutter(binary, box, g)
+        if feet and not sec:
+            continue
+        for edge, end in ((g3, 0),) if feet else ((g1, 1), (g3, 0)):
             if not y0 + min_gap < edge < y1 - min_gap:
                 continue
             # the gap that ENDS where the gutter starts (under a headline over its columns)
             # or STARTS where it ends -- there only if something spans the gutter just below
             # (a figure, the next headline): where a column merely ended early, cutting
             # there would cut every column in two, to be read band by band
-            near = min(small, key=lambda ab: abs(y0 + ab[end] - edge), default=None)
-            if not near or abs(y0 + near[end] - edge) > 16 * min_gap:
+            if sec and end == 0:
+                above = [ab for ab in small if y0 + ab[1] <= edge + 2 * min_gap]
+                near = min(above, key=lambda ab: min(abs(y0 + ab[0] - edge), abs(y0 + ab[1] - edge)),
+                           default=None)
+                dist = min(abs(y0 + near[0] - edge), abs(y0 + near[1] - edge)) if near else 0
+            else:
+                near = min(small, key=lambda ab: abs(y0 + ab[end] - edge), default=None)
+                dist = abs(y0 + near[end] - edge) if near else 0
+            if not near or dist > 16 * min_gap:
                 continue                   # (a headline's word space over the gutter carries
                                            # its top up into the headline: 8225_008, 58 px)
             # ink across the gutter on the far side of the cut: a headline over the columns
@@ -161,11 +219,20 @@ def _gutter_rows(binary, row_profile, noise, box, gutters, min_gap: int, share: 
             if not (over or flanks):
                 continue
             beyond = slice(y0, y0 + near[0]) if end == 1 else slice(y0 + near[1], y1)
-            if beyond.stop - beyond.start >= 100 * min_gap:
+            band = binary[beyond, int(g0):int(g2)]
+            if sec and end == 0:
+                # the same gutter goes on beyond the cut wherever a channel a column gap wide still
+                # runs through its span over the whole band, however short: the columns continue,
+                # narrower or shifted (a list of officers, UNLV 9549_035), or the found gutter merely
+                # stopped a line short of the columns' feet (9511_041)
+                empty = np.concatenate(([False], band.sum(axis=0) <= 2, [False])).astype(np.int8)
+                edges = np.flatnonzero(np.diff(empty))           # run starts and ends, alternately
+                if ((edges[1::2] - edges[::2]) >= 6 * min_gap).any():
+                    continue
+            elif beyond.stop - beyond.start >= 100 * min_gap:
                 # a tall band beyond the cut, empty over the gutter in most of its rows: the
                 # same gutter, interrupted by one long line (a two-column list of officers,
                 # one title across the gutter, UNLV 9549_035 99 -> 57), not a headline
-                band = binary[beyond, int(g0):int(g2)]
                 rows_inked = binary[beyond, x0:x1].any(axis=1)
                 if rows_inked.any() and (~band.any(axis=1) & rows_inked).sum() >= 0.6 * rows_inked.sum():
                     continue
@@ -309,6 +376,12 @@ class XYCutBlocks(Stage):
                                   # column gap does (a headline spans it), the region is cut across at
                                   # the row gap (at least this tall) nearest the gutter's top or bottom;
                                   # 0 = off
+        "gutter_sections": False, # ...and (with gutter_rows) a found gutter that ends or starts inside a
+                                  # region at something spanning it is cut across there BEFORE any column
+                                  # cut, with the foot's gap taken above the spanning thing and a band
+                                  # beyond counted as the same gutter only where two-columned at it
+                                  # (_gutter_rows sections=True): report pages whose two-column sections
+                                  # sit above and below a table across the page (2026-10-17)
         "river_retry_blocks": 80, # a page shredding into this many blocks
                                   # means whitespace rivers (monospace text
                                   # stacks spaces into full-height channels;
@@ -366,7 +439,7 @@ class XYCutBlocks(Stage):
             if p["gutter_text_gap"] > 0 and margin is not None:
                 boxes = [g for g in boxes if row_gaps_text(page.binary, g, margin, found, p["gutter_text_gap"])]
             gutters = (boxes, int(p["gutter_narrow_300dpi"] * s), int(p["gutter_narrow_h_300dpi"] * s),
-                       max(0, int(p["gutter_rows_300dpi"] * s)))
+                       max(0, int(p["gutter_rows_300dpi"] * s)), bool(p["gutter_sections"]))
 
         def cut(gx):
             found: list[list[int]] = []
