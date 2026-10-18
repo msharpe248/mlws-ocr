@@ -97,6 +97,9 @@ Once the teaching pages make sense, the working documents are the record:
 .venv/bin/mlws-ocr-ui page.png                           # the workbench: see, change and correct every stage
 ```
 
+To read many pages, or to call the engine from another program, see
+[USAGE.md](USAGE.md).
+
 The workbench is the best companion to these pages: open a page, click a
 stage, and see the same pictures the pages describe — the deskew angle, the
 binary page, the blocks and their order, the lines, the words, the
