@@ -86,7 +86,8 @@ def test_neural_shares_the_stage_list_with_classic():
         if spec.params != c:
             # the word corrector: on in classic, an option (off) in neural -- the owner's
             # decision of 2026-09-25; the neural profile carries its own confusion table
-            assert key[1] in ("recognize", "decode", "correct", "blocks"), key
+            # small type enlarged and declared 300 dpi: neural's alone (owner's decision 2026-10-18, v0.18.21)
+            assert key[1] in ("recognize", "decode", "correct", "blocks", "magnify"), key
 
 
 @pytest.mark.parametrize("name", ["classic.toml", "pure.toml", "neural.toml", "neural-table.toml"])
@@ -123,9 +124,9 @@ def test_command_line_sets_reach_the_stage():
 def test_neural_table_is_neural_plus_the_table_options():
     """The table profile may differ from neural ONLY in the table options that
     change what the reader sees (and its own reader with that reader's judge); everything else stays neural's.
-    The report-page options of v0.18.20 (blocks.gutter_sections, output.align_figures) are neural's alone:
-    never measured on the table sets."""
-    allowed = {"magnify": {"max_scale"}, "deskew": {"edge_nearest", "ink_fallback"}, "illumination": {"stretch_low", "invert_dark", "grey_pictures", "invert_rect"}, "imagezones": {"keep_grids"}, "components": {"dotted_rule_text"}, "rulings": {"short_in_grid_300dpi", "edge_bars", "faint_depth"},
+    The report-page options of v0.18.20 (blocks.gutter_sections, output.align_figures) and v0.18.21's
+    small-type magnify are neural's alone: never measured on the table sets."""
+    allowed = {"magnify": {"max_scale", "target_px", "max_page_px", "type_sets_dpi"}, "deskew": {"edge_nearest", "ink_fallback"}, "illumination": {"stretch_low", "invert_dark", "grey_pictures", "invert_rect"}, "imagezones": {"keep_grids"}, "components": {"dotted_rule_text"}, "rulings": {"short_in_grid_300dpi", "edge_bars", "faint_depth"},
                "tables": {"diagonals", "min_row_ink", "broken_rules"}, "decode": {"line_gray_rules_out", "figure_cells", "rotated_cells", "line_model_path", "line_choice_path", "line_gap_split", "line_model_path_table", "line_model_path_symbols", "line_dash_measure", "line_symbol_net"}, "lines": {"in_cells", "stacked_chunks"}, "blocks": {"keep_dashes", "gutter_sections"},
                "output": {"table_net_path", "table_net_row_join", "table_net_figure_rows", "ws_detector", "ws_mesh_min_spines", "cell_order_by_line",
                           "table_det_path", "table_det_mode", "table_split_path", "table_split_select", "table_split_keep_rows", "table_dashes", "ws_table_thin_grids", "span_labels",

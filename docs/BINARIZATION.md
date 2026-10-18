@@ -305,9 +305,20 @@ of the grey too (`decode.line_gray_rules_out`; payroll forms 0.609 → 0.738).
 The first stage of all is `magnify`. A page declared below 200 dpi is
 resampled to 300 (bicubic) before anything else, so every later stage sees
 a working resolution (a 150-dpi scan: mean word confidence 0.57 → 0.81).
-Magnifying by measured **type size** instead is an option, off everywhere:
-it helped fax-resolution forms and hurt receipts and tables (RESEARCH,
-2026-09-20 and 2026-09-30).
+Magnifying by measured **type size** helped fax-resolution forms and hurt
+receipts and tables (RESEARCH, 2026-09-20 and 2026-09-30). Since v0.18.21
+the neural profile does it for small IMAGES only -- at most 2,500 px on the
+longer side, so never a whole 300-dpi page -- bringing a median glyph height
+under 20 px up to 20, and then declaring the page 300 dpi
+(`type_sets_dpi`): the type now has a 300-dpi page's size, whatever the file
+claimed. Some files claim a resolution they do not have (a small PDF page
+holding a 100-dpi scan, rendered at 300), and scaling that claim with the
+enlargement told every later stage the page was at 858 dpi, so the speck,
+gap and line thresholds expected glyphs three times their size. On Omni
+Parse Bench's development pages the text score rose 36.7 → 46.2 (Tesseract
+39.2); a photographed receipt's texture measures as small type too, and
+those read as junk (CORD), a loss the owner accepted: photographs are not
+this engine's documents.
 
 ## 8. Parameters and profiles
 
@@ -325,7 +336,8 @@ it helped fax-resolution forms and hurt receipts and tables (RESEARCH,
 | despeckle | `min_area_300dpi` | 5 | every profile |
 | magnify | `min_dpi`, `to_dpi` | 200, 300 | every profile |
 | | `max_scale` | 3.0 (4.2 in neural-table, for 72-dpi table crops) | |
-| | `target_px` (type size) | 0 = off | |
+| | `target_px` (type size), `max_page_px` | 0 = off, 0 | 20 and 2500 in neural (v0.18.21) |
+| | `type_sets_dpi` | off | on in neural (v0.18.21) |
 
 Tests: `tests/test_cleanup_stages.py` (illumination flattens the paper;
 Sauvola against a ground-truth mask; despeckle removes salt and keeps text),

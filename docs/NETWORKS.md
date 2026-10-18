@@ -156,6 +156,7 @@ were trained on the public sources named below and on nothing else.
 | v0.18.18 (2026-10-15) | fifty files: the forty-six plus neural's larger line reader `seq_line_ens_en.npz`, `_2`, `_3` (= `seq_line_ens` seeds 1, 2, 3, EMA; 1.10M parameters each, from scratch on gray9's data and 31,170 Library of Congress printed lines) and its judge `linechoice_ens.npz` (= `linechoice_ens3s`); gray9 and `linechoice.npz` stay in the bundle (neural-table uses `linechoice.npz`) |
 | v0.18.19 (2026-10-17) | fifty-four files: the fifty plus neural's line reader `seq_line_csl_en.npz`, `_2`, `_3` (= `seq_line_ens_r6c` seeds 1, 2, 3, EMA: `seq_line_ens`'s size and recipe on all 49,865 harvested lines and the Google Fonts long lines, SROIE's lines without case) and its judge `linechoice_csl.npz` (= `linechoice_r6s`); `seq_line_ens` and `linechoice_ens.npz` stay (the previous release's) |
 | v0.18.20 (2026-10-17) | the same fifty-four files: profile and code (report pages: two-column sections cut before what spans them, beside prose columns only, and financial statements read row by row by their figures; no model or judge refitted) |
+| v0.18.21 (2026-10-18) | the same fifty-four files: profile and code (neural: an image of small type at most 2,500 px on its longer side enlarged to a 20-px median glyph height and declared 300 dpi; no model or judge refitted) |
 
 ## Where the training data comes from
 

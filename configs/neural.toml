@@ -24,7 +24,13 @@ stages = ["magnify", "deskew", "illumination", "binarize", "despeckle",
 
 [stage.magnify]
 impl = "xheight"
-target_px = 0                  # median glyph height to magnify small-type pages up to (0 = off; measured 2026-09-20)
+target_px = 20                 # an image of small type (median glyph height under 20 px) is enlarged to
+max_page_px = 2500             # it -- only an image at most 2,500 px on its longer side, never a whole
+type_sets_dpi = true           # 300-dpi page -- and declared 300 dpi after (v0.18.21, the owner's decision
+                               # 2026-10-18): Omni Parse Bench's dev half text 36.7 -> 46.2 (Tesseract 39.2),
+                               # our full-page sets identical, FUNSD +0.4 word, Perspectives +1.0; costs
+                               # SROIE 2.2 word and CORD's photographed receipts, whose texture measures as
+                               # small type, read as junk (photographs are out of focus). Before: off since 2026-09-20
 min_dpi = 200                  # a page declared below 200 dpi is resampled to 300 (2026-09-25: a 150-dpi paper scan 0.57 -> 0.81 mean word confidence; no evaluation page declares under 209)
 
 [stage.deskew]

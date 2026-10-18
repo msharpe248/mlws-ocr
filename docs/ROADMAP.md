@@ -211,8 +211,8 @@ rotation_skew 24.0/28.2. Most to gain on text first:*
   measured as type, enlarged, and kept as junk). No gate for photographs:
   the owner, 2026-10-18: "I don't want to focus too much on crazy damage
   stuff. That's obviously for vision model systems maybe." Photographs and
-  heavily damaged pages are out of focus; the option is the owner's to
-  adopt with CORD's loss stated.
+  heavily damaged pages are out of focus. **ADOPTED in neural, v0.18.21**
+  (the owner, 2026-10-18: "Adopt it"), CORD's and SROIE's loss stated.
 - **A sentence must be read nearly exactly.** A text test is a whole
   sentence with 0-3 differences allowed, so one wrong character in a long
   sentence fails it: 954 of the neural profile's 994 failed "present" tests

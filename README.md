@@ -76,13 +76,17 @@ scoreboard and its history are in `docs/DESIGN.md` §8.
 | letters, held out | 30 UNLV business letters held out from decisions (not from training) | 90.7 / 83.1 | **94.3 / 92.1** | 92.4 / 88.8 | 93.1 / 90.6 |
 | DOE reports, clean | 30 UNLV DOE technical reports never opened before (no hint, pooled) | 83.5 / 68.9 | 86.2 / **79.5** | 86.0 / 76.2 | **86.6** / 77.5 |
 | annual reports, clean | 30 UNLV annual reports never opened before (no hint, pooled) | 66.5 / 53.1 | 77.9 / 76.9 | 84.3 / 83.3 | **86.1 / 84.6** |
-| funsd | real scanned forms, FUNSD, at 2x | 37.4 / 12.7 | **67.8** / 47.0 | 54.8 / 32.0 | 66.4 / **47.2** |
+| funsd | real scanned forms, FUNSD, at 2x | 37.4 / 12.7 | **67.8** / 46.4 | 54.8 / 32.0 | 66.4 / **47.2** |
 | legal reports | real typescript and printed office pages, Library of Congress | 70.5 / 47.3 | **89.2 / 77.7** | 57.5 / 42.8 | 78.8 / 66.3 |
 | blocks | a paragraph handed in alone, no layout (broad-30's text zones) | 94.4 / 85.8 | **98.7 / 97.4** | 98.2 / 96.6 | 98.5 / 96.5 |
 
-The neural column is v0.18.20 (17 October 2026): v0.18.19's line readers,
-which learned the receipts' letters without their case, and report pages read
-in their sections and statements read row by row by their figures.
+The neural column is v0.18.21 (18 October 2026): v0.18.19's line readers,
+which learned the receipts' letters without their case, report pages read
+in their sections and statements read row by row by their figures (v0.18.20),
+and small images of small type enlarged and declared 300 dpi (v0.18.21: every
+full-page row above unchanged; FUNSD 47.0 → 46.4 word by the page mean, 46.3 →
+46.7 pooled; the scanned receipts lose 2 words in a hundred and photographed
+ones read as junk -- receipts and photographs are not this engine's documents).
 † One page of the eight (8011_012) has its right-hand column clipped by the
 scanner and left out of UNLV's truth zones; the new readers read it and every
 word is scored as an insertion. Without that page mag-8 is level (86.0 / 79.4
