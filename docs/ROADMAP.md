@@ -215,6 +215,61 @@ rotation_skew 24.0/28.2. Most to gain on text first:*
   subset); the large-format plans 800-1,080 s a page. The fast-profile item
   above applies.
 
+*Added 2026-10-18, the other outside benchmarks (the owner: "we should look
+at all of them at some point"; Nanonets' board at
+benchmarking.nanonets.com lists three, every entry a VLM or a VLM-based tool,
+no classic engine):*
+- **olmOCR-Bench** (Allen AI; huggingface.co/datasets/allenai/olmOCR-bench,
+  scorer `olmocr.bench`; licence to check): 1,403 pages, 7,010 pass/fail
+  tests -- present, ABSENT, order, table, math. Omni Parse Bench already
+  carries its suites (olmo_arxiv_math, _long_tiny_text, _multi_column,
+  _old_scans, _table_tests), so most of it is measured; what it adds is the
+  headers-and-footers tests, which want running heads, footers and page
+  numbers left OUT of the text -- our text keeps them. Input: plain text or
+  Markdown per page, tables as HTML, maths in KaTeX delimiters. Needs the
+  Markdown writer and page-furniture labels below. The leaders score 50 or
+  less on its old scans.
+- **OmniDocBench** (OpenDataLab; github.com/opendatalab/OmniDocBench, code
+  Apache 2.0, data research use only, not commercial: a test, never shipped):
+  1,355-1,651 pages, Chinese and English balanced, nine kinds (papers, books,
+  slides, exams, notes, newspapers, magazines, reports, textbooks). Scored by
+  edit distance on text, TEDS on tables, CDM on formulas, edit distance on
+  reading order, from one Markdown file per page. Two ways in: its English
+  end-to-end pages (needs the Markdown writer), and its BLOCK-level text task,
+  where Tesseract is listed (English edit distance 0.096; PaddleOCR 0.071,
+  Surya 0.057) -- the nearest published like-for-like target, and our `block`
+  hint is made for it. Start with the block task.
+- **IDP Core Bench** (Nanonets; docext/benchmark, datasets on Hugging Face):
+  about 2,000 documents for key-information extraction, OCR (printed,
+  handwritten, rotated, diacritics), tables and question answering. Most of
+  it needs a language model (questions, field extraction) or reads
+  handwriting: outside the engine. Only its printed-OCR and table sets are
+  worth a probe; lowest of the three.
+
+*Added 2026-10-18, from Nanonets' docext (github.com/NanoNets/docext,
+Apache 2.0): a VLM toolkit -- page to Markdown and field extraction by a 3B
+vision-language model -- so nothing of its models; what it shows is the OUTPUT
+a user of these benchmarks expects, and each piece can be classic:*
+- **A Markdown writer** beside text and hOCR: headings, lists, tables as HTML,
+  equations in `$$` LaTeX (the equation reader's output), pictures as image
+  links. The adapter for olmOCR-Bench and OmniDocBench, and a format users ask
+  for. Cheap: the layout already knows every piece but headings.
+- **Page furniture marked**: running heads, footers and page numbers labelled
+  (hOCR has classes for them) and left out of the reading text on request;
+  docext tags page numbers. olmOCR-Bench's absence tests and Omni Parse
+  Bench's header_footer tag (33.9 against Tesseract's 28.0) both score it.
+  Classic cues: position in the top or bottom band, short, repeated across
+  pages, a number alone.
+- **Checkboxes** as ☐ / ☑ in the text: a small square of ruling with or
+  without ink inside -- the forms and FUNSD pages have them, and the form tag
+  is 38.0 here. A connected-component test, no network.
+- **Signatures and watermarks** found and kept out of the text: a signature
+  is a cursive blob the reader turns into junk words today; a watermark is
+  large faint or rotated type under the text. Both measurable on the forms.
+- **A confidence a user can trust**: docext attaches one to every field; we
+  have `p_correct` per word -- calibrated and reported per line and per page
+  (overlaps the "lines it cannot read emit no text" item above).
+
 *Added 2026-10-17, training settings (NEURAL_NETWORK_THEORY §2.1; long
 training, each run put to the owner first):*
 - The line reader's epoch budget: one seed at 15, 30 and 45 epochs, each
