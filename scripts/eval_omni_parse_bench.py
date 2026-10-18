@@ -18,6 +18,12 @@ in its own venv; the engine itself reads the pages with `mlws-ocr batch`:
     mlws-ocr batch configs/neural.toml data/omni_parse_bench/png --out data/omni_parse_bench/runs/neural --workers 8
     $PY -I scripts/eval_omni_parse_bench.py tesseract runs/tesseract   # tesseract -l eng hocr, two at a time
     $PY -I scripts/eval_omni_parse_bench.py score runs/neural runs/tesseract
+    $PY -I scripts/eval_omni_parse_bench.py links dev            # -> data/omni_parse_bench/png_dev/ (links), to read one half
+    $PY -I scripts/eval_omni_parse_bench.py score --half dev runs/neural_dev runs/tesseract
+
+The halves: every document falls in "dev" or "test" by its name's SHA-1 (even first byte: dev), so the
+split never changes and a document's pages stay together.  Diagnosis and every option's trial use dev;
+test is measured once a decision is made, as the UNLV clean sets are (docs/MEASUREMENT.md).
 
 The subset: a page is kept when its tests are tagged English (at least one 'eng', and at least 80% of
 them) and none is handwriting -- the engine reads printed English.  1,423 of the 2,937 pages.
@@ -36,6 +42,7 @@ fails all its tests.
 import argparse
 import collections
 import csv
+import hashlib
 import html
 import os
 import re
@@ -55,6 +62,16 @@ BOX = re.compile(r"bbox (\d+) (\d+) (\d+) (\d+)")
 ELEM = re.compile(r"<(div|table|p|span)\b[^>]*class=[\"'](ocr_carea|ocr_table|ocr_photo|ocrx_word|ocr_page)[\"']"
                   r"[^>]*>", re.I)
 LABEL = {'ocr_carea': 'text', 'ocr_table': 'table', 'ocr_photo': 'figure'}
+
+
+def half(document: str) -> str:
+    """'dev' or 'test', fixed by the document's name."""
+    return 'dev' if hashlib.sha1(document.encode()).digest()[0] % 2 == 0 else 'test'
+
+
+def rows(which=None):
+    """The subset's rows, or one half's."""
+    return [r for r in csv.DictReader(open(SUBSET)) if which is None or half(r['document']) == which]
 
 
 def page_tests(gt_path, page_id):
@@ -112,6 +129,16 @@ def tesseract(args):
     print('hOCR in', out)
 
 
+def links(args):
+    out = R / f'png_{args.half}'; out.mkdir(exist_ok=True)
+    rs = rows(args.half)
+    for r in rs:
+        dst = out / (r['page_id'] + '.png')
+        if not dst.exists():
+            dst.symlink_to(R / 'png' / (r['page_id'] + '.png'))
+    print(len(rs), 'pages,', len({r['document'] for r in rs}), 'documents ->', out)
+
+
 def outputs(hocr: str) -> dict:
     """The benchmark's two outputs from one hOCR document."""
     W = H = 1
@@ -137,10 +164,10 @@ def outputs(hocr: str) -> dict:
                         'text': ' '.join(b['words'])} for b in blocks]}
 
 
-def verdicts(outdir: Path):
-    """(subset row, test, verdict) for every scored test of every page."""
+def verdicts(outdir: Path, which=None):
+    """(subset row, test, verdict) for every scored test of every page (of one half)."""
     from omni_parse_bench import score
-    for r in csv.DictReader(open(SUBSET)):
+    for r in rows(which):
         tests = page_tests(r['gt_path'], r['page_id'])
         f = outdir / (r['page_id'] + '.hocr')
         out = outputs(f.read_text()) if f.exists() else {'html': None, 'blocks': None}
@@ -153,13 +180,13 @@ def score_dirs(args):
     for d in args.outdirs:
         d = R / d if not Path(d).is_absolute() else Path(d)
         res = collections.defaultdict(lambda: [0, 0]); docs = collections.defaultdict(set)
-        for r, t, v in verdicts(d):
+        for r, t, v in verdicts(d, args.half):
             ok = v.result == 'pass'
             keys = [('family', FAMILY[t.test_type]), ('type', t.test_type), ('suite', r['suite'])]
             keys += [('tag', g) for g in t.tags if g in TAGS]
             for k in keys:
                 res[k][0] += ok; res[k][1] += 1; docs[k].add(r['document'])
-        print(f'== {d}')
+        print(f'== {d}' + (f'  ({args.half} half)' if args.half else ''))
         for group in ('family', 'type', 'tag', 'suite'):
             for k in sorted(k for k in res if k[0] == group):
                 p, n = res[k]
@@ -173,7 +200,9 @@ def main():
     sub.add_parser('render').set_defaults(fn=render)
     p = sub.add_parser('tesseract'); p.add_argument('out'); p.add_argument('--jobs', type=int, default=2)
     p.set_defaults(fn=tesseract)
+    p = sub.add_parser('links'); p.add_argument('half', choices=('dev', 'test')); p.set_defaults(fn=links)
     p = sub.add_parser('score'); p.add_argument('outdirs', nargs='+', help='directories of <page_id>.hocr')
+    p.add_argument('--half', choices=('dev', 'test'), help='score one half only')
     p.set_defaults(fn=score_dirs)
     args = ap.parse_args()
     args.fn(args)
