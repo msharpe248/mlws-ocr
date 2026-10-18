@@ -357,7 +357,9 @@ strips from the five UNLV harvests (`harvest_lines.py`; 220k words),
 repeated three times an epoch. The live scorer is the 615-face model
 fine-tuned on those five harvests (RESEARCH 2026-09-13).
 
-**Training.** CTC loss, Adam 2e-3 with a cosine schedule, gradient
+**Training.** (How the rate, its schedule and the epochs were chosen, and
+which of those choices were measured: NEURAL_NETWORK_THEORY.md §2.1.)
+CTC loss, Adam 2e-3 with a cosine schedule, gradient
 clipping, width-bucketed batches; the per-epoch go/no-go is greedy word
 accuracy on held-out real strips from pages the training never saw, split
 by a touching-pair proxy. The numpy backend trains the same network

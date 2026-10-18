@@ -15,8 +15,9 @@ Three kinds of figure:
   to publish;
 - what the training data looks like (``training_data.png``: examples from
   the training files, only the ones this repository drew or rendered) and
-  one real run epoch by epoch (``training_curve.png``, the table sequence
-  reader's numbers from its log).
+  real runs epoch by epoch (``training_curve.png``, the table sequence
+  reader's numbers from its log; ``cosine_run.png``, the line readers'
+  three seeds from theirs).
 
 No plotting library: numpy and PIL only, like the rest of the engine.
 
@@ -999,6 +1000,61 @@ def fig_training_curve():
     print("wrote", OUT / "training_curve.png")
 
 
+# v0.18.19's line readers (seq_line_ens_r6c seeds 1-3, docs/NETWORKS.md; ai02 r6c1.log and r6c3.log, ai01
+# r6c2.log, 2026-10-16/17): per epoch, seed 1's training loss and each seed's share of held-back real lines
+# read exactly (the raw weights; the EMA weights ship).  Adam from 2e-3, cosine to zero over 30 epochs.
+R6C_LOSS = [.271, .187, .182, .179, .177, .174, .173, .170, .167, .164, .161, .158, .155, .151, .147,
+            .143, .139, .135, .130, .127, .122, .117, .113, .108, .104, .100, .096, .093, .090, .088]
+R6C_HELD = [
+    [71.1, 70.7, 69.9, 73.8, 72.3, 72.0, 67.8, 71.3, 73.4, 74.3, 72.5, 74.4, 74.9, 76.2, 76.1,
+     75.7, 76.6, 74.6, 76.5, 76.6, 77.0, 77.5, 77.8, 77.7, 77.7, 78.6, 78.9, 78.9, 79.3, 79.3],
+    [66.6, 71.9, 71.9, 69.2, 68.7, 71.8, 72.4, 72.9, 71.3, 73.6, 75.0, 72.8, 72.9, 73.3, 73.7,
+     74.7, 75.5, 75.4, 75.8, 76.2, 75.5, 77.2, 77.6, 78.0, 77.9, 77.5, 78.2, 78.8, 78.7, 78.9],
+    [71.4, 71.6, 72.7, 74.2, 71.3, 75.1, 73.8, 74.7, 74.6, 72.3, 73.8, 74.7, 72.5, 76.3, 76.8,
+     76.4, 76.4, 77.7, 77.2, 77.8, 78.7, 78.6, 79.9, 80.0, 80.1, 80.1, 80.5, 80.4, 80.8, 80.7]]
+
+
+def fig_cosine_run():
+    """The line reader's 30 epochs: the learning rate the schedule set, the
+    training loss, and the held-back score of three seeds."""
+    E = len(R6C_LOSS)
+    lr = [2e-3 * 0.5 * (1 + np.cos(np.pi * ep / E)) for ep in range(E)]
+    W, H = 1020, 340
+    im = Image.new("RGB", (W, H), "white")
+    d = ImageDraw.Draw(im)
+    d.text((20, 10), "v0.18.19's line readers: 30 epochs from scratch, cosine schedule, three seeds",
+           fill=INK, font=font(16))
+    panels = [("learning rate", (0.0, 2e-3), [lr], [ORANGE], lambda v: f"{v * 1e3:.1f}e-3"),
+              ("training loss, seed 1", (0.08, 0.28), [R6C_LOSS], [RED], lambda v: f"{v:.2f}"),
+              ("held-back real lines read exactly, %", (62, 82), R6C_HELD, [BLUE, GREEN, PURPLE],
+               lambda v: f"{v:.0f}")]
+    pw = (W - 40) // 3
+    for k, (name, (lo, hi), series, colours, fmt) in enumerate(panels):
+        box = (20 + k * pw + 52, 60, 20 + (k + 1) * pw - 12, H - 50)
+
+        def at(e, v):
+            return (box[0] + (e - 1) / (E - 1) * (box[2] - box[0]), box[3] - (v - lo) / (hi - lo) * (box[3] - box[1]))
+        d.rectangle(box, outline=LINE)
+        x13 = at(13.5, lo)[0]                       # where the score stops wandering and climbs
+        d.line([(x13, box[1]), (x13, box[3])], fill="#d9dee5", width=2)
+        for s, colr in zip(series, colours):
+            pts = [at(e + 1, v) for e, v in enumerate(s)]
+            d.line(pts, fill=colr, width=2 if len(series) > 1 else 3)
+            for x, y in pts:
+                d.ellipse([x - 2, y - 2, x + 2, y + 2], fill=colr)
+        for v in np.linspace(lo, hi, 5):
+            d.text((box[0] - 48, at(1, v)[1] - 7), fmt(v), fill=MUTED, font=font(11))
+        for e in (1, 10, 20, 30):
+            d.text((at(e, lo)[0] - 4, box[3] + 6), str(e), fill=MUTED, font=font(11))
+        d.text((box[0], box[1] - 20), name, fill=INK, font=font(13))
+        d.text(((box[0] + box[2]) / 2 - 20, box[3] + 22), "epoch", fill=MUTED, font=font(12))
+    box = (20 + 2 * pw + 52, 60)
+    for j, (colr, s) in enumerate(zip((BLUE, GREEN, PURPLE), R6C_HELD)):
+        d.text((box[0] + 8 + 52 * j, H - 72), f"seed {j + 1}", fill=colr, font=font(11))
+    im.save(OUT / "cosine_run.png", optimize=True)
+    print("wrote", OUT / "cosine_run.png")
+
+
 def real(page: Path):
     clean, final = run_page(page)
     fig_line_reader(clean, final)
@@ -1019,6 +1075,7 @@ def main():
         real(args.page)
         fig_training_data()
         fig_training_curve()
+        fig_cosine_run()
 
 
 if __name__ == "__main__":

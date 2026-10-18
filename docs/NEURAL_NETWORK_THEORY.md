@@ -139,10 +139,14 @@ tables, on one GPU, run gently for 17 hours.
   kept.
 - The **learning rate** is cut to a third twice, after epochs 10 and 13
   (the grey lines). Big steps early cover ground fast; small steps late
-  settle into the detail. In epochs 7 to 10 the held-back score fell and
-  the training loss rose: most likely the steps had become too big for
-  the detail, and the network kept overshooting. The first cut put it
-  right at once.
+  settle into the detail. The two cuts were named when the run was
+  launched, not chosen by watching it. In epochs 7 to 10 the held-back
+  score fell and the training loss rose: most likely the steps had become
+  too big for the detail, and the network kept overshooting. The first
+  cut, when it came, put it right at once; a schedule that lowered the
+  rate earlier, or one that cut when the score stopped rising, would
+  likely have saved those epochs. How the rate, its schedule and the
+  number of epochs are chosen is §2.1.
 
 When the training loss keeps falling but the held-back score stops
 rising, or falls, the network is **overfitting**: memorising its training
@@ -208,16 +212,18 @@ sets back for the final word.
 | **held out** | the engine's evaluation sets, which no training and no choice ever sees, §0.4 |
 | **inference** | using a trained network; the parameters no longer change |
 | **label** (or **truth**) | the right answer for a training or evaluation example |
-| **learning rate** | how big each step's nudge to the parameters is, §2 |
+| **learning rate** | how big each step's nudge to the parameters is, §2, §2.1 |
 | **loss** | one number for how wrong the network's guesses are on a batch; training makes it smaller, §2 |
 | **overfitting** | fitting the training examples better and better while doing no better, or worse, on new ones |
 | **parameter** (or **weight**) | one of the numbers training sets; a network's size is counted in them |
 | **profile** | a named configuration of the engine (`configs/*.toml`): which networks run, with which settings |
+| **schedule** | how the learning rate is lowered over a run: cosine, steps, one-cycle, §2.1 |
 | **step** | one batch's update of the parameters |
 | **synthetic** (or **drawn**) data | examples this repository draws itself, with exact truth, §0.2 |
 | **teacher forcing** | while training a network that writes a sequence, giving it the true previous token rather than its own guess. The held-back "token accuracy" in the logs is measured this way, so it is kinder than real reading |
 | **TEDS**, **TEDS-S** | the table score, 0 to 1: how much of a table's tree of rows and cells must be edited to match the truth, with the cells' text (TEDS) or structure alone (TEDS-S) |
 | **token** | one unit a sequence network writes: a character, a LaTeX symbol, a table cell |
+| **warm-up** | the first steps of a run taken at a small, rising learning rate, §2.1 |
 
 ---
 
@@ -311,9 +317,8 @@ running mean of each parameter's gradient (momentum) and of its square
 (scale), and steps by their ratio, so each parameter effectively gets its
 own learning rate. It is forgiving of a badly scaled problem, which
 matters when a 3×3 filter and a 256-wide recurrent matrix share one
-optimiser. The learning rate usually follows a **schedule**: cosine decay
-from its start value to near zero over the run, or a "one-cycle" warm-up
-then decay for the table networks.
+optimiser. The learning rate follows a **schedule**, lowered as training
+goes on; which schedule, which rate and how many epochs is §2.1.
 
 **Initialisation.** Weights start random but scaled to their fan-in so
 that signals neither vanish nor explode through the layers: He
@@ -329,6 +334,159 @@ extreme weights memorisation needs. The final judgement is not the
 trainer's number but the engine's own evaluation sets, which no training
 ever sees (a guard in the harvest scripts refuses their pages; for the
 UNLV held-out pools, only since 2026-10-13 — MEASUREMENT.md §4).
+
+### 2.1 How long and how fast: epochs, the learning rate, and its schedule
+
+Three settings are not decided by the data, and every trainer must be
+given them: how big the steps are (the **learning rate**), when they
+shrink (the **schedule**), and how long training runs (the **epochs**).
+This section says how they are chosen in general, what this project chose,
+and — kept apart — which of its choices were measured and which were
+carried over without a test.
+
+**The learning rate.** Too large, and each step overshoots the valley
+floor it is aiming for: the loss jumps about, or stops falling while the
+parameters bounce from wall to wall. Too small, and training crawls and
+can settle in the first poor valley it finds. Adam (§2) divides each
+step by the gradient's own running scale, so a rate near 1e-3 works for a
+wide range of networks — Kingma & Ba's suggested default, and why the
+trainers here start between 5e-4 and 3e-3. The rate and the **batch** are
+linked: a larger batch averages more examples, its gradient is less
+noisy, and it can take larger steps (for SGD, Goyal et al. 2017 scale
+the rate with the batch; for Adam the link is weaker). A **fine-tune**
+(§8) starts lower, 3e-4 to 1e-3, so the network stays near what it
+already knows.
+
+The principled way to choose a rate is a **range test** (Smith, "Cyclical
+learning rates for training neural networks", WACV 2017): a short run in
+which the rate grows exponentially every step, from 1e-6 to about 1,
+with the loss plotted against it. The loss falls slowly, then quickly,
+then blows up; a good starting rate is a little below where it falls
+fastest, well short of where it blows up. It costs a few minutes, not a
+training run.
+
+**Why the rate is lowered.** Each step's gradient comes from one batch,
+so it is the true gradient plus noise. At a fixed rate the parameters do
+not come to rest at the bottom of a valley; they wander around it, over a
+region whose size grows with the rate. Lowering the rate shrinks that
+region: the loss settles and the held-back score steadies and climbs.
+Large steps early cover ground; small steps late settle into the detail.
+The common schedules:
+
+- **step decay**: divide the rate by 3 or 10 at chosen epochs (as for
+  the ResNets, He et al. 2016). It needs the epochs chosen.
+- **cosine decay** (Loshchilov & Hutter, "SGDR", ICLR 2017): the rate
+  follows half a cosine from its start value to zero over the run. Only
+  the run's length has to be chosen.
+- **one-cycle** (Smith & Topin, "Super-convergence", 2019): a short
+  **warm-up** from a small rate to the full one, then a decay. The
+  warm-up keeps the first steps small while the random starting weights
+  give large, erratic gradients and Adam's running averages have not yet
+  settled.
+- **on plateau**: cut the rate when the held-back score has not improved
+  for a few epochs. It reacts to the run instead of being fixed in
+  advance.
+- **on plateau, with a step back**: when an epoch scores worse on the
+  held-back examples than the best so far, throw that epoch away, go back
+  to the best epoch's weights, lower the rate (halve it, say) and train
+  on from there; stop when the rate is very small. This is the "newbob"
+  rule of the 1990s hybrid speech recognisers (ICSI's QuickNet trainer;
+  later Kaldi's nnet1 scripts). Going back needs each epoch's weights
+  kept (`train_seq.py --save-epochs` already keeps them) and, for Adam,
+  its running averages as well, or a fresh start of them.
+
+The step back works when a worse epoch is a real sign of overshooting.
+The table sequence reader's first run (§0.3) is that case: from epoch 7
+the held-back score fell from 52% to 24% while the *training* loss rose
+too. The rule would have gone back to epoch 6 at epoch 7 and lowered the
+rate, three epochs before the planned cut. It misfires when epochs are
+simply noisy. The line readers in the figure below dip by up to 4 points
+from one epoch to the next and recover by themselves; the held-back set
+is 4,476 lines, so its own sampling error is under a point, and the dips
+are the network's wobble at a high rate, not noise in the measurement.
+A rule that steps back at any dip would have cut seed 1's rate at epoch
+2, seed 2's at epoch 4 and seed 3's at epoch 5. So the rule needs a
+margin (worse by more than the usual wobble) or patience (worse for two
+or three epochs running) before it acts. Whether such a rule beats a
+fixed cosine on these readers has not been measured here.
+
+What each trainer here does, all with Adam:
+
+| network | trainer | start rate (default) | schedule |
+|---|---|---|---|
+| line readers and word scorer (§C) | `train_seq.py` | 2e-3; fine-tunes 3e-4 to 1e-3 | cosine to zero over the run, set each epoch |
+| MLP second opinion (§A) | `recognize/mlp.py` | 2e-3 | cosine |
+| character language model (§B) | `train_charlm.py` | 2e-3 | constant, then halved at each of the last six epochs |
+| table separator network (§E) | `train_sepnet.py` | 1e-3 | cosine |
+| table structure network (§F), detector (§G), word-relation network (§H) | `train_splitnet.py`, `train_tabledet.py`, `train_wordrel.py` | 1e-3, 2e-3, 1e-3 | one-cycle, 5% warm-up |
+| table sequence reader (§J) | `train_tableseq.py` | 5e-4 | divided by 3 at epochs named at launch (`--lr-steps`) |
+| equation reader (§I) | `train_mathread.py` | 1e-3; v4's fine-tune 3e-4 | constant |
+
+None of them reacts to the run: every schedule is fixed when the run is
+launched.
+
+**How many epochs.** The textbook answer is: train until the held-back
+score stops improving, and keep the best epoch (**early stopping**;
+Prechelt, "Early stopping — but when?", 1998). With a schedule the
+number of epochs is part of the schedule: under cosine decay the rate
+reaches zero exactly at the last epoch, so stopping early also stops
+before the rate has fallen. The trainers here therefore run the whole
+budget, score the held-back examples after every epoch, and keep both the
+best epoch and the moving average of the weights (§8.6; the average is
+what ships for the line readers).
+
+![v0.18.19's line readers, epoch by epoch](img/nn/cosine_run.png)
+
+*v0.18.19's three line readers (1.10M parameters each), from scratch, 30
+epochs, about 4.4 hours each, run gently. Left, the rate the cosine
+schedule set; middle, seed 1's training loss; right, each seed's share of
+the held-back real lines read exactly (the raw weights each epoch). The
+grey line marks epoch 13.*
+
+The figure shows how a cosine run reads. Up to about epoch 13, with the
+rate above 1.2e-3, the held-back score wanders between 67% and 75%: a
+seed can lose 4 points from one epoch to the next, and the three seeds
+disagree by up to 6. From there, as the rate falls, the score climbs and
+steadies, and the seeds end within 2 points of each other (79.3, 78.9,
+80.7%). The training loss falls the whole way, and the held-back score is
+still rising at epoch 30, so there is no sign of overfitting.
+
+Two lessons. First, in the wandering phase the "best epoch so far" is
+mostly luck; only the later epochs are a fair basis for keeping weights.
+Second, a curve still rising at the end of a cosine run does **not** show
+that more epochs would help. The late climb comes with the falling rate,
+so a 45-epoch run would not be this curve with 15 epochs added: it would
+wander for longer and climb later. Only a run of that length can say
+what it gains.
+
+**What was measured here, and what was not.** In this project:
+
+- *Measured:* the line reader's size (the capacity pilot, RESEARCH
+  2026-10-13: 287k against 1.10M parameters, the same data and budget);
+  continuing a finished run at a lower rate (`seq_line_v7b`, RESEARCH
+  2026-09-14: six more epochs at 1e-3 raised the held-back lines from
+  94.8% to 95.3% and moved no evaluation set outside its noise); the
+  moving average against the best epoch (§8.6), and averages of weights
+  across epochs and seeds (§9).
+- *Carried over, not measured:* the 30 epochs, chosen for the capacity
+  pilot and kept for every reader trained from scratch since; the start
+  rate of 2e-3, `train_seq.py`'s default since the first sequence models
+  (the first adopted word scorer trained at 3e-3 with batches of 256; the
+  readers now train with batches of 32 and 1.10M parameters, with the
+  rate unchanged); the table sequence reader's epochs for its rate cuts
+  (§0.3), fixed at launch. No range test has been run on any network
+  here.
+- *How it would be tested:* a range test for each trainer (minutes);
+  one seed of the line reader trained with budgets of 15, 30 and 45
+  epochs, each with its own cosine; and the same seed under the step-back
+  rule with a margin, all judged on the engine's evaluation sets: about
+  2, 4 and 6 hours of gentle training for the budgets. Proposed on
+  2026-10-17; not run.
+
+The trainer's curve chooses between epochs of one run. Whether a run's
+network is used is decided by the engine's evaluation sets (§7, "Adopt
+only what measures better"), and the two can disagree: `seq_line_v7b`'s
+half-point on the held-back lines never reached a page.
 
 ## 3. Convolutions: networks for images
 
