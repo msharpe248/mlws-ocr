@@ -496,12 +496,14 @@ sequenceDiagram
     P->>W: read_gray → run the stages in memory
     W-->>P: text, hOCR, words, tables, summary
     P-->>S: result
-    S-->>C: JSON {text, hocr, words, tables, tables_html, tables_csv, ms}
+    S-->>C: JSON {text, hocr, words, tables, tables_html, tables_csv, ms}, or ?format=hocr / text / zip
 ```
 
 `mlws-ocr-service` (`service.py`) builds each worker's stages once
 (`_worker_init`) and reads pages in memory, without the per-stage
-persistence of a run. `mlws-ocr batch` (`batch.py`) uses the same worker
+persistence of a run. `?format=` returns the JSON, the hOCR alone, the
+text alone, or a zip (`bundle`): the hOCR, the processed page image it
+names, the pictures cut from the original and the tables' files. `mlws-ocr batch` (`batch.py`) uses the same worker
 setup over a directory or a PDF and writes `<name>.txt`, `.hocr`,
 `.tables.{html,json,csv}`, `.picture_N.png` with `output.pictures` (cut from
 the original by `core/pictures.py`) and `batch.json`.

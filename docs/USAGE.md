@@ -11,7 +11,7 @@ There are four programs:
 |---|---|
 | `mlws-ocr run` | one page, with every stage written to disk so you can see what happened |
 | `mlws-ocr batch` | many pages (files, folders, PDFs), read several at once |
-| `mlws-ocr-service` | a local HTTP service: POST an image, get JSON back |
+| `mlws-ocr-service` | a local HTTP service: POST an image, get JSON, hOCR, text or a zip back |
 | `mlws-ocr-ui` | the interactive workbench in the browser, for one page at a time |
 
 `mlws-ocr stages` lists the registered algorithms and `mlws-ocr inspect`
@@ -148,11 +148,23 @@ curl -s http://127.0.0.1:8340/health
 curl -s --data-binary @scan.png http://127.0.0.1:8340/ocr
 curl -s --data-binary @scan.png "http://127.0.0.1:8340/ocr?doc_type=letter"
 curl -s --data-binary @report.pdf "http://127.0.0.1:8340/ocr?page=3"
+curl -s --data-binary @scan.png "http://127.0.0.1:8340/ocr?format=hocr" -o scan.hocr
+curl -s --data-binary @scan.png "http://127.0.0.1:8340/ocr?format=text"
+curl -s --data-binary @scan.png "http://127.0.0.1:8340/ocr?format=zip" -o scan.zip
 ```
 
 `POST /ocr` takes the image's bytes as the body (PNG, TIFF, JPEG; a PDF
-is recognised by its `%PDF` header, and `?page=N` picks the page). It
-returns JSON:
+is recognised by its `%PDF` header, and `?page=N` picks the page).
+`?format=` chooses what comes back:
+
+| format | returns |
+|---|---|
+| `json` (the default) | everything, as JSON (below) |
+| `hocr` | the hOCR document alone (`text/html`), as `batch` writes `<name>.hocr` |
+| `text` | the text alone (`text/plain`), in reading order |
+| `zip` | one zip with every result and its images (below) |
+
+The JSON:
 
 | field | content |
 |---|---|
@@ -171,14 +183,28 @@ level if it was skewed. On a straight scan of 200 dpi or more that is the
 original image's frame; otherwise [HOCR.md §4](HOCR.md) says how to map
 them back.
 
-An error is `{"error": "..."}` with status 500 (or 413 for a body over
-`--max-bytes`, 64 MB by default). `GET /health` returns
+The zip holds:
+
+| file | content |
+|---|---|
+| `page.hocr` | the hOCR, its `ocr_page` naming `page.png` as its image (hOCR's `image` property) |
+| `page.png` | the page as the engine saw it after cleanup: the frame every box is in, so the hOCR and this image line up in an hOCR viewer |
+| `page.txt`, `page.json` | the text, and the JSON above |
+| `picture_N.png`, `equation_N.png` | each picture and display equation cut from the original image, in its colour (neural profiles), under the names the hOCR gives them |
+| `tables.html`, `tables.json`, `tables.csv` | when the page has tables |
+
+A magazine page with five pictures makes a zip of about 1.7 MB, most of
+it `page.png`.
+
+An error is `{"error": "..."}` with status 500 (400 for an unknown
+`format`, 413 for a body over `--max-bytes`, 64 MB by default). `GET /health` returns
 `{"ok": true, "config", "workers"}`.
 
 Requests are read one page per worker process, `--workers` of them
 (default half the cores). The service listens on 127.0.0.1 unless
 `--host` says otherwise, and has no authentication: put it behind a
-proper front door before exposing it.
+proper front door before exposing it. Ctrl-C or `kill` stops the service
+and its workers.
 
 ## 6. Options every command shares
 

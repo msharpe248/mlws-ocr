@@ -298,7 +298,7 @@ python3 -m venv .venv && .venv/bin/pip install -e ".[dev]"
 .venv/bin/mlws-ocr-ui scan.png                                # the interactive workbench at http://127.0.0.1:8330
 .venv/bin/mlws-ocr inspect                                    # browse persisted runs (read-only)
 .venv/bin/mlws-ocr batch configs/neural.toml scans/ --out out/  # many pages at once, one per worker process
-.venv/bin/mlws-ocr-service --config configs/neural.toml       # POST an image to http://127.0.0.1:8340/ocr
+.venv/bin/mlws-ocr-service --config configs/neural.toml       # POST an image to http://127.0.0.1:8340/ocr (JSON; ?format=hocr, text or zip)
 .venv/bin/mlws-ocr-lab data/unlv/bus.3B                       # live segmentation lab at http://127.0.0.1:8801
 ```
 

@@ -8,6 +8,15 @@
                           col, rowspan, colspan, box, text, tables?}]}],
                           "tables_html", "pictures": [{file, bbox, bbox_source}]
                           (with output.pictures), "summary": {...}, "ms"}
+    POST /ocr?format=hocr  the page's hOCR document alone (text/html)
+    POST /ocr?format=text  its text alone (text/plain)
+    POST /ocr?format=zip   one zip: page.hocr, page.txt, page.json (the JSON
+                         above), page.png (the processed page, the frame the
+                         hOCR's boxes are in, named by ocr_page's image
+                         property), each picture and equation cut from the
+                         original (picture_N.png, equation_N.png, as the hOCR
+                         names them) and tables.html / .json / .csv when the
+                         page has tables
     GET  /health         {"ok": true, "config", "workers"}
 
 Same standard-library server as the inspector (no framework dependency);
@@ -25,6 +34,8 @@ import argparse
 import io
 import json
 import os
+import re
+import signal
 import sys
 import tempfile
 import time
@@ -49,9 +60,13 @@ def _worker_init(config_path: str, sets: dict | None = None) -> None:
     _STAGES = [registry.get(sp.slot, sp.impl)(**sp.params) for sp in _CONFIG.stages]
 
 
-def read_page(data: bytes, suffix: str, pdf_page: int = 0, doc_type: str | None = None) -> dict:
-    """Run the loaded pipeline on one page; returns the JSON-able result."""
-    from mlws_ocr.core.artifacts import Page
+FORMATS = ("json", "hocr", "text", "zip")
+
+
+def read_page(data: bytes, suffix: str, pdf_page: int = 0, doc_type: str | None = None,
+              fmt: str = "json"):
+    """Run the loaded pipeline on one page; returns the JSON-able result, or
+    with ``fmt="zip"`` the bytes of the zip (``bundle``)."""
     from mlws_ocr.core.imgio import load_gray
     t0 = time.perf_counter()
     with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as f:
@@ -65,11 +80,53 @@ def read_page(data: bytes, suffix: str, pdf_page: int = 0, doc_type: str | None 
             gray, dpi = load_gray(path)
     finally:
         os.unlink(path)
-    return read_gray(gray, dpi, doc_type, t0)
+    if fmt != "zip":
+        return read_gray(gray, dpi, doc_type, t0)
+    res, page = read_gray(gray, dpi, doc_type, t0, return_page=True)
+    # the pictures are cut from the original: an image file in its colour, a PDF page as loaded
+    return bundle(res, page.gray, gray if suffix == ".pdf" else io.BytesIO(data))
 
 
-def read_gray(gray, dpi, doc_type: str | None = None, t0: float | None = None) -> dict:
-    """Run the loaded pipeline on a loaded page (the service and the batch runner)."""
+def bundle(res: dict, processed, source) -> bytes:
+    """One page's results as a zip: ``page.hocr``, ``page.txt``, ``page.json``,
+    ``page.png`` (``processed``, the page after cleanup -- the frame of every
+    box, HOCR.md section 4 -- named in the hOCR by ocr_page's ``image``
+    property, hOCR 1.2), the pictures and equations cut from ``source`` under
+    the names the hOCR gives them, and the tables' files when there are any."""
+    import zipfile
+    import numpy as np
+    from PIL import Image
+    from mlws_ocr.core.pictures import crop, open_source
+    # the page image named by ocr_page's image property; the title single-quoted, as in ocr_photo
+    hocr = re.sub(r'<div class="ocr_page" id="page_1" title="([^"]*)">',
+                  lambda m: f"<div class=\"ocr_page\" id=\"page_1\" title='image \"page.png\"; {m.group(1)}'>",
+                  res["hocr"], count=1)
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as z:
+        z.writestr("page.hocr", hocr)
+        z.writestr("page.txt", res["text"])
+        z.writestr("page.json", json.dumps(dict(res, hocr=hocr), indent=1))
+        png = io.BytesIO()
+        Image.fromarray((np.clip(processed, 0, 1) * 255).astype(np.uint8)).save(png, format="PNG")
+        z.writestr("page.png", png.getvalue())
+        if res.get("pictures"):
+            im = open_source(source)
+            for p in res["pictures"]:
+                c = crop(p, im)
+                if c is not None:
+                    out = io.BytesIO()
+                    c.save(out, format="PNG")
+                    z.writestr(p["file"], out.getvalue())
+        if res.get("tables"):
+            z.writestr("tables.html", res["tables_html"])
+            z.writestr("tables.json", json.dumps(res["tables"], indent=1))
+            z.writestr("tables.csv", res.get("tables_csv", ""))
+    return buf.getvalue()
+
+
+def read_gray(gray, dpi, doc_type: str | None = None, t0: float | None = None, return_page: bool = False):
+    """Run the loaded pipeline on a loaded page (the service and the batch
+    runner); with ``return_page`` also the final Page."""
     from mlws_ocr.core.artifacts import Page
     t0 = time.perf_counter() if t0 is None else t0
     page = Page(gray=gray, dpi=dpi or 300.0, meta={"doc_type": doc_type} if doc_type else {})
@@ -82,12 +139,13 @@ def read_gray(gray, dpi, doc_type: str | None = None, t0: float | None = None) -
               "p_correct": w.get("p_correct"), "confidence": w.get("confidence")}
              for ln in page.meta.get("layout", {}).get("lines", [])
              for w in ln.get("words", [])]
-    return {"text": page.meta.get("text", ""), "hocr": page.meta.get("hocr", ""),
+    res = {"text": page.meta.get("text", ""), "hocr": page.meta.get("hocr", ""),
             "words": words, "tables": page.meta.get("tables", []),
             "tables_html": page.meta.get("tables_html", ""), "tables_csv": page.meta.get("tables_csv", ""),
             "pictures": page.meta.get("pictures", []),
             "summary": summary,
             "ms": round(1000 * (time.perf_counter() - t0))}
+    return (res, page) if return_page else res
 
 
 class _Handler(BaseHTTPRequestHandler):
@@ -96,11 +154,13 @@ class _Handler(BaseHTTPRequestHandler):
     workers: int
     max_bytes: int
 
-    def _send(self, code: int, obj) -> None:
-        body = json.dumps(obj).encode()
+    def _send(self, code: int, obj, ctype: str = "application/json", headers: dict | None = None) -> None:
+        body = obj if isinstance(obj, bytes) else obj.encode() if isinstance(obj, str) else json.dumps(obj).encode()
         self.send_response(code)
-        self.send_header("Content-Type", "application/json")
+        self.send_header("Content-Type", ctype)
         self.send_header("Content-Length", str(len(body)))
+        for k, v in (headers or {}).items():
+            self.send_header(k, v)
         self.end_headers()
         self.wfile.write(body)
 
@@ -121,10 +181,22 @@ class _Handler(BaseHTTPRequestHandler):
         q = parse_qs(url.query)
         ctype = self.headers.get("Content-Type", "")
         suffix = ".pdf" if "pdf" in ctype or data[:4] == b"%PDF" else ".png"
+        fmt = q.get("format", ["json"])[0]
+        if fmt not in FORMATS:
+            self._send(400, {"error": f"format must be one of {', '.join(FORMATS)}"}); return
         try:
             fut = self.pool.submit(read_page, data, suffix,
-                                   int(q.get("page", ["0"])[0]), q.get("doc_type", [None])[0])
-            self._send(200, fut.result())
+                                   int(q.get("page", ["0"])[0]), q.get("doc_type", [None])[0], fmt)
+            res = fut.result()
+            if fmt == "zip":
+                self._send(200, res, "application/zip",
+                           {"Content-Disposition": 'attachment; filename="page.zip"'})
+            elif fmt == "hocr":
+                self._send(200, res["hocr"], "text/html; charset=utf-8")
+            elif fmt == "text":
+                self._send(200, res["text"], "text/plain; charset=utf-8")
+            else:
+                self._send(200, res)
         except Exception as e:  # noqa: BLE001 -- report, keep serving
             self._send(500, {"error": f"{type(e).__name__}: {e}"})
 
@@ -139,6 +211,10 @@ def serve(config: str = "configs/neural.toml", host: str = "127.0.0.1", port: in
     handler = type("Handler", (_Handler,), {"pool": pool, "config": config,
                                             "workers": workers, "max_bytes": max_bytes})
     server = ThreadingHTTPServer((host, port), handler)
+
+    def _stop(*_):                      # `kill` as well as Ctrl-C: shut the workers down, never orphan them
+        raise KeyboardInterrupt
+    signal.signal(signal.SIGTERM, _stop)
     print(f"mlws-ocr-service: {config}, {workers} workers, http://{host}:{port}/ocr", flush=True)
     try:
         server.serve_forever()
