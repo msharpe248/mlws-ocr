@@ -29,7 +29,7 @@ Alongside, at any point:
 
 | page | what you learn |
 |---|---|
-| [NEURAL_NETWORK_THEORY.md](NEURAL_NETWORK_THEORY.md) | neural networks from one neuron up — what training is and what its data looks like, a glossary, then learning, convolutions, recurrence, CTC, fine-tuning and distillation, ensembles and soups — then every network in the engine, its exact shape and why |
+| [NEURAL_NETWORK_THEORY.md](NEURAL_NETWORK_THEORY.md) | neural networks from one neuron up — what training is and what its data looks like, a glossary, then learning, how long and how fast to train and how to read a run (epochs, the learning rate and its schedule, overfitting), convolutions, recurrence, CTC, fine-tuning and distillation, ensembles and soups — then every network in the engine, its exact shape and why |
 | [SYNTHETIC_DATA.md](SYNTHETIC_DATA.md) | drawing our own pages with the answers known: the degradation model, fonts, training windows, test sets — and what synthetic data could not do |
 | [DEV_ENVIRONMENT.md](DEV_ENVIRONMENT.md) | what the project runs on: a Mac mini and two gaming PCs, training times and energy, the free software, doing it with less |
 | [DATA_SOURCES.md](DATA_SOURCES.md) | every real dataset: licence, download, where it goes, what it trains or measures |
@@ -48,7 +48,7 @@ Alongside, at any point:
 
 **"I want to understand neural networks."**
 
-1. [NEURAL_NETWORK_THEORY.md Part 0](NEURAL_NETWORK_THEORY.md#part-0--before-the-theory-what-training-looks-like) — what training is, real training examples, one run epoch by epoch, and a glossary (epoch, held back, held out ...); then [Part I, §1–7](NEURAL_NETWORK_THEORY.md#part-i--the-theory), the theory from one neuron up
+1. [NEURAL_NETWORK_THEORY.md Part 0](NEURAL_NETWORK_THEORY.md#part-0--before-the-theory-what-training-looks-like) — what training is, real training examples, one run epoch by epoch, and a glossary (epoch, held back, held out ...); then [Part I, §1–7](NEURAL_NETWORK_THEORY.md#part-i--the-theory), the theory from one neuron up; [§2.1](NEURAL_NETWORK_THEORY.md#21-how-long-and-how-fast-epochs-the-learning-rate-and-its-schedule) on choosing the epochs and the learning rate, and reading a run for overfitting
 2. [§C, the CRNN readers](NEURAL_NETWORK_THEORY.md#c-the-crnn-readers--recognizeseqpy-the-word-scorer-and-the-line-reader) — a real network, with its real per-frame output
 3. [§8, fine-tuning and distillation](NEURAL_NETWORK_THEORY.md#8-fine-tuning-forgetting-and-distillation) and [§9, averaging](NEURAL_NETWORK_THEORY.md#9-averaging-ensembles-weight-averages-model-soups) — with this project's history as the worked example
 4. [SYNTHETIC_DATA.md §3](SYNTHETIC_DATA.md#3-training-windows-for-the-readers) — what the readers train on
