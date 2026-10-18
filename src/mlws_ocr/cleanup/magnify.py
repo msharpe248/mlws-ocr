@@ -35,6 +35,16 @@ Rumor, Legal Reports; the census in RESEARCH), where magnifying was
 measured harmful.  The declared resolution is quiet on all of those --
 every evaluation set declares 209-300 dpi -- and a file without a
 resolution loads as 300, so the gate never fires on a guess.
+
+A file can also declare a resolution it does not have: Omni Parse Bench's
+small book-spread PDFs, rendered at 300 dpi, hold scans of about 100, and
+their type is 7 px high.  Enlarging such a page and scaling its declared
+dpi with it tells every later stage it is at 858 dpi, and the thresholds
+then expect glyphs three times too big.  ``type_sets_dpi`` declares the
+enlarged page at ``to_dpi`` instead (2026-10-18): the benchmark's text
+score rose by a quarter, but photographed receipts, whose texture measures
+as small type, read as junk without the larger thresholds the scaled dpi
+gave them -- so it is off until a gate tells a photograph from print.
 """
 from __future__ import annotations
 
@@ -92,6 +102,12 @@ class XHeightMagnify(Stage):
                                # page whose small print merely looks small (payroll forms 0.907 -> 0.441
                                # when every page was magnified); 0 = every page (2026-10-03)
         "to_dpi": 300,
+        "type_sets_dpi": False,  # after an enlargement by TYPE SIZE, the page is declared to_dpi rather than
+                                 # its declared dpi times the scale: the type now has a 300-dpi page's size,
+                                 # and a file whose declared dpi is wrong (Omni Parse Bench's small book-spread
+                                 # PDFs: 300 declared, about 100 scanned) would otherwise claim 858 dpi after a
+                                 # 2.86x enlargement, and every _300dpi threshold downstream expect glyphs 2.86x
+                                 # too big -- 83 lines found, 10 read (2026-10-18); off until measured
     }
 
     def run(self, page: Page) -> tuple[Page, DebugBundle]:
@@ -101,7 +117,8 @@ class XHeightMagnify(Stage):
         small = not self.params["max_page_px"] or max(page.gray.shape) <= self.params["max_page_px"]
         size = type_size_px(page.gray) if target > 0 and small else None
         scale = 1.0
-        if size is not None and size < target:
+        by_type = size is not None and size < target
+        if by_type:
             scale = target / size
         min_dpi = float(self.params["min_dpi"])
         if min_dpi > 0 and page.dpi and float(page.dpi) < min_dpi:
@@ -111,7 +128,10 @@ class XHeightMagnify(Stage):
             return page, DebugBundle(scalars={"type_size_px": size or 0.0, "scale": 1.0})
         gray = ndimage.zoom(page.gray.astype(np.float32), scale, order=3)
         gray = np.clip(gray, 0.0, 1.0).astype(np.float32)
-        out = page.evolve(gray=gray, dpi=float(page.dpi) * scale)
+        dpi = float(page.dpi) * scale
+        if by_type and self.params["type_sets_dpi"]:
+            dpi = float(self.params["to_dpi"])
+        out = page.evolve(gray=gray, dpi=dpi)
         out.meta["magnify_scale"] = scale
         return out, DebugBundle(scalars={"type_size_px": size, "scale": round(scale, 3),
                                          "dpi": round(out.dpi, 1)})

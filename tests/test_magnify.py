@@ -38,3 +38,11 @@ def test_low_declared_resolution_is_brought_to_300_dpi():
     assert dbg2.scalars["scale"] == 1.0 and same.gray.shape == _page(40).gray.shape
     off, dbg3 = XHeightMagnify().run(page)
     assert dbg3.scalars["scale"] == 1.0
+
+
+def test_type_sets_dpi_declares_the_enlarged_page_at_to_dpi():
+    small = _page(14)
+    out, _ = XHeightMagnify(target_px=20, type_sets_dpi=True).run(small)
+    assert out.gray.shape[0] > small.gray.shape[0] and out.dpi == 300.0
+    out2, _ = XHeightMagnify(target_px=20).run(small)
+    assert out2.dpi > 300.0       # off: the declared dpi is scaled with the page, as before

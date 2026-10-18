@@ -204,6 +204,14 @@ rotation_skew 24.0/28.2. Most to gain on text first:*
   lines across both pages; with the newspaper hint the same page reads 739
   words. Fix: detect a spread (a tall dark or broken band near the middle,
   text on both sides) and cut there first.
+  *Measured 2026-10-18* (`magnify.type_sets_dpi`, RESEARCH): with
+  `target_px = 20`, `max_page_px = 2500` and the dpi declared 300, the dev
+  half's text rises 36.7 -> 46.2, past Tesseract's 39.2; every full-page set
+  of ours is unchanged, but CORD's photographed receipts collapse (texture
+  measured as type, enlarged, and kept as junk). Next: a gate that tells a
+  photograph or textured background from print (the spread of component
+  heights, the share of glyph-like components, the background's variance),
+  measured on CORD, SROIE and the dev half, before any of it is a default.
 - **A sentence must be read nearly exactly.** A text test is a whole
   sentence with 0-3 differences allowed, so one wrong character in a long
   sentence fails it: 954 of the neural profile's 994 failed "present" tests
