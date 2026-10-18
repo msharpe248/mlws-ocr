@@ -1,5 +1,6 @@
 """mlws-ocr batch: every page read, outputs written, a failing input reported, not fatal."""
 import json
+import re
 from pathlib import Path
 
 import pytest
@@ -24,3 +25,15 @@ def test_batch_reads_every_page(tmp_path):
     assert (tmp_path / "out/piece0.txt").read_text().strip()
     assert (tmp_path / "out/piece1.hocr").exists()
     assert json.loads((tmp_path / "out/batch.json").read_text())["errors"][0]["name"] == "broken"
+    assert not (tmp_path / "out/piece0.page.png").exists()
+
+
+def test_batch_page_images(tmp_path):
+    src = tmp_path / "piece.tif"
+    Image.open(PAGE).crop((200, 600, 1100, 1500)).rotate(1.5, fillcolor=255, expand=True).save(src, dpi=(300, 300))
+    run_batch(str(ROOT / "configs/classic.toml"), [str(src)], str(tmp_path / "out"), workers=1,
+              echo=lambda *_: None, page_images=True)
+    hocr = (tmp_path / "out/piece.hocr").read_text()
+    m = re.search(r"""title='image "piece.page.png"; bbox 0 0 (\d+) (\d+); ppageno 0'""", hocr)
+    assert m
+    assert Image.open(tmp_path / "out/piece.page.png").size == (int(m.group(1)), int(m.group(2)))

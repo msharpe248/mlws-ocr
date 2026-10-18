@@ -78,7 +78,7 @@ The properties:
 | `x_cconf` | a table cell (`td`) | in the table profile: the calibrated probability, 0-100, that the cell's text is right where it stands (`decode/cellconf.py`); under 50 to reject (about one in three right), 50-75 to review, 75 and over as read (80-87% right) |
 | `ppageno` | `ocr_page` | the page number, from 0 |
 | `image "file"` | `ocr_photo` | with `output.pictures`: the file the picture was cut into, beside the hOCR (§6) |
-| `image "page.png"` | `ocr_page` | in the service's zip only: the processed page image beside the hOCR, the frame of every box (§4) |
+| `image "page.png"` | `ocr_page` | in the service's zip (`page.png`) and with `batch --page-images` (`<name>.page.png`): the processed page image beside the hOCR, the frame of every box (§4) |
 | `x_source_bbox x0 y0 x1 y1` | `ocr_photo` | with `output.pictures`: the picture's box in the **original** image (§4, §6) |
 
 **Confidence you can act on.** In the neural profile `x_wconf` is a
@@ -114,13 +114,15 @@ Every way of running the engine produces it:
 ```sh
 .venv/bin/mlws-ocr run configs/neural.toml page.png        # runs/<id>/…/page.hocr
 .venv/bin/mlws-ocr batch configs/neural.toml pages/ --out out/   # out/<name>.hocr, one per page
+.venv/bin/mlws-ocr batch configs/neural.toml pages/ --page-images --out out/   # and out/<name>.page.png
 curl --data-binary @page.png http://127.0.0.1:8340/ocr     # the service: "hocr" in the JSON
 curl --data-binary @page.png "http://127.0.0.1:8340/ocr?format=hocr" -o page.hocr   # the hOCR alone
 curl --data-binary @page.png "http://127.0.0.1:8340/ocr?format=zip" -o page.zip     # with its images
 ```
 
 The service's zip holds `page.hocr` with the page image it describes,
-`page.png`, named by the `ocr_page`'s `image` property, and the pictures
+`page.png`, named by the `ocr_page`'s `image` property (`batch
+--page-images` writes the same beside each hOCR as `<name>.page.png`), and the pictures
 it names (§6) — the page and its reading, in one file
 ([USAGE.md §5](USAGE.md)).
 

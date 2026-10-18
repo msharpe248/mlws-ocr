@@ -506,7 +506,8 @@ text alone, or a zip (`bundle`): the hOCR, the processed page image it
 names, the pictures cut from the original and the tables' files. `mlws-ocr batch` (`batch.py`) uses the same worker
 setup over a directory or a PDF and writes `<name>.txt`, `.hocr`,
 `.tables.{html,json,csv}`, `.picture_N.png` with `output.pictures` (cut from
-the original by `core/pictures.py`) and `batch.json`.
+the original by `core/pictures.py`), `.page.png` with `--page-images` (the
+processed page, named in the hOCR) and `batch.json`.
 
 ## 12. The workbench
 

@@ -43,6 +43,9 @@ def main(argv=None) -> int:
     p_b.add_argument("--pdf-pages", type=int, nargs="*", default=None, help="PDF pages to read (default: all)")
     p_b.add_argument("--set", action="append", default=[], metavar="SLOT.KEY=VALUE",
                      help="override one stage parameter, e.g. correct.enabled=true (repeatable)")
+    p_b.add_argument("--page-images", action="store_true",
+                     help="also write <name>.page.png, the page as read (the frame of the hOCR's boxes; "
+                          "about 1 MB a page), and name it in the hOCR")
 
     sub.add_parser("stages", help="list registered stage implementations")
 
@@ -64,7 +67,8 @@ def main(argv=None) -> int:
         from mlws_ocr.batch import run_batch
         from mlws_ocr.core.config import parse_sets
         s = run_batch(args.config, args.inputs, args.out, args.workers, args.doc_type,
-                      args.recursive, args.pdf_pages, sets=parse_sets(args.set))
+                      args.recursive, args.pdf_pages, sets=parse_sets(args.set),
+                      page_images=args.page_images)
         return 0 if not s["failed"] else 2
 
     if args.command == "stages":

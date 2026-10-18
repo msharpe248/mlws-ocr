@@ -94,20 +94,15 @@ def bundle(res: dict, processed, source) -> bytes:
     property, hOCR 1.2), the pictures and equations cut from ``source`` under
     the names the hOCR gives them, and the tables' files when there are any."""
     import zipfile
-    import numpy as np
-    from PIL import Image
     from mlws_ocr.core.pictures import crop, open_source
-    # the page image named by ocr_page's image property; the title single-quoted, as in ocr_photo
-    hocr = re.sub(r'<div class="ocr_page" id="page_1" title="([^"]*)">',
-                  lambda m: f"<div class=\"ocr_page\" id=\"page_1\" title='image \"page.png\"; {m.group(1)}'>",
-                  res["hocr"], count=1)
+    hocr = name_page_image(res["hocr"], "page.png")
     buf = io.BytesIO()
     with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as z:
         z.writestr("page.hocr", hocr)
         z.writestr("page.txt", res["text"])
         z.writestr("page.json", json.dumps(dict(res, hocr=hocr), indent=1))
         png = io.BytesIO()
-        Image.fromarray((np.clip(processed, 0, 1) * 255).astype(np.uint8)).save(png, format="PNG")
+        page_image(processed).save(png, format="PNG")
         z.writestr("page.png", png.getvalue())
         if res.get("pictures"):
             im = open_source(source)
@@ -122,6 +117,23 @@ def bundle(res: dict, processed, source) -> bytes:
             z.writestr("tables.json", json.dumps(res["tables"], indent=1))
             z.writestr("tables.csv", res.get("tables_csv", ""))
     return buf.getvalue()
+
+
+def name_page_image(hocr: str, file: str) -> str:
+    """The hOCR with its ocr_page naming ``file`` as the page's image (hOCR
+    1.2's ``image`` property); the title single-quoted, as in ocr_photo, since
+    the file name is in double quotes."""
+    return re.sub(r'<div class="ocr_page" id="page_1" title="([^"]*)">',
+                  lambda m: f"<div class=\"ocr_page\" id=\"page_1\" title='image \"{file}\"; {m.group(1)}'>",
+                  hocr, count=1)
+
+
+def page_image(processed):
+    """The processed page (grey, [0, 1]) as an 8-bit PIL image: the frame of
+    every box in the hOCR (HOCR.md section 4)."""
+    import numpy as np
+    from PIL import Image
+    return Image.fromarray((np.clip(processed, 0, 1) * 255).astype(np.uint8))
 
 
 def read_gray(gray, dpi, doc_type: str | None = None, t0: float | None = None, return_page: bool = False):

@@ -9,7 +9,9 @@ Inputs are image files, directories of them (not recursive unless
 writes ``<out>/<name>.txt`` and ``<name>.hocr`` (``<name>`` = the file stem,
 plus ``_p<N>`` for a PDF page) -- with ``<name>.tables.html`` and
 ``<name>.tables.json`` and ``<name>.tables.csv`` when the page has tables, and
-``<name>.picture_N.png`` for each picture zone with ``output.pictures`` on --
+``<name>.picture_N.png`` for each picture zone with ``output.pictures`` on,
+and with ``--page-images`` ``<name>.page.png``, the page as the engine saw it
+after cleanup (the frame of the hOCR's boxes), named by the hOCR's ocr_page --
 and a ``batch.json`` summary lists every
 page with its time, word count and mean word confidence.
 """
@@ -41,7 +43,8 @@ def collect(inputs: list[str], recursive: bool = False, pdf_pages: list[int] | N
     return jobs
 
 
-def _read_one(path: str, pdf_page: int, name: str, out_dir: str, doc_type: str | None) -> dict:
+def _read_one(path: str, pdf_page: int, name: str, out_dir: str, doc_type: str | None,
+              page_images: bool = False) -> dict:
     from . import service
     from .core.imgio import load_gray
     t0 = time.perf_counter()
@@ -50,7 +53,7 @@ def _read_one(path: str, pdf_page: int, name: str, out_dir: str, doc_type: str |
         gray, dpi = load_pdf_page(path, page=pdf_page)
     else:
         gray, dpi = load_gray(path)
-    res = service.read_gray(gray, dpi, doc_type)
+    res, page = service.read_gray(gray, dpi, doc_type, return_page=True)
     out = Path(out_dir)
     (out / f"{name}.txt").write_text(res["text"])
     hocr = res["hocr"]
@@ -59,6 +62,9 @@ def _read_one(path: str, pdf_page: int, name: str, out_dir: str, doc_type: str |
         export(res["pictures"], gray if path.lower().endswith(".pdf") else path, out, prefix=f"{name}.")
         hocr = hocr.replace('image "picture_', f'image "{name}.picture_').replace(
             'src="equation_', f'src="{name}.equation_')
+    if page_images:
+        service.page_image(page.gray).save(out / f"{name}.page.png")
+        hocr = service.name_page_image(hocr, f"{name}.page.png")
     (out / f"{name}.hocr").write_text(hocr)
     if res.get("tables"):
         (out / f"{name}.tables.html").write_text(res["tables_html"])
@@ -72,7 +78,8 @@ def _read_one(path: str, pdf_page: int, name: str, out_dir: str, doc_type: str |
 
 def run_batch(config: str, inputs: list[str], out_dir: str, workers: int = 0,
               doc_type: str | None = None, recursive: bool = False,
-              pdf_pages: list[int] | None = None, echo=print, sets: dict | None = None) -> dict:
+              pdf_pages: list[int] | None = None, echo=print, sets: dict | None = None,
+              page_images: bool = False) -> dict:
     from . import service
     jobs = collect(inputs, recursive, pdf_pages)
     Path(out_dir).mkdir(parents=True, exist_ok=True)
@@ -82,7 +89,8 @@ def run_batch(config: str, inputs: list[str], out_dir: str, workers: int = 0,
     t0 = time.perf_counter()
     done, failed = [], []
     with ProcessPoolExecutor(workers, initializer=service._worker_init, initargs=(config, sets or {})) as pool:
-        futs = {pool.submit(_read_one, p, n, name, out_dir, doc_type): (p, n, name) for p, n, name in jobs}
+        futs = {pool.submit(_read_one, p, n, name, out_dir, doc_type, page_images): (p, n, name)
+                for p, n, name in jobs}
         for fut in as_completed(futs):
             p, n, name = futs[fut]
             try:

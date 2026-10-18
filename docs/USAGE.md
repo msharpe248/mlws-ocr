@@ -92,6 +92,7 @@ many pages, use `batch`.
 .venv/bin/mlws-ocr batch configs/neural.toml a.tif b.png report.pdf --out out/
 .venv/bin/mlws-ocr batch configs/neural.toml archive/ --recursive --workers 8 --out out/
 .venv/bin/mlws-ocr batch configs/neural.toml report.pdf --pdf-pages 0 1 2 --out out/
+.venv/bin/mlws-ocr batch configs/neural.toml scans/ --page-images --out out/   # each hOCR with its page image
 ```
 
 Inputs are image files (`.tif`, `.tiff`, `.png`, `.jpg`, `.jpeg`, `.bmp`),
@@ -108,6 +109,7 @@ For each page, `out/` gets:
 | `<name>.hocr` | always: blocks, lines and words with boxes and a probability per word ([HOCR.md](HOCR.md)) |
 | `<name>.tables.json`, `.tables.html`, `.tables.csv` | when the page has tables |
 | `<name>.picture_N.png` | each picture zone, cut from the original (neural profiles) |
+| `<name>.page.png` | with `--page-images`: the page as the engine saw it after cleanup, the frame of every box in the hOCR, which names it as its page image; about 0.5 to 1 MB a page |
 
 `<name>` is the file's name without its extension; a PDF page adds
 `_p<N>` (`report_p0`, `report_p1`, ...). Two inputs with the same name
