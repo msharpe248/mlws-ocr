@@ -214,6 +214,7 @@ sets back for the final word.
 | **choice** (or **judge**) | a small fitted model that decides, per line or per table, whether to keep a network's answer or the rules', §K |
 | **class** | one of the answers a network chooses among: a character, a token, yes/no |
 | **dev pool** | evaluation pages used while developing the engine, §0.4 |
+| **early stopping** | ending training, or keeping the epoch, where the held-back score was best, §2.1 |
 | **epoch** | one pass through all the training data, §0.3 |
 | **exact** (sequence) | a whole output right: every token of a table, every character of a line |
 | **fine-tune** | training a finished network further, usually on new data with a smaller learning rate, §8 |
@@ -227,9 +228,10 @@ sets back for the final word.
 | **label** (or **truth**) | the right answer for a training or evaluation example |
 | **learning rate** | how big each step's nudge to the parameters is, §2, §2.1 |
 | **loss** | one number for how wrong the network's guesses are on a batch; training makes it smaller, §2 |
-| **overfitting** | fitting the training examples better and better while doing no better, or worse, on new ones |
+| **overfitting** | fitting the training examples better and better while doing worse on new ones: the training loss falls while the held-back score falls (a score that only stops rising is weaker evidence), §0.3, §2.1 |
 | **parameter** (or **weight**) | one of the numbers training sets; a network's size is counted in them |
 | **profile** | a named configuration of the engine (`configs/*.toml`): which networks run, with which settings |
+| **range test** | a short run with the learning rate raised every step, to find a starting rate below where the loss falls fastest, §2.1 |
 | **schedule** | how the learning rate is lowered over a run: cosine, steps, one-cycle, §2.1 |
 | **step** | one batch's update of the parameters |
 | **synthetic** (or **drawn**) data | examples this repository draws itself, with exact truth, §0.2 |
@@ -341,7 +343,10 @@ initialisation (`√(2/fan_in)`) before a ReLU, Glorot/Xavier
 **Generalisation.** A network can memorise its training set. So every
 trainer holds some examples out — and holds out **whole pages**, not random
 lines, so the held-out lines are not near-copies of training lines from
-the same page — and keeps the epoch that scores best on them. **Weight
+the same page — and keeps the epoch that scores best on them, or a
+moving average of its weights (§8.6). How to read the training loss and
+the held-back score together, and what each can and cannot show, is
+§0.3 and §2.1. **Weight
 decay** (a small pull of every weight towards zero) discourages the
 extreme weights memorisation needs. The final judgement is not the
 trainer's number but the engine's own evaluation sets, which no training
@@ -472,6 +477,36 @@ so a 45-epoch run would not be this curve with 15 epochs added: it would
 wander for longer and climb later. Only a run of that length can say
 what it gains.
 
+**Reading a run.** The trainer prints two numbers each epoch, and the
+patterns they make mean different things:
+
+| training loss | held-back score | what it most likely means | what to do |
+|---|---|---|---|
+| falls | rises | still learning | carry on |
+| falls | flat | at the limit of the network's size or its data, or growing more confident on what it already reads; overfitting is possible but not shown | look at the held-back *loss*; a larger network or more data, not more epochs |
+| falls | falls, epoch after epoch | **overfitting**: memorising the training examples | stop; keep the best epoch; more data, weight decay, or a smaller network |
+| rises | falls | the rate is too high: the steps overshoot | lower the rate, or step back to the best epoch first (above) |
+| falls | jumps up and down | the rate is still high; the wander of the noisy gradient | wait for the schedule; do not judge single epochs |
+
+The table sequence reader's epochs 7 to 10 (§0.3) are the fourth row; the
+line readers' first thirteen epochs above are the fifth. The figure shows
+no third row: most real lines are repeated three times an epoch (the
+receipts more), so each was seen about 90 times in 30 epochs, and the
+held-back score was still rising at the end.
+
+**What the held-back score is.** Not the loss: the loss is a smooth stand-in
+the gradient can follow, and a network can lower it by growing more
+confident without reading one more line right. The line reader's trainer
+scores the held-back examples the way the engine is judged, by the
+reading itself: the share of held-back strips read exactly, by greedy
+decoding (the log calls it "word acc"; the real strips are mostly whole
+lines). It scores **real** lines from
+pages it never trained on (whole pages held back, §0.4), apart from the
+synthetic ones, because a network can learn the drawn lines' tidy ink
+better and better while the scanned ones stop improving. The held-back
+*loss*, the cleanest test of overfitting, is not logged by the trainers
+here; adding it to `train_seq.py` is a few lines.
+
 **What was measured here, and what was not.** In this project:
 
 - *Measured:* the line reader's size (the capacity pilot, RESEARCH
@@ -496,10 +531,26 @@ what it gains.
   2, 4 and 6 hours of gentle training for the budgets. Proposed on
   2026-10-17; not run.
 
-The trainer's curve chooses between epochs of one run. Whether a run's
-network is used is decided by the engine's evaluation sets (§7, "Adopt
-only what measures better"), and the two can disagree: `seq_line_v7b`'s
-half-point on the held-back lines never reached a page.
+**Three levels of evidence.** Each answers a different question, and
+each can disagree with the next:
+
+1. **The training loss** says how well the network fits what it learns
+   from. It says nothing about new data.
+2. **The held-back score** says how well it reads new lines from the
+   *same sources* (other pages of the same scan campaigns and datasets).
+   It chooses between epochs of one run and shows overfitting.
+3. **The engine's evaluation pages** say whether the whole engine reads
+   documents better: other collections, judged as page text, with the
+   layout, the decoder and the judge around the network. They decide
+   whether a network is used (§7, "Adopt only what measures better").
+
+The loss can fall while the held-back score stands still (growing
+confidence), and the held-back score can rise while the pages stand
+still: `seq_line_v7b`'s half-point on the held-back lines never reached
+a page, because the lines it learned to read better were not the ones
+the engine was losing. So the settings of §2.1 — the rate, the schedule,
+the epochs — are tested at the third level, by runs judged on real
+pages, not read off the first two.
 
 ## 3. Convolutions: networks for images
 
@@ -1728,6 +1779,18 @@ cells of 799 selection tables → `train_cellconf.py`.
 - I. Sutskever, O. Vinyals & Q. V. Le, "Sequence to sequence learning with
   neural networks" (beam search for a decoder), NIPS 2014.
 - D. Kingma & J. Ba, "Adam: a method for stochastic optimization", ICLR 2015.
+- L. N. Smith, "Cyclical learning rates for training neural networks"
+  (the range test), WACV 2017; L. N. Smith & N. Topin,
+  "Super-convergence: very fast training of neural networks using large
+  learning rates" (one-cycle), 2019.
+- I. Loshchilov & F. Hutter, "SGDR: stochastic gradient descent with warm
+  restarts" (cosine decay), ICLR 2017.
+- K. He, X. Zhang, S. Ren & J. Sun, "Deep residual learning for image
+  recognition" (step decay), CVPR 2016.
+- P. Goyal et al., "Accurate, large minibatch SGD: training ImageNet in 1
+  hour" (the rate scaled with the batch, warm-up), 2017.
+- L. Prechelt, "Early stopping — but when?", in *Neural Networks: Tricks
+  of the Trade*, Springer 1998.
 - K. He, X. Zhang, S. Ren & J. Sun, "Delving deep into rectifiers" (He
   initialisation), ICCV 2015; X. Glorot & Y. Bengio, "Understanding the
   difficulty of training deep feedforward neural networks", AISTATS 2010.
