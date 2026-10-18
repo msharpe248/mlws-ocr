@@ -141,6 +141,17 @@ zone files are needed for the held-out pools and the block evaluation.
 | prepare | `.venv/bin/python scripts/make_btp_set.py --csv <the CSV> --campaign "Historical Legal Reports" --n 40 --out data/ext/btp_legal/eval` (the page images are fetched from the CSV's URLs, politely; `--exclude-dir` keeps a draw disjoint from earlier ones). A campaign that mixes print with manuscripts is drawn from its print with `--format book` (the Library's OriginalFormat). Pamphlets and magazines come in every page size, so the page-width dpi guess is wrong for them (it would enlarge the small ones 2.3×); their text is already at the size of a 300-dpi page, so they are drawn with `--dpi 300 --max-dpi 0`: `make_btp_set.py --csv <the CSV> --campaign "African American Perspectives" --format book --n 40 --dpi 300 --max-dpi 0 --out data/ext/btp_aap/eval` |
 | lands in | `data/ext/btp_legal/{eval,eval100,harvest,harvest2/shard0N}/<AssetId>.tif + .txt`; `data/ext/btp_{nawsa,rumor}/harvest/`; `data/ext/btp_{copyright,playbills}/eval/`; `data/ext/btp_aap/{eval,harvest/shard0N}/`; the rest of the Legal Reports (5,994 pages) in `data/ext/btp_legal/harvest3/shard0N/` |
 
+### Omni Parse Bench (a test only)
+
+| | |
+|---|---|
+| what | Datalab's document-parsing benchmark: 2,937 pages (one-page PDFs and images) from 2,343 documents in 22 suites, 16,288 pass/fail tests (text present, order, repeats, table cells under their headings, a layout block's kind), each test tagged by its content |
+| used for | an outside scorecard against Tesseract on the English printed pages (1,423); never harvested or trained on |
+| licence | scorer Apache 2.0; tests CC BY 4.0; each document under its source's licence (the dataset's `licenses/`) |
+| where from | <https://huggingface.co/datasets/datalab-to/omni_parse_bench>; scorer <https://github.com/datalab-to/omni_parse_bench> (`omni-parse-bench[benchmark]==0.2.0`) |
+| prepare | the scorer in its own venv (`data/omni_parse_bench/.venv`, see `scripts/eval_omni_parse_bench.py`), then `eval_omni_parse_bench.py subset` and `render` |
+| lands in | `data/omni_parse_bench/{manifest.parquet,gold/,pages/,licenses/}`, `subset.csv`, `png/<page_id>.png`, engine outputs in `runs/<name>/` |
+
 ## 4. Tables
 
 ### FinTabNet.c (tables from annual reports)
@@ -354,6 +365,8 @@ them apart three ways:
   held-out rows are held out from decisions, not from training, until the
   readers are retrained. `doe3.3B` and `rep.3B` are the clean test: the
   harvests refuse them whole, with or without `--no-guard`.
+- **Omni Parse Bench**: a test only; `harvest_excluded` refuses any path
+  under `data/omni_parse_bench` before anything else.
 - **External sets**: each is split once into `eval` and `harvest`
   directories; the line harvest takes `--eval-dir` and refuses those stems;
   the Library of Congress draws take `--exclude-dir`.

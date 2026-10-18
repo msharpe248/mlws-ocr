@@ -56,6 +56,9 @@ def eval_pages_set(root: Path) -> set:
 
 
 CLEAN_SETS = ("doe3.3B", "rep.3B")
+# outside benchmarks, test only: no harvest reads them (their licences, and
+# their figures, depend on it; docs/MEASUREMENT.md)
+TEST_ONLY = ("omni_parse_bench",)
 
 
 def page_id(name: str) -> str:
@@ -76,6 +79,8 @@ def harvest_excluded(root: Path, guard: bool = True) -> set:
     root = Path(root)
     if root.name in CLEAN_SETS:
         sys.exit(f"{root} is a clean test set: no decision and no training touches it")
+    if any(part in TEST_ONLY for part in root.resolve().parts):
+        sys.exit(f"{root} is an outside benchmark, test only: no training touches it")
     if not guard:
         return set()
     from eval_layout import heldout_pairs   # eval_layout imports this module

@@ -1,6 +1,6 @@
 """The training harvests' contamination guard (scripts/harvest_glyphs.py
 harvest_excluded): evaluation draws and the held-out pool are refused in
-every scan of the same documents, and a clean test set is refused whole."""
+every scan of the same documents, a clean test set and an outside benchmark are refused whole."""
 import sys
 from pathlib import Path
 
@@ -35,3 +35,9 @@ def test_a_clean_test_set_is_refused_even_unguarded(tmp_path):
     with pytest.raises(SystemExit):
         harvest_excluded(tmp_path / "rep.3B", guard=False)
     assert harvest_excluded(tmp_path / "other", guard=False) == set()
+
+
+def test_an_outside_benchmark_is_refused_even_unguarded(tmp_path):
+    (tmp_path / "omni_parse_bench" / "png").mkdir(parents=True)
+    with pytest.raises(SystemExit):
+        harvest_excluded(tmp_path / "omni_parse_bench" / "png", guard=False)

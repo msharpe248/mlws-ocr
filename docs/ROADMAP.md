@@ -148,6 +148,73 @@ pre-trained besides, and its training is unpublished). Cheapest first:*
   line's own components needs no network, but the reader must train on
   strips cut the same way: a new harvest and retraining. Lowest priority.
 
+*Added 2026-10-18, an outside benchmark (the owner: "do it now, see how far
+you get"):*
+- **Omni Parse Bench** (Datalab; github.com/datalab-to/omni_parse_bench,
+  scorer Apache 2.0, tests CC BY 4.0, documents per source): 2,937 pages,
+  16,288 pass/fail tests -- text present, A before B, a line N times, a cell
+  under its headings, a block's kind. Useful to us for what our scores do not
+  see: reading order on multi-column pages and table cells, on pages we never
+  developed on, with Tesseract run beside us under the same adapter. Reported
+  on the English printed subset by family (text, tables) and tag, never as
+  its headline (its layout family needs heading labels we do not make; much
+  of it is handwriting, rotation, maths and 91 other languages). Some tests
+  were made or verified with Gemini and Claude: said with any figure. Test
+  only: its pages are never harvested or trained on. Adapter and scorer:
+  `scripts/eval_omni_parse_bench.py` (its own venv).
+
+*Added 2026-10-18, what the first run taught (neural profile at 5d968b9 and
+Tesseract 5.5.3, the English printed subset: 1,423 pages, 9,000 tests). The
+owner: "I would love to be able to beat Tesseract on that." Text 38.2 against
+Tesseract's 40.9 (2,277 tests); tables 14.6 against 0 (Tesseract makes none;
+4,868 tests); layout 63.7 against 52.0 (1,132 tests). Ahead on synth_copies
+45.8/36.7, docparsing_images 44.1/27.7, forms_federal 56.1/36.8; behind on
+olmo_long_tiny_text 45.7/71.9, tiny_plans 49.0/82.0, olmo_old_scans 23.8/42.9,
+rotation_skew 24.0/28.2. Most to gain on text first:*
+- **First, a dev/test split**, so that beating Tesseract is measured and not
+  tuned: the subset split by document (fixed seed), one half for diagnosis
+  and every option's trial, the other measured once per decision, as rep.3B
+  and doe3.3B are. Both engines reported on the test half only.
+- **Small type the profiles do not enlarge.** Small PDF pages of small print
+  (olmo_long_tiny_text: at 300 dpi the text is 6-9 px high) and low-resolution
+  image pages declaring 300 dpi; on one page the neural profile read 35 words
+  of garbage where Tesseract read 1,018. `magnify.target_px` is off because it
+  fires on noisy scans (RESEARCH 2026-09-20/25). The first trial
+  (`target_px = 20`, 12 workers) ran the Mac out of memory -- noisy old scans
+  enlarged 3x, 14-23 GB a worker -- and panicked it. Next: measure each
+  page's peak memory alone, cap the enlarged size (`magnify.max_page_px` or a
+  pixel budget), then try the size trigger on the dev half; a second road is
+  measuring the type size from the line finder's x-height, which noise does
+  not shrink.
+- **A sentence must be read nearly exactly.** A text test is a whole
+  sentence with 0-3 differences allowed, so one wrong character in a long
+  sentence fails it: 954 of the neural profile's 994 failed "present" tests
+  are text not found, and 378 of 390 failed order tests are a sentence not
+  found, only 12 out of order. Reading order is not the gap; character
+  accuracy inside lines is. That makes the reader work already
+  under way (guarded readers, the training-settings tests above) the main lever
+  here as on UNLV; the benchmark is a second scorecard for it.
+- **Old and degraded scans** (olmo_old_scans 23.8/42.9, degraded tag
+  25.1/31.2): look at the dev half's pages before naming a cause --
+  binarisation of faint print, bleed-through, the line finder on curved
+  book pages -- as with '3 x 5' (lesson: look before blaming).
+- **Turned pages** (rotated tag 4.0 and Tesseract 4.6: both fail): the
+  quarter- and half-turn item above (from Indra) is this tag's whole score.
+- **Tables: header cells and multi-line cells.** Our hOCR tables have no
+  `<th>`, so the scorer takes the top row as the headings; a heading printed
+  on two lines ("Mean buccal plate / bone height (mm)") becomes two rows and
+  the cells below are "not under the headings" (1,038 tests, and 398 more
+  with a section too). Mark header rows as `<th>` where the table reader knows
+  them, and join a header cell's lines into one cell. Next most common: no
+  cell matching (1,160: misread or split cells) and no table found (902).
+- **Headings in layout.** Most of the layout family's failures are blocks
+  the tests call heading, which we label text: a heading label (hOCR's
+  `ocr_title` / `ocr_section` family) from the type size and line count
+  already measured would move it, and the hOCR would gain it too.
+- **Time.** A mean 66 s a page a worker (12 workers, 2 h 17 min for the
+  subset); the large-format plans 800-1,080 s a page. The fast-profile item
+  above applies.
+
 *Added 2026-10-17, training settings (NEURAL_NETWORK_THEORY §2.1; long
 training, each run put to the owner first):*
 - The line reader's epoch budget: one seed at 15, 30 and 45 epochs, each
