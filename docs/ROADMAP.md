@@ -213,6 +213,10 @@ rotation_skew 24.0/28.2. Most to gain on text first:*
   stuff. That's obviously for vision model systems maybe." Photographs and
   heavily damaged pages are out of focus. **ADOPTED in neural, v0.18.21**
   (the owner, 2026-10-18: "Adopt it"), CORD's and SROIE's loss stated.
+  *The test half, measured once with v0.18.21:* text 49.3 against
+  Tesseract's 43.0 (1,032 tests; the engine before, about 40.0), tables
+  16.4 / 0 and layout 63.7 / 50.3, both unchanged. Beaten on text; still
+  behind on tiny_plans (50.0 / 80.4) and old scans (25.0 / 42.9).
 - **A sentence must be read nearly exactly.** A text test is a whole
   sentence with 0-3 differences allowed, so one wrong character in a long
   sentence fails it: 954 of the neural profile's 994 failed "present" tests
