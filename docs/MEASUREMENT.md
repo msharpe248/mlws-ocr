@@ -122,6 +122,13 @@ held-out letters, legal pages and newspaper pages and 24 of the 30 magazine
 pages lent lines to the readers. Call these pages "held out from
 decisions", never "unseen".
 
+How much that flatters them was measured on 2026-10-18 (RESEARCH, guarded
+line readers): the reader recipe retrained on guarded lines only lost 0.2-0.6
+word on the held-out rows and as much (0.3-0.7) on sets the guard never
+touched, the clean annual reports' development pool among them. The loss is
+the 8,904 lines taken away, not the held-out pages becoming unseen: the
+flattery is too small to see at this sample size.
+
 The six held-out magazine pages no harvest used are not a clean sample
 either: the harvests processed them and kept no line because no line of the
 engine's reading matched the truth, so they were selected by the engine's
