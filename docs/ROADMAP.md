@@ -192,7 +192,7 @@ rotation_skew 24.0/28.2. Most to gain on text first:*
   are text not found, and 378 of 390 failed order tests are a sentence not
   found, only 12 out of order. Reading order is not the gap; character
   accuracy inside lines is. That makes the reader work already
-  under way (guarded readers, the training-settings tests above) the main lever
+  proposed (the training-settings tests above; guarded readers closed 2026-10-18) the main lever
   here as on UNLV; the benchmark is a second scorecard for it.
 - **Old and degraded scans** (olmo_old_scans 23.8/42.9, degraded tag
   25.1/31.2): look at the dev half's pages before naming a cause --
