@@ -99,6 +99,65 @@ adopted: it changed few decisions and did not hold out (RESEARCH).
 - Other languages (de / fr / es / it): the synthetic recipe, and evaluation
   pages with truth to find.
 
+*Added 2026-10-18 (the owner: "add what you think is useful to explore"),
+from reading Datalab's Indra OCR (github.com/datalab-to/indra: a CPU engine
+of small networks, a 1M-parameter line recognizer, 0.23 s a page as
+reported; ideas only -- its weights are under a non-competitive licence,
+pre-trained besides, and its training is unpublished). Cheapest first:*
+- **Lines it cannot read emit no text.** Indra keeps a line under 0.5 mean
+  confidence as a box with no text: checkboxes, rules and empty form fields
+  otherwise read as "-", "I", "1". Our word `p_correct` is calibrated; an
+  option dropping a line (or a word run) under a threshold, measured on
+  FUNSD, CORD, SROIE, the forms and every text set (an insertion costs the
+  edit-distance score as much as a miss).
+- **Born-digital PDFs.** A PDF page with no embedded image fails today
+  (`no embedded image found`, USAGE §7). Indra reads the text layer where it
+  passes checks and OCRs the rest. pypdf is already a dependency: its text
+  with positions, checked (glyphs mapped to text, not a broken font map),
+  into the same hOCR and JSON; scanned pages unchanged.
+- **Pages turned a quarter or half turn.** Only table cells are read turned
+  today (`decode.lineread` `_read_rotated_cells`); a page scanned sideways or
+  upside down reads as junk. Indra's orientation network: rotated content
+  3.5% -> 24.3% on its benchmark. A classic way, no new network: read a
+  sample of lines at each of the four turns and keep the turn the reader is
+  surest of (the Tesseract OSD idea, with our calibrated confidence). Needs
+  turned pages made from the dev sets to measure; no evaluation set is
+  turned.
+- **A fast profile.** Indra's page is 0.23 s with a recognizer of our
+  reader's size; ours is 12.5 s (USAGE §2), spent on the classic glyph
+  recognition and the two decode passes, not the networks. The system
+  paper's Table 2 has the judge worth at most 0.2 / 1.1 on whole pages over
+  the reader alone. Profile a page first; then a profile that reads lines
+  with the reader and runs the classic recognition only where the reader is
+  unsure, measured for speed and accuracy on every set.
+- **A learned line finder as a second opinion.** Indra's detector marks a
+  core band (the middle 40% of each line's height, the ends shrunk) and
+  regresses at each core pixel the distance to the line's top and bottom, at
+  half resolution; lines are the core's connected components. Simple,
+  readable, trainable from our synthetic pages and harvested line boxes
+  (the table detector's machinery, `layout/tabledet.py`, is close).
+  Motivation: report pages cut into bands (9529_025), text inside pictures
+  (Indra's finder went 12.5% -> 51% there). A project with long training.
+- **Text cues for reading order.** Indra's order model reads line geometry
+  and the text: ends with a hyphen, ends with sentence punctuation, starts
+  with a capital, a bullet or a number. Cheap evidence for the block order
+  and the gutter sections, e.g. a column ending mid-sentence continues.
+- **Neighbouring lines' ink masked out of a line's strip** (Indra's
+  CenterMask). Our strips keep everything within 0.6 x-height of the box
+  (`glyph/strip.py`), a neighbour's descenders included. Keeping only the
+  line's own components needs no network, but the reader must train on
+  strips cut the same way: a new harvest and retraining. Lowest priority.
+
+*Added 2026-10-17, training settings (NEURAL_NETWORK_THEORY §2.1; long
+training, each run put to the owner first):*
+- The line reader's epoch budget: one seed at 15, 30 and 45 epochs, each
+  with its own cosine, and the same seed with a step-back rule (back to the
+  best epoch and halve the rate when the held-back score falls by more than
+  the usual wobble), all judged on the evaluation pages.
+- A learning-rate range test for each trainer (minutes each).
+- Log the held-back loss beside the held-back score in `train_seq.py`, the
+  cleaner sign of overfitting.
+
 ## Tables (from 2026-09-28; the focus until 2026-10-12)
 
 **Scope (the owner's decision, 2026-10-03): photographed receipts are parked.**
