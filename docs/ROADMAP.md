@@ -208,10 +208,11 @@ rotation_skew 24.0/28.2. Most to gain on text first:*
   `target_px = 20`, `max_page_px = 2500` and the dpi declared 300, the dev
   half's text rises 36.7 -> 46.2, past Tesseract's 39.2; every full-page set
   of ours is unchanged, but CORD's photographed receipts collapse (texture
-  measured as type, enlarged, and kept as junk). Next: a gate that tells a
-  photograph or textured background from print (the spread of component
-  heights, the share of glyph-like components, the background's variance),
-  measured on CORD, SROIE and the dev half, before any of it is a default.
+  measured as type, enlarged, and kept as junk). No gate for photographs:
+  the owner, 2026-10-18: "I don't want to focus too much on crazy damage
+  stuff. That's obviously for vision model systems maybe." Photographs and
+  heavily damaged pages are out of focus; the option is the owner's to
+  adopt with CORD's loss stated.
 - **A sentence must be read nearly exactly.** A text test is a whole
   sentence with 0-3 differences allowed, so one wrong character in a long
   sentence fails it: 954 of the neural profile's 994 failed "present" tests
@@ -220,7 +221,8 @@ rotation_skew 24.0/28.2. Most to gain on text first:*
   accuracy inside lines is. That makes the reader work already
   proposed (the training-settings tests above; guarded readers closed 2026-10-18) the main lever
   here as on UNLV; the benchmark is a second scorecard for it.
-- **Old and degraded scans** (olmo_old_scans 23.8/42.9, degraded tag
+- **Old and degraded scans** (lowest: out of focus, the owner 2026-10-18;
+  olmo_old_scans 23.8/42.9, degraded tag
   25.1/31.2): look at the dev half's pages before naming a cause --
   binarisation of faint print, bleed-through, the line finder on curved
   book pages -- as with '3 x 5' (lesson: look before blaming).
