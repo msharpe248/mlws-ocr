@@ -148,10 +148,23 @@ tables, on one GPU, run gently for 17 hours.
   likely have saved those epochs. How the rate, its schedule and the
   number of epochs are chosen is §2.1.
 
-When the training loss keeps falling but the held-back score stops
-rising, or falls, the network is **overfitting**: memorising its training
-examples instead of learning the task. That is the moment to stop. Here
-it never quite came; the score was still rising slowly at epoch 15.
+When the training loss keeps falling but the held-back score **falls**,
+the network is **overfitting**: memorising its training examples instead
+of learning the task. That is the moment to stop. Here it never quite
+came; the score was still rising slowly at epoch 15.
+
+A held-back score that only stops rising is weaker evidence. It is the
+first sign of overfitting, but a network can also have learned all its
+size or its data allow, and the falling loss then comes from growing
+more confident on examples it already gets right. The clearer signal is
+the **loss on the held-back examples**: when it rises while the training
+loss falls, the two are pulling apart, which is overfitting by
+definition. The trainers here log the training loss and the held-back
+*score*, not the held-back loss, so a flat score is read with that in
+mind. And a held-back score that keeps rising does not guarantee that
+the engine improves: the held-back examples come from the same sources
+as the training data, while the engine's evaluation pages may not
+(§2.1, last paragraph).
 
 A run that continues from a finished network, usually with new data and a
 smaller learning rate, is a **fine-tune** (§8). The reader above was
