@@ -186,6 +186,24 @@ rotation_skew 24.0/28.2. Most to gain on text first:*
   pixel budget), then try the size trigger on the dev half; a second road is
   measuring the type size from the line finder's x-height, which noise does
   not shrink.
+  *Diagnosed 2026-10-18 on the dev half:* the memory went to three
+  large-format plans and one old scan (17-30 Mpx pages enlarged to 120-150
+  Mpx); the old scans are NOT small type (23-65 px). `magnify.max_page_px =
+  3400` keeps every such page out and lets the tiny-text pages through (book
+  spreads 1,300 px wide, 7-px type, scaled 2.86x to 9 Mpx). But magnifying
+  them barely helped (7 pages: 485 -> 785 words; Tesseract about 1,000 a
+  page), for two reasons found on one page (17_pg2): (1) magnify scales the
+  DECLARED dpi with the page, and these files declare 300 dpi for a scan
+  that is really about 100, so after a 2.86x enlargement the page claims
+  858 dpi and every `_300dpi` threshold expects glyphs 2.86x too big (83
+  lines found, 10 read); the same page enlarged outside the engine and
+  declared 300 dpi reads 481 words with no hint. Fix: an option to set the
+  dpi to `to_dpi` after a type-size enlargement (the type then IS a 300-dpi
+  page's), off until measured. (2) It is a two-page book spread, and with no
+  hint the XY-cut finds no gutter (the spine's marks fill it): one block,
+  lines across both pages; with the newspaper hint the same page reads 739
+  words. Fix: detect a spread (a tall dark or broken band near the middle,
+  text on both sides) and cut there first.
 - **A sentence must be read nearly exactly.** A text test is a whole
   sentence with 0-3 differences allowed, so one wrong character in a long
   sentence fails it: 954 of the neural profile's 994 failed "present" tests
