@@ -16,8 +16,12 @@ words). **ADOPTED in neural, v0.18.20** (the owner's decision, 2026-10-17;
 RESEARCH 2026-10-17). The clean annual reports, measured once after the
 decision: 75.0 / 73.3 -> 77.9 / 76.9 pooled (the LSTM 86.1 / 84.6); clean DOE
 86.3 / 79.6 -> 86.2 / 79.5. Left: one reverse-video page, statements with
-wrapped labels, and word recall inside lines. NEXT: the system paper's
-refresh (frozen at v0.18.16).
+wrapped labels, and word recall inside lines. The system paper is refreshed
+at v0.18.20 (2026-10-17: every profile re-measured on its nine sets, pure and
+classic byte for byte as at v0.18.16; the clean sets release by release in
+its Table 3b; RESEARCH). Next candidates: the report pages still read in
+pieces (9529_025, broken by v0.18.17), statements with wrapped labels,
+reverse video.
 
 ## Earlier: the line reader's real data (2026-10-13 to 15, the owner's go-ahead)
 

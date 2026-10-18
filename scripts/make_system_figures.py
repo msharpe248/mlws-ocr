@@ -36,18 +36,18 @@ from make_doc_figures import BLUE, GREEN, INK, LINE, MUTED, ORANGE, PURPLE, SVG 
 OUT = ROOT / "docs" / "papers" / "img" / "system"
 PAGE = ROOT / "data/ext/btp_legal/eval/585428.tif"   # a Library of Congress typescript page
 
-# char / word accuracy (%), v0.18.16, the sets no decision has used (paper §7, Table 2)
+# char / word accuracy (%), v0.18.20 (paper §7, Table 3; Tesseract measured once, at v0.18.16)
 RESULTS = {
     # set: (neural, Tesseract LSTM, Tesseract legacy), each (char, word)
-    "DOE reports (clean)*": ((85.9, 78.1), (86.6, 77.5), (86.0, 76.2)),
-    "annual reports (clean)*": ((72.2, 68.4), (86.1, 84.6), (84.3, 83.3)),
-    "letters (held out)": ((93.9, 91.1), (93.2, 91.0), (92.4, 88.8)),
-    "legal (held out)": ((94.3, 90.7), (89.3, 83.9), (90.0, 87.8)),
-    "newspapers (held out)": ((89.1, 85.6), (87.6, 84.1), (87.1, 82.4)),
-    "magazines (held out)": ((83.8, 75.7), (78.5, 73.7), (77.9, 71.3)),
-    "business (rendered)": ((97.9, 96.7), (71.5, 69.3), (71.5, 68.8)),
-    "LoC typescripts": ((87.5, 73.7), (78.8, 66.3), (57.5, 42.8)),
-    "FUNSD forms": ((66.9, 45.0), (66.4, 47.2), (54.8, 32.0)),
+    "DOE reports (clean)*": ((86.2, 79.5), (86.6, 77.5), (86.0, 76.2)),
+    "annual reports (clean)*": ((77.9, 76.9), (86.1, 84.6), (84.3, 83.3)),
+    "letters (held out)": ((94.3, 92.1), (93.2, 91.0), (92.4, 88.8)),
+    "legal (held out)": ((94.6, 91.3), (89.3, 83.9), (90.0, 87.8)),
+    "newspapers (held out)": ((89.4, 86.3), (87.6, 84.1), (87.1, 82.4)),
+    "magazines (held out)": ((84.5, 77.8), (78.5, 73.7), (77.9, 71.3)),
+    "business (rendered)": ((98.1, 97.3), (71.5, 69.3), (71.5, 68.8)),
+    "LoC typescripts": ((89.2, 77.7), (78.8, 66.3), (57.5, 42.8)),
+    "FUNSD forms": ((67.8, 47.0), (66.4, 47.2), (54.8, 32.0)),
 }
 
 
@@ -210,7 +210,7 @@ def fig_results():
     W = lab_w + 2 * pan_w + 80
     top = 78
     s = SVG(W, top + len(sets) * grp + 44)
-    s.text(20, 28, "mlws-ocr (neural profile) against both Tesseract engines, v0.18.16",
+    s.text(20, 28, "mlws-ocr (neural profile) against both Tesseract engines, v0.18.20",
            size=16, anchor="start", weight="700")
     for k, (name, col) in enumerate(engines):
         s.rect(20 + k * 170, 42, 12, 12, fill=col, stroke=col)

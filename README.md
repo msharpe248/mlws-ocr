@@ -626,8 +626,9 @@ receipts' lines without case, whose all-capitals truth had taught the readers
 to read small letters as capitals. v0.18.20 took up the annual reports' gap:
 two-column sections read before the table spanning the page beneath them, and
 financial statements read row by row by their figures (60 development pages
-79.9 -> 83.8 characters, the LSTM 84.7). Next is the system paper's refresh
-([docs/papers/readable-self-trained-ocr.md](docs/papers/readable-self-trained-ocr.md), measured at v0.18.16). Tables were the focus
+79.9 -> 83.8 characters, the LSTM 84.7). The system paper
+([docs/papers/readable-self-trained-ocr.md](docs/papers/readable-self-trained-ocr.md)) is measured at v0.18.20, with the
+clean sets followed release by release from v0.18.16. Tables were the focus
 before ([docs/TABLES.md](docs/TABLES.md)): the generated business
 sets read at 0.91-0.97 TEDS, real financial tables at 0.88 and scientific
 tables at 0.88 (on tables no decision looked at). Receipts are parked for a
