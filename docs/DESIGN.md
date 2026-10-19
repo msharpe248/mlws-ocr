@@ -136,6 +136,10 @@ negative on legal pages.
   columns only (`blocks.gutter_sections`), and the output reads a financial
   statement row by row, a block of figures with the label block sharing its
   baselines (`output.align_figures`, `layout/rows.py` `figure_groups`).
+  Since v0.18.22 (neural) a wide page with no hint that is a two-page book
+  spread is cut at its spine first, a narrow band of little ink near the
+  middle (`blocks.gutter_spread`, `spread_spine`), and each page segmented
+  alone.
 
 **tables (`grid`).** Ruling intersections become a cell grid; decoded
 words are later placed into cells by centre. Unruled tables are handled

@@ -354,6 +354,22 @@ except receipts, which now read each price on its item's line (CORD
 59.1 → 61.6, SROIE 66.9 → 67.6), and two FUNSD forms, slightly up. Both
 options are in the workbench's layout switches.
 
+**A two-page book spread (in the neural profile since v0.18.22).** A book
+scanned open is one image of two pages, and the band between them is not
+empty: the spine's shadow, the binding's marks and the pages' curl put ink
+in it, so the XY-cut finds no gutter there and reads every line across both
+pages. `blocks.gutter_spread` reads the same column profile the XY-cut cuts
+by, for low density instead of emptiness (`spread_spine`): on a page with no
+hint at least 1.15 times as wide as it is tall, the ink per column smoothed
+over 100 px (at 300 dpi), its lowest point in the middle 35-65% of the width
+at most 0.12 of each page's body, and the low band about it at most 12% of
+the width. That last test keeps a receipt whole: its items on the left and
+prices on the right leave 40% of the width nearly empty, and cut there its
+prices were read after all its items. Each half is then segmented alone,
+left before right. On Omni Parse Bench's dev half the tiny-text spreads read
+50.8 → 60.5% of their text tests (one page 490 → 743 words) and no other
+test changed; our sets that can hold such a page read as before.
+
 ## 8. Lines inside a block
 
 ![Lines in a block](img/segment/lines.png)

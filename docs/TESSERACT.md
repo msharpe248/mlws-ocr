@@ -35,7 +35,7 @@ install carries (`tessdata_fast`).
 | DOE reports, clean | 30 UNLV DOE technical reports never opened before (no hint; pooled) | 86.2 / **79.5** | 86.0 / 76.2 | **86.6** / 77.5 | level: 0.4 characters behind the LSTM, 2.0 words ahead (86.3 / 79.6 at v0.18.19, 86.0 / 78.8 at v0.18.18, 85.5 / 77.8 at v0.18.17, 85.9 / 78.1 at v0.18.16) |
 | annual reports, clean | 30 UNLV annual reports never opened before (no hint; pooled) | 77.9 / 76.9 | 84.3 / 83.3 | **86.1 / 84.6** | behind both by 6 to 8 characters (75.0 / 73.3 at v0.18.19, before report sections and financial statements were read in their order; 74.8 / 72.7 at v0.18.17 and v0.18.18): 72.2 / 68.4 at v0.18.16, when two-column pages were read across their gutter; since v0.18.17 columns are found without a hint. Left: financial statements, sections across both columns, a reverse-video page read as nothing |
 
-These are the README's figures (the neural profile, v0.18.21). Every
+These are the README's figures (the neural profile, v0.18.22). Every
 row is the mean over its pages, except the two clean rows: many DOE pages
 are figures whose truth is only the caption, so the per-page mean is
 meaningless there (−11% neural, +19% LSTM) and those rows pool the errors

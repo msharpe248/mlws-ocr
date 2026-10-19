@@ -80,17 +80,19 @@ scoreboard and its history are in `docs/DESIGN.md` §8.
 | legal reports | real typescript and printed office pages, Library of Congress | 70.5 / 47.3 | **89.2 / 77.7** | 57.5 / 42.8 | 78.8 / 66.3 |
 | blocks | a paragraph handed in alone, no layout (broad-30's text zones) | 94.4 / 85.8 | **98.7 / 97.4** | 98.2 / 96.6 | 98.5 / 96.5 |
 
-The neural column is v0.18.21 (18 October 2026): v0.18.19's line readers,
+The neural column is v0.18.22 (18 October 2026): v0.18.19's line readers,
 which learned the receipts' letters without their case, report pages read
 in their sections and statements read row by row by their figures (v0.18.20),
 and small images of small type enlarged and declared 300 dpi (v0.18.21: every
 full-page row above unchanged; FUNSD 47.0 → 46.4 word by the page mean, 46.3 →
 46.7 pooled; the scanned receipts lose 2 words in a hundred and photographed
-ones read as junk -- receipts and photographs are not this engine's documents). On an outside
+ones read as junk -- receipts and photographs are not this engine's documents),
+and a two-page book spread cut at its spine (v0.18.22: every row above unchanged). On an outside
 benchmark, Omni Parse Bench's English printed pages (its test half: 698 pages
 never developed on, measured once), v0.18.21 passes 49.3% of the text tests
 to Tesseract 5.5.3's 43.0% (40.0% before v0.18.21), 16.4% of the table tests
-(Tesseract makes no tables) and 63.7% of the layout tests to 50.3%.
+(Tesseract makes no tables) and 63.7% of the layout tests to 50.3%
+(v0.18.22: 49.3%, 16.4% and 63.4%; the test half holds no two-page spread).
 † One page of the eight (8011_012) has its right-hand column clipped by the
 scanner and left out of UNLV's truth zones; the new readers read it and every
 word is scored as an insertion. Without that page mag-8 is level (86.0 / 79.4

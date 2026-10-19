@@ -208,7 +208,9 @@ rotation_skew 24.0/28.2. Most to gain on text first:*
   narrow low-ink band in the middle of a wide page with no hint, cut first.
   Dev half on v0.18.21: text 46.2 -> 47.1, all on the tiny-text spreads
   (50.8 -> 60.5), nothing lost; our reachable sets identical, CORD level.
-  Awaiting the owner.
+  **ADOPTED in neural, v0.18.22** (the owner, 2026-10-18). The test half,
+  measured once after: no spread among its landscape pages; text and tables
+  unchanged, layout 63.7 -> 63.4 (2 tests).
   *Measured 2026-10-18* (`magnify.type_sets_dpi`, RESEARCH): with
   `target_px = 20`, `max_page_px = 2500` and the dpi declared 300, the dev
   half's text rises 36.7 -> 46.2, past Tesseract's 39.2; every full-page set

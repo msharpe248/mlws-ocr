@@ -94,6 +94,10 @@ gutter_sections = true         # ...and two-column sections read before the tabl
                                # them, beside prose columns only (v0.18.20, the owner's decision; with
                                # output.align_figures: annual-report dev pages 79.94 / 76.53 -> 83.79 / 80.76 pooled,
                                # 17 up, none down; every other text set identical but receipts; RESEARCH 2026-10-17)
+gutter_spread = true           # a wide page with no hint that is a two-page book spread is cut at its spine first and
+                               # each page read alone (v0.18.22, the owner's decision; Omni Parse Bench dev half text
+                               # 46.2 -> 47.1, all on the tiny-text spreads, none lost; our reachable sets identical,
+                               # CORD level; RESEARCH 2026-10-18)
 
 [stage.lines]
 impl = "profile"
