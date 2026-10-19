@@ -306,6 +306,46 @@ def _segment(binary, box, seg, axis, min_gap_x, min_gap_y, noise_frac, out,
            min_col_h, gutters)
 
 
+def spread_spine(binary: np.ndarray, s: float, min_aspect: float = 1.15, band_300dpi: float = 100,
+                 ratio: float = 0.12, max_low: float = 0.12) -> int | None:
+    """The spine of a two-page book spread, as a column, or None.  A spread
+    scanned as one image has a gutter the XY-cut cannot find: the spine's
+    shadow, the binding's marks and the pages' curl put ink in the band
+    between the two pages, so no column of it is empty and both pages'
+    lines are read across as one (Omni Parse Bench's small book spreads:
+    39 words read of a page holding over a thousand, 2026-10-18).  The test
+    is the vertical projection profile's, as in the XY-cut (Nagy & Seth,
+    ICPR 1984), but on density, not emptiness: on a page at least
+    ``min_aspect`` times as wide as it is tall, the ink per column smoothed
+    over ``band_300dpi`` px, its lowest point in the middle 35-65% of the
+    width, at most ``ratio`` of the median density of each page's body
+    (8-33% and 67-92% of the width).  And the low band must be narrow:
+    the columns about it under half that density at most ``max_low`` of
+    the width.  Between two pages it is the margins' width (5-10%); a
+    receipt's items on the left and prices far right leave 40% of the
+    width nearly empty, and cut there its prices were read after all its
+    items (CORD test_0028: 100 -> 78 char).  Book-scanning tools split
+    spreads the same way before anything else (ScanTailor's "split pages"
+    step)."""
+    H, W = binary.shape
+    if W < min_aspect * H:
+        return None
+    from scipy import ndimage
+    col = ndimage.uniform_filter1d(binary.sum(axis=0).astype(float), max(3, int(band_300dpi * s)))
+    a, b = int(0.35 * W), int(0.65 * W)
+    x = a + int(np.argmin(col[a:b]))
+    body = min(np.median(col[int(0.08 * W):int(0.33 * W)]), np.median(col[int(0.67 * W):int(0.92 * W)]))
+    if body <= 0 or col[x] > ratio * body:
+        return None
+    low = col <= 0.5 * body
+    x0, x1 = x, x
+    while x0 > 0 and low[x0 - 1]:
+        x0 -= 1
+    while x1 < W - 1 and low[x1 + 1]:
+        x1 += 1
+    return x if x1 - x0 + 1 <= max_low * W else None
+
+
 def dash_blocks(binary: np.ndarray, boxes: list, min_px: int, min_aspect: float = 1.5,
                 min_fill: float = 0.7) -> list[list[int]]:
     """DASHES the block finders drop as slivers: a solid flat bar (filling
@@ -382,6 +422,9 @@ class XYCutBlocks(Stage):
                                   # beyond counted as the same gutter only where two-columned at it
                                   # (_gutter_rows sections=True): report pages whose two-column sections
                                   # sit above and below a table across the page (2026-10-17)
+        "gutter_spread": False,   # a page with NO hint that is a two-page book spread (spread_spine: wide,
+                                  # little ink in a band near the middle) is cut at its spine first and
+                                  # each page segmented alone, left then right (2026-10-18)
         "river_retry_blocks": 80, # a page shredding into this many blocks
                                   # means whitespace rivers (monospace text
                                   # stacks spaces into full-height channels;
@@ -441,14 +484,20 @@ class XYCutBlocks(Stage):
             gutters = (boxes, int(p["gutter_narrow_300dpi"] * s), int(p["gutter_narrow_h_300dpi"] * s),
                        max(0, int(p["gutter_rows_300dpi"] * s)), bool(p["gutter_sections"]))
 
+        H, W = page.binary.shape
+        regions = [[0, 0, W, H]]
+        spine = spread_spine(page.binary, s) if p["gutter_spread"] and not doc_type else None
+        if spine is not None:
+            regions = [[0, 0, spine, H], [spine, 0, W, H]]
+
         def cut(gx):
             found: list[list[int]] = []
-            _xycut(page.binary,
-                   [0, 0, page.binary.shape[1], page.binary.shape[0]],
-                   max(4, int(gx * s)),
-                   max(4, int(gap_y * s)),
-                   p["noise_frac"], found, column_first_h,
-                   int(min_col_h * s), gutters)
+            for r in regions:
+                _xycut(page.binary, list(r),
+                       max(4, int(gx * s)),
+                       max(4, int(gap_y * s)),
+                       p["noise_frac"], found, column_first_h,
+                       int(min_col_h * s), gutters)
             return [b for b in found if b[2] - b[0] >= p["min_block_px"]
                     and b[3] - b[1] >= p["min_block_px"]]
 
@@ -478,7 +527,7 @@ class XYCutBlocks(Stage):
         out.meta.setdefault("layout", {})["blocks"] = boxes
         debug = DebugBundle(
             images={"blocks_overlay": draw_boxes(page.gray, boxes)},
-            scalars={"n_blocks": len(boxes), "river_retry": river_retry,
+            scalars={"n_blocks": len(boxes), "river_retry": river_retry, "spread_spine": spine or 0,
                      "gutters": len(gutters[0]) if gutters is not None else 0},
         )
         return out, debug

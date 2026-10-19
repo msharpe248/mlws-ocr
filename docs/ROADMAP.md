@@ -204,6 +204,11 @@ rotation_skew 24.0/28.2. Most to gain on text first:*
   lines across both pages; with the newspaper hint the same page reads 739
   words. Fix: detect a spread (a tall dark or broken band near the middle,
   text on both sides) and cut there first.
+  *Tried 2026-10-18* (`blocks.gutter_spread`, an option, off; RESEARCH): a
+  narrow low-ink band in the middle of a wide page with no hint, cut first.
+  Dev half on v0.18.21: text 46.2 -> 47.1, all on the tiny-text spreads
+  (50.8 -> 60.5), nothing lost; our reachable sets identical, CORD level.
+  Awaiting the owner.
   *Measured 2026-10-18* (`magnify.type_sets_dpi`, RESEARCH): with
   `target_px = 20`, `max_page_px = 2500` and the dpi declared 300, the dev
   half's text rises 36.7 -> 46.2, past Tesseract's 39.2; every full-page set
