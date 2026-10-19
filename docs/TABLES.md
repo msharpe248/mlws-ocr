@@ -22,12 +22,9 @@ paper, [Tables from Rules and Small Networks](papers/tables-from-rules.md).
   (finding tables on the page, words into cells), `decode/tableio.py`
   (records, nesting, HTML, CSV), `decode/arith.py` (checks), `decode/cellfix.py`
   (figure columns).
-- Profiles: **neural-table** (`configs/neural-table.toml`) reads tables with
-  everything here: the networks and the options that also change what the
-  reader sees. **neural** has carried most of it since v0.18.23 (49 of the 54
-  table settings): not the five that cost text on forms, receipts and
-  magazines (`blocks.keep_dashes`, `imagezones.keep_grids`, `lines.in_cells`,
-  `rulings.short_in_grid_300dpi`, `components.dotted_rule_text`).
+- Profiles: **neural** reports tables without changing a word of the page's
+  text; **neural-table** (`configs/neural-table.toml`) adds the options that
+  also change what the reader sees, and the networks.
 - Related: [SEGMENTATION.md](SEGMENTATION.md) (rules and blocks come first),
   [NEURAL_NETWORK_THEORY.md](NEURAL_NETWORK_THEORY.md) (the five table
   networks, §E–H and §J), [ARCHITECTURE.md §9](ARCHITECTURE.md#9-the-tables-subsystem).

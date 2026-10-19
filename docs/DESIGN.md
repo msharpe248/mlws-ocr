@@ -144,12 +144,6 @@ negative on legal pages.
 **tables (`grid`).** Ruling intersections become a cell grid; decoded
 words are later placed into cells by centre. Unruled tables are handled
 at output (§5.7).
-Since v0.18.23 the neural profile reads tables with neural-table's
-machinery -- the table networks, the table-crop and symbol readers, the
-whitespace tables and the cell repairs (49 of its 54 table settings) -- but
-not the five settings that cost text on forms, receipts and magazines
-(`blocks.keep_dashes`, `imagezones.keep_grids`, `lines.in_cells`,
-`rulings.short_in_grid_300dpi`, `components.dotted_rule_text`).
 
 **lines (`profile`).** Within a block, horizontal-profile valleys separate
 lines; each line gets a box and a baseline (the last row at ≥ 25% of the

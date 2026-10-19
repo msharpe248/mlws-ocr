@@ -258,8 +258,13 @@ rotation_skew 24.0/28.2. Most to gain on text first:*
   `rulings.short_in_grid_300dpi` FUNSD -3.8 / -2.1;
   `components.dotted_rule_text`): **tables 12.6 -> 24.9, layout 63.1 ->
   69.9, text 47.1 unchanged**; every text set of ours within 0.8 word
-  (FUNSD -0.8, magazines 8 -0.8, CORD +1.5). **ADOPTED in neural, v0.18.23**
-  (the owner, 2026-10-19: "Adopt").
+  (FUNSD -0.8, magazines 8 -0.8, CORD +1.5). Adopted as v0.18.23 and
+  **reverted the same day, before release** (the owner's decision): the
+  trial had re-read only the dev half's table pages, and the test half read
+  in full lost text 49.3 -> 44.8 (order tests worst; tables 16.4 -> 20.1,
+  layout 63.4 -> 73.9). The table machinery fires on ordinary pages with no
+  hint. Next: find on the whole dev half which pages and settings lose the
+  text tests, and bring back a version that keeps to real tables.
 - **Headings in layout.** Most of the layout family's failures are blocks
   the tests call heading, which we label text: a heading label (hOCR's
   `ocr_title` / `ocr_section` family) from the type size and line count
