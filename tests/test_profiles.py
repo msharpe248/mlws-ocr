@@ -71,12 +71,21 @@ def test_neural_shares_the_stage_list_with_classic():
     # display equations kept from the reader and pictures cut out (owner's decision 2026-10-04,
     # v0.18.5), and read (2026-10-06; line by line and confirming unnumbered displays, 2026-10-12):
     # the neural profiles only; the classic reference reads as before; and the newspaper line re-split
-    # (owner's decision 2026-10-13, v0.18.16); and statements read by their figures (v0.18.20)
-    table_only = {"tables": {"spans", "open_sides", "nested"},
-                  "lines": {"equations", "equations_beside", "resplit_glyph_ref"},
+    # (owner's decision 2026-10-13, v0.18.16); and statements read by their figures (v0.18.20);
+    # and 49 of neural-table's table settings (owner's decision 2026-10-19, v0.18.23)
+    table_reading = {"cell_marks", "cell_order_by_line", "dollar_s", "join_digit_groups", "nest_side_by_side", "span_labels",
+                     "table_cell_conf_path", "table_cell_lines", "table_dash_aspect", "table_dashes", "table_det_mode", "table_det_path",
+                     "table_group_rowspans", "table_heading_rows", "table_item_rows", "table_label_rowspans", "table_net_figure_rows",
+                     "table_net_path", "table_net_row_join", "table_paren_columns", "table_rebuild_centred", "table_rebuild_header",
+                     "table_seq_mode", "table_seq_path", "table_seq_select", "table_split_keep_rows", "table_split_path",
+                     "table_split_select", "table_wordrel_mode", "table_wordrel_path", "table_wordrel_select", "trim_notes",
+                     "trim_notes_rows", "ws_detector", "ws_mesh_min_spines", "ws_table_thin_grids"}
+    table_only = {"tables": {"spans", "open_sides", "nested", "broken_rules", "diagonals", "min_row_ink"},
+                  "rulings": {"edge_bars", "faint_depth"},
+                  "lines": {"equations", "equations_beside", "resplit_glyph_ref", "stacked_chunks"},
                   "output": {"split_words_at_cells", "fix_figure_columns", "check_arithmetic", "ws_detect",
                              "pictures", "math_reader_path", "math_beam", "math_split_lines", "math_display_logp", "math_split_at_numbers",
-                             "align_figures"}}
+                             "align_figures"} | table_reading}
     for key, spec in neural.items():
         c = classic.get(key, classic.get(("decode", "beam"))).params
         if key[1] in table_only:
@@ -125,7 +134,10 @@ def test_neural_table_is_neural_plus_the_table_options():
     """The table profile may differ from neural ONLY in the table options that
     change what the reader sees (and its own reader with that reader's judge); everything else stays neural's.
     The report-page options of v0.18.20 (blocks.gutter_sections, output.align_figures) and v0.18.21's
-    small-type magnify and v0.18.22's spread cut are neural's alone: never measured on the table sets."""
+    small-type magnify and v0.18.22's spread cut are neural's alone: never measured on the table sets.
+    Since v0.18.23 neural carries 49 of these table settings too; the five left out of it
+    (blocks.keep_dashes, imagezones.keep_grids, lines.in_cells, rulings.short_in_grid_300dpi,
+    components.dotted_rule_text) cost text on forms, receipts and magazines."""
     allowed = {"magnify": {"max_scale", "target_px", "max_page_px", "type_sets_dpi"}, "deskew": {"edge_nearest", "ink_fallback"}, "illumination": {"stretch_low", "invert_dark", "grey_pictures", "invert_rect"}, "imagezones": {"keep_grids"}, "components": {"dotted_rule_text"}, "rulings": {"short_in_grid_300dpi", "edge_bars", "faint_depth"},
                "tables": {"diagonals", "min_row_ink", "broken_rules"}, "decode": {"line_gray_rules_out", "figure_cells", "rotated_cells", "line_model_path", "line_choice_path", "line_gap_split", "line_model_path_table", "line_model_path_symbols", "line_dash_measure", "line_symbol_net"}, "lines": {"in_cells", "stacked_chunks"}, "blocks": {"keep_dashes", "gutter_sections", "gutter_spread"},
                "output": {"table_net_path", "table_net_row_join", "table_net_figure_rows", "ws_detector", "ws_mesh_min_spines", "cell_order_by_line",

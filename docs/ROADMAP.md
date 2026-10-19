@@ -258,7 +258,8 @@ rotation_skew 24.0/28.2. Most to gain on text first:*
   `rulings.short_in_grid_300dpi` FUNSD -3.8 / -2.1;
   `components.dotted_rule_text`): **tables 12.6 -> 24.9, layout 63.1 ->
   69.9, text 47.1 unchanged**; every text set of ours within 0.8 word
-  (FUNSD -0.8, magazines 8 -0.8, CORD +1.5). An option for the owner.
+  (FUNSD -0.8, magazines 8 -0.8, CORD +1.5). **ADOPTED in neural, v0.18.23**
+  (the owner, 2026-10-19: "Adopt").
 - **Headings in layout.** Most of the layout family's failures are blocks
   the tests call heading, which we label text: a heading label (hOCR's
   `ocr_title` / `ocr_section` family) from the type size and line count
