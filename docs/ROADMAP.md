@@ -246,6 +246,19 @@ rotation_skew 24.0/28.2. Most to gain on text first:*
   with a section too). Mark header rows as `<th>` where the table reader knows
   them, and join a header cell's lines into one cell. Next most common: no
   cell matching (1,160: misread or split cells) and no table found (902).
+  *Diagnosed 2026-10-18 on the dev half* (v0.18.22, RESEARCH): `<th>` alone
+  changes nothing (the scorer's "headings" test asks only that each heading
+  fit one cell above the column), joining every header row loses (12.6 ->
+  12.2), joining only rows that continue the same headings gains 6 tests.
+  The big difference is the table machinery: neural-table on the dev half's
+  254 table-test pages scores tables 27.3 against neural's 12.6 (layout 69.4
+  / 63.1, text equal). *Trial 2026-10-19:* neural plus neural-table's table
+  settings, less five that cost text (`blocks.keep_dashes` SROIE -8.1 word;
+  `imagezones.keep_grids` UNLV magazines held out -3.7; `lines.in_cells`,
+  `rulings.short_in_grid_300dpi` FUNSD -3.8 / -2.1;
+  `components.dotted_rule_text`): **tables 12.6 -> 24.9, layout 63.1 ->
+  69.9, text 47.1 unchanged**; every text set of ours within 0.8 word
+  (FUNSD -0.8, magazines 8 -0.8, CORD +1.5). An option for the owner.
 - **Headings in layout.** Most of the layout family's failures are blocks
   the tests call heading, which we label text: a heading label (hOCR's
   `ocr_title` / `ocr_section` family) from the type size and line count
