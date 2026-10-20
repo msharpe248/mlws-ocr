@@ -295,7 +295,8 @@ is [TESSERACT.md](TESSERACT.md).
   differs from classic only in its three network switches (the MLP, the
   character GRU, the word corrector); neural only in its recognition and
   decoding terms, the judged block segmenter, the corrector's switch, and
-  the table, picture and display-equation options;
+  the table, picture and display-equation options (since v0.18.23 most of
+  neural-table's table settings and the detector's prose gate);
   neural-table only in its table options —
   and every parameter a profile names must exist, "so a typo cannot silently
   run the default".

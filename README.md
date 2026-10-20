@@ -342,19 +342,19 @@ frame) and tables set by whitespace or ruled only between rows anywhere
 on the page; it reads a column of figures as figures ('S 25' → '$ 25')
 and checks each table's arithmetic (quantity × price = amount, a row's
 day columns against its total, column totals),
-marking the cells a failed check points at. None of this changes the
-page's text. For table documents, `configs/neural-table.toml` adds the
-options that do: a large ruled grid kept from the picture zones, short
-dividers under spanned headers, low-dpi crops magnified, rules taken out
-of the reader's strips, figure columns re-read with digits only, and the
-self-trained table networks: a table detector over the whole page, a
-structure network that gives a table's rows, columns and extent, a
-separator network that joins a table's wrapped rows, a word-relation
+marking the cells a failed check points at. Since v0.18.23 neural also
+finds and reads tables with the self-trained table networks: a table
+detector over the whole page (its tables refused where their cells are
+prose), a structure network that gives a table's rows, columns and extent,
+a separator network that joins a table's wrapped rows, a word-relation
 network (a small transformer over a table's words), a table sequence reader
-that reads a table's grid from its pixels, readers and a symbol classifier
-trained on table lines, and a confidence for every cell. Where a network
-builds a table of its own, a small fitted choice keeps its table or the
-rules'. A table image on its own reads best with `--doc-type table`. Measured by TEDS
+that reads a table's grid from its pixels, and a confidence for every cell.
+Where a network builds a table of its own, a small fitted choice keeps its
+table or the rules'. For table documents, `configs/neural-table.toml` adds
+the options that cost text on ordinary pages: a large ruled grid kept from
+the picture zones, short dividers under spanned headers, low-dpi crops
+magnified, rules taken out of the reader's strips, figure columns re-read
+with digits only, readers and a symbol classifier trained on table lines. A table image on its own reads best with `--doc-type table`. Measured by TEDS
 against HTML truth (`scripts/eval_tables.py`), table by table in the
 comparison above.
 
@@ -463,8 +463,8 @@ profile, kept as the reference; the neural profile is the accurate one.
 |---|---|---|---|
 | **classic** | `configs/classic.toml` | the MLP second opinion (53k) and the character GRU (258k) | the feature engine: nearest-prototype, outline and MLP channels over explicit glyph features, a beam decoder with lexicon and language model, per-document adaptation. Its row is the regression guard after every neural adoption. |
 | **pure** | `configs/pure.toml` | none | classic with both networks off; what the feature engine reads on its own |
-| **neural** | `configs/neural.toml` | classic's, plus the word-strip CRNN+CTC scorer as the judge of the classic word variants, the line reader (every line read end to end by the line model), the fitted judge that decides each line between the two readings, the word-confidence calibrator, the segmenter judge (newspapers and magazines) and the equation reader (855k) | the engine to use; reports table structure (spans, nesting, tables found on the page, figure columns, arithmetic checks) without changing the text |
-| **neural-table** | `configs/neural-table.toml` | neural's, with a line reader fine-tuned on table lines in place of neural's (and on a table's crop a reader trained harder on table lines, a symbol reader and a symbol classifier), plus the table separator network (wrapped rows joined), the table detector (248k), the table structure network (277k), the word-relation network (321k), the table sequence reader (1.88M), a fitted choice for each network that builds a table, and the cell confidence | neural plus the table options that also change what the reader sees (ruled grids kept from the picture zones, short grid rules, low-dpi crops magnified, rules taken out of the reader's strips, figure columns re-read as figures, turned cell text read): for payroll forms, paystubs, statements, invoices, receipts, and tables from reports and papers |
+| **neural** | `configs/neural.toml` | classic's, plus the word-strip CRNN+CTC scorer as the judge of the classic word variants, the line reader (every line read end to end by the line model), the fitted judge that decides each line between the two readings, the word-confidence calibrator, the segmenter judge (newspapers and magazines) and the equation reader (855k) | the engine to use; finds and reads tables with the table networks (since v0.18.23; detected tables refused where they are prose), spans, nesting, figure columns, arithmetic checks |
+| **neural-table** | `configs/neural-table.toml` | neural's, with a line reader fine-tuned on table lines in place of neural's (and on a table's crop a reader trained harder on table lines, a symbol reader and a symbol classifier); the table networks as neural (separator, detector 248k, structure 277k, word relations 321k, sequence reader 1.88M, their fitted choices, cell confidence), the detector's tables never refused as prose | neural plus the table options that also change what the reader sees (ruled grids kept from the picture zones, short grid rules, low-dpi crops magnified, rules taken out of the reader's strips, figure columns re-read as figures, turned cell text read): for payroll forms, paystubs, statements, invoices, receipts, and tables from reports and papers |
 | **neural-line** | `configs/neural_line.toml` | the same, as the experiment profile for a new line model or choice rule | development |
 
 `tests/test_profiles.py` keeps the profiles honest (pure differs from

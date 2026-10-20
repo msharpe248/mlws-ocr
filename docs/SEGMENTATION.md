@@ -391,7 +391,7 @@ decoder to tell 'p' from 'P' and ',' from ''' by position. Two refinements:
 - in the table profile, inside a ruled grid, lines are found **cell by
   cell** (`lines.in_cells`), so a header whose cells sit at different
   heights does not merge into one unreadable strip;
-- on a table crop (`lines.stacked_chunks`, in neural-table), a line more than
+- on a table crop (`lines.stacked_chunks`, in neural-table and since v0.18.23 neural), a line more than
   2.6 glyph heights tall is cut into its columns at wide gaps and each
   column's lines found on their own: a row whose cell wraps to two lines
   beside a one-line cell centred between them has no valley across the
@@ -478,11 +478,11 @@ read with that segmenter, on the evaluation sets (`eval_unlv.py --blocks
 | stage | impl | key parameters | profiles |
 |---|---|---|---|
 | imagezones | `density` | `density_thresh` 0.45, `protect_text_rows` on, `keep_grids` (neural-table) | every profile |
-| rulings | `morphological` | `min_len_300dpi` 150, `tolerant` on, `dash_gap_300dpi` 12, `short_in_grid_300dpi` 40, `edge_bars` and `faint_depth` 0.06 (neural-table) | every profile |
+| rulings | `morphological` | `min_len_300dpi` 150, `tolerant` on, `dash_gap_300dpi` 12, `short_in_grid_300dpi` 40, `edge_bars` and `faint_depth` 0.06 (neural-table; neural since v0.18.23) | every profile |
 | blocks | `xycut` | `min_gap_x_300dpi` 36, `min_gap_y_300dpi` 30, document-type priors | classic, pure |
 | | `judged` | `model_path` `data/segjudge.npz`, newspapers and magazines judged; `keep_dashes` (neural-table); `join_display`, `order_columns` (newspapers, neural profiles); `unhinted_as` "newspaper" and the XY-cut's `gutter_*` (pages with no hint; neural profiles since v0.18.17) | neural, neural-table |
 | | `whitespace`, `knn_scc` | see the code and the papers | layout profiles for comparison |
-| lines | `profile` | tall-line re-split (`resplit_glyph_ref` 1.7 in the neural profiles); `in_cells` (neural-table); `stacked_chunks` (table crops, neural-table); `equations` (display equations, neural and neural-table) | every profile |
+| lines | `profile` | tall-line re-split (`resplit_glyph_ref` 1.7 in the neural profiles); `in_cells` (neural-table); `stacked_chunks` (table crops, neural-table and neural); `equations` (display equations, neural and neural-table) | every profile |
 | components | `overlap` | cut candidates for wide groups | every profile |
 
 ## References

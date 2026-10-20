@@ -64,15 +64,22 @@ impl = "morphological"
 dash_gap_300dpi = 12           # dashed and fax-broken rules too (form fill-in lines and underlines):
                                # FUNSD +1.4 char, CORD +1.1 / +2.9 word, SROIE +3.1 word, the rest level
                                # (2026-09-26)
+# neural-table's table reading (v0.18.23; see [stage.output])
+edge_bars = true
+faint_depth = 0.06
 
 [stage.tables]
 impl = "grid"
 # table structure, output only (the owner's decision, 2026-09-28): these change
-# the tables the page reports, never its text (docs/RESEARCH.md; the table
-# options that DO change the text are in configs/neural-table.toml)
+# the tables the page reports, never its text (docs/RESEARCH.md); since v0.18.23
+# most of neural-table's table reading too (below and in [stage.output])
 spans = true                   # cells merged across unruled borders: rowspan / colspan
 open_sides = true              # a table open at a side gets the columns its row rules bound
 nested = true                  # a ruled table inside a ruled frame's cell is nested in the output
+# neural-table's table reading (v0.18.23; see [stage.output]) -- not broken_rules: it read
+# boxed prose as a ruled table (Omni Parse Bench dev half: text 46.1 -> 47.2 without it)
+diagonals = true
+min_row_ink = 0.03
 
 [stage.blocks]
 impl = "judged"                # newspapers and magazines: XY-cut or knn_scc chosen per page by a judge
@@ -108,6 +115,8 @@ equations = true               # display equations found before reading (layout/
                                # none found on business, letter, legal, news, magazine pages (2026-10-04)
 equations_beside = true        # ...with the pieces beside an equation (a matrix's columns, a case's conditions)
                                # its own (v0.18.15): finding F1 0.941 -> 0.967 held out, 0.920 -> 0.983 dev
+# neural-table's table reading (v0.18.23; see [stage.output])
+stacked_chunks = 2.6
 
 [stage.components]
 impl = "overlap"
@@ -234,6 +243,9 @@ conf_path = "data/wordconf.npz"   # calibrated word confidence (decode/wordconf.
                                   # dev-8 keep p>=0.9 -> 91% of words kept at 98.0%
                                   # right, from 94.4% with no reject path)
 review_below = 0.8
+# (neural-table's decode settings -- its table and symbol readers, figure and rotated cells, dash
+# and grey-rule measures -- are not neural's: on Omni Parse Bench's dev half they cost 1.0 text
+# and changed no table test; RESEARCH 2026-10-19)
 
 
 [stage.correct]
@@ -274,6 +286,51 @@ align_two_col_max_gap = 0.25   # two TEXT columns of one-line cells more than a 
 align_figures = true           # a financial statement read row by row: a block of figures and the label block on its
                                # left sharing its baselines (v0.18.20, the owner's decision; receipts too, each price on
                                # its item's line: CORD 59.08 -> 61.55, SROIE 66.88 -> 67.57 pooled; RESEARCH 2026-10-17)
+# neural-table's table reading (v0.18.23, the owner's decision 2026-10-20): the table networks, the
+# whitespace tables and the cell repairs of configs/neural-table.toml (see its comments), 41 of its 54 table
+# settings across rulings, tables, lines and output -- not blocks.keep_dashes (SROIE -8.1 word),
+# imagezones.keep_grids (UNLV magazines held out -3.7), lines.in_cells and rulings.short_in_grid_300dpi
+# (FUNSD -3.8 / -2.1), components.dotted_rule_text, tables.broken_rules or the seven decode settings
+# (text on ordinary pages) -- and the detector's tables refused where they are prose. Omni Parse Bench's
+# dev half read in full: text 47.1 level, tables 12.6 -> 25.1, layout 63.1 -> 71.8; our sets within
+# 0.7 word (magazines 8 -0.65; RESEARCH 2026-10-19)
+cell_marks = true
+cell_order_by_line = true
+dollar_s = true
+join_digit_groups = true
+nest_side_by_side = true
+span_labels = true
+table_cell_conf_path = "data/cellconf_v1.npz"
+table_cell_lines = true
+table_dash_aspect = 1.5
+table_dashes = true
+table_det_max_prose = 0.10
+table_det_mode = "complement"
+table_det_path = "data/tabledet_v1.npz"
+table_group_rowspans = true
+table_heading_rows = true
+table_item_rows = true
+table_label_rowspans = true
+table_net_figure_rows = true
+table_net_path = "data/sepnet_v2.npz"
+table_net_row_join = 0.2
+table_paren_columns = true
+table_rebuild_centred = true
+table_rebuild_header = true
+table_seq_mode = "select"
+table_seq_path = "data/tableseq_v2.npz"
+table_seq_select = "data/tableseq_select_v2.npz"
+table_split_keep_rows = true
+table_split_path = "data/splitnet_v2.npz"
+table_split_select = "data/table_select.npz"
+table_wordrel_mode = "select"
+table_wordrel_path = "data/wordrel_v3.npz"
+table_wordrel_select = "data/wordrel_select_v2.npz"
+trim_notes = true
+trim_notes_rows = true
+ws_detector = "mesh"
+ws_mesh_min_spines = 2
+ws_table_thin_grids = true
 
 [stage.adapt]
 impl = "cluster_refit"

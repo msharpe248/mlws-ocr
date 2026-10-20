@@ -271,7 +271,8 @@ rotation_skew 24.0/28.2. Most to gain on text first:*
   those eight, plus a prose gate on the detector's tables
   (`output.table_det_max_prose = 0.10`): **whole dev half text 47.1 (level),
   tables 12.6 -> 25.1, layout 63.1 -> 71.8**; our sets within 0.7 word
-  (magazines 8 -0.65, held out -0.32). With the owner.
+  (magazines 8 -0.65, held out -0.32). **ADOPTED in neural, v0.18.23**
+  (the owner, 2026-10-20).
 - **Headings in layout.** Most of the layout family's failures are blocks
   the tests call heading, which we label text: a heading label (hOCR's
   `ocr_title` / `ocr_section` family) from the type size and line count

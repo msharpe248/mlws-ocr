@@ -298,8 +298,8 @@ them into text, hOCR and table records.
 flowchart LR
     pure["<b>pure</b><br/>feature engine only:<br/>prototypes + beam,<br/>no networks"]
     classic["<b>classic</b><br/>+ MLP second opinion<br/>+ character GRU<br/>+ word corrector"]
-    neural["<b>neural</b><br/>+ word-strip CRNN scorer<br/>+ line reader and its judge<br/>+ word-confidence calibrator<br/>+ segmenter judge<br/>+ equation reader<br/>+ table structure (output only)"]
-    table["<b>neural-table</b><br/>+ table line reader<br/>+ symbol classifier and symbol reader<br/>+ table detector, structure network,<br/>separator network, word-relation network,<br/>table sequence reader, their choices<br/>+ cell confidence<br/>+ reading options for tables"]
+    neural["<b>neural</b><br/>+ word-strip CRNN scorer<br/>+ line reader and its judge<br/>+ word-confidence calibrator<br/>+ segmenter judge<br/>+ equation reader<br/>+ table detector (prose refused), structure network,<br/>separator network, word-relation network,<br/>table sequence reader, their choices<br/>+ cell confidence"]
+    table["<b>neural-table</b><br/>+ table line reader<br/>+ symbol classifier and symbol reader<br/>+ reading options for tables"]
     pure -->|three network switches| classic -->|recognize and decode terms,<br/>judged blocks, corrector off,<br/>table, picture and equation options| neural -->|table options| table
 ```
 
@@ -309,7 +309,7 @@ flowchart LR
 | recognize | prototypes, MLP on | prototypes, MLP off | prototypes | prototypes |
 | decode | beam, GRU on | beam, GRU off | hybrid (line reader) | hybrid (table line reader) |
 | correct | on (learned confusions) | off | off (case repair only) | off (case repair only) |
-| output | text | text | text + tables | text + tables, networks on |
+| output | text | text | text + tables, networks on (since v0.18.23) | text + tables, networks on |
 
 Each profile differs from the one before it only where the arrow says;
 `tests/test_profiles.py` fails if any other parameter drifts. Pure is
@@ -318,9 +318,10 @@ and the word corrector). Neural may change classic's recognition and
 decoding terms, take the judged block segmenter, switch the corrector off,
 and turn on the options for tables (spans, open sides and nesting in the
 tables stage; cell splits, figure columns, arithmetic checks and
-whitespace tables in the output), pictures and display equations (found
-by the lines stage, cut out and read). Neural-table may change neural
-only in its table options. The classic
+whitespace tables in the output, and since v0.18.23 the table networks
+and most of neural-table's table settings), pictures and display equations
+(found by the lines stage, cut out and read). Neural-table may change
+neural only in its table options. The classic
 engine is the reference and is never removed; a network enters a profile
 only after it measured better on every evaluation set (docs/RESEARCH.md).
 
