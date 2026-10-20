@@ -4,7 +4,32 @@ Ranked by measured evidence, not enthusiasm. Every item names the
 observation that motivates it, so a future session can re-check whether
 the motivation still holds before spending the effort.
 
-## Now: the annual reports' remaining gap, then the system paper (2026-10-17, the owner's go-ahead)
+## Now: a block reader? The headroom check first (2026-10-20, the owner's go-ahead)
+
+The owner weighed a third kind of engine, a vision model (2026-10-20): a
+whole-page image-to-markup model trained from scratch was judged too big for
+two GPUs run gently (months a run), and pre-trained bases (Donut, Florence-2)
+break the self-trained rule. The smaller idea went ahead, gated: a **block
+reader**, a self-trained image-to-sequence model (20-40M) reading one block
+the segmenter found into markup (its lines in order, a table, an equation),
+a neural option the owner decides on. Its training must stop and resume at
+will (a checkpoint every 15-30 minutes with the data order and random state,
+a STOP file, time windows, either box). Stages: (1) the headroom check, no
+training; (2) data, target format and trainer, then a 1-2 day pilot,
+announced; (3) the full run in the box time given.
+
+*Stage 1, done 2026-10-20 (RESEARCH, "A block reader's headroom"):* lines out
+of order inside a block are 0.7% of our sets' word errors and 3.9% of Omni
+Parse Bench's text tests; most text failures are misread characters (the
+line readers' job) or a line cut across blocks (segmentation). The large
+headroom is table structure (about 55% of the benchmark's table tests), and
+its failures are header meaning -- a cell not under its headings (700), not
+in its row group (302) or section (198), the grid itself nearly always
+right. Those are the next plan item's (table header rows) rules' target.
+Recommendation put to the owner: header rows first, then the block reader
+for tables and mixed blocks if structure failures remain.
+
+## Earlier: the annual reports' remaining gap, then the system paper (2026-10-17, the owner's go-ahead)
 
 The clean test left the annual reports furthest behind the LSTM. On the 60
 development pages (never the measured 30) v0.18.19 read 79.94 / 76.53 pooled
