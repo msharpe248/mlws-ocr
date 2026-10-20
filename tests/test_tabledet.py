@@ -26,3 +26,13 @@ def test_boxes_split_at_border_band():
     pb = np.zeros((30, 20)); pb[14:16, :] = 0.9         # a band between two stacked tables
     bs = boxes_from(pt, pb, 8.0, min_area=4)
     assert len(bs) == 2 and bs[0][3] <= bs[1][1] + 16
+
+
+def test_prose_share_counts_sentence_cells():
+    from mlws_ocr.decode.output import _prose_share
+    table = {"cells": [{"text": "Revenue"}, {"text": "1,204"}, {"text": ""}, {"text": "2023"}]}
+    prose = {"cells": [{"text": "Knudsen, B., Miyamoto, M.M., Laipis, P.J., Silverman, D.N. (1998)"},
+                       {"text": "12"}]}
+    assert _prose_share(table) == 0.0
+    assert _prose_share(prose) == 0.5
+    assert _prose_share({"cells": []}) == 0.0

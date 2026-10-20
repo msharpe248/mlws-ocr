@@ -1076,6 +1076,10 @@ receipts cut as the evaluation cuts them, weight 16, 4 more epochs (0.974):
 `tabledet_v1.npz`.  In neural-table as `table_det_mode = "complement"`
 (RESEARCH 2026-09-29): PubTables-1M detection F1 0.685 -> 0.957, paystubs
 0.861 -> 0.890, invoices 0.787 -> 0.847.
+Its tables on pages with no table can be prose: a bibliography or a
+letter's paragraphs read cell by cell. `output.table_det_max_prose`
+(default off) refuses a detected table more than that share of whose cells
+hold over six words (RESEARCH 2026-10-19, an option, not adopted).
 
 ### Word-relation network — `layout/wordrel.py` (neural-table)
 

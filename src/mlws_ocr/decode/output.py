@@ -139,6 +139,16 @@ def with_cell_text(t: dict, words: list[dict]) -> dict:
                           for k, c in enumerate(t["cells"])])
 
 
+def _prose_share(t: dict) -> float:
+    """The share of a table's filled cells holding more than six words: a
+    table's cells hold labels and figures, prose its sentences (Omni Parse
+    Bench's dev half, 2026-10-19: the detector's tables on its table pages
+    hold almost none, a bibliography read as a table three in four)."""
+    n = [len(c.get("text", "").split()) for c in t["cells"]]
+    n = [k for k in n if k]
+    return sum(1 for k in n if k > 6) / len(n) if n else 0.0
+
+
 def select_inputs(a: list[float], b: list[float]) -> np.ndarray:
     """The chooser's inputs: the rules' table's features, the network's, and
     their differences."""
@@ -396,6 +406,12 @@ class TextOutput(Stage):
                                          # touches dropped (when it found any), one inside a larger
                                          # detection given its extent, a detection nothing found
                                          # made a table
+        "table_det_max_prose": 1.0,      # ...a detection's table refused when more than this share of
+                                         # its cells hold over six words: prose (a bibliography, a
+                                         # letter's paragraphs) the detector took for a table; the
+                                         # finders' tables there stay. 1.0 = off (2026-10-19: Omni
+                                         # Parse Bench's dev half, its own tables on table pages hold
+                                         # almost none, those that cost text up to 0.8)
         "table_split_path": "",          # a trained structure network (layout/splitnet.py): a
                                          # whitespace table's rows and columns from its ink and
                                          # words, over the extent it marks as table; "" = off
@@ -558,6 +574,8 @@ class TextOutput(Stage):
         def table_of(b):
             g = [w for w in words if b[0] <= (w["box"][0] + w["box"][2]) / 2 <= b[2] and b[1] <= (w["box"][1] + w["box"][3]) / 2 <= b[3]]
             t = whitespace_table(g, self.params["ws_phrase_gap"], cross_frac=self.params["ws_cross_frac"]) if g else None
+            if t is not None and _prose_share(t) > self.params["table_det_max_prose"]:
+                return None
             if t is not None:
                 t["box"] = [int(v) for v in b]
             return t

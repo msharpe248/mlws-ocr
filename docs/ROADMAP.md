@@ -263,8 +263,15 @@ rotation_skew 24.0/28.2. Most to gain on text first:*
   trial had re-read only the dev half's table pages, and the test half read
   in full lost text 49.3 -> 44.8 (order tests worst; tables 16.4 -> 20.1,
   layout 63.4 -> 73.9). The table machinery fires on ordinary pages with no
-  hint. Next: find on the whole dev half which pages and settings lose the
-  text tests, and bring back a version that keeps to real tables.
+  hint. *Diagnosed 2026-10-19/20 on the dev half read in full:* the
+  detector is both the tables gain and the largest text cost (it made
+  bibliographies and letters' paragraphs into tables); the decode group
+  costs text and adds no table test; `tables.broken_rules` read boxed prose
+  as ruled tables. Candidate C (`data/evalruns/tgC.sets`): the 49 less
+  those eight, plus a prose gate on the detector's tables
+  (`output.table_det_max_prose = 0.10`): **whole dev half text 47.1 (level),
+  tables 12.6 -> 25.1, layout 63.1 -> 71.8**; our sets within 0.7 word
+  (magazines 8 -0.65, held out -0.32). With the owner.
 - **Headings in layout.** Most of the layout family's failures are blocks
   the tests call heading, which we label text: a heading label (hOCR's
   `ocr_title` / `ocr_section` family) from the type size and line count
