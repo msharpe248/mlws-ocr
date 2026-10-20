@@ -92,7 +92,8 @@ benchmark, Omni Parse Bench's English printed pages (its test half: 698 pages
 never developed on, measured once), v0.18.21 passes 49.3% of the text tests
 to Tesseract 5.5.3's 43.0% (40.0% before v0.18.21), 16.4% of the table tests
 (Tesseract makes no tables) and 63.7% of the layout tests to 50.3%
-(v0.18.22: 49.3%, 16.4% and 63.4%; the test half holds no two-page spread).
+(v0.18.22: 49.3%, 16.4% and 63.4%; the test half holds no two-page spread;
+v0.18.23, tables read with the table networks: 48.9%, 19.8% and 73.7%).
 † One page of the eight (8011_012) has its right-hand column clipped by the
 scanner and left out of UNLV's truth zones; the new readers read it and every
 word is scored as an insertion. Without that page mag-8 is level (86.0 / 79.4
