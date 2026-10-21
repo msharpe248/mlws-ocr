@@ -350,6 +350,10 @@ prose), a structure network that gives a table's rows, columns and extent,
 a separator network that joins a table's wrapped rows, a word-relation
 network (a small transformer over a table's words), a table sequence reader
 that reads a table's grid from its pixels, and a confidence for every cell.
+Since v0.18.24 a whitespace table's header is read again from its words (a
+heading set on several lines one cell, a spanning heading over the columns
+its rule covers) and a section label in the first column becomes one cell
+across the table.
 Where a network builds a table of its own, a small fitted choice keeps its
 table or the rules'. For table documents, `configs/neural-table.toml` adds
 the options that cost text on ordinary pages: a large ruled grid kept from
@@ -464,7 +468,7 @@ profile, kept as the reference; the neural profile is the accurate one.
 |---|---|---|---|
 | **classic** | `configs/classic.toml` | the MLP second opinion (53k) and the character GRU (258k) | the feature engine: nearest-prototype, outline and MLP channels over explicit glyph features, a beam decoder with lexicon and language model, per-document adaptation. Its row is the regression guard after every neural adoption. |
 | **pure** | `configs/pure.toml` | none | classic with both networks off; what the feature engine reads on its own |
-| **neural** | `configs/neural.toml` | classic's, plus the word-strip CRNN+CTC scorer as the judge of the classic word variants, the line reader (every line read end to end by the line model), the fitted judge that decides each line between the two readings, the word-confidence calibrator, the segmenter judge (newspapers and magazines) and the equation reader (855k) | the engine to use; finds and reads tables with the table networks (since v0.18.23; detected tables refused where they are prose), spans, nesting, figure columns, arithmetic checks |
+| **neural** | `configs/neural.toml` | classic's, plus the word-strip CRNN+CTC scorer as the judge of the classic word variants, the line reader (every line read end to end by the line model), the fitted judge that decides each line between the two readings, the word-confidence calibrator, the segmenter judge (newspapers and magazines) and the equation reader (855k) | the engine to use; finds and reads tables with the table networks (since v0.18.23; detected tables refused where they are prose), headers read from their words (v0.18.24), spans, nesting, figure columns, arithmetic checks |
 | **neural-table** | `configs/neural-table.toml` | neural's, with a line reader fine-tuned on table lines in place of neural's (and on a table's crop a reader trained harder on table lines, a symbol reader and a symbol classifier); the table networks as neural (separator, detector 248k, structure 277k, word relations 321k, sequence reader 1.88M, their fitted choices, cell confidence), the detector's tables never refused as prose | neural plus the table options that also change what the reader sees (ruled grids kept from the picture zones, short grid rules, low-dpi crops magnified, rules taken out of the reader's strips, figure columns re-read as figures, turned cell text read): for payroll forms, paystubs, statements, invoices, receipts, and tables from reports and papers |
 | **neural-line** | `configs/neural_line.toml` | the same, as the experiment profile for a new line model or choice rule | development |
 

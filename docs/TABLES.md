@@ -171,8 +171,8 @@ across several rows, with a column of figures.
    All the header steps live in `layout/headers.py` (`boxhead`), in the
    order they run.
    On a page, a whitespace table's header can be read again from its words
-   (`output.table_header_from_words`, `decode/tablehead.py`; an option, off
-   everywhere, 2026-10-21): the body fixes the columns, and the words above
+   (`output.table_header_from_words`, `decode/tablehead.py`; in neural since
+   v0.18.24, the owner's decision 2026-10-21): the body fixes the columns, and the words above
    it are cut into phrases, given the columns they cover (or those under a
    rule just beneath them), stacked into headings at the header's line pitch
    and set in rows by common bottoms or tops. A body row holding only a label

@@ -331,6 +331,13 @@ trim_notes_rows = true
 ws_detector = "mesh"
 ws_mesh_min_spines = 2
 ws_table_thin_grids = true
+# a whitespace table's header read again from its words, and its section rows made one cell across
+# (v0.18.24, the owner's decision 2026-10-21; decode/tablehead.py, table_header_sources = "whitespace"
+# by default): Omni Parse Bench's dev pages with a table, tables 588 -> 775 of 2,342, text 586 -> 595,
+# layout 389 -> 396; PubTabNet TEDS level, FinTabNet 0.8040 -> 0.7981 (its section labels are
+# first-column cells); our sets identical (RESEARCH 2026-10-21)
+table_header_from_words = true
+table_section_rows = true
 
 [stage.adapt]
 impl = "cluster_refit"

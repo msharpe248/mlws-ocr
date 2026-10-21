@@ -153,6 +153,11 @@ on forms, receipts and magazines (`blocks.keep_dashes`,
 `components.dotted_rule_text`), or on ordinary pages with no hint
 (`tables.broken_rules` and the seven decode settings: the table-crop and
 symbol readers, figure and rotated cells, dash and grey-rule measures).
+Since v0.18.24 neural also reads a whitespace table's header again from
+its words and writes its section rows as one cell across
+(`output.table_header_from_words`, `output.table_section_rows`;
+`decode/tablehead.py`), which neural-table does not: on table crops its
+networks' headers are already sound.
 
 **lines (`profile`).** Within a block, horizontal-profile valleys separate
 lines; each line gets a box and a baseline (the last row at ≥ 25% of the
