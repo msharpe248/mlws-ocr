@@ -170,6 +170,20 @@ across several rows, with a column of figures.
    'Absent'), and headings set in a narrow column's gutter.
    All the header steps live in `layout/headers.py` (`boxhead`), in the
    order they run.
+   On a page, a whitespace table's header can be read again from its words
+   (`output.table_header_from_words`, `decode/tablehead.py`; an option, off
+   everywhere, 2026-10-21): the body fixes the columns, and the words above
+   it are cut into phrases, given the columns they cover (or those under a
+   rule just beneath them), stacked into headings at the header's line pitch
+   and set in rows by common bottoms or tops. A body row holding only a label
+   from the first column becomes one cell across the table
+   (`output.table_section_rows`). On Omni Parse Bench's dev pages with a
+   table, table tests 588 → 758 of 2,342 (775 with section rows), PubTabNet
+   and FinTabNet TEDS level (FinTabNet −0.006 with section rows: it writes a
+   section label as a first-column cell). Only the whitespace finder's tables
+   (`output.table_header_sources`): the sequence reader's and the word
+   network's headers are already sound, and rebuilding them cost PubTabNet
+   0.037 TEDS.
 5. **Wrapped rows** — a body row with an empty first column and no figures,
    closely under another, is its second line and joins it.
 

@@ -29,6 +29,16 @@ right. Those are the next plan item's (table header rows) rules' target.
 Recommendation put to the owner: header rows first, then the block reader
 for tables and mixed blocks if structure failures remain.
 
+*Header rows, done 2026-10-21 as options (RESEARCH, "A page table's header
+read again from its words"):* `output.table_header_from_words` and
+`output.table_section_rows`, on the whitespace finder's tables. Omni Parse
+Bench dev pages with a table: tables 25.1 -> 32.4 (33.1 with section rows),
+text 47.1 -> 47.8, layout 71.8 -> 72.7 (73.1); TEDS level (FinTabNet -0.006
+with section rows, a labelling convention); our sets identical. Awaiting the
+owner's decision. Next: row groups (305 failing tests, 179 with the group
+label in another column), then the block reader's stage 2 if structure
+failures remain.
+
 ## Earlier: the annual reports' remaining gap, then the system paper (2026-10-17, the owner's go-ahead)
 
 The clean test left the annual reports furthest behind the LSTM. On the 60

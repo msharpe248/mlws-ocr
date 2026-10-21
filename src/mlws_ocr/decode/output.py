@@ -412,6 +412,19 @@ class TextOutput(Stage):
                                          # finders' tables there stay. 1.0 = off (2026-10-19: Omni
                                          # Parse Bench's dev half, its own tables on table pages hold
                                          # almost none, those that cost text up to 0.8)
+        "table_header_from_words": False,  # a table's header rows rebuilt from the words above its
+                                         # body (decode/tablehead.py): a heading set on several lines
+                                         # one cell, a spanning heading over the columns its rule or
+                                         # its words cover (2026-10-20: Omni Parse Bench's table tests
+                                         # fail mostly on the headings a cell is under)
+        "table_header_line_gap": 0.6,    # ...lines of one heading are at most this many line heights apart
+        "table_header_sources": "whitespace",  # ...and the section rows, on the tables of these finders
+                                         # (comma-separated table sources; empty = every table): the
+                                         # sequence reader's and the word network's headers are already
+                                         # sound (2026-10-20: on all, PubTabNet's TEDS 0.836 -> 0.798)
+        "table_section_rows": False,     # a body row holding only a label phrase from the first column
+                                         # (no figure) written as one cell across the table: a section
+                                         # row, not a label cut at a column border (tablehead.py)
         "table_split_path": "",          # a trained structure network (layout/splitnet.py): a
                                          # whitespace table's rows and columns from its ink and
                                          # words, over the extent it marks as table; "" = off
@@ -863,6 +876,36 @@ class TextOutput(Stage):
         return dict(layout, lines=[ln for k, ln in enumerate(layout["lines"]) if k not in drop],
                     equations=list(layout.get("equations", [])) + new)
 
+    def _table_headers(self, layout: dict, tables_text: list) -> tuple[dict, list]:
+        """Each table's header rows rebuilt from its words (decode/tablehead.py)
+        and its section rows made one cell, on the tables of the finders named
+        in ``table_header_sources``; a changed table's text grid is written
+        again from its cells."""
+        from .tablehead import rebuild_header, section_rows
+        words = [w for ln in layout.get("lines", []) for w in ln.get("words", [])]
+        tables, texts = list(layout["tables"]), list(tables_text)
+        sources = {x.strip() for x in str(self.params["table_header_sources"]).split(",") if x.strip()}
+        for i, t in enumerate(tables):
+            new = t
+            if sources and str(t.get("source")) not in sources:
+                continue
+            if self.params["table_header_from_words"]:
+                new = rebuild_header(new, words, layout.get("rules_h", []),
+                                     float(self.params["table_header_line_gap"])) or new
+            if self.params["table_section_rows"]:
+                new = section_rows(new, words) or new
+            if new is not t:
+                n_rows = max(c["row"] + c.get("rowspan", 1) for c in new["cells"])
+                n_cols = max(c["col"] + c.get("colspan", 1) for c in new["cells"])
+                new = dict(new, n_rows=n_rows, n_cols=n_cols)
+                grid = [["" for _ in range(n_cols)] for _ in range(n_rows)]
+                for c in new["cells"]:
+                    grid[c["row"]][c["col"]] = c.get("text", "")
+                tables[i] = new
+                if i < len(texts):
+                    texts[i] = grid
+        return dict(layout, tables=tables), texts
+
     def run(self, page: Page) -> tuple[Page, DebugBundle]:
         layout = page.meta.get("layout", {})
         if "lines" not in layout:
@@ -1169,6 +1212,8 @@ class TextOutput(Stage):
             if found:
                 layout = dict(layout, tables=list(layout.get("tables", [])) + found)
 
+        if (self.params["table_header_from_words"] or self.params["table_section_rows"]) and layout.get("tables"):
+            layout, tables_text = self._table_headers(layout, tables_text)
         if any(w.get("text_sym") for ln in layout.get("lines", []) for w in ln.get("words", [])):
             layout, tables_text, full = lend_symbols(layout, tables_text, full)
         out = page.evolve()
