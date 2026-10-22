@@ -53,7 +53,12 @@ side-by-side tables read as one grid). ADOPTED in neural, v0.18.25 (the
 owner's decision, 2026-10-22: "I am good with 1 being added to neural"). The
 rest are one-off typesetting. Then pages and tables turned a quarter or
 half turn (`deskew.turns`, approved 2026-10-21: "lets do it"; backlog item
-below): ADOPTED in neural with it, v0.18.25.
+below): ADOPTED in neural with it, v0.18.25. Both together, Omni Parse
+Bench's dev pages with a table: 47.8 / 33.1 / 73.1 -> 52.0 / 38.0 / 75.5
+(180 tests up, 1 down). Measured once after the decision, the test half:
+49.5 / 23.6 / 74.6 -> 53.0 / 28.0 / 75.3 (text 36 tests up, none down; tables 113 up, 1 down; layout 5 up, 1
+down; the vote turned 41 test pages, every one tagged rotated); clean DOE,
+annual reports and blocks unchanged.
 
 ## Earlier: the annual reports' remaining gap, then the system paper (2026-10-17, the owner's go-ahead)
 
