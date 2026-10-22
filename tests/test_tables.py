@@ -357,3 +357,37 @@ def test_a_column_of_counts_joins_the_values_beside_it():
     assert next(c for c in m["cells"] if c["row"] == 0 and c["col"] == 1)["colspan"] == 1
     words = _table([["Name", "Code"], ["Smith", "(A)"], ["Jones", "(B)"]])
     assert merge_paren_columns(words)["n_cols"] == 2               # not counts, not beside figures: kept
+
+
+def test_span_labels_nested_keeps_inner_group_labels_in_their_columns():
+    """Tumour site | Anorexia | Fatigue | figures, each label printed once and blank beneath it until
+    its group changes: with ``nested`` the inner labels stay in their columns; a total's label after
+    an empty quantity column (no words in it elsewhere) still spans from the first column."""
+    from mlws_ocr.layout.wstables import span_set_right_labels
+
+    def table(rows):
+        cells = [{"row": r, "col": c, "rowspan": 1, "colspan": 1, "box": [100 * c, 30 * r, 100 * c + 80, 30 * r + 20],
+                  "text": x} for r, row in enumerate(rows) for c, x in enumerate(row)]
+        return {"n_rows": len(rows), "n_cols": len(rows[0]), "cells": cells}
+
+    nested = table([["Lower GI", "Absent", "Absent", "7.9", "26.0"],
+                    ["", "", "Present", "15.2", "42.2"],
+                    ["", "Present", "Absent", "10.7", "32.8"],
+                    ["", "", "Present", "37.0", "70.5"],
+                    ["Upper GI", "Absent", "Absent", "15.4", "42.6"]])
+    spans = lambda t: [(c["row"], c["text"]) for c in t["cells"] if c["colspan"] > 1]  # noqa: E731
+    assert spans(span_set_right_labels(nested)) == [(1, "Present"), (2, "Present Absent"), (3, "Present")]
+    assert spans(span_set_right_labels(nested, nested=True)) == []
+    invoice = table([["2", "Widget", "4.00", "8.00"],
+                     ["1", "Gadget", "5.00", "5.00"],
+                     ["", "Total", "", "13.00"]])
+    assert spans(span_set_right_labels(invoice, nested=True)) == [(2, "Total")]
+    # item names and descriptions before 'Subtotal', which stands under the unit prices: its column
+    # holds figures on the item rows (short of a figure column with the totals and the header), a total
+    items = table([["Item", "Description", "Qty", "Unit Price", "Amount"],
+                   ["G901", "First aid kit", "21", "327.56", "6,878.76"],
+                   ["A457", "Extension cord", "6", "322.81", "1,936.86"],
+                   ["", "", "", "Subtotal", "8,815.62"],
+                   ["", "", "", "Tax", "705.25"],
+                   ["", "", "", "Total Due", "$9,520.87"]])
+    assert spans(span_set_right_labels(items, nested=True)) == [(3, "Subtotal"), (4, "Tax"), (5, "Total Due")]

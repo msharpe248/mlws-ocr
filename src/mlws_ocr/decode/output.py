@@ -374,6 +374,9 @@ class TextOutput(Stage):
         "span_labels": False,            # a total row's label set to the right under the figure
                                          # columns made one cell spanning to its figures
                                          # (wstables.span_set_right_labels)
+        "span_labels_nested": False,     # ...but not a label after an empty first column when a column
+                                         # before it holds words in other rows: a nested row group's
+                                         # label in its own column (2026-10-21)
         "cell_order_by_line": False,     # a cell's words in the order of their LINES, then left to
                                          # right: sorted by each word's own centre, two words on a
                                          # line a pixel apart came out reversed ('Pay Date' ->
@@ -1200,7 +1203,7 @@ class TextOutput(Stage):
                 found = [merge_item_rows(t) for t in found]
             if self.params["span_labels"]:
                 from ..layout.wstables import span_set_right_labels
-                found = [span_set_right_labels(t) for t in found]
+                found = [span_set_right_labels(t, nested=self.params["span_labels_nested"]) for t in found]
             if len(keep) < len(layout.get("tables", [])):
                 layout = dict(layout, tables=[layout["tables"][k] for k in keep])
                 tables_text = [tables_text[k] for k in keep]

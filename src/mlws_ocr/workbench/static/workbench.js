@@ -474,6 +474,8 @@ const TABLE_SWITCHES = [
     title: "the two switches above on every table, not only the whitespace finder's: the sequence reader's and the word network's headers are usually sound already, and rebuilding them costs TEDS on PubTabNet" },
   { slot: "output", key: "table_heading_rows", on: true, off: false, label: "Headings above",
     title: "a table's crop: a heading over the figure columns that the table left out ('Year Ended December 31,') put back as a header row spanning them" },
+  { slot: "output", key: "span_labels_nested", on: true, off: false, label: "Nested row labels",
+    title: "a label after an empty first column stays in its own column when the columns before it hold labels in other rows (Tumour site | Anorexia | Fatigue); otherwise it is taken for a total set right and spans from the first column" },
   { slot: "output", key: "table_group_rowspans", on: true, off: false, label: "Row groups",
     title: "a row and its continuation rows (first cell empty, fewer cells: a gene's two primer rows) are one group; its label spans them" },
   { slot: "blocks", key: "keep_dashes", on: true, off: false, label: "Lone dashes",

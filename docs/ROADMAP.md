@@ -43,6 +43,16 @@ unchanged. Next: row groups (305 failing tests, 179 with the group label
 in another column), then the block reader's stage 2 if structure
 failures remain.
 
+*Row groups, done 2026-10-21 as an option (RESEARCH, "A nested row group's
+labels kept in their own columns"):* most misplaced group labels came from
+the total-label rule spanning a nested group's inner labels from the first
+column. `output.span_labels_nested`: Omni Parse Bench dev pages with a
+table, tables 33.1 -> 36.1 (71 up, none down), row-group failures 304 ->
+208; text and layout unchanged; business sets level but paystubs (-0.006,
+side-by-side tables read as one grid). Awaiting the owner's decision. The
+rest are one-off typesetting. Next: pages and tables turned a quarter or
+half turn (`deskew.turns`, approved 2026-10-21: "lets do it").
+
 ## Earlier: the annual reports' remaining gap, then the system paper (2026-10-17, the owner's go-ahead)
 
 The clean test left the annual reports furthest behind the LSTM. On the 60

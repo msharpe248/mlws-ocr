@@ -225,7 +225,13 @@ it ("Sex, n (%)" over Men and Women; `table_label_rowspans`), the
 PubTables-1M convention, though not a total row or a wrapped line beneath
 it. The three: PubTables-1M 0.755 → 0.779, FinTabNet 0.807 → 0.810. A
 total whose label is set to the right ("Subtotal", "Total Due") becomes
-one cell spanning to its figures (invoices 0.847 → 0.958); tables side by
+one cell spanning to its figures (invoices 0.847 → 0.958). A nested row
+group's inner labels (Tumour site | Anorexia | Fatigue, each printed once
+and blank beneath until its group changes) also follow an empty first
+column, and were spanned out of their columns; `output.span_labels_nested`
+(default off, an option for the owner) spans such a label only when no
+column before it holds words, or its own column holds figures on the body
+rows (Omni Parse Bench's dev table tests 775 → 846, none down). Tables side by
 side (a paystub's earnings beside its deductions) are nested into one
 layout.
 

@@ -1335,14 +1335,27 @@ def span_row_labels(t: dict) -> dict:
     return dict(t, cells=[c for c in cells if (c["row"], c["col"]) not in drop])
 
 
-def span_set_right_labels(t: dict) -> dict:
+def span_set_right_labels(t: dict, nested: bool = False) -> dict:
     """A total row's label set to the right ('Total Hours' under the In / Out
     columns, 'Subtotal' beside the unit prices): a body row whose words lie in
     FIGURE columns (columns where most filled rows hold a figure), or begin
     after an empty first column, with nothing before them, is one label cell
     spanning from the first column to the row's figures -- a label is not a
     figure and its column is not theirs.  Rows with spans are left as they
-    are."""
+    are.
+
+    ``nested``: a label after an empty first column is set right only when no
+    column before it holds words in two other rows, or its own column holds
+    more figures than words on the whole body rows (a first-column label, from
+    the first row with a figure): 'Subtotal' under the unit prices, beside item names and
+    descriptions, is a total whatever stands before it.  A table of nested row
+    groups (Tumour site | Anorexia | Fatigue, each label printed once, blank
+    beneath it until its group changes) sets its inner labels after empty
+    label columns, in their own columns; spanning them from the first column
+    took them out of their groups.  A total's label in a figure column still
+    spans.  The labels are the stub's levels (Wang 1996, "Tabular abstraction,
+    editing, and formatting", Waterloo PhD: the row headers' hierarchy, each
+    level its own stub column)."""
     cells = t.get("cells", [])
     if not cells:
         return t
@@ -1373,6 +1386,15 @@ def span_set_right_labels(t: dict) -> dict:
         first, last = min(c["col"] for c in label), max(c["col"] for c in label)
         inner_empty = all(not (r[k].get("text")) for k in range(0, last + 1) if k in r and r[k] not in label)
         right_set = all(c["col"] in figcols for c in label) or (first > 0 and not (r.get(0, {}).get("text")))
+        if nested and right_set and not all(c["col"] in figcols for c in label):
+            # the label's column on the whole body rows: a first-column label, at or below the first figure
+            body0 = min((rj for rj, rr in rows.items() if any(isfig(c) for c in rr.values())), default=0)
+            others = [rr[first] for rj, rr in rows.items() if rj != ri and rj >= body0 and first in rr
+                      and rr[first].get("text") and rr.get(0, {}).get("text")]
+            if sum(1 for c in others if not isfig(c)) >= sum(1 for c in others if isfig(c)) and any(
+                    sum(1 for rj, rr in rows.items() if rj != ri and k in rr and rr[k].get("text")
+                        and not isfig(rr[k])) >= 2 for k in range(first)):
+                right_set = False
         if SPAN_LEFT_LABELS[0] and not right_set and len(label) == 1 and first == 0:
             # 'Gross Pay' in the first column, the figure columns after it empty up to
             # the row's figures: a total's label spanning them
