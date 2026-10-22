@@ -14,7 +14,8 @@ on pages rendered and degraded by the project's own synthetic scanner
 model (`factory/synth.py`).
 
 - Code: `src/mlws_ocr/cleanup/deskew.py` (slot `deskew`; impls
-  `projection`, the default, and `hough`).
+  `projection`, the default, and `hough`); quarter and half turns in
+  `src/mlws_ocr/cleanup/orient.py` (§6).
 - Where it runs: second, after `magnify` and before `illumination` —
   on the raw grey page. The angle applied is recorded in
   `meta["corrections"]["deskew_deg"]`.
@@ -171,7 +172,40 @@ score-against-angle curve as a debug image. In the workbench the angle can
 be overridden by typing it or by clicking two points along a line of text
 (`deskew.angle_deg`); the estimate is still computed and shown beside it.
 
-## 6. What skew correction does not do
+## 6. Quarter and half turns (`deskew.turns`, an option)
+
+A page scanned sideways or upside down, or a table set sideways on an
+upright page (a landscape table in a journal), is far outside the ±5°
+search. Projection profiles cannot tell it either: a page turned a
+quarter turn has sharp profiles too, along its columns, and a half turn
+is as level as the right way up. What tells the turns apart is
+**reading**. With `deskew.turns` on, the page's twelve widest text lines
+are found by smearing ink along the rows (Wong, Casey & Wahl's run-length
+smoothing; a turned page's lines smear into short tall pieces and are not
+taken) and read by the line reader. Every word of three letters or more
+is checked against the lexicon. The page is read as given first; when 20
+of its words, and 60% of them, are endorsed, it is upright and nothing
+more is done (most pages: about half a second). Otherwise the page is
+read at the other three quarter turns, and a turn wins only with at least
+5 endorsed words and more than twice the upright reading's plus 3. This is
+Tesseract's orientation detection (Smith 2007) with our reader and lexicon
+in place of its character classifier.
+
+The page is turned by whole quarter turns (`np.rot90`, exact, no
+resampling) before the fine angle is measured. The turn is recorded in
+`meta["corrections"]["turn"]`, with the page's size before it, so the
+outputs can go back to the scan: the hOCR's boxes are mapped to the scan's
+frame and each line is marked with its `textangle` ([HOCR.md](HOCR.md) §4),
+and the pictures' `x_source_bbox` undo the turn too. The workbench's
+"Quarter turns" switch turns it on, and `deskew.turn_k` sets a turn by
+hand (0–3, counter-clockwise).
+
+On Omni Parse Bench's 725 dev pages the vote turned 51 of the 59 turned
+pages and no upright page. The 8 it left hold mostly upright text beside
+a turned table, or are building plans; turning part of a page is not done
+yet.
+
+## 7. What skew correction does not do
 
 - **Per-line slope.** The engine corrects the page as a whole and then
   assumes each line is level; the line finder gives each line one baseline
@@ -181,11 +215,12 @@ be overridden by typing it or by clicking two points along a line of text
   not — and is handled per glyph: each glyph is sheared upright before its
   features are measured (`glyph/features.py`), and its lean is kept so the
   decoder can tell '/' from 'l'.
-- **Quarter turns.** A page scanned sideways is not searched for (±5° only);
-  quarter-turned text inside a table cell is handled by the table profile's
+- **Part of a page turned.** A turned table on a page of upright text
+  stays as it is when the upright text outvotes it (§6); quarter-turned
+  text inside a table cell is handled by the table profile's
   `decode.rotated_cells`.
 
-## 7. Parameters and profiles
+## 8. Parameters and profiles
 
 | parameter (`deskew.projection`) | default | meaning |
 |---|---|---|
@@ -198,11 +233,16 @@ be overridden by typing it or by clicking two points along a line of text
 | `ink_fallback` | False | on in neural-table: re-threshold against the local background when over a quarter of the page is "ink" |
 | `zone_mask` | False | picture zones left out of the estimate (measured, not adopted) |
 | `angle_deg` | None | a manual correction (the workbench) |
+| `turns` | False | quarter and half turns found by reading (§6) |
+| `turn_k` | None | a manual turn, 0–3 quarter turns counter-clockwise |
+| `turn_model_path`, `turn_words_path` | `data/seq_line_csl_en.npz`, `/usr/share/dict/words` | the line reader and lexicon the turns are read with |
 
 Tests: `tests/test_cleanup_stages.py` (both estimators within 0.2° of a
 2.3° synthetic skew; the coordinate projector agrees with image rotation;
 a photograph at the frame edge does not win), `tests/test_deskew_manual.py`
-(manual angles, the glyph-size filter, the limit rule).
+(manual angles, the glyph-size filter, the limit rule), `tests/test_orient.py`
+(a box turned and mapped back at each turn, the line finder, a manual turn
+recorded, a turned page's hOCR in the scan's frame).
 
 ## References
 
@@ -216,5 +256,9 @@ a photograph at the frame edge does not win), `tests/test_deskew_manual.py`
   Hough transform", Machine Vision and Applications 2, 1989.
 - S. C. Hinds, J. L. Fisher & D. P. D'Amato, "A document skew detection
   method using run-length encoding and the Hough transform", ICPR 1990.
+- K. Y. Wong, R. G. Casey & F. M. Wahl, "Document analysis system", IBM J.
+  Res. Dev. 26(6), 1982 (run-length smoothing).
+- R. Smith, "An overview of the Tesseract OCR engine", ICDAR 2007 (and
+  Tesseract's orientation and script detection).
 - N. Otsu, "A threshold selection method from gray-level histograms", IEEE
   Trans. SMC 9, 1979.

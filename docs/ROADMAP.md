@@ -164,9 +164,15 @@ pre-trained besides, and its training is unpublished). Cheapest first:*
   passes checks and OCRs the rest. pypdf is already a dependency: its text
   with positions, checked (glyphs mapped to text, not a broken font map),
   into the same hOCR and JSON; scanned pages unchanged.
-- **Pages turned a quarter or half turn.** Only table cells are read turned
-  today (`decode.lineread` `_read_rotated_cells`); a page scanned sideways or
-  upside down reads as junk. Indra's orientation network: rotated content
+- **Pages turned a quarter or half turn.** *Built as an option 2026-10-21
+  (`deskew.turns`, RESEARCH "Pages and tables turned a quarter or half
+  turn"): the line reader and lexicon vote over the four turns; on Omni
+  Parse Bench's dev half 51 of 59 turned pages turned and no other, text
+  47.8 -> 52.0, tables 33.1 -> 34.8, layout 73.1 -> 75.5 on the dev pages
+  with a table. Left: a turned table on a page of upright text (the 8
+  missed), the JSON table records, the Hough estimator.* Before: only table cells were read turned
+  (`decode.lineread` `_read_rotated_cells`); a page scanned sideways or
+  upside down read as junk. Indra's orientation network: rotated content
   3.5% -> 24.3% on its benchmark. A classic way, no new network: read a
   sample of lines at each of the four turns and keep the turn the reader is
   surest of (the Tesseract OSD idea, with our calibrated confidence). Needs

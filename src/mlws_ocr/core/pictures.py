@@ -6,7 +6,8 @@ The engine reads a processed page: magnified (``meta.magnify_scale``) and
 then turned level about its centre (``meta.corrections.deskew_deg``, by
 scipy.ndimage.rotate with reshape=False).  A box on the processed page is
 mapped back by undoing the turn (its four corners, about the same centre)
-and then the magnification; the crop is cut from the original file, in
+then the quarter turn that set it upright (``meta.corrections.turn``,
+deskew.turns), and then the magnification; the crop is cut from the original file, in
 colour when it has colour.
 """
 from __future__ import annotations
@@ -55,6 +56,14 @@ def to_source(box, meta: dict, shape) -> list[int]:
         dx, dy = pts[:, 0] - cx, pts[:, 1] - cy
         pts = np.stack([cx + dx * math.cos(t) - dy * math.sin(t),
                         cy + dx * math.sin(t) + dy * math.cos(t)], axis=1)
+    turn = int((meta.get("corrections") or {}).get("turn") or 0)
+    if turn:
+        # deskew.turns set the page upright by np.rot90 before the fine angle: undone next
+        from ..cleanup.orient import unturn_box
+        tw, th = meta["corrections"]["turn_from"]
+        x0, y0 = pts.min(axis=0); x1, y1 = pts.max(axis=0)
+        b = unturn_box([x0, y0, x1, y1], turn, tw, th)
+        pts = np.array([[b[0], b[1]], [b[2], b[3]]], np.float64)
     pts = pts / s
     return [int(math.floor(pts[:, 0].min())), int(math.floor(pts[:, 1].min())),
             int(math.ceil(pts[:, 0].max())), int(math.ceil(pts[:, 1].max()))]

@@ -143,6 +143,14 @@ page's size.
 `core/pictures.py` `to_source` does exactly that, and pictures carry the
 result as `x_source_bbox` (§6).
 
+A page read turned upright (`deskew.turns`, [SKEW_CORRECTION.md](SKEW_CORRECTION.md)
+§6) is the exception to the rule: the quarter turn is undone in the hOCR
+itself. The `ocr_page` box is the scan's size, every box is mapped back to
+the scan's frame, and each line says which way its text runs with hOCR's
+`textangle` (degrees counter-clockwise: 90 for text running bottom to top,
+180 upside down, 270 top to bottom). The fine deskew angle is not undone,
+as on any page.
+
 ## 5. Reading it
 
 With nothing but the Python standard library:

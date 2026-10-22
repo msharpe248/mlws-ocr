@@ -42,6 +42,30 @@ def text_sized(ink: np.ndarray, max_frac: float) -> np.ndarray:
     return out if out.sum() >= 0.05 * ink.sum() else ink
 
 
+def quarter_turn(page: Page, p: dict) -> tuple[Page, dict]:
+    """The page set upright by quarter turns when ``p["turns"]`` (or
+    ``p["turn_k"]``) asks: the turn k is kept in ``meta.corrections.turn``
+    with the page's size before it (``turn_from``), so the output can map its
+    boxes back to the scan (cleanup/orient.py ``unturn_box``)."""
+    if not p.get("turns") and p.get("turn_k") is None:
+        return page, {}
+    from .orient import choose_turn
+    votes = {}
+    if p.get("turn_k") is not None:
+        k = int(p["turn_k"]) % 4
+    else:
+        k, votes = choose_turn(page.gray, str(p["turn_model_path"]), str(p["turn_words_path"]))
+    scalars = {"turn": k, **{f"turn_{j}_endorsed": v[1] for j, v in votes.items()}}
+    if not k:
+        return page, scalars
+    h, w = page.gray.shape
+    out = page.evolve(gray=np.ascontiguousarray(np.rot90(page.gray, k)),
+                      binary=None if page.binary is None else np.ascontiguousarray(np.rot90(page.binary, k)))
+    c = out.meta.setdefault("corrections", {})
+    c["turn"], c["turn_from"] = k, [int(w), int(h)]
+    return out, scalars
+
+
 def picture_free(ink: np.ndarray, dpi: float) -> np.ndarray:
     """The ink mask with the picture-zone stage's zones removed, run on the
     downsampled mask itself (its dpi given), text rows protected; all the ink
@@ -116,10 +140,18 @@ class ProjectionDeskew(Stage):
         "angle_deg": None,     # a manual correction (degrees, + = counter-clockwise) that
                                # replaces the estimate; the estimate is still computed and
                                # reported. None = use the estimate. Set by the workbench.
+        "turns": False,        # a page turned a quarter or half turn set upright first: its widest
+                               # lines read at each quarter turn, the turn whose words the lexicon
+                               # endorses most kept (cleanup/orient.py; 2026-10-21)
+        "turn_model_path": "data/seq_line_csl_en.npz",   # the line reader the turns are read with
+        "turn_words_path": "/usr/share/dict/words",      # ...and the lexicon that judges them
+        "turn_k": None,        # a manual turn (quarter turns counter-clockwise, 0-3) replacing the
+                               # vote. None = vote. Set by the workbench.
     }
 
     def run(self, page: Page) -> tuple[Page, DebugBundle]:
         p = self.params
+        page, turn_scalars = quarter_turn(page, p)
         gray = page.gray
 
         # Downsampled ink mask just for angle search (cheap, order-0 rotates).
@@ -162,7 +194,8 @@ class ProjectionDeskew(Stage):
                 "score_vs_angle": plot_curve(coarse_scores, coarse,
                                              marker_x=correction),
             },
-            scalars={"correction_deg": round(correction, 3),
+            scalars={**turn_scalars,
+                     "correction_deg": round(correction, 3),
                      "estimated_skew_deg": round(-estimate, 3),
                      "manual": p["angle_deg"] is not None,
                      **({"text_refit": True} if refit else {}),

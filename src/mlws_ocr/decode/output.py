@@ -375,8 +375,9 @@ class TextOutput(Stage):
                                          # columns made one cell spanning to its figures
                                          # (wstables.span_set_right_labels)
         "span_labels_nested": False,     # ...but not a label after an empty first column when a column
-                                         # before it holds words in other rows: a nested row group's
-                                         # label in its own column (2026-10-21)
+                                         # before it holds words in other rows and its own column more
+                                         # words than figures: a nested row group's label stays in its
+                                         # own column (2026-10-21)
         "cell_order_by_line": False,     # a cell's words in the order of their LINES, then left to
                                          # right: sorted by each word's own centre, two words on a
                                          # line a pixel apart came out reversed ('Pay Date' ->
@@ -1428,6 +1429,11 @@ def hocr_document(layout: dict, page, pictures: list | None = None) -> str:
     table instead of their block. Words and lines are escaped XHTML;
     graphic-suspect lines are left out, as in the plain text."""
     h, w = (page.gray.shape if page.gray is not None else (0, 0))
+    turn = (page.meta.get("corrections") or {}).get("turn") or 0
+    if turn:
+        # the page was read turned upright (deskew.turns): every box goes back to the scan's frame
+        from ..cleanup.orient import unturn_box
+        w, h = page.meta["corrections"]["turn_from"]
     caps = "ocr_page ocr_carea ocr_par ocr_line ocrx_word ocr_table ocr_photo ocr_separator ocr_display ocr_math"
     out = ['<?xml version="1.0" encoding="UTF-8"?>',
            '<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" '
@@ -1437,7 +1443,8 @@ def hocr_document(layout: dict, page, pictures: list | None = None) -> str:
            '<meta name="ocr-system" content="mlws-ocr"/>',
            f'<meta name="ocr-capabilities" content="{caps}"/></head><body>',
            f'<div class="ocr_page" id="page_1" title="bbox 0 0 {w} {h}; ppageno 0">']
-    bb = lambda b: " ".join(str(int(v)) for v in b)  # noqa: E731
+    raw = lambda b: " ".join(str(int(v)) for v in b)  # noqa: E731
+    bb = lambda b: " ".join(str(int(v)) for v in (unturn_box([int(v) for v in b], turn, w, h) if turn else b))  # noqa: E731
     lines = [ln for ln in layout.get("lines", []) if ln.get("words") and not ln.get("graphic_suspect")]
     blocks = layout.get("blocks", [])
     tables = [t for t in layout.get("tables", []) if t.get("cells")]
@@ -1469,7 +1476,10 @@ def hocr_document(layout: dict, page, pictures: list | None = None) -> str:
         n["line"] += 1
         li = n["line"]
         x0, y0, x1, y1 = (int(v) for v in ln["box"])
-        title = f"bbox {x0} {y0} {x1} {y1}"
+        title = f"bbox {bb(ln['box'])}"
+        if turn:
+            # hOCR's textangle: the line's text runs this many degrees counter-clockwise on the scan
+            title += f"; textangle {(360 - 90 * turn) % 360}"
         base = ln.get("baseline")
         if base is not None:
             title += f"; baseline 0 {int(base) - y1}"
@@ -1550,7 +1560,7 @@ def hocr_document(layout: dict, page, pictures: list | None = None) -> str:
             emit_area(blocks[bi], by_block[bi])
     if orphans:
         emit_area(union(orphans), orphans)
-    photos = ([(p["bbox"], f'; image "{p["file"]}"; x_source_bbox {bb(p["bbox_source"])}') for p in pictures
+    photos = ([(p["bbox"], f'; image "{p["file"]}"; x_source_bbox {raw(p["bbox_source"])}') for p in pictures
                if p.get("kind") != "equation"]
               if pictures is not None else [(z, "") for z in layout.get("image_zones", [])])
     for zi, (z, extra) in enumerate(photos, 1):
@@ -1562,7 +1572,7 @@ def hocr_document(layout: dict, page, pictures: list | None = None) -> str:
     eq_files = [p for p in (pictures or []) if p.get("kind") == "equation"]
     for ei, e in enumerate(layout.get("equations", []), 1):
         pic = eq_files[ei - 1] if ei <= len(eq_files) else None
-        extra = f'; x_source_bbox {bb(pic["bbox_source"])}' if pic else ""
+        extra = f'; x_source_bbox {raw(pic["bbox_source"])}' if pic else ""
         img = f'<img src="{pic["file"]}" alt="equation {ei}"/>' if pic else ""
         # the equation READ (output.math_reader_path): its MathML beside the image -- hOCR 1.2's
         # ocr_math holds an image or MathML, and here both
