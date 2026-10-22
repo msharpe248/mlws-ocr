@@ -172,7 +172,7 @@ score-against-angle curve as a debug image. In the workbench the angle can
 be overridden by typing it or by clicking two points along a line of text
 (`deskew.angle_deg`); the estimate is still computed and shown beside it.
 
-## 6. Quarter and half turns (`deskew.turns`, an option)
+## 6. Quarter and half turns (`deskew.turns`, in neural since v0.18.25)
 
 A page scanned sideways or upside down, or a table set sideways on an
 upright page (a landscape table in a journal), is far outside the ±5°
@@ -201,7 +201,10 @@ and the pictures' `x_source_bbox` undo the turn too. The workbench's
 hand (0–3, counter-clockwise).
 
 On Omni Parse Bench's 725 dev pages the vote turned 51 of the 59 turned
-pages and no upright page. The 8 it left hold mostly upright text beside
+pages and no upright page (text tests 595 → 647, table tests 775 → 815);
+on every other set it changed one page, a sideways AAP page read at 26% of
+its characters before and 68% after, and it costs about 2% more time a
+page. The 8 it left hold mostly upright text beside
 a turned table, or are building plans; turning part of a page is not done
 yet.
 

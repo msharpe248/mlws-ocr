@@ -49,9 +49,11 @@ the total-label rule spanning a nested group's inner labels from the first
 column. `output.span_labels_nested`: Omni Parse Bench dev pages with a
 table, tables 33.1 -> 36.1 (71 up, none down), row-group failures 304 ->
 208; text and layout unchanged; business sets level but paystubs (-0.006,
-side-by-side tables read as one grid). Awaiting the owner's decision. The
-rest are one-off typesetting. Next: pages and tables turned a quarter or
-half turn (`deskew.turns`, approved 2026-10-21: "lets do it").
+side-by-side tables read as one grid). ADOPTED in neural, v0.18.25 (the
+owner's decision, 2026-10-22: "I am good with 1 being added to neural"). The
+rest are one-off typesetting. Then pages and tables turned a quarter or
+half turn (`deskew.turns`, approved 2026-10-21: "lets do it"; backlog item
+below): ADOPTED in neural with it, v0.18.25.
 
 ## Earlier: the annual reports' remaining gap, then the system paper (2026-10-17, the owner's go-ahead)
 
@@ -170,7 +172,10 @@ pre-trained besides, and its training is unpublished). Cheapest first:*
   Parse Bench's dev half 51 of 59 turned pages turned and no other, text
   47.8 -> 52.0, tables 33.1 -> 34.8, layout 73.1 -> 75.5 on the dev pages
   with a table. Left: a turned table on a page of upright text (the 8
-  missed), the JSON table records, the Hough estimator.* Before: only table cells were read turned
+  missed), the JSON table records, the Hough estimator. Trial on every
+  page: nothing else changed but one sideways AAP page (26% -> 68%
+  characters); 2.4% more time a page. ADOPTED in neural, v0.18.25 (the
+  owner's decision, 2026-10-22).* Before: only table cells were read turned
   (`decode.lineread` `_read_rotated_cells`); a page scanned sideways or
   upside down read as junk. Indra's orientation network: rotated content
   3.5% -> 24.3% on its benchmark. A classic way, no new network: read a

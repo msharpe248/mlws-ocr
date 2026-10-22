@@ -157,7 +157,14 @@ Since v0.18.24 neural also reads a whitespace table's header again from
 its words and writes its section rows as one cell across
 (`output.table_header_from_words`, `output.table_section_rows`;
 `decode/tablehead.py`), which neural-table does not: on table crops its
-networks' headers are already sound.
+networks' headers are already sound. Since v0.18.25 neural keeps a nested
+row group's labels in their own columns (`output.span_labels_nested`):
+the total-label rule spans a label after an empty first column only when
+the columns before it hold no words or its own column holds figures. And
+neural sets a page turned a quarter or half turn upright first
+(`deskew.turns`, `cleanup/orient.py`; SKEW_CORRECTION §6): its widest lines
+read at each turn, the turn the lexicon endorses kept; the hOCR goes back to
+the scan's frame with `textangle`.
 
 **lines (`profile`).** Within a block, horizontal-profile valleys separate
 lines; each line gets a box and a baseline (the last row at ≥ 25% of the

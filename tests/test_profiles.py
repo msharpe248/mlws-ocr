@@ -74,7 +74,8 @@ def test_neural_shares_the_stage_list_with_classic():
     # (owner's decision 2026-10-13, v0.18.16); and statements read by their figures (v0.18.20);
     # and 41 of neural-table's table settings with the detector's prose gate (owner's decision 2026-10-20, v0.18.23);
     # and a whitespace table's header from its words, its section rows whole (owner's decision 2026-10-21, v0.18.24)
-    table_reading = {"cell_marks", "cell_order_by_line", "dollar_s", "join_digit_groups", "nest_side_by_side", "span_labels",
+    # and a nested row group's labels kept in their columns (owner's decision 2026-10-22, v0.18.25)
+    table_reading = {"cell_marks", "cell_order_by_line", "dollar_s", "join_digit_groups", "nest_side_by_side", "span_labels", "span_labels_nested",
                      "table_cell_conf_path", "table_cell_lines", "table_dash_aspect", "table_dashes", "table_det_max_prose", "table_det_mode", "table_det_path",
                      "table_group_rowspans", "table_header_from_words", "table_section_rows", "table_heading_rows", "table_item_rows", "table_label_rowspans", "table_net_figure_rows",
                      "table_net_path", "table_net_row_join", "table_paren_columns", "table_rebuild_centred", "table_rebuild_header",
@@ -97,6 +98,10 @@ def test_neural_shares_the_stage_list_with_classic():
             # the word corrector: on in classic, an option (off) in neural -- the owner's
             # decision of 2026-09-25; the neural profile carries its own confusion table
             # small type enlarged and declared 300 dpi: neural's alone (owner's decision 2026-10-18, v0.18.21)
+            # quarter and half turns found by reading need neural's line reader (owner's decision 2026-10-22, v0.18.25)
+            if key[1] == "deskew":
+                assert {k for k in set(spec.params) | set(c) if spec.params.get(k) != c.get(k)} == {"turns"}, key
+                continue
             assert key[1] in ("recognize", "decode", "correct", "blocks", "magnify"), key
 
 
@@ -138,13 +143,14 @@ def test_neural_table_is_neural_plus_the_table_options():
     small-type magnify and v0.18.22's spread cut are neural's alone: never measured on the table sets.
     Since v0.18.23 neural carries 41 of these table settings too, and the detector's prose gate
     (output.table_det_max_prose) neural-table does not, and since v0.18.24 the header from words and
-    section rows (output.table_header_from_words, output.table_section_rows); those left out of neural (blocks.keep_dashes,
+    section rows (output.table_header_from_words, output.table_section_rows), and since v0.18.25 the nested row
+    labels (output.span_labels_nested) and quarter turns (deskew.turns, not trialled on the table profile); those left out of neural (blocks.keep_dashes,
     imagezones.keep_grids, lines.in_cells, rulings.short_in_grid_300dpi, components.dotted_rule_text,
     tables.broken_rules, the decode settings) cost text on forms, receipts, magazines and ordinary pages."""
-    allowed = {"magnify": {"max_scale", "target_px", "max_page_px", "type_sets_dpi"}, "deskew": {"edge_nearest", "ink_fallback"}, "illumination": {"stretch_low", "invert_dark", "grey_pictures", "invert_rect"}, "imagezones": {"keep_grids"}, "components": {"dotted_rule_text"}, "rulings": {"short_in_grid_300dpi", "edge_bars", "faint_depth"},
+    allowed = {"magnify": {"max_scale", "target_px", "max_page_px", "type_sets_dpi"}, "deskew": {"edge_nearest", "ink_fallback", "turns"}, "illumination": {"stretch_low", "invert_dark", "grey_pictures", "invert_rect"}, "imagezones": {"keep_grids"}, "components": {"dotted_rule_text"}, "rulings": {"short_in_grid_300dpi", "edge_bars", "faint_depth"},
                "tables": {"diagonals", "min_row_ink", "broken_rules"}, "decode": {"line_gray_rules_out", "figure_cells", "rotated_cells", "line_model_path", "line_choice_path", "line_gap_split", "line_model_path_table", "line_model_path_symbols", "line_dash_measure", "line_symbol_net"}, "lines": {"in_cells", "stacked_chunks"}, "blocks": {"keep_dashes", "gutter_sections", "gutter_spread"},
                "output": {"table_net_path", "table_net_row_join", "table_net_figure_rows", "ws_detector", "ws_mesh_min_spines", "cell_order_by_line",
-                          "table_det_path", "table_det_mode", "table_det_max_prose", "table_header_from_words", "table_section_rows", "table_split_path", "table_split_select", "table_split_keep_rows", "table_dashes", "ws_table_thin_grids", "span_labels",
+                          "table_det_path", "table_det_mode", "table_det_max_prose", "table_header_from_words", "table_section_rows", "table_split_path", "table_split_select", "table_split_keep_rows", "table_dashes", "ws_table_thin_grids", "span_labels", "span_labels_nested",
                           "nest_side_by_side", "pictures", "table_dash_aspect", "table_group_rowspans", "table_rebuild_header", "table_heading_rows", "table_rebuild_centred", "table_cell_conf_path", "join_digit_groups", "dollar_s", "trim_notes", "cell_marks", "trim_notes_rows", "table_cell_lines", "table_label_rowspans", "table_wordrel_path", "table_wordrel_mode", "table_wordrel_select", "table_seq_path", "table_seq_mode", "table_seq_select", "table_item_rows", "table_paren_columns", "align_figures"}}
     a, b = _specs("neural-table.toml"), _specs("neural.toml")
     assert list(a) == list(b)

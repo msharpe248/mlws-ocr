@@ -39,6 +39,11 @@ text_ink = "limit"   # an estimate at the search limit is re-made from glyph-siz
                      # lands there again: a photograph had rotated straight magazine pages 5 degrees
                      # (held-out magazines neural 77.1/65.3 -> 82.1/73.4, classic 65.4 -> 67.6; 2026-09-27)
 max_angle = 5.0
+# a page or table turned a quarter or half turn set upright first, found by reading its widest lines at each
+# turn (v0.18.25, the owner's decision 2026-10-22; cleanup/orient.py): Omni Parse Bench's 725 dev pages, 51 of
+# the 59 turned pages turned and no other, text 595 -> 647, tables 775 -> 815, layout 396 -> 409; AAP +1.1
+# char (one sideways page); TEDS, business tables, our other sets and the held-out pools identical
+turns = true
 
 [stage.illumination]
 impl = "median_background"
@@ -338,6 +343,10 @@ ws_table_thin_grids = true
 # first-column cells); our sets identical (RESEARCH 2026-10-21)
 table_header_from_words = true
 table_section_rows = true
+# a nested row group's labels kept in their own columns, not spanned as totals (v0.18.25, the owner's
+# decision 2026-10-22): Omni Parse Bench's dev pages with a table, tables 775 -> 846, none down; text,
+# layout, TEDS, our sets identical; paystubs 0.721 -> 0.715 (side-by-side tables read as one grid)
+span_labels_nested = true
 
 [stage.adapt]
 impl = "cluster_refit"

@@ -229,7 +229,7 @@ one cell spanning to its figures (invoices 0.847 → 0.958). A nested row
 group's inner labels (Tumour site | Anorexia | Fatigue, each printed once
 and blank beneath until its group changes) also follow an empty first
 column, and were spanned out of their columns; `output.span_labels_nested`
-(default off, an option for the owner) spans such a label only when no
+(in neural since v0.18.25, the owner's decision 2026-10-22) spans such a label only when no
 column before it holds words, or its own column holds figures on the body
 rows (Omni Parse Bench's dev table tests 775 → 846, none down). Tables side by
 side (a paystub's earnings beside its deductions) are nested into one

@@ -354,7 +354,13 @@ that reads a table's grid from its pixels, and a confidence for every cell.
 Since v0.18.24 a whitespace table's header is read again from its words (a
 heading set on several lines one cell, a spanning heading over the columns
 its rule covers) and a section label in the first column becomes one cell
-across the table.
+across the table. Since v0.18.25 a nested row group's labels (Tumour site |
+Anorexia | Fatigue, each printed once) stay in their own columns instead of
+being taken for a total and spanned from the first column. And a page
+scanned sideways or upside down, or a table set sideways on its page, is
+turned upright before it is read (`deskew.turns`): its widest lines are read
+at each quarter turn and the turn the lexicon endorses kept, and the hOCR's
+boxes go back to the scan.
 Where a network builds a table of its own, a small fitted choice keeps its
 table or the rules'. For table documents, `configs/neural-table.toml` adds
 the options that cost text on ordinary pages: a large ruled grid kept from
@@ -469,7 +475,7 @@ profile, kept as the reference; the neural profile is the accurate one.
 |---|---|---|---|
 | **classic** | `configs/classic.toml` | the MLP second opinion (53k) and the character GRU (258k) | the feature engine: nearest-prototype, outline and MLP channels over explicit glyph features, a beam decoder with lexicon and language model, per-document adaptation. Its row is the regression guard after every neural adoption. |
 | **pure** | `configs/pure.toml` | none | classic with both networks off; what the feature engine reads on its own |
-| **neural** | `configs/neural.toml` | classic's, plus the word-strip CRNN+CTC scorer as the judge of the classic word variants, the line reader (every line read end to end by the line model), the fitted judge that decides each line between the two readings, the word-confidence calibrator, the segmenter judge (newspapers and magazines) and the equation reader (855k) | the engine to use; finds and reads tables with the table networks (since v0.18.23; detected tables refused where they are prose), headers read from their words (v0.18.24), spans, nesting, figure columns, arithmetic checks |
+| **neural** | `configs/neural.toml` | classic's, plus the word-strip CRNN+CTC scorer as the judge of the classic word variants, the line reader (every line read end to end by the line model), the fitted judge that decides each line between the two readings, the word-confidence calibrator, the segmenter judge (newspapers and magazines) and the equation reader (855k) | the engine to use; finds and reads tables with the table networks (since v0.18.23; detected tables refused where they are prose), headers read from their words (v0.18.24), nested row labels (v0.18.25), spans, nesting, figure columns, arithmetic checks; sets pages and tables turned a quarter or half turn upright (v0.18.25) |
 | **neural-table** | `configs/neural-table.toml` | neural's, with a line reader fine-tuned on table lines in place of neural's (and on a table's crop a reader trained harder on table lines, a symbol reader and a symbol classifier); the table networks as neural (separator, detector 248k, structure 277k, word relations 321k, sequence reader 1.88M, their fitted choices, cell confidence), the detector's tables never refused as prose | neural plus the table options that also change what the reader sees (ruled grids kept from the picture zones, short grid rules, low-dpi crops magnified, rules taken out of the reader's strips, figure columns re-read as figures, turned cell text read): for payroll forms, paystubs, statements, invoices, receipts, and tables from reports and papers |
 | **neural-line** | `configs/neural_line.toml` | the same, as the experiment profile for a new line model or choice rule | development |
 
@@ -557,7 +563,7 @@ runtime surfaces, training and release) are in
 ```
 src/mlws_ocr/
   core/       Page artifact, Stage contract, registry, TOML config, runner, PDF and image I/O
-  cleanup/    magnify, deskew (projection | Hough), illumination, binarize (Sauvola | Otsu), despeckle
+  cleanup/    magnify, deskew (projection | Hough; quarter and half turns found by reading), illumination, binarize (Sauvola | Otsu), despeckle
   layout/     image zones, rulings, blocks (XY-cut | k-NN SCC | whitespace | judged), tables, lines;
               whitespace and mesh table finders, display equations found; the table separator, structure,
               detector and word-relation networks, the table sequence reader, the segmenter judge
@@ -592,7 +598,7 @@ way?" by looking.
 - [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) — the system in diagrams: packages, the stage contract, the pipeline, what a page carries, the profiles, where each model plugs in, decoding, tables, runs on disk, the service, the workbench, training and release.
 - [docs/NEURAL_NETWORK_THEORY.md](docs/NEURAL_NETWORK_THEORY.md) — neural networks from a single neuron up, then every network in the engine: its job, its exact shape and why, its training, with pictures of the real networks at work.
 - [docs/BINARIZATION.md](docs/BINARIZATION.md) — from grey pixels to ink and paper: Otsu and Sauvola, flattening the light, scanner frames, dim photos, despeckle, and why the line reader reads grey.
-- [docs/SKEW_CORRECTION.md](docs/SKEW_CORRECTION.md) — finding how far a page is turned (projection profiles, Hough) and turning it back; the ways the search was fooled, and the fixes.
+- [docs/SKEW_CORRECTION.md](docs/SKEW_CORRECTION.md) — finding how far a page is turned (projection profiles, Hough; quarter and half turns by reading) and turning it back; the ways the search was fooled, and the fixes.
 - [docs/SEGMENTATION.md](docs/SEGMENTATION.md) — pictures and rules out, then blocks (RLSA, XY-cut, whitespace rectangles, k-NN + SCC, the per-page judge), reading order, lines, and how segmentation is measured.
 - [docs/TABLES.md](docs/TABLES.md) — table extraction: ruled grids from their rules, unruled tables from their words and the junction mesh, the table networks, reading and checking cells, the output records, TEDS.
 - [docs/RECOGNITION.md](docs/RECOGNITION.md) — glyph recognition in the classic engine: the 95 shape features, nearest prototypes, the outline channel (Tesseract's matcher re-derived), skeleton graphs, how the opinions combine, where it fails.
