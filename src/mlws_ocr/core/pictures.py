@@ -46,6 +46,12 @@ def to_source(box, meta: dict, shape) -> list[int]:
     h, w = shape[:2]
     a = float((meta.get("corrections") or {}).get("deskew_deg") or 0.0)
     s = float(meta.get("magnify_scale") or 1.0)
+    regions = (meta.get("corrections") or {}).get("turned_regions")
+    if regions:
+        # deskew.turn_regions set a sideways region upright below the page, after the angle: undone first
+        from ..cleanup.orient import unplace_box
+        box, _ = unplace_box(box, regions)
+        w, h = meta["corrections"]["canvas_from"]
     x0, y0, x1, y1 = box
     pts = np.array([[x0, y0], [x1, y0], [x0, y1], [x1, y1]], np.float64)
     if a:

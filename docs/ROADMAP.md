@@ -180,7 +180,13 @@ pre-trained besides, and its training is unpublished). Cheapest first:*
   missed), the JSON table records, the Hough estimator. Trial on every
   page: nothing else changed but one sideways AAP page (26% -> 68%
   characters); 2.4% more time a page. ADOPTED in neural, v0.18.25 (the
-  owner's decision, 2026-10-22).* Before: only table cells were read turned
+  owner's decision, 2026-10-22). Then, 2026-10-22, two options: a sideways
+  region beside upright text found by its glyphs' nearest neighbours and set
+  upright below the page (`deskew.turn_regions`), and more lines read when
+  the widest hold no words (`deskew.turn_more_lines`); over 3,533 pages they
+  touch four (an upside-down dev page +2 tests, a sideways table whose shaded
+  rows still defeat the table reader, two plans' sideways plot stamps read).*
+  Before: only table cells were read turned
   (`decode.lineread` `_read_rotated_cells`); a page scanned sideways or
   upside down read as junk. Indra's orientation network: rotated content
   3.5% -> 24.3% on its benchmark. A classic way, no new network: read a

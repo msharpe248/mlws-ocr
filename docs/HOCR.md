@@ -149,7 +149,10 @@ itself. The `ocr_page` box is the scan's size, every box is mapped back to
 the scan's frame, and each line says which way its text runs with hOCR's
 `textangle` (degrees counter-clockwise: 90 for text running bottom to top,
 180 upside down, 270 top to bottom). The fine deskew angle is not undone,
-as on any page.
+as on any page. A sideways region set upright below the page
+(`deskew.turn_regions`) is undone the same way: the `ocr_page` box is the
+page's size, not the canvas's, and the region's lines and words go back to
+its place, each line with its `textangle`; the rest of the page has none.
 
 ## 5. Reading it
 

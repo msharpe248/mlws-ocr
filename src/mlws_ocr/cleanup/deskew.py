@@ -54,7 +54,8 @@ def quarter_turn(page: Page, p: dict) -> tuple[Page, dict]:
     if p.get("turn_k") is not None:
         k = int(p["turn_k"]) % 4
     else:
-        k, votes = choose_turn(page.gray, str(p["turn_model_path"]), str(p["turn_words_path"]))
+        k, votes = choose_turn(page.gray, str(p["turn_model_path"]), str(p["turn_words_path"]),
+                               more_lines=p.get("turn_more_lines"))
     scalars = {"turn": k, **{f"turn_{j}_endorsed": v[1] for j, v in votes.items()}}
     if not k:
         return page, scalars
@@ -63,6 +64,38 @@ def quarter_turn(page: Page, p: dict) -> tuple[Page, dict]:
                       binary=None if page.binary is None else np.ascontiguousarray(np.rot90(page.binary, k)))
     c = out.meta.setdefault("corrections", {})
     c["turn"], c["turn_from"] = k, [int(w), int(h)]
+    return out, scalars
+
+
+def region_turn(page: Page, p: dict) -> tuple[Page, dict]:
+    """A table set sideways beside upright text set upright when
+    ``p["turn_regions"]`` asks: the largest region whose glyphs stand one
+    above the other (cleanup/orient.py ``turned_region``) is read at each
+    quarter turn by the same vote as the page; a turn that wins is blanked
+    from the page and set upright below it (``place_region``), recorded in
+    ``meta.corrections.turned_regions`` with the page's size before
+    (``canvas_from``), so the output can take its boxes back."""
+    if not p.get("turn_regions"):
+        return page, {}
+    from .orient import char_size, choose_turn, place_region, turned_region
+    ink = page.gray < 0.5
+    cs = char_size(ink)
+    box = turned_region(ink, cs)
+    if box is None:
+        return page, {}
+    x0, y0, x1, y1 = box
+    k, votes = choose_turn(np.ascontiguousarray(page.gray[y0:y1, x0:x1]), str(p["turn_model_path"]),
+                           str(p["turn_words_path"]), more_lines=p.get("turn_more_lines"))
+    scalars = {"region_turn": k, "region_box": box,
+               **{f"region_{j}_endorsed": v[1] for j, v in votes.items()}}
+    if not k:
+        return page, scalars
+    h, w = page.gray.shape
+    canvas, at = place_region(page.gray, box, k, gap=max(40, int(4 * cs)))
+    out = page.evolve(gray=canvas.astype(np.float32))
+    c = out.meta.setdefault("corrections", {})
+    c["turned_regions"] = [{"box": [int(v) for v in box], "at": at, "k": int(k)}]
+    c["canvas_from"] = [int(w), int(h)]
     return out, scalars
 
 
@@ -147,6 +180,11 @@ class ProjectionDeskew(Stage):
         "turn_words_path": "/usr/share/dict/words",      # ...and the lexicon that judges them
         "turn_k": None,        # a manual turn (quarter turns counter-clockwise, 0-3) replacing the
                                # vote. None = vote. Set by the workbench.
+        "turn_more_lines": None,  # when no turn's 12 widest lines hold five words (a table whose widest
+                                  # lines are dates), read every turn again on this many lines (2026-10-22)
+        "turn_regions": False, # a table set sideways beside upright text set upright: the largest
+                               # region whose glyphs stand one above the other, read at each turn by the
+                               # same vote, blanked and set upright below the page (2026-10-22)
     }
 
     def run(self, page: Page) -> tuple[Page, DebugBundle]:
@@ -187,6 +225,7 @@ class ProjectionDeskew(Stage):
 
         out = page.evolve(gray=corrected)
         out.meta.setdefault("corrections", {})["deskew_deg"] = correction
+        out, region_scalars = region_turn(out, p)
         debug = DebugBundle(
             images={
                 "input": gray,
@@ -194,7 +233,7 @@ class ProjectionDeskew(Stage):
                 "score_vs_angle": plot_curve(coarse_scores, coarse,
                                              marker_x=correction),
             },
-            scalars={**turn_scalars,
+            scalars={**turn_scalars, **region_scalars,
                      "correction_deg": round(correction, 3),
                      "estimated_skew_deg": round(-estimate, 3),
                      "manual": p["angle_deg"] is not None,

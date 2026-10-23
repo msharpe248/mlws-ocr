@@ -1429,11 +1429,16 @@ def hocr_document(layout: dict, page, pictures: list | None = None) -> str:
     table instead of their block. Words and lines are escaped XHTML;
     graphic-suspect lines are left out, as in the plain text."""
     h, w = (page.gray.shape if page.gray is not None else (0, 0))
-    turn = (page.meta.get("corrections") or {}).get("turn") or 0
+    corr = page.meta.get("corrections") or {}
+    turn = corr.get("turn") or 0
+    regions = corr.get("turned_regions") or []
+    from ..cleanup.orient import unplace_box, unturn_box
+    if regions:
+        # a sideways table was read set upright below the page (deskew.turn_regions): its boxes go back
+        w, h = corr["canvas_from"]
     if turn:
         # the page was read turned upright (deskew.turns): every box goes back to the scan's frame
-        from ..cleanup.orient import unturn_box
-        w, h = page.meta["corrections"]["turn_from"]
+        w, h = corr["turn_from"]
     caps = "ocr_page ocr_carea ocr_par ocr_line ocrx_word ocr_table ocr_photo ocr_separator ocr_display ocr_math"
     out = ['<?xml version="1.0" encoding="UTF-8"?>',
            '<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" '
@@ -1444,7 +1449,13 @@ def hocr_document(layout: dict, page, pictures: list | None = None) -> str:
            f'<meta name="ocr-capabilities" content="{caps}"/></head><body>',
            f'<div class="ocr_page" id="page_1" title="bbox 0 0 {w} {h}; ppageno 0">']
     raw = lambda b: " ".join(str(int(v)) for v in b)  # noqa: E731
-    bb = lambda b: " ".join(str(int(v)) for v in (unturn_box([int(v) for v in b], turn, w, h) if turn else b))  # noqa: E731
+
+    def scan(b):
+        """A box in the scan's frame, with the quarter turns its text was read at."""
+        b, k = unplace_box([int(v) for v in b], regions) if regions else ([int(v) for v in b], 0)
+        return (unturn_box(b, turn, w, h) if turn else b), (k + turn) % 4
+
+    bb = lambda b: " ".join(str(int(v)) for v in scan(b)[0])  # noqa: E731
     lines = [ln for ln in layout.get("lines", []) if ln.get("words") and not ln.get("graphic_suspect")]
     blocks = layout.get("blocks", [])
     tables = [t for t in layout.get("tables", []) if t.get("cells")]
@@ -1477,9 +1488,10 @@ def hocr_document(layout: dict, page, pictures: list | None = None) -> str:
         li = n["line"]
         x0, y0, x1, y1 = (int(v) for v in ln["box"])
         title = f"bbox {bb(ln['box'])}"
-        if turn:
+        k = scan(ln["box"])[1]
+        if k:
             # hOCR's textangle: the line's text runs this many degrees counter-clockwise on the scan
-            title += f"; textangle {(360 - 90 * turn) % 360}"
+            title += f"; textangle {(360 - 90 * k) % 360}"
         base = ln.get("baseline")
         if base is not None:
             title += f"; baseline 0 {int(base) - y1}"

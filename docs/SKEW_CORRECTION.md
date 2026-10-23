@@ -205,8 +205,36 @@ pages and no upright page (text tests 595 → 647, table tests 775 → 815);
 on every other set it changed one page, a sideways AAP page read at 26% of
 its characters before and 68% after, and it costs about 2% more time a
 page. The 8 it left hold mostly upright text beside
-a turned table, or are building plans; turning part of a page is not done
-yet.
+a turned table, or are building plans.
+
+**More lines** (`deskew.turn_more_lines`, an option, 2026-10-22). The
+twelve widest lines can hold no words at all: an upside-down table whose
+widest lines are dates ("2020-03-16–2020-04-30") gave every turn nothing to
+endorse, and the page stayed upside down. With `turn_more_lines = 48`, when
+no turn's lines hold five words, every turn is read again on 48 lines; that
+page then reads 12 endorsed words upside down against 2 as given.
+
+**A sideways region** (`deskew.turn_regions`, an option, 2026-10-22). A
+landscape table beside the article's upright column leaves the page's own
+reading upright, rightly. The region is found by where each glyph's nearest
+neighbour lies: beside it in upright text, above or below it in turned text
+(the nearest-neighbour direction of O'Gorman's docstrum, 1993). The page is
+cut into tiles six glyphs square; a tile is turned when four of its glyphs
+have their neighbour above or below and twice as many as beside, and the
+largest group of turned tiles must hold 30. On the dev pages the sideways
+table of PMC2689651 p7 makes a group of 258 tiles; upright pages make none
+over 20, building plans up to 43. The group's box is then read by the same
+vote as a page. A winning turn is blanked from the page and set upright
+below it, on a canvas widened to fit, so every later stage reads one page
+in one frame; `meta["corrections"]["turned_regions"]` records where it came
+from and where it was set, and the hOCR's boxes and the pictures' source
+boxes in the set region go back to its place, each line with its
+`textangle`. Over every page of our sets and the dev pages (3,533) it set
+three regions upright: that table, and the sideways plot stamps in the
+margins of two building plans ("MODEL: Sheet 1 PAPERSIZE: 34x22 (in.)
+DATE: …"), now read where they were junk. The table itself still fails its
+tests: its rows are shaded and the table reader merges its columns, read on
+the canvas or alone.
 
 ## 7. What skew correction does not do
 
@@ -218,8 +246,10 @@ yet.
   not — and is handled per glyph: each glyph is sheared upright before its
   features are measured (`glyph/features.py`), and its lean is kept so the
   decoder can tell '/' from 'l'.
-- **Part of a page turned.** A turned table on a page of upright text
-  stays as it is when the upright text outvotes it (§6); quarter-turned
+- **Part of a page turned**, without `deskew.turn_regions`. A turned table
+  on a page of upright text stays as it is when the upright text outvotes
+  it (§6); with the option, only the largest sideways region is set
+  upright, and a region turned a half turn is not looked for. Quarter-turned
   text inside a table cell is handled by the table profile's
   `decode.rotated_cells`.
 
@@ -238,6 +268,8 @@ yet.
 | `angle_deg` | None | a manual correction (the workbench) |
 | `turns` | False | quarter and half turns found by reading (§6) |
 | `turn_k` | None | a manual turn, 0–3 quarter turns counter-clockwise |
+| `turn_more_lines` | None | when no turn's 12 lines hold five words, read every turn on this many (§6) |
+| `turn_regions` | False | the largest sideways region set upright below the page (§6) |
 | `turn_model_path`, `turn_words_path` | `data/seq_line_csl_en.npz`, `/usr/share/dict/words` | the line reader and lexicon the turns are read with |
 
 Tests: `tests/test_cleanup_stages.py` (both estimators within 0.2° of a
@@ -245,7 +277,9 @@ Tests: `tests/test_cleanup_stages.py` (both estimators within 0.2° of a
 a photograph at the frame edge does not win), `tests/test_deskew_manual.py`
 (manual angles, the glyph-size filter, the limit rule), `tests/test_orient.py`
 (a box turned and mapped back at each turn, the line finder, a manual turn
-recorded, a turned page's hOCR in the scan's frame).
+recorded, a turned page's hOCR in the scan's frame, a sideways region
+found beside upright text and stopped at the gutter, a set region mapped
+back at each turn, its hOCR in the page's frame).
 
 ## References
 
@@ -259,6 +293,8 @@ recorded, a turned page's hOCR in the scan's frame).
   Hough transform", Machine Vision and Applications 2, 1989.
 - S. C. Hinds, J. L. Fisher & D. P. D'Amato, "A document skew detection
   method using run-length encoding and the Hough transform", ICPR 1990.
+- L. O'Gorman, "The document spectrum for page layout analysis", IEEE
+  Trans. PAMI 15(11), 1993.
 - K. Y. Wong, R. G. Casey & F. M. Wahl, "Document analysis system", IBM J.
   Res. Dev. 26(6), 1982 (run-length smoothing).
 - R. Smith, "An overview of the Tesseract OCR engine", ICDAR 2007 (and
