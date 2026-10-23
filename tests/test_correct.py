@@ -53,3 +53,11 @@ def test_case_repair_fixes_size_twins_and_I_l_but_not_real_mixed_case():
     assert case_repair("SOUp", False, lm) == "Soup"
     for word in ("McDonald", "McCarthy", "MacCormac", "iPhone", "PhD", "IBM", "How", "TOTAL", "Invoice"):
         assert case_repair(word, False, lm) is None, word
+
+
+def test_context_repair_reads_CI_and_roman_numerals_by_their_neighbours():
+    from mlws_ocr.decode.correct import context_repair
+    words = ["OR", "(95%", "Cl)", "Adjusted", "HR", "(95%Cl:", "1.2-12.8)", "Cl:", "confidence", "interval",
+             "grade", "Ill", "type", "l", "Series", "Il", "Int.", "Cl.", "NaCl", "Cl", "ions"]
+    fixed = context_repair(words)
+    assert fixed == {2: "CI)", 5: "(95%CI:", 7: "CI:", 11: "III", 13: "I", 15: "II"}

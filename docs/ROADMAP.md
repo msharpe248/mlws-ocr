@@ -65,9 +65,13 @@ sparse stub column kept"):* an outer stub label printed in a few rows only
 ('Visual impairment' ... 'Hearing impairment') keeps a column of its own
 behind a gap no row crosses (`output.table_stub_columns`, trial 8 px): dev
 pages with a table, tables 889 -> 898 (9 up, none down); TEDS, the business
-tables, our sets and the held-out pools unchanged. For the owner. Next: the
-table headings misread ('95% CI' read '95% Cl': 39 dev tests on five pages),
-then the block reader's stage 2.
+tables, our sets and the held-out pools unchanged. For the owner. Then the
+table headings misread, done 2026-10-23 as an option (RESEARCH, "I and l
+told apart by the neighbouring words"): '95% Cl' read 'CI' after a
+percentage, bars after type/grade/series read as Roman numerals
+(`correct.context_repair`): all 725 dev pages, tables 889 -> 928, text 647
+-> 648 (40 up, none down); TEDS, business tables, our sets and the held-out
+pools level. For the owner. Next: the block reader's stage 2.
 
 ## Earlier: the annual reports' remaining gap, then the system paper (2026-10-17, the owner's go-ahead)
 

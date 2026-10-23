@@ -94,6 +94,48 @@ def case_repair(core: str, line_caps: bool, lm) -> str | None:
 _SPLIT = re.compile(r"^([\"'(\[{]*)(.*?)([\"'.,;:!?)\]}]*)$", re.S)
 
 
+_PERCENT_CL = re.compile(r"(.*%)Cl(s?)")       # '95%Cl', '(95%Cls'
+_ENUMERATORS = frozenset({"type", "grade", "stage", "phase", "class", "series", "part"})
+
+
+def context_repair(words: list[str]) -> dict[int, str]:
+    """I and l told apart by the words around them, where the glyph cannot
+    tell them (2026-10-23). In a sans face (Helvetica, Arial, Gill Sans) the
+    capital I and the small l are one bar, and the lexicon, folded to small
+    letters, knows 'cl' (centilitre) but not 'ci', so '95% CI' is read
+    '95% Cl'. Two conventions of printed tables settle it:
+
+    1. a confidence interval: 'Cl' or 'Cls' after a percentage ('95% Cl',
+       '(95%Cl'), or before 'confidence' or 'interval' (the key under a
+       table, 'Cl: confidence interval'), becomes 'CI' -- chlorine and the
+       patent classes' 'Int. Cl.' have neither neighbour;
+    2. a Roman numeral: a word of bars only (l, Il, Ill) after type, grade,
+       stage, phase, class, series or part becomes capitals ('grade Ill' ->
+       'grade III'); Arabic numbering after these words ('Type 1') is read
+       as a digit, whose flag the reader sees.
+
+    The context-sensitive correction of Kukich's survey (ACM Computing
+    Surveys 1992, section 3) with a rule for the neighbour in place of a word
+    n-gram. ``words`` are a page's words in reading order; returns {index:
+    repaired word}."""
+    out = {}
+    for i, w in enumerate(words):
+        lead, core, trail = _SPLIT.match(w).groups()
+        prev = words[i - 1] if i else ""
+        nxt = words[i + 1].lower().lstrip("([") if i + 1 < len(words) else ""
+        new = core
+        m = _PERCENT_CL.fullmatch(core)
+        if m:
+            new = m.group(1) + "CI" + m.group(2)
+        elif core in ("Cl", "Cls") and (prev.endswith("%") or nxt.startswith(("confidence", "interval"))):
+            new = "CI" + core[2:]
+        elif re.fullmatch(r"[Il]{1,3}", core) and "l" in core and prev.lower().strip("(,") in _ENUMERATORS:
+            new = core.replace("l", "I")
+        if new != core:
+            out[i] = lead + new + trail
+    return out
+
+
 class ChannelModel:
     """The learned edit table, indexed by the OUTPUT side for correction."""
 
@@ -144,6 +186,8 @@ class NoisyChannelCorrect(Stage):
         "enabled": True,                 # the profiles that carry it switched off set false
         "case_repair": False,            # the I/l and case-twin pass (case_repair()); runs even
                                          # with enabled = false
+        "context_repair": False,         # I/l by the neighbouring words: '95% Cl' -> 'CI', 'grade Ill'
+                                         # -> 'III' (context_repair()); runs even with enabled = false
         "confusions_path": "data/confusions_neural.json",  # scripts/harvest_confusions.py
         "lang_model": "data/lang_en.npz",
         "seq_path": "data/seq_en.npz",   # the pixel check ("" = off)
@@ -166,9 +210,24 @@ class NoisyChannelCorrect(Stage):
     def run(self, page: Page) -> tuple[Page, DebugBundle]:
         p = self.params
         out = page.evolve()
-        if not p["enabled"] and not p["case_repair"]:
+        if not p["enabled"] and not p["case_repair"] and not p["context_repair"]:
             return out, DebugBundle(notes=["switched off (enabled = false)"])
         layout = out.meta.get("layout")
+        n_ctx, ctx_notes = 0, []
+        if p["context_repair"] and layout:
+            import copy
+            layout = copy.deepcopy(layout)
+            out.meta["layout"] = layout
+            words = [w for ln in layout.get("lines", []) for w in ln.get("words", [])]
+            for i, text in context_repair([w.get("text", "") for w in words]).items():
+                w = words[i]
+                w.setdefault("corrected_from", w["text"])
+                if len(ctx_notes) < 40:
+                    ctx_notes.append(f"context: {w['text']} -> {text}")
+                w["text"] = text
+                n_ctx += 1
+            if not p["enabled"] and not p["case_repair"]:
+                return out, DebugBundle(scalars={"context_repaired": n_ctx}, notes=ctx_notes)
         if p["case_repair"] and layout:
             import copy
             from ..lang.model import CorpusModel
@@ -191,7 +250,8 @@ class NoisyChannelCorrect(Stage):
                         if len(case_notes) < 40:
                             case_notes.append(f"case: {old} -> {w['text']}")
             if not p["enabled"]:
-                return out, DebugBundle(scalars={"case_repaired": n_case}, notes=case_notes)
+                return out, DebugBundle(scalars={"case_repaired": n_case, "context_repaired": n_ctx},
+                                        notes=ctx_notes + case_notes)
         if not layout or not Path(p["confusions_path"]).is_file():
             return out, DebugBundle(notes=["no layout or no confusion table; nothing corrected"])
         import copy

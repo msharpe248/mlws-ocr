@@ -484,6 +484,8 @@ const TABLE_SWITCHES = [
     title: "a label after an empty first column stays in its own column when the columns before it hold labels in other rows (Tumour site | Anorexia | Fatigue); otherwise it is taken for a total set right and spans from the first column" },
   { slot: "output", key: "table_stub_columns", on: 8, off: 0, label: "Sparse stub column",
     title: "a whitespace table's outer row labels, printed in a few rows only (Visual impairment ... Hearing impairment), kept as a column of their own when no row crosses the gap before the next column; they were merged into the next column" },
+  { slot: "correct", key: "context_repair", on: true, off: false, label: "CI and Roman numerals",
+    title: "I and l told apart by the words around them, where a sans face prints both as one bar: 'Cl' after a percentage or before 'confidence' read 'CI' (95% CI), and bars after type, grade, stage, phase, class, series or part read as a Roman numeral (grade III)" },
   { slot: "output", key: "table_group_rowspans", on: true, off: false, label: "Row groups",
     title: "a row and its continuation rows (first cell empty, fewer cells: a gene's two primer rows) are one group; its label spans them" },
   { slot: "blocks", key: "keep_dashes", on: true, off: false, label: "Lone dashes",
