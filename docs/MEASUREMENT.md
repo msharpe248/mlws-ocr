@@ -92,7 +92,7 @@ run".
 | **table sets** | see [TABLES.md §8](TABLES.md) | table structure (TEDS), and the cells' reading (CHARS: character accuracy of the cell text, since 2026-10-04 -- TEDS weighs one wrong character of a cell next to nothing; a crop's table is scored from the output's table records -- what the JSON / HTML / CSV give a user, figure-column repairs included -- since 2026-10-07, before that from the layout's cells, about 0.0003 lower) |
 | **screens** | 80 tables drawn by a browser in six styles, 96 / 192 dpi | screenshots: anti-aliased type, colour, dark mode |
 | **equations** | 33 article pages typeset by LaTeX, 174 display equations | finding display equations and their numbers |
-| **Omni Parse Bench** | 1,423 English printed pages of an outside benchmark (pass/fail tests) | text, tables and layout on pages never developed on, against Tesseract under one adapter; by family and tag, never its headline (`scripts/eval_omni_parse_bench.py`) |
+| **Omni Parse Bench** | 1,423 English printed pages of an outside benchmark (pass/fail tests) | text, tables and layout on pages never developed on, against Tesseract under one adapter; by family and tag, never its headline, and by family again on the clean articles -- the pages whose PubMed Central article has no table in our table networks' training data (`clean` lines; `scripts/omni_parse_bench_seen.txt`; every table harvest refuses the benchmark's articles, `scripts/benchmark_guard.py`) (`scripts/eval_omni_parse_bench.py`) |
 
 The exact command line for each is in [DATA_SOURCES.md §10](DATA_SOURCES.md).
 One rule applies to all of them: **pass `--config`**. Without it the

@@ -176,7 +176,15 @@ def verdicts(outdir: Path, which=None):
                 yield r, t, v
 
 
+def seen_articles() -> set:
+    """The benchmark's PubMed Central articles with tables in our table networks' training data
+    (PubTables-1M; omni_parse_bench_seen.txt): the 'clean' lines leave their pages out."""
+    f = Path(__file__).parent / 'omni_parse_bench_seen.txt'
+    return {ln.strip() for ln in f.read_text().splitlines() if ln.strip() and not ln.startswith('#')}
+
+
 def score_dirs(args):
+    seen = seen_articles()
     for d in args.outdirs:
         d = R / d if not Path(d).is_absolute() else Path(d)
         res = collections.defaultdict(lambda: [0, 0]); docs = collections.defaultdict(set)
@@ -184,10 +192,13 @@ def score_dirs(args):
             ok = v.result == 'pass'
             keys = [('family', FAMILY[t.test_type]), ('type', t.test_type), ('suite', r['suite'])]
             keys += [('tag', g) for g in t.tags if g in TAGS]
+            m = re.search(r'PMC\d+', r['page_id'])
+            if not (m and m.group(0) in seen):
+                keys.append(('clean', FAMILY[t.test_type]))
             for k in keys:
                 res[k][0] += ok; res[k][1] += 1; docs[k].add(r['document'])
         print(f'== {d}' + (f'  ({args.half} half)' if args.half else ''))
-        for group in ('family', 'type', 'tag', 'suite'):
+        for group in ('family', 'clean', 'type', 'tag', 'suite'):
             for k in sorted(k for k in res if k[0] == group):
                 p, n = res[k]
                 print(f'  {group:6s} {k[1]:24s} {100 * p / n:5.1f}%  ({p}/{n} tests, {len(docs[k])} documents)')
