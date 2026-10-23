@@ -177,7 +177,7 @@ pre-trained besides, and its training is unpublished). Cheapest first:*
   Parse Bench's dev half 51 of 59 turned pages turned and no other, text
   47.8 -> 52.0, tables 33.1 -> 34.8, layout 73.1 -> 75.5 on the dev pages
   with a table. Left: a turned table on a page of upright text (the 8
-  missed), the JSON table records, the Hough estimator. Trial on every
+  missed), the JSON table records (done 2026-10-23: they and the service's words now share the hOCR's frame), the Hough estimator. Trial on every
   page: nothing else changed but one sideways AAP page (26% -> 68%
   characters); 2.4% more time a page. ADOPTED in neural, v0.18.25 (the
   owner's decision, 2026-10-22). Then, 2026-10-22, two options: a sideways

@@ -273,3 +273,32 @@ def unplace_box(box, regions: list[dict]) -> tuple[list[int], int]:
                                         r["k"], bx1 - bx0, by1 - by0)
             return [x0 + bx0, y0 + by0, x1 + bx0, y1 + by0], int(r["k"])
     return [int(v) for v in box], 0
+
+
+def scan_box(box, corrections: dict) -> tuple[list[int], int]:
+    """A box on the page the stages read, in the frame the outputs give:
+    a set region's boxes back in its place (``unplace_box``), then the page's
+    quarter turn undone (``unturn_box``); with the quarter turns its text
+    was read at.  The hOCR and the service's words and tables share it."""
+    regions = corrections.get("turned_regions") or []
+    b, k = unplace_box(box, regions) if regions else ([int(v) for v in box], 0)
+    turn = int(corrections.get("turn") or 0)
+    if turn:
+        w, h = corrections["turn_from"]
+        b = unturn_box(b, turn, w, h)
+    return b, (k + turn) % 4
+
+
+def scan_tables(recs: list[dict], corrections: dict) -> list[dict]:
+    """The table records (decode/tableio.py) with every box -- the table's,
+    its cells', the tables nested in them -- in the outputs' frame
+    (``scan_box``); the records themselves when the page was read as given."""
+    if not (corrections.get("turn") or corrections.get("turned_regions")):
+        return recs
+
+    def one(r):
+        cells = [dict(c, box=scan_box(c["box"], corrections)[0],
+                      **({"tables": [one(t) for t in c["tables"]]} if c.get("tables") else {}))
+                 for c in r["cells"]]
+        return dict(r, box=scan_box(r["box"], corrections)[0], cells=cells)
+    return [one(r) for r in recs]

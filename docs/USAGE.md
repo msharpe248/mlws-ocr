@@ -183,7 +183,9 @@ Boxes, here and in the hOCR, are in the frame of the page as the engine
 saw it after cleanup: magnified if the scan was under 200 dpi, rotated
 level if it was skewed. On a straight scan of 200 dpi or more that is the
 original image's frame; otherwise [HOCR.md §4](HOCR.md) says how to map
-them back.
+them back. A page or region read turned upright (`deskew.turns`,
+`deskew.turn_regions`) has its turn undone in the words, the tables and the
+hOCR alike.
 
 The zip holds:
 

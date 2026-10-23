@@ -8,7 +8,8 @@ import numpy as np
 import pytest
 
 from mlws_ocr.cleanup.deskew import ProjectionDeskew, quarter_turn, region_turn
-from mlws_ocr.cleanup.orient import place_region, text_lines, turned_region, unplace_box, unturn_box
+from mlws_ocr.cleanup.orient import (place_region, scan_box, scan_tables, text_lines, turned_region, unplace_box,
+                                     unturn_box)
 from mlws_ocr.core.artifacts import Page
 from mlws_ocr.decode.output import hocr_document
 
@@ -116,3 +117,18 @@ def test_hocr_of_a_placed_region_is_in_the_pages_frame():
     assert titles[1].startswith(f"bbox {unplace_box([10, 240, 90, 260], regions)[0][0]} ")
     assert "textangle 270" in titles[1]
     assert unplace_box([10, 240, 90, 260], regions)[0] == [150, 30, 170, 110]
+
+
+def test_table_records_go_to_the_hocrs_frame():
+    corr = {"turn": 1, "turn_from": [300, 500]}
+    inner = {"box": [12, 22, 40, 38], "n_rows": 1, "n_cols": 1, "source": "grid",
+             "cells": [{"row": 0, "col": 0, "box": [12, 22, 40, 38], "text": "x"}]}
+    rec = {"box": [10, 20, 90, 40], "n_rows": 1, "n_cols": 1, "source": "grid",
+           "cells": [{"row": 0, "col": 0, "box": [10, 20, 90, 40], "text": "a", "tables": [inner]}]}
+    out = scan_tables([rec], corr)[0]
+    assert out["box"] == [260, 10, 280, 90] == scan_box([10, 20, 90, 40], corr)[0]
+    assert out["cells"][0]["box"] == [260, 10, 280, 90]
+    assert out["cells"][0]["tables"][0]["box"] == unturn_box([12, 22, 40, 38], 1, 300, 500)
+    assert rec["box"] == [10, 20, 90, 40]                  # the engine's records are left as they are
+    same = [rec]
+    assert scan_tables(same, {}) is same and scan_box([1.5, 2, 3, 4], {}) == ([1, 2, 3, 4], 0)

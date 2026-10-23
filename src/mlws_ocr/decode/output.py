@@ -1432,7 +1432,7 @@ def hocr_document(layout: dict, page, pictures: list | None = None) -> str:
     corr = page.meta.get("corrections") or {}
     turn = corr.get("turn") or 0
     regions = corr.get("turned_regions") or []
-    from ..cleanup.orient import unplace_box, unturn_box
+    from ..cleanup.orient import scan_box
     if regions:
         # a sideways table was read set upright below the page (deskew.turn_regions): its boxes go back
         w, h = corr["canvas_from"]
@@ -1450,11 +1450,7 @@ def hocr_document(layout: dict, page, pictures: list | None = None) -> str:
            f'<div class="ocr_page" id="page_1" title="bbox 0 0 {w} {h}; ppageno 0">']
     raw = lambda b: " ".join(str(int(v)) for v in b)  # noqa: E731
 
-    def scan(b):
-        """A box in the scan's frame, with the quarter turns its text was read at."""
-        b, k = unplace_box([int(v) for v in b], regions) if regions else ([int(v) for v in b], 0)
-        return (unturn_box(b, turn, w, h) if turn else b), (k + turn) % 4
-
+    scan = lambda b: scan_box(b, corr)  # noqa: E731
     bb = lambda b: " ".join(str(int(v)) for v in scan(b)[0])  # noqa: E731
     lines = [ln for ln in layout.get("lines", []) if ln.get("words") and not ln.get("graphic_suspect")]
     blocks = layout.get("blocks", [])

@@ -151,8 +151,15 @@ def read_gray(gray, dpi, doc_type: str | None = None, t0: float | None = None, r
               "p_correct": w.get("p_correct"), "confidence": w.get("confidence")}
              for ln in page.meta.get("layout", {}).get("lines", [])
              for w in ln.get("words", [])]
+    tables = page.meta.get("tables", [])
+    corr = page.meta.get("corrections") or {}
+    if corr.get("turn") or corr.get("turned_regions"):
+        # read turned (deskew.turns, deskew.turn_regions): boxes in the hOCR's frame, the scan's turn undone
+        from mlws_ocr.cleanup.orient import scan_box, scan_tables
+        words = [dict(w, box=scan_box(w["box"], corr)[0]) for w in words]
+        tables = scan_tables(tables, corr)
     res = {"text": page.meta.get("text", ""), "hocr": page.meta.get("hocr", ""),
-            "words": words, "tables": page.meta.get("tables", []),
+            "words": words, "tables": tables,
             "tables_html": page.meta.get("tables_html", ""), "tables_csv": page.meta.get("tables_csv", ""),
             "pictures": page.meta.get("pictures", []),
             "summary": summary,
