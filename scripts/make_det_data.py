@@ -31,6 +31,8 @@ from PIL import Image
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 from mlws_ocr.layout.tabledet import DET_SCALE  # noqa: E402
+sys.path.insert(0, str(Path(__file__).parent))
+from benchmark_guard import refused  # noqa: E402  (the outside benchmark's articles, never trained on)
 
 
 def small_ink(gray: np.ndarray, f: float) -> np.ndarray:
@@ -158,7 +160,7 @@ def main():
     else:
         xmls = sorted((a.src / "train").glob("*.xml"))
         have = {p.stem for p in (a.src / "images").glob("*.jpg")}
-        xmls = [x for x in xmls if x.stem in have]
+        xmls = [x for x in xmls if x.stem in have and not refused(x.stem)]
         rng = np.random.default_rng(0)
         if len(xmls) > a.n:
             xmls = [xmls[i] for i in sorted(rng.choice(len(xmls), a.n, replace=False))]

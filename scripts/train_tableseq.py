@@ -55,6 +55,9 @@ sys.path.insert(0, str(ROOT / "src"))
 from mlws_ocr.layout.tableseq import INDEX, VOCAB  # noqa: E402
 from mlws_ocr.math.reader import position_code  # noqa: E402
 
+sys.path.insert(0, str(ROOT / "scripts"))
+from benchmark_guard import refused  # noqa: E402  (the outside benchmark's articles, never trained on)
+
 SIDE = 448
 CH = [1, 32, 64, 128, 192, 256]
 EMB, HID, ATT = 64, 384, 192
@@ -63,10 +66,15 @@ START = (INDEX["fcel"], INDEX["ecel"])
 
 
 def load(paths):
+    """The part files' tables, less any from the outside benchmark's articles
+    (files made before the guard, 2026-10-23, still hold some)."""
     names, ims, toks, boxes = [], [], [], []
     for p in paths:
         z = np.load(p, allow_pickle=True)
-        names += list(z["names"]); ims += list(z["images"]); toks += list(z["tokens"]); boxes += list(z["boxes"])
+        keep = [i for i, n in enumerate(z["names"]) if not refused(str(n))]
+        for lst, key in ((names, "names"), (ims, "images"), (toks, "tokens"), (boxes, "boxes")):
+            col = z[key]
+            lst += [col[i] for i in keep]
     return names, ims, toks, boxes
 
 

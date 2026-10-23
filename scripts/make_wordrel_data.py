@@ -23,11 +23,15 @@ from __future__ import annotations
 
 import argparse
 import json
+import sys
 import xml.etree.ElementTree as ET
 from multiprocessing import Pool
 from pathlib import Path
 
 import numpy as np
+
+sys.path.insert(0, str(Path(__file__).parent))
+from benchmark_guard import refused  # noqa: E402  (the outside benchmark's articles, never trained on)
 
 MAX_WORDS = 400          # tables with more words are skipped (a few percent; the network's attention is N^2)
 
@@ -141,7 +145,7 @@ def main():
     ap.add_argument("--out", type=Path, required=True)
     ap.add_argument("--workers", type=int, default=12)
     args = ap.parse_args()
-    xmls = sorted((args.root / args.split).glob("*.xml"))
+    xmls = [x for x in sorted((args.root / args.split).glob("*.xml")) if not refused(x.stem)]
     rng = np.random.default_rng(args.seed)
     if len(xmls) > args.n:
         xmls = [xmls[i] for i in sorted(rng.choice(len(xmls), args.n, replace=False))]

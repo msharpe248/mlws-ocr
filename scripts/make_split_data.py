@@ -34,6 +34,7 @@ from PIL import Image
 sys.path.insert(0, str(Path(__file__).parent))
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 from make_sep_data import sep_labels, shrink  # noqa: E402
+from benchmark_guard import refused  # noqa: E402  (the outside benchmark's articles, never trained on)
 from mlws_ocr.layout.splitnet import SCALE  # noqa: E402
 
 
@@ -89,7 +90,7 @@ def pdf_table(args) -> tuple | None:
 def pdf_source(src: Path, n: int, jobs: int, split: str, part: int = 0, parts: int = 1) -> list:
     """``n`` tables drawn at random (seed 0) from the split; ``part`` of
     ``parts`` takes every parts-th of them, so the parts are disjoint."""
-    xmls = sorted((src / split).glob("*.xml"))
+    xmls = [x for x in sorted((src / split).glob("*.xml")) if not refused(x.stem)]
     rng = np.random.default_rng(0)
     if len(xmls) > n:
         xmls = [xmls[i] for i in sorted(rng.choice(len(xmls), n, replace=False))]

@@ -31,6 +31,7 @@ import numpy as np
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 sys.path.insert(0, str(ROOT / "scripts"))
+from benchmark_guard import refused  # noqa: E402  (the outside benchmark's articles, never trained on)
 
 RARE = set("–−×°±≤≥—")
 _G: dict = {}
@@ -92,7 +93,7 @@ def main():
     ap.add_argument("--out", type=Path, required=True)
     args = ap.parse_args()
     rng = random.Random(args.seed)
-    names = sorted(p.stem for p in (args.root / "train").glob("*.xml"))
+    names = sorted(p.stem for p in (args.root / "train").glob("*.xml") if not refused(p.stem))
     rng.shuffle(names)
     jobs = []
     for n in names[: args.scan]:

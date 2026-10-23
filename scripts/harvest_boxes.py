@@ -185,7 +185,8 @@ def tables_pages(root: Path, n: int, part: int, parts: int, seed: int = 7, avoid
     drawn from the same training split)."""
     xmls = sorted((root / "train").glob("*.xml"))
     used = {x.stem for sd, k in avoid for x in draw(xmls, k, sd)} | set(skip)
-    xmls = draw([x for x in xmls if x.stem not in used], n, seed)
+    from benchmark_guard import refused        # the outside benchmark's articles, never trained on
+    xmls = draw([x for x in xmls if x.stem not in used and not refused(x.stem)], n, seed)
     for xml in xmls[part::parts]:
         img = root / "images" / f"{xml.stem}.jpg"
         wf = root / "words" / f"{xml.stem}_words.json"

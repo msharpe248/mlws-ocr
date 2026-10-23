@@ -34,6 +34,7 @@ from PIL import Image, ImageDraw
 sys.path.insert(0, str(Path(__file__).parent))
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 from eval_pages import SEVERITIES  # noqa: E402
+from benchmark_guard import refused  # noqa: E402  (the outside benchmark's articles, never trained on)
 from make_table_set import FACES, find_face  # noqa: E402
 from table_templates import CITIES, COMPANIES, FIRST, GROCERY, ITEMS, LAST, STREETS, fonts_for  # noqa: E402
 from mlws_ocr.factory.synth import degrade  # noqa: E402
@@ -162,7 +163,7 @@ def fintabnet(src: Path, limit: int) -> list:
     sys.path.insert(0, str(Path(__file__).parent))
     from import_table_sets import boxes
     out = []
-    for xml in sorted((src / "train").glob("*.xml"))[:limit]:
+    for xml in [x for x in sorted((src / "train").glob("*.xml")) if not refused(x.stem)][:limit]:
         img = src / "images" / f"{xml.stem}.jpg"
         if not img.exists():
             continue

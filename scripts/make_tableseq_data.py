@@ -30,6 +30,7 @@ sys.path.insert(0, str(ROOT / "src"))
 sys.path.insert(0, str(ROOT / "scripts"))
 
 from harvest_boxes import draw  # noqa: E402
+from benchmark_guard import refused  # noqa: E402  (the outside benchmark's articles, never trained on)
 from import_table_sets import boxes as xml_boxes  # noqa: E402
 from mlws_ocr.layout.tableseq import INDEX, encode, grid_cells  # noqa: E402
 
@@ -48,7 +49,7 @@ def main():
     ap.add_argument("--out", type=Path, required=True)
     args = ap.parse_args()
     skip = {p.name[: -len(".table.html")] for d in args.skip_dir for p in d.glob("*.table.html")}
-    xmls = [x for x in sorted((args.root / args.split).glob("*.xml")) if x.stem not in skip]
+    xmls = [x for x in sorted((args.root / args.split).glob("*.xml")) if x.stem not in skip and not refused(x.stem)]
     xmls = draw(xmls, args.n, args.seed)[args.part::args.parts]
     names, images, tokens, boxes = [], [], [], []
     long = 0

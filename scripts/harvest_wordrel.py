@@ -33,6 +33,7 @@ import numpy as np
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 sys.path.insert(0, str(ROOT / "scripts"))
+from benchmark_guard import refused  # noqa: E402  (the outside benchmark's articles, never trained on)
 
 _G: dict = {}
 
@@ -83,7 +84,7 @@ def main():
     for f in args.skip:
         skip |= (set(f.read_text().split()) if f.suffix == ".txt"
                  else set(np.load(f, allow_pickle=True)["names"]))
-    xmls = [x for x in xmls if x.stem not in skip]
+    xmls = [x for x in xmls if x.stem not in skip and not refused(x.stem)]
     rng = np.random.default_rng(args.seed)
     if len(xmls) > args.n:
         xmls = [xmls[i] for i in sorted(rng.choice(len(xmls), args.n, replace=False))]
