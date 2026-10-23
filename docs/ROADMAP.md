@@ -60,6 +60,15 @@ Bench's dev pages with a table: 47.8 / 33.1 / 73.1 -> 52.0 / 38.0 / 75.5
 down; the vote turned 41 test pages, every one tagged rotated); clean DOE,
 annual reports and blocks unchanged.
 
+*The second row-group fix, done 2026-10-23 as an option (RESEARCH, "A
+sparse stub column kept"):* an outer stub label printed in a few rows only
+('Visual impairment' ... 'Hearing impairment') keeps a column of its own
+behind a gap no row crosses (`output.table_stub_columns`, trial 8 px): dev
+pages with a table, tables 889 -> 898 (9 up, none down); TEDS, the business
+tables, our sets and the held-out pools unchanged. For the owner. Next: the
+table headings misread ('95% CI' read '95% Cl': 39 dev tests on five pages),
+then the block reader's stage 2.
+
 ## Earlier: the annual reports' remaining gap, then the system paper (2026-10-17, the owner's go-ahead)
 
 The clean test left the annual reports furthest behind the LSTM. On the 60

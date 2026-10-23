@@ -391,3 +391,25 @@ def test_span_labels_nested_keeps_inner_group_labels_in_their_columns():
                    ["", "", "", "Tax", "705.25"],
                    ["", "", "", "Total Due", "$9,520.87"]])
     assert spans(span_set_right_labels(items, nested=True)) == [(3, "Subtotal"), (4, "Tax"), (5, "Total Due")]
+
+
+def test_stub_columns_keeps_a_sparse_outer_label_column():
+    """Visual | Fluoride use | figures, the outer label printed in two of 14 rows: too few rows to be
+    a column by the alignment share, so its words fall into the next column; with
+    ``STUB_COLUMN`` set they are a column of their own, behind the gap no row crosses."""
+    from mlws_ocr.layout import wstables
+    words = []
+    for r in range(14):
+        y = 50 * r
+        if r in (0, 7):
+            words.append(_w(["Visual", "Hearing"][r // 7], 0, y, 110))
+        words += [_w(f"label{r}", 200, y, 350), _w(f"{r}.5", 500, y, 560), _w(f"0.0{r}", 700, y, 760)]
+    try:
+        plain = wstables.whitespace_table(words)
+        wstables.STUB_COLUMN[0] = 8
+        stub = wstables.whitespace_table(words)
+    finally:
+        wstables.STUB_COLUMN[0] = 0
+    assert plain["n_cols"] == 3 and stub["n_cols"] == 4
+    first = {c["row"]: c["text"] for c in stub["cells"] if c["col"] == 0}
+    assert first.get(0) == "Visual" and first.get(7) == "Hearing" and not first.get(1)

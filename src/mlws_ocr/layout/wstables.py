@@ -430,7 +430,9 @@ def _columns(rows, multi, cross_frac: float = 0.0) -> list[list[float]]:
     cross it -- one long label or a stray header phrase no longer fuses two
     columns for the whole table (the alignment-over-agreement idea of the
     Tabula / pdfplumber text strategy, A. Nurminen, 'Algorithmic extraction
-    of data in tables in PDF documents', Tampere, 2013)."""
+    of data in tables in PDF documents', Tampere, 2013).  With ``STUB_COLUMN``
+    set, a sparse first stub column -- labels in a few rows only, so under
+    ``allow`` -- is kept when it stands behind a gap no row crosses."""
     ivs = sorted((p["box"][0], p["box"][2]) for i in multi for p in rows[i])
     if cross_frac <= 0:
         cols: list[list[float]] = []
@@ -460,6 +462,16 @@ def _columns(rows, multi, cross_frac: float = 0.0) -> list[list[float]]:
             k = j + 1
         else:
             k += 1
+    if STUB_COLUMN[0] and cols:
+        # a sparse first stub column (an outer row group's label every few rows, Wang's row-header
+        # levels): its phrases cover too few rows to pass ``allow``; kept as a column when they stand
+        # in two rows or more left of the first column, behind a gap no row crosses
+        nz = np.nonzero(cover[:int(cols[0][0]) - x0])[0]
+        if len(nz):
+            a, b = int(nz[0]), int(nz[-1])
+            n_rows = sum(1 for i in multi if any(p["box"][2] - x0 <= b + 1 for p in rows[i]))
+            if int(cols[0][0]) - x0 - b - 1 >= STUB_COLUMN[0] and n_rows >= 2:
+                cols.insert(0, [float(a + x0), float(b + x0)])
     return cols
 
 
@@ -717,6 +729,8 @@ FIGURE_SHAPE = [True]    # ...a FIGURE is a cell of mostly digits, not any cell 
 MERGE_GROUPS = [False]    # found tables stacked with the same columns, a small gap apart, are one
                          # (a scientific table's row groups set off by rules; experiment switch)
 CAPTION_CUT = [True]     # a leading 'Table N' caption row is not a row of the table (experiment switch)
+STUB_COLUMN = [0]        # _columns keeps a sparse first stub column behind a gap of this many pixels
+                         # (0 = off); set by the output stage from output.table_stub_columns
 FIGURE_COLUMN = [0.6]    # a found table needs a column after the first whose cells are at least
                          # this share figures (0 = off)
 

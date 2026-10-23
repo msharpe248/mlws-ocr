@@ -482,6 +482,8 @@ const TABLE_SWITCHES = [
     title: "a table set sideways beside upright text: the region whose letters stand one above the other is read at each quarter turn, and a winning turn is set upright below the page (the canvas) and read there; its boxes go back to its place" },
   { slot: "output", key: "span_labels_nested", on: true, off: false, label: "Nested row labels",
     title: "a label after an empty first column stays in its own column when the columns before it hold labels in other rows (Tumour site | Anorexia | Fatigue); otherwise it is taken for a total set right and spans from the first column" },
+  { slot: "output", key: "table_stub_columns", on: 8, off: 0, label: "Sparse stub column",
+    title: "a whitespace table's outer row labels, printed in a few rows only (Visual impairment ... Hearing impairment), kept as a column of their own when no row crosses the gap before the next column; they were merged into the next column" },
   { slot: "output", key: "table_group_rowspans", on: true, off: false, label: "Row groups",
     title: "a row and its continuation rows (first cell empty, fewer cells: a gene's two primer rows) are one group; its label spans them" },
   { slot: "blocks", key: "keep_dashes", on: true, off: false, label: "Lone dashes",

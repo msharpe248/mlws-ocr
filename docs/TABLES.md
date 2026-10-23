@@ -231,7 +231,13 @@ and blank beneath until its group changes) also follow an empty first
 column, and were spanned out of their columns; `output.span_labels_nested`
 (in neural since v0.18.25, the owner's decision 2026-10-22) spans such a label only when no
 column before it holds words, or its own column holds figures on the body
-rows (Omni Parse Bench's dev table tests 775 → 846, none down). Tables side by
+rows (Omni Parse Bench's dev table tests 775 → 846, none down). An outer
+group's label printed only every few rows (Visual impairment … Hearing
+impairment, a column beside the inner labels) covers too few rows to pass
+the column finder's alignment share, so its words fell into the next
+column; `output.table_stub_columns` (an option, 2026-10-23) keeps it as a
+column of its own when a gap no row crosses stands between it and the
+first column. Tables side by
 side (a paystub's earnings beside its deductions) are nested into one
 layout.
 

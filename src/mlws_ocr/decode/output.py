@@ -378,6 +378,11 @@ class TextOutput(Stage):
                                          # before it holds words in other rows and its own column more
                                          # words than figures: a nested row group's label stays in its
                                          # own column (2026-10-21)
+        "table_stub_columns": 0,         # a whitespace table's sparse first stub column (an outer row
+                                         # group's label every few rows, too few rows to be a column)
+                                         # kept as a column when no row crosses the gap of at least
+                                         # this many pixels before the first column; 0 = off
+                                         # (wstables.STUB_COLUMN; 2026-10-23)
         "cell_order_by_line": False,     # a cell's words in the order of their LINES, then left to
                                          # right: sorted by each word's own centre, two words on a
                                          # line a pixel apart came out reversed ('Pay Date' ->
@@ -914,6 +919,8 @@ class TextOutput(Stage):
         layout = page.meta.get("layout", {})
         if "lines" not in layout:
             raise ValueError("output requires decoded lines")
+        from ..layout import wstables
+        wstables.STUB_COLUMN[0] = int(self.params["table_stub_columns"] or 0)   # set every page: no page's setting outlives it
         if (self.params["math_display_logp"] and self.params["math_reader_path"] and page.gray is not None
                 and any(ln.get("display") for ln in layout["lines"])):
             layout = self._confirm_displays(layout, page)
