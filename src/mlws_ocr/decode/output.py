@@ -332,6 +332,9 @@ class TextOutput(Stage):
         "table_seq_select": "",
         "table_seq_snap_rows": False,   # the reader's boxes stretched and shifted onto the text lines first (tableseq.row_drift)
         "table_seq_drop_empty": False,  # rows of the reader's grid that receive no word removed
+        "table_seq_pages": False,       # the reader on each table FOUND ON A PAGE too, cut out with a 0.1-inch
+                                        # margin, its table kept by table_seq_mode as on a table's crop
+                                        # (2026-10-24, an option for the owner)
         "table_rebuild_centred": False,  # ...the rebuild sees headings centred across both header lines, and
                                          # short spanners between two columns (headers.rebuild_header)
         "table_heading_rows": False,     # a table's crop: headings above its cells over the figure columns
@@ -717,6 +720,39 @@ class TextOutput(Stage):
         lens = [len(r.split()) for r in " ".join(toks).split("nl") if r.strip()]
         return st, [float(np.mean(prs)), float(np.min(prs)), float(np.mean(np.log(prs))),
                     st["n_rows"], st["n_cols"], float(len(set(lens)) == 1), len(toks)]
+
+    def _seq_page_table(self, t: dict, page: Page, words: list[dict]) -> dict:
+        """The sequence reader on a table found on a page (``table_seq_pages``):
+        the grey page cut to the table's box and a 0.1-inch margin -- the
+        reader learned tables cut out with their margins -- read as a
+        table's crop is, the table's own words (centres inside its box, not
+        the margin's: specks and rule ends read as letters) put in its
+        cells, and the reader's table kept in place of the builders' by
+        ``table_seq_mode`` ("replace", or "select": the learned choice).
+        The table stays as found without a reading.  The header rebuild and
+        section rows reach the reader's tables only when
+        ``table_header_sources`` names "tableseq"."""
+        if page.gray is None or not t.get("cells"):
+            return t
+        m = int(round(0.1 * (page.dpi or 300.0)))
+        H, W = page.gray.shape
+        x0, y0 = max(0, int(t["box"][0]) - m), max(0, int(t["box"][1]) - m)
+        x1, y1 = min(W, int(t["box"][2]) + m), min(H, int(t["box"][3]) + m)
+        if x1 - x0 < 20 or y1 - y0 < 20:
+            return t
+        bx0, by0, bx1, by1 = t["box"]   # the table's own words: the margin's specks and rule ends read as letters stay out
+        inw = [dict(w, box=[w["box"][0] - x0, w["box"][1] - y0, w["box"][2] - x0, w["box"][3] - y0]) for w in words
+               if bx0 <= (w["box"][0] + w["box"][2]) / 2 <= bx1 and by0 <= (w["box"][1] + w["box"][3]) / 2 <= by1]
+        st, seq_x = self._seq_table(page.evolve(gray=page.gray[y0:y1, x0:x1]), inw)
+        if st is None:
+            return t
+        x = tableseq_choice_inputs(t, st, seq_x, False)
+        if not (self.params["table_seq_mode"] == "replace"
+                or (self.params["table_seq_mode"] == "select" and self.params["table_seq_select"] and self._seq_prefer(x))):
+            return t
+        def shift(b):                  # an empty cell's box ([0, 0, 0, 0]: no word, no reading) stays empty
+            return [int(b[0]) + x0, int(b[1]) + y0, int(b[2]) + x0, int(b[3]) + y0] if any(b) else list(b)
+        return dict(st, box=shift(st["box"]), cells=[dict(c, box=shift(c["box"])) for c in st["cells"]])
 
     def _seq_prefer(self, x: list[float]) -> bool:
         """The learned builders-or-reader choice (table_seq_select): True
@@ -1200,6 +1236,8 @@ class TextOutput(Stage):
                 found = [self._net_structure(t, page, words) for t in found]
             if self.params["table_split_path"]:
                 found = [self._split_or_rules(t, page, words) for t in found]
+            if self.params["table_seq_pages"] and self.params["table_seq_path"]:
+                found = [self._seq_page_table(t, page, words) for t in found]
             if self.params["table_totals_split"]:
                 from ..layout.wstables import split_totals
                 found = [p for t in found for p in split_totals(t)]

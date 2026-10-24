@@ -128,3 +128,33 @@ def test_row_drift():
     ws = [w(y) for y in (100, 120, 140)] + [w(180 + 30 * i) for i in range(10)]
     assert row_drift(rows, ws, 12) == (1.0, 0.0)
     assert row_drift(rows[:5], [w(100 + 31 * i) for i in range(5)], 12) == (1.0, 0.0)
+
+
+def test_seq_page_table_cuts_and_shifts(monkeypatch):
+    """A table found on a page: the reader sees the page cut to the table and
+    a 0.1-inch margin, only the table's own words (moved into the cut), and its
+    table comes back in page coordinates; an empty cell's box stays empty."""
+    import numpy as np
+    from mlws_ocr.core.artifacts import Page
+    from mlws_ocr.decode.output import TextOutput
+    st = TextOutput(table_seq_pages=True, table_seq_path="x", table_seq_mode="replace")
+    page = Page(gray=np.ones((1000, 1000), np.float32), dpi=300.0)
+    t = {"box": [200, 300, 600, 500], "n_rows": 1, "n_cols": 1, "source": "whitespace",
+         "cells": [{"row": 0, "col": 0, "box": [200, 300, 600, 500], "text": "a"}]}
+    words = [{"text": "a", "box": [210, 310, 250, 330]}, {"text": "y", "box": [175, 310, 185, 330]}]
+    seen = {}
+
+    def fake(p, inw):
+        seen["shape"], seen["words"] = p.gray.shape, inw
+        return ({"box": [30, 30, 430, 230], "n_rows": 1, "n_cols": 2, "source": "tableseq",
+                 "cells": [{"row": 0, "col": 0, "box": [40, 40, 80, 60], "text": "a"},
+                           {"row": 0, "col": 1, "box": [0, 0, 0, 0], "text": ""}]}, [0.9] * 7)
+    monkeypatch.setattr(st, "_seq_table", fake)
+    out = st._seq_page_table(t, page, words)
+    assert seen["shape"] == (260, 460)                     # 200 x 400 and 30 px each side
+    assert [w["text"] for w in seen["words"]] == ["a"]     # the margin's 'y' left out
+    assert seen["words"][0]["box"] == [40, 40, 80, 60]
+    assert out["source"] == "tableseq" and out["box"] == [200, 300, 600, 500]
+    assert out["cells"][0]["box"] == [210, 310, 250, 330] and out["cells"][1]["box"] == [0, 0, 0, 0]
+    monkeypatch.setattr(st, "_seq_table", lambda p, inw: (None, None))
+    assert st._seq_page_table(t, page, words) is t         # no reading: the table as found

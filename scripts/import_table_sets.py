@@ -6,6 +6,7 @@
     scripts/import_table_sets.py cord --src data/raw/cord/parquet --out data/tables/cord
     scripts/import_table_sets.py pubtables --src data/raw/pubtables1m/structure \\
         --names data/raw/pubtables1m/sample300.txt --out data/tables/pubtables
+    scripts/import_table_sets.py pubtabnet --src data/raw/pubtabnet_otsl --n 600 --seed 3 --out data/tables/pubtabnet_val
 
 FinTabNet.c (B. Smock, R. Pesala & R. Abraham, "Aligning benchmark datasets
 for table structure recognition", ICDAR 2023; from FinTabNet, X. Zheng et
@@ -105,6 +106,50 @@ def fintabnet(src: Path, names: list[str], out: Path) -> None:
     print(f"{n} tables -> {out}")
 
 
+def pubtabnet(src: Path, n: int, seed: int, out: Path) -> None:
+    """PubTabNet's validation split (X. Zhong, E. ShafieiBavani & A. Jimeno
+    Yepes, ECCV 2020; CDLA-Permissive 1.0), from IBM's OTSL conversion
+    (docling-project/PubTabNet_OTSL: one parquet file of image, HTML
+    structure tokens and each cell's text tokens).  Its structure is PubMed
+    Central's own markup, the convention Omni Parse Bench's table tests
+    follow, where PubTables-1M's canonicalised crops merge a row label down
+    over the rows it covers.  The cell text keeps its characters and drops
+    its inline markup (<b>, <i>, <sup> ...); thead and tbody go, as in the
+    other sets' truth.  A random ``n`` of the tables, the benchmark's own
+    articles refused (benchmark_guard); about 72 dpi, so the PNG says so."""
+    import io as _io
+    import re as _re
+    import random as _random
+    import sys as _sys
+    import pyarrow.parquet as pq
+    _sys.path.insert(0, str(Path(__file__).resolve().parent))
+    from benchmark_guard import refused
+    out.mkdir(parents=True, exist_ok=True)
+    f = pq.ParquetFile(next(src.glob("val-*.parquet")))
+    names = [x for g in range(f.num_row_groups) for x in f.read_row_group(g, columns=["filename"]).column(0).to_pylist()]
+    pick = set(_random.Random(seed).sample([x for x in names if not refused(Path(x).stem)], n))
+    tag = _re.compile(r"^</?[a-z]+>$")
+    k = 0
+    for g in range(f.num_row_groups):
+        for row in f.read_row_group(g, columns=["filename", "html", "cells", "image"]).to_pylist():
+            if row["filename"] not in pick:
+                continue
+            cells = iter(row["cells"][0] if row["cells"] else [])
+            parts = []
+            for t in row["html"]:
+                if t in ("<thead>", "</thead>", "<tbody>", "</tbody>"):
+                    continue
+                if t == "</td>":
+                    c = next(cells, None)
+                    parts.append(html.escape("".join(x for x in (c["tokens"] if c else []) if not tag.match(x)).strip()))
+                parts.append(t)
+            name = Path(row["filename"]).stem
+            Image.open(_io.BytesIO(row["image"]["bytes"])).convert("L").save(out / f"{name}.png", dpi=(72, 72))
+            (out / f"{name}.table.html").write_text("<table>\n" + "".join(parts).replace("</tr>", "</tr>\n") + "</table>")
+            k += 1
+    print(f"{k} tables -> {out}")
+
+
 CORD_FIELDS = ["nm", "cnt", "unitprice", "price"]
 
 
@@ -160,11 +205,15 @@ def cord(src: Path, out: Path) -> None:
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("source", choices=["fintabnet", "cord", "pubtables"])
+    ap.add_argument("source", choices=["fintabnet", "cord", "pubtables", "pubtabnet"])
     ap.add_argument("--src", type=Path, required=True)
     ap.add_argument("--names", type=Path, help="one table name a line (fintabnet)")
+    ap.add_argument("--n", type=int, default=600, help="pubtabnet: how many validation tables")
+    ap.add_argument("--seed", type=int, default=3, help="pubtabnet: the sample's seed")
     ap.add_argument("--out", type=Path, required=True)
     args = ap.parse_args()
+    if args.source == "pubtabnet":
+        return pubtabnet(args.src, args.n, args.seed, args.out)
     if args.source == "cord":
         return cord(args.src, args.out)
     names = [l.strip() for l in args.names.read_text().splitlines() if l.strip()]

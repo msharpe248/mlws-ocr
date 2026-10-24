@@ -44,7 +44,7 @@ judged before it went live. The measurements themselves are in
 | Table detector | `tabledet_v1.npz` | 248k | neural since v0.18.23 (with `table_det_max_prose = 0.10`: its tables refused where they are prose) and neural-table (`output.table_det_path`, `table_det_mode = "complement"`) | `train_tabledet.py` | PubTables-1M detection training pages (60,000 of Part 1's 230,294) + 1,200 drawn business pages + 900 CORD training receipts (`make_det_data.py`) |
 | Word-relation network | `wordrel_v3.npz` | 321k | neural since v0.18.23 and neural-table (`output.table_wordrel_path`; on a table's crop, its table or the engine's by `wordrel_select_v2.npz`) | `train_wordrel.py` | the PDF words of 97,165 PubTables-1M and 68,733 FinTabNet.c training tables (`make_wordrel_data.py`) + the ENGINE's words on 3,906 + 2,713 more (`harvest_wordrel.py`, x10) |
 | Word-relation choice | `wordrel_select_v2.npz` | 32 inputs | neural since v0.18.23 and neural-table (`output.table_wordrel_select`) | `train_wordrel_select.py` | 1,615 tables no network saw (`draw_unseen_tables.py`: 1,000 PubTables-1M training, 750 FinTabNet.c validation), read with gray18 (v0.18.12; v1, `wordrel_select.npz`, fitted on 257, v0.18.0-v0.18.11) |
-| Table sequence reader | `tableseq_v2.npz` (= `tseq3.e20.pt`), with its choice `tableseq_select_v2.npz` (26 inputs); `tableseq_v1.npz` the first run, not adopted | 1.88M | neural since v0.18.23 and neural-table since v0.18.13 (`output.table_seq_path`, `table_seq_mode = "select"`, `table_seq_select`) | `train_tableseq.py`, `train_tableseq_select.py` | PubTables-1M and FinTabNet.c structure training tables as OTSL tokens with cell boxes (`make_tableseq_data.py`): 310k + 78k, 15 epochs, 17 h gentle; then 5 epochs with 60k drawn tables (`make_tableseq_drawn.py`), strong augmentation and random margins, 7.8 h; the choice fitted on sel3 and 300 screenshots of its structures (2,031 tables) |
+| Table sequence reader | `tableseq_v2.npz` (= `tseq3.e20.pt`), with its choice `tableseq_select_v2.npz` (26 inputs); `tableseq_v1.npz` the first run and `tableseq/tseq4_e23.npz` (+ PubTabNet, 2026-10-24) not adopted | 1.88M | neural since v0.18.23 and neural-table since v0.18.13 (`output.table_seq_path`, `table_seq_mode = "select"`, `table_seq_select`) | `train_tableseq.py`, `train_tableseq_select.py` | PubTables-1M and FinTabNet.c structure training tables as OTSL tokens with cell boxes (`make_tableseq_data.py`): 310k + 78k, 15 epochs, 17 h gentle; then 5 epochs with 60k drawn tables (`make_tableseq_drawn.py`), strong augmentation and random margins, 7.8 h; the choice fitted on sel3 and 300 screenshots of its structures (2,031 tables) |
 
 The classic engine also builds three learned tables that are not networks
 but come from the same data: the condensed nearest-prototype pool
@@ -1327,6 +1327,56 @@ of the text lines) and `output.table_seq_drop_empty`.  Dev pool +0.002 /
 +0.0014; held out +0.0010 / -0.0006 -- the choice, fitted on fills without
 them, takes the reader's table more often once it is filled better; they
 are to be judged with a choice refitted on fills made with them.
+
+**PubTabNet, v4** (2026-10-23/24, the owner's go-ahead; NOT adopted, its
+files under `data/tableseq/`, the live reader is still v3).  Omni Parse
+Bench's table tests follow PubMed Central's own markup, where PubTables-1M's
+canonicalised crops merge a row label down over the rows it covers; so v3
+continues three epochs (21-23, lr / 9 then / 27) on PubTabNet in IBM's OTSL
+conversion (`make_tableseq_ptn.py`, the grid rebuilt from the text's boxes,
+the benchmark's 475 articles refused) beside the replayed PubTables-1M /
+FinTabNet.c parts and the drawn tables, on ai02:
+
+```sh
+scripts/make_tableseq_ptn.py train-000NN-of-00049-*.parquet --out tptn_train_NN.npz       # each training file
+scripts/make_tableseq_ptn.py val-00000-of-00001-*.parquet --out tptn_val_0.npz
+cp tseq3.pt tseq4.pt
+scripts/train_tableseq.py --data "tptn_train_*.npz" "tseq2_*.npz" "tseq3_drawn_*.npz" --stream 4 --aug strong \
+    --margins 0.5 --init tseq4.pt --val-data tptn_val_0.npz tseq2_pt_00.npz tseq2_fin_00.npz tseq3_finval.npz \
+    --val-n 300 --epochs 23 --lr-steps 10 13 22 --batch 16 --duty 0.5 --out tseq4.pt
+scripts/train_tableseq.py --export tseq4.e23.pt --out data/tableseq/tseq4_e23.npz
+```
+
+5 h 22 min at half duty, GPU at most 61 C, CPU 69 C.  Held back, tokens /
+sequences exact, v3 → v4: PubTabNet validation 0.966 / 34.0% → 0.987 /
+63.0%; FinTabNet.c validation (companies never trained on) 0.971 / 24.7% → 0.980 / 45.0%; but
+PubTables-1M 0.987 / 61.3% → 0.981 / 46.3% and FinTabNet.c's training
+companies 0.991 / 74.7% → 0.986 / 54.0% -- on PubTables-1M nearly all of it
+the two conventions (a merged-down label 'ucel' read as an empty or a
+filled cell: 32 → 146).  Its choice, `tseq4_select.npz` (26 inputs), is
+fitted on sel3 (`data/evalruns/sel3`, one PubTables-1M table refused as the
+benchmark's) and 600 PubTabNet validation tables
+(`import_table_sets.py pubtabnet --n 600 --seed 3`; `train_tableseq_select.py`
+tags them 'ptn'), 2,326 tables, from neural-profile runs:
+
+```sh
+eval_tables.py fit4/sh_S_K --doc-type table --set output.ws_table_doc_types=table --config configs/neural.toml \
+    --set output.table_seq_path= > fit4/eng_S_K.txt                                   # S = pt fin ptn, K = 0..4
+eval_tables.py fit4/sh_S_K ... --set output.table_seq_path=data/tableseq/tseq4_e23.npz \
+    --set output.table_seq_mode=replace --dump fit4/dump_S > fit4/net_S_K.txt
+scripts/train_tableseq_select.py --eng "fit4/eng_*_?.txt" --net "fit4/net_*_?.txt" \
+    --dump fit4/dump_pt fit4/dump_fin fit4/dump_ptn --out data/tableseq/tseq4_select.npz
+```
+
+5-fold, TEDS rules / reader / choice: PubTables-1M 0.7774 / 0.8079 /
+0.8172, FinTabNet.c 0.7696 / 0.7757 / 0.8017, PubTabNet 0.6841 / 0.7421 /
+0.7362.  The dev pool (neural): live 0.8354 / 0.7981, v4 with its choice
+0.8095 / 0.8051.  On Omni Parse Bench v4 and its choice changed nothing: the
+reader reads only a table's crop (a document typed as a table), never a
+table found on a page.  `output.table_seq_pages` (an option, off) reads
+those too -- the page cut to the table and a 0.1-inch margin, the table's
+own words in its cells -- and lost on the dev half (RESEARCH, "The
+sequence reader taught PubTabNet's conventions").
 
 ## Rebuilding everything from scratch
 

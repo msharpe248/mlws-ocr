@@ -71,7 +71,19 @@ told apart by the neighbouring words"): '95% Cl' read 'CI' after a
 percentage, bars after type/grade/series read as Roman numerals
 (`correct.context_repair`): all 725 dev pages, tables 889 -> 928, text 647
 -> 648 (40 up, none down); TEDS, business tables, our sets and the held-out
-pools level. For the owner. Next: the block reader's stage 2.
+pools level. For the owner.
+
+*Stage 2's first step, the table sequence reader on PubMed Central's own
+markup, done 2026-10-24 (RESEARCH, "The sequence reader taught PubTabNet's
+conventions"):* v3 + 3 epochs on PubTabNet reads the failing tables' crops
+better (143 relation failures fixed, 164 passing tests broken; v3 58 / 263),
+but the gain sits on articles PubTables-1M trained on; under a refitted
+choice the dev pool's TEDS is 0.8095 / 0.8051 against 0.8354 / 0.7981. The
+reader had never read a table found on a page; reading those
+(`output.table_seq_pages`, an option, off) loses: all 725 dev pages, tables
+889 -> 867 at best, the reader splitting spanning headings that the rules
+keep whole. Not adopted. Next: the block reader's design, for the owner,
+before any code.
 
 ## Earlier: the annual reports' remaining gap, then the system paper (2026-10-17, the owner's go-ahead)
 

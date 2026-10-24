@@ -288,6 +288,12 @@ Five self-trained networks join the rules (their shapes and training:
   the page by more than half a line, and it sometimes adds an empty header
   row. Two options correct these (`table_seq_snap_rows`,
   `table_seq_drop_empty`; off until measured with a refitted choice).
+  Taught PubTabNet's markup (2026-10-24, the convention of PubMed
+  Central's own tables, where a heading is one cell over the columns it
+  spans), it read the benchmark's failing table crops better than before
+  but still split spanning headings at column borders, and read on the
+  tables found on a page (`table_seq_pages`, an option, off) it lost more
+  heading tests than it won: the rules keep a page table's headers.
 
 The pattern is the engine's usual one: the network is a candidate or a
 witness beside an explicit rule, never an unexamined replacement.

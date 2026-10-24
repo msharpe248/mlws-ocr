@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import sys
 from pathlib import Path
 
@@ -48,12 +49,14 @@ def main():
             X.append(x); names.append(n)
     X = np.array(X, float)
     a = np.array([eng[n][0] for n in names]); b = np.array([net[n][0] for n in names])
-    # the set: PubTables-1M, FinTabNet.c, or screenshots of either's structures (make_screen_set.py)
-    tag = np.array(["scr" if n.startswith("screen_") else eng[n][1] for n in names]); ruled = X[:, 7] > 0.5
-    sets = [t for t in ("pt", "fin", "scr") if (tag == t).any()]
+    # the set: PubTables-1M, FinTabNet.c, screenshots of either's structures (make_screen_set.py), or
+    # PubTabNet's validation tables (import_table_sets.py pubtabnet; named PMC<id>_<page>_<k>)
+    tag = np.array(["scr" if n.startswith("screen_") else "ptn" if re.fullmatch(r"PMC\d+_\d+_\d+", n) else eng[n][1]
+                    for n in names]); ruled = X[:, 7] > 0.5
+    sets = [t for t in ("pt", "fin", "scr", "ptn") if (tag == t).any()]
     y = (b > a).astype(float); w = np.abs(b - a) + 1e-3
     print(f"{len(names)} tables ({(tag == 'pt').sum()} PubTables-1M, {(tag == 'fin').sum()} FinTabNet.c, "
-          f"{(tag == 'scr').sum()} screenshots; "
+          f"{(tag == 'scr').sum()} screenshots, {(tag == 'ptn').sum()} PubTabNet; "
           f"{ruled.sum()} ruled); inputs {X.shape[1]}; reader better on {int((b > a + 0.02).sum())}, "
           f"builders on {int((a > b + 0.02).sum())}")
 

@@ -458,6 +458,8 @@ const TABLE_SWITCHES = [
     title: "a table's crop: a network reads the grid from the pixels as cell tokens and the words go into its cells; a fitted choice keeps its table or the builders'",
     also: [{ slot: "output", key: "table_seq_mode", on: "select", off: "replace" },
            { slot: "output", key: "table_seq_select", on: "data/tableseq_select_v2.npz", off: "" }] },
+  { slot: "output", key: "table_seq_pages", on: true, off: false, label: "Reader on page tables",
+    title: "the sequence reader also reads each table found on a page: the page cut to the table and a 0.1-inch margin, the table's own words in its cells, its table kept by the reader's choice (with the profile's reader on; measured a loss on Omni Parse Bench, an option)" },
   { slot: "output", key: "table_seq_snap_rows", on: true, off: false, label: "Reader's rows to the text",
     title: "a long table (10 rows or more) read by the sequence reader: its rows' borders stretched and shifted (by 4% at most) into the gaps between the text lines, where the reader's boxes drift down the table" },
   { slot: "output", key: "table_seq_drop_empty", on: true, off: false, label: "Reader's empty rows",
