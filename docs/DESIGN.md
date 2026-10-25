@@ -164,7 +164,11 @@ the columns before it hold no words or its own column holds figures. And
 neural sets a page turned a quarter or half turn upright first
 (`deskew.turns`, `cleanup/orient.py`; SKEW_CORRECTION §6): its widest lines
 read at each turn, the turn the lexicon endorses kept; the hOCR goes back to
-the scan's frame with `textangle`.
+the scan's frame with `textangle`. Since v0.18.26 neural keeps a sparse outer
+stub column (`output.table_stub_columns = 8`: labels in two or more rows of
+several phrases, left of the first column found, behind a gap of 8 px or
+more that no row crosses) and tells I from l by the neighbouring words
+(`correct.context_repair`; DECODING step 8a), neither in neural-table.
 
 **lines (`profile`).** Within a block, horizontal-profile valleys separate
 lines; each line gets a box and a baseline (the last row at ≥ 25% of the

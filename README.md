@@ -363,7 +363,10 @@ being taken for a total and spanned from the first column. And a page
 scanned sideways or upside down, or a table set sideways on its page, is
 turned upright before it is read (`deskew.turns`): its widest lines are read
 at each quarter turn and the turn the lexicon endorses kept, and the hOCR's
-boxes go back to the scan.
+boxes go back to the scan. Since v0.18.26 an outer row label printed only
+every few rows (Visual impairment ... Hearing impairment) keeps a column of
+its own, and I and l, one bar in a sans face, are told apart by the words
+around them: '95% Cl' is read '95% CI', 'grade Ill' 'grade III'.
 Where a network builds a table of its own, a small fitted choice keeps its
 table or the rules'. For table documents, `configs/neural-table.toml` adds
 the options that cost text on ordinary pages: a large ruled grid kept from
@@ -478,7 +481,7 @@ profile, kept as the reference; the neural profile is the accurate one.
 |---|---|---|---|
 | **classic** | `configs/classic.toml` | the MLP second opinion (53k) and the character GRU (258k) | the feature engine: nearest-prototype, outline and MLP channels over explicit glyph features, a beam decoder with lexicon and language model, per-document adaptation. Its row is the regression guard after every neural adoption. |
 | **pure** | `configs/pure.toml` | none | classic with both networks off; what the feature engine reads on its own |
-| **neural** | `configs/neural.toml` | classic's, plus the word-strip CRNN+CTC scorer as the judge of the classic word variants, the line reader (every line read end to end by the line model), the fitted judge that decides each line between the two readings, the word-confidence calibrator, the segmenter judge (newspapers and magazines) and the equation reader (855k) | the engine to use; finds and reads tables with the table networks (since v0.18.23; detected tables refused where they are prose), headers read from their words (v0.18.24), nested row labels (v0.18.25), spans, nesting, figure columns, arithmetic checks; sets pages and tables turned a quarter or half turn upright (v0.18.25) |
+| **neural** | `configs/neural.toml` | classic's, plus the word-strip CRNN+CTC scorer as the judge of the classic word variants, the line reader (every line read end to end by the line model), the fitted judge that decides each line between the two readings, the word-confidence calibrator, the segmenter judge (newspapers and magazines) and the equation reader (855k) | the engine to use; finds and reads tables with the table networks (since v0.18.23; detected tables refused where they are prose), headers read from their words (v0.18.24), nested row labels (v0.18.25), sparse stub columns and I/l by the neighbouring words (v0.18.26), spans, nesting, figure columns, arithmetic checks; sets pages and tables turned a quarter or half turn upright (v0.18.25) |
 | **neural-table** | `configs/neural-table.toml` | neural's, with a line reader fine-tuned on table lines in place of neural's (and on a table's crop a reader trained harder on table lines, a symbol reader and a symbol classifier); the table networks as neural (separator, detector 248k, structure 277k, word relations 321k, sequence reader 1.88M, their fitted choices, cell confidence), the detector's tables never refused as prose | neural plus the table options that also change what the reader sees (ruled grids kept from the picture zones, short grid rules, low-dpi crops magnified, rules taken out of the reader's strips, figure columns re-read as figures, turned cell text read): for payroll forms, paystubs, statements, invoices, receipts, and tables from reports and papers |
 | **neural-line** | `configs/neural_line.toml` | the same, as the experiment profile for a new line model or choice rule | development |
 

@@ -260,6 +260,10 @@ confusions_path = "data/confusions_neural.json"
 case_repair = true      # I/l and case-twin repair runs even with the corrector off (decode/correct.py
                         # case_repair; 2026-09-27): the receipt-trained reader leans to capitals ('Iong', 'DOg');
                         # CORD +0.3/+0.5, FUNSD +0.2 word, the rest level or +0.1
+context_repair = true   # I and l told apart by the neighbouring words, with the corrector off too: '95% Cl' -> 'CI',
+                        # 'grade Ill' -> 'III' (v0.18.26, the owner's decision 2026-10-25; decode/correct.py
+                        # context_repair): Omni Parse Bench's 725 dev pages, tables 889 -> 928, text 647 -> 648,
+                        # none down; TEDS, business tables, our sets and the held-out pools identical
 
 [stage.output]
 pictures = true             # picture zones and display equations cut from the original image (picture_N.png,
@@ -347,6 +351,10 @@ table_section_rows = true
 # decision 2026-10-22): Omni Parse Bench's dev pages with a table, tables 775 -> 846, none down; text,
 # layout, TEDS, our sets identical; paystubs 0.721 -> 0.715 (side-by-side tables read as one grid)
 span_labels_nested = true
+# a sparse outer stub column (labels in a few rows only, behind a gap no row crosses) kept as a column of its
+# own (v0.18.26, the owner's decision 2026-10-25; layout/wstables.py STUB_COLUMN): Omni Parse Bench's dev
+# pages with a table, tables 889 -> 898, none down; text, layout, TEDS, business tables, our sets identical
+table_stub_columns = 8
 
 [stage.adapt]
 impl = "cluster_refit"
