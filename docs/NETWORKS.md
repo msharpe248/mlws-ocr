@@ -159,6 +159,9 @@ were trained on the public sources named below and on nothing else.
 | v0.18.22 (2026-10-18) | the same fifty-four files: profile and code (neural: a wide page with no hint that is a two-page book spread is cut at its spine before the XY-cut; no model or judge refitted) |
 | v0.18.21 (2026-10-18) | the same fifty-four files: profile and code (neural: an image of small type at most 2,500 px on its longer side enlarged to a 20-px median glyph height and declared 300 dpi; no model or judge refitted) |
 | v0.18.23 (2026-10-20) | the same fifty-four files: profile and code (neural reads tables with neural-table's table networks -- detector, separator, structure and its choice, word relations, the sequence reader, cell confidence -- 41 of its 54 table settings, not its table-crop and symbol readers; the detector's tables refused where they are prose; no model or judge refitted) |
+| v0.18.24 (2026-10-21) | the same fifty-four files: profile and code (neural reads a whitespace table's header again from its words and writes its section rows as one cell across; no model or judge refitted) |
+| v0.18.25 (2026-10-22) | the same fifty-four files: profile and code (neural keeps a nested row group's labels in their columns and sets pages and tables turned a quarter or half turn upright; no model or judge refitted) |
+| v0.18.26 (2026-10-25) | the same fifty-four files: profile and code (neural keeps a sparse outer stub column and tells I from l by the neighbouring words; a page read turned writes its JSON tables in the scan's frame; no model or judge refitted; the PubTabNet reader `tseq4` not shipped, not adopted) |
 
 ## Where the training data comes from
 
