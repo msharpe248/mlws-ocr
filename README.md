@@ -97,7 +97,9 @@ v0.18.23, tables read with the table networks: 48.9%, 19.8% and 73.7%;
 v0.18.24, table headers read from their words: 49.5%, 23.6% and 74.6%;
 v0.18.25, nested row labels and pages turned upright: 53.0%, 28.0% and 75.3%;
 on the 670 test pages whose articles are not in our table networks' training data --
-28 are, PubTables-1M being cut from the same archive -- 53.1%, 26.4% and 75.3%).
+28 are, PubTables-1M being cut from the same archive -- 53.1%, 26.4% and 75.3%;
+v0.18.26, sparse stub columns and I/l by context: 53.1%, 29.6% and 75.3%, on the
+clean pages 53.2%, 28.2% and 75.3%, 42 tests up and none down).
 † One page of the eight (8011_012) has its right-hand column clipped by the
 scanner and left out of UNLV's truth zones; the new readers read it and every
 word is scored as an insertion. Without that page mag-8 is level (86.0 / 79.4

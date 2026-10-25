@@ -33,7 +33,11 @@ after a decision):
 The recommendation: adopt `context_repair` and `table_stub_columns` (gains
 with nothing lost); the two turn options are safe but touch very few pages.
 *Both ADOPTED in neural, v0.18.26 (the owner's decision, 2026-10-25: "lets
-do the context_repair and table_stub_columns").* The two turn options wait.
+do the context_repair and table_stub_columns").* Measured once after the
+decision, the test half: text 53.0 -> 53.1, tables 28.0 -> 29.6, layout 75.3
+(42 tests up, none down; clean pages 53.2 / 28.2 / 75.3); clean DOE, annual
+reports and blocks identical; the dev pages 889 -> 937 tables, none down. The
+two turn options wait.
 
 **Not adopted, measured negative** (9f97492): the table sequence reader
 fine-tuned on PubTabNet (`data/tableseq/tseq4_e23.npz`, its choice
