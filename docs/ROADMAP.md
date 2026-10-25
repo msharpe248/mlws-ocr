@@ -4,7 +4,82 @@ Ranked by measured evidence, not enthusiasm. Every item names the
 observation that motivates it, so a future session can re-check whether
 the motivation still holds before spending the effort.
 
-## Now: a block reader? The headroom check first (2026-10-20, the owner's go-ahead)
+## Paused (2026-10-24): where things stand, and the choices waiting for the owner
+
+The owner is stepping away to gather their thoughts. Nothing is running (Mac,
+ai01, ai02); the tree is clean and pushed. On return, start here.
+
+**The release, v0.18.25** (2026-10-22). Omni Parse Bench's test half (neural):
+text 53.0 / tables 28.0 / layout 75.3 on every page, 53.1 / 26.4 / 75.3 on
+the 670 clean pages (articles not in our table networks' training data).
+Since the release main holds one fix that changes output, unreleased:
+835a97c, a page read turned now writes its tables.json and the service's
+JSON in the scan's frame, as the hOCR already was (v0.18.25 leaves them in
+the turned frame; pages read as given are byte-identical). Everything else
+since is options, off, or measurement and docs. A v0.18.26 would carry the
+fix; no release is made without the owner's go.
+
+**Four options, off, awaiting a decision** (each trialled on every page it
+can touch, against v0.18.25, on the dev half; the test half measured only
+after a decision):
+
+| option | what it does | dev result |
+|---|---|---|
+| `correct.context_repair` (823b091) | 'Cl' read 'CI' after a percentage or before confidence/interval; bars after type/grade/stage/... read as Roman numerals | tables 889 -> 928 of 2,342 (40 up, none down), text 647 -> 648; TEDS, business tables, our sets, held-out pools level |
+| `output.table_stub_columns = 8` (8fcf673) | an outer row label printed in a few rows only keeps a column of its own | tables 889 -> 898 (9 up, none down); everything else unchanged |
+| `deskew.turn_regions` (01e9a60) | a sideways table beside upright text set upright and read | touches 4 of 3,533 pages: one sideways table (its shaded rows still defeat the table reader), two plans' stamps read |
+| `deskew.turn_more_lines = 48` (01e9a60) | more lines read when no turn's widest lines hold words | the same trial: an upside-down dev page +2 tests |
+
+The recommendation: adopt `context_repair` and `table_stub_columns` (gains
+with nothing lost); the two turn options are safe but touch very few pages.
+
+**Not adopted, measured negative** (9f97492): the table sequence reader
+fine-tuned on PubTabNet (`data/tableseq/tseq4_e23.npz`, its choice
+`tseq4_select.npz`) and `output.table_seq_pages`, the reader on tables
+found on a page: dev tables 889 -> 867 at best (RESEARCH, "The sequence
+reader taught PubTabNet's conventions"). The reader splits spanning headings
+the rules keep whole.
+
+**The block reader's stage 2: three ways, for the owner.** What is left of
+the table heading failures (dev, 2026-10-23): misread text 215 (about 40
+since fixed by `context_repair`), table outside the detected box 133, wrong
+column 132, missing 120. Seeing the pixels is not enough (the reader above
+saw them and still cut headings the words show belong together).
+
+- **A. A table reader fed pixels and words (recommended).** The table
+  block's image at page resolution, in strips (squeezing to 448 px makes
+  the rows drift), and the engine's own words as tokens (boxes and a few
+  text features, as the word-relation network uses); it writes the
+  structure tokens with each filled cell pointing to its words, so the
+  text stays the line readers' and the model decides spans, header rows,
+  row groups and sections. Data: PubTabNet (the convention the benchmark
+  checks), PubTables-1M and FinTabNet, the benchmark's articles refused,
+  and the engine's words harvested on the training crops (the word-relation
+  network lost to the engine on its words when trained on PDF words alone;
+  the harvest is CPU-heavy, Mac). About 10-20M parameters; about a week of
+  data and a restartable trainer, then a 1-2 day gentle pilot on ai02,
+  announced first. Gate: beats 928 on the dev pages, the clean articles up
+  on their own, dev-pool TEDS not below live (0.8354 / 0.7981). Leaves the
+  misreads (the line readers' job) and the 133 tables outside the detected
+  box (detection).
+- **B. A full image-to-markup reader writing the cell text too.** 30-40M,
+  weeks of training, and it must out-read the line readers on characters,
+  which have seen far more text. Not advised now.
+- **C. Stop the block reader** and take the 133 detection-extent failures
+  (a table's box cut short of its headings or notes) next.
+
+**Later list** (unchanged): shaded-row tables; symbol misreads; the table
+detector retrained without the benchmark's pages (long training, announce);
+heading labels (th/thead) in the hOCR; a searchable PDF writer; the papers
+refreshed to the current release; the Hough deskew estimator.
+
+**The machine move.** A new Mac mini (M5 Pro, 64 GB) is to take over. Copy
+`data/` (~229 GB, gitignored), `dist/`, `~/.ssh` (the ai01/ai02 keys) and
+`~/.claude`; rebuild `.venv`, run pytest, check the dev-8 dumps
+byte-identical before measuring anything, and measure peak memory before
+raising the worker count. Note which machine each timing comes from.
+
+## Earlier: a block reader? The headroom check first (2026-10-20, the owner's go-ahead)
 
 The owner weighed a third kind of engine, a vision model (2026-10-20): a
 whole-page image-to-markup model trained from scratch was judged too big for
